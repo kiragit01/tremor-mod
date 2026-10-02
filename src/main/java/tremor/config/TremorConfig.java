@@ -98,6 +98,7 @@ public final class TremorConfig {
         public final ModConfigSpec.DoubleValue despawnQuietSeconds;
 
         public final Spawn spawn;
+        public final Hollow hollow;
 
         Common(ModConfigSpec.Builder b) {
             BumpParams d = BumpParams.defaults();
@@ -304,6 +305,7 @@ public final class TremorConfig {
             b.pop(2);
 
             spawn = new Spawn(b);
+            hollow = new Hollow(b);
         }
 
         private static ModConfigSpec.DoubleValue conductivity(ModConfigSpec.Builder b, String name, String comment,
@@ -436,6 +438,41 @@ public final class TremorConfig {
 
         private static boolean isDimensionId(Object entry) {
             return entry instanceof String s && ResourceLocation.tryParse(s) != null;
+        }
+    }
+
+    /** The hollow (SPEC 9, 12), section {@code hollow} of COMMON; read by {@link tremor.hollow.HollowManager}. */
+    public static final class Hollow {
+        public final ModConfigSpec.IntValue radius;
+        public final ModConfigSpec.IntValue below;
+        public final ModConfigSpec.IntValue above;
+        public final ModConfigSpec.DoubleValue budgetMillis;
+        public final ModConfigSpec.IntValue fadeTicks;
+        public final ModConfigSpec.IntValue settleTicks;
+        public final ModConfigSpec.IntValue maxEvents;
+
+        Hollow(ModConfigSpec.Builder b) {
+            b.comment("The hollow: a copy of the terrain around a swallowed player in the dimension tremor:hollow,",
+                            "where the Awakening is played out (SPEC 9)")
+                    .translation(KEY + "hollow").push("hollow");
+            radius = b.comment("Blocks copied around the player horizontally (the copy is 2 * radius + 1 wide)")
+                    .translation(KEY + "hollow.radius").defineInRange("radius", 32, 8, 96);
+            below = b.comment("Blocks copied below the player's feet (cut at the bottom of the world)")
+                    .translation(KEY + "hollow.below").defineInRange("below", 24, 4, 128);
+            above = b.comment("Blocks copied above the player's feet (cut at the top of the world)")
+                    .translation(KEY + "hollow.above").defineInRange("above", 24, 4, 128);
+            budgetMillis = b.comment("Server time per tick for copying the terrain and clearing it again",
+                            "(milliseconds); the work is spread over as many ticks as it needs")
+                    .translation(KEY + "hollow.budgetMillis").defineInRange("budgetMillis", 5.0, 0.5, 50.0);
+            fadeTicks = b.comment("Length of the fade to black before a move into or out of the hollow, and of the",
+                            "fade back (ticks)")
+                    .translation(KEY + "hollow.fadeTicks").defineInRange("fadeTicks", 20, 0, 200);
+            settleTicks = b.comment("After a move the screen stays black until the client has had the terrain around",
+                            "the player for this many ticks")
+                    .translation(KEY + "hollow.settleTicks").defineInRange("settleTicks", 10, 0, 200);
+            maxEvents = b.comment("Events in the hollow at the same time (one player each)")
+                    .translation(KEY + "hollow.maxEvents").defineInRange("maxEvents", 8, 1, 64);
+            b.pop();
         }
     }
 

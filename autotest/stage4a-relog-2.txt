@@ -1,0 +1,13 @@
+# Stage 4a (SPEC 9): part 2 of the relog check (run stage4a-relog-1.txt first): the player who quit inside the hollow
+# is back at the origin (4.5 40 13.5 in the overworld) and no event is left.
+# Run: gradlew runClientAutotest -Ptremor_autotest_script=stage4a-relog-2.txt
+
+waitchunks
+wait 40
+cmd data get entity @s Dimension
+cmd data get entity @s Pos
+cmd tremor hollow status
+hud off
+screenshot 30_after_relog
+hud on
+quit

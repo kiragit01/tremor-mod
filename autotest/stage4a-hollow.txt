@@ -1,0 +1,67 @@
+# Stage 4a (SPEC 9, 15): the hollow. The terrain around the player is copied into the tremor:hollow dimension while
+# the screen is dark; the player is moved there and back. The copy must look like the real place.
+# Uses the stone hall of stage1-cave.txt / stage2-hearing.txt and the surface at the world spawn.
+# Run: gradlew runClientAutotest -Ptremor_autotest_script=stage4a-hollow.txt
+
+waitchunks
+cmd gamemode creative
+cmd time set noon
+cmd tremor despawn
+cmd kill @e[type=!player]
+hud off
+
+# ---- 1. Underground: the stone hall ----
+log --- 1. the hall: real, dark, copy, back
+cmd tp @s 4.5 40.0 13.5 0 12
+wait 40
+waitchunks
+screenshot 10_hall_real
+cmd tremor hollow enter
+wait 8
+screenshot 11_hall_fading
+wait 30
+cmd tremor hollow status
+wait 40
+waitchunks
+cmd data get entity @s Dimension
+cmd data get entity @s Pos
+screenshot 12_hall_hollow
+cmd tremor hollow status
+look 180 12
+wait 5
+screenshot 13_hall_hollow_back
+look 0 12
+cmd tremor hollow leave
+wait 60
+waitchunks
+cmd data get entity @s Dimension
+cmd data get entity @s Pos
+screenshot 14_hall_returned
+cmd tremor hollow status
+
+# ---- 2. The surface at the world spawn ----
+log --- 2. the surface at the spawn: real, copy, back
+cmd tp @s 0.5 64.0 4.5 0 10
+wait 40
+waitchunks
+cmd tp @s 0.5 ~ 4.5 0 10
+screenshot 20_surface_real
+cmd tremor hollow enter
+wait 80
+waitchunks
+cmd data get entity @s Dimension
+screenshot 21_surface_hollow
+look 90 10
+wait 5
+screenshot 22_surface_hollow_west
+look 0 10
+cmd tremor hollow status
+cmd tremor restore
+wait 60
+waitchunks
+cmd data get entity @s Dimension
+cmd data get entity @s Pos
+screenshot 23_surface_restored
+cmd tremor hollow status
+hud on
+quit

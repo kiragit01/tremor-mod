@@ -1,0 +1,20 @@
+{
+  "values": [
+    "minecraft:composter",
+    "minecraft:respawn_anchor",
+    "#minecraft:flower_pots",
+    "#minecraft:cauldrons",
+    "minecraft:sweet_berry_bush",
+    "#minecraft:cave_vines",
+    "minecraft:pumpkin",
+    "minecraft:cake",
+    "#minecraft:candle_cakes",
+    "minecraft:crafting_table",
+    "#minecraft:anvil",
+    "minecraft:grindstone",
+    "minecraft:stonecutter",
+    "minecraft:loom",
+    "minecraft:cartography_table",
+    "minecraft:smithing_table"
+  ]
+}

@@ -1,0 +1,15 @@
+{
+  "values": [
+    "minecraft:hopper",
+    "minecraft:dropper",
+    "minecraft:dispenser",
+    "minecraft:crafter",
+    "minecraft:carved_pumpkin",
+    "minecraft:jack_o_lantern",
+    "minecraft:wither_skeleton_skull",
+    "minecraft:wither_skeleton_wall_skull",
+    "minecraft:turtle_egg",
+    "minecraft:sniffer_egg",
+    "minecraft:frogspawn"
+  ]
+}

@@ -35,6 +35,7 @@ import tremor.entity.Param;
 import tremor.entity.TremorEntity;
 import tremor.entity.TremorManager;
 import tremor.entity.TremorRuntime;
+import tremor.hollow.HollowCommands;
 import tremor.spawn.NaturalSpawner;
 
 import java.util.Locale;
@@ -53,6 +54,7 @@ import java.util.UUID;
  *   the stage behaviour's decisions (off: the entity only obeys {@code goto} and {@code stop});</li>
  *   <li>{@code debug <path|normals|graph|hearing> <on|off>} toggles particles (hearing: also the action bar) for the
  *   player.</li>
+ *   <li>{@code hollow <enter|leave|status>} and {@code restore}: the hollow, see {@link HollowCommands}.</li>
  * </ul>
  */
 public final class TremorCommands {
@@ -104,7 +106,9 @@ public final class TremorCommands {
                 .then(Commands.literal("ai")
                         .then(Commands.literal("on").executes(ctx -> ai(ctx, true)))
                         .then(Commands.literal("off").executes(ctx -> ai(ctx, false))))
-                .then(debug()));
+                .then(debug())
+                .then(HollowCommands.hollow())
+                .then(HollowCommands.restore()));
     }
 
     /** {@code /tremor stage <dormant|alert|hunting|awakening>} */

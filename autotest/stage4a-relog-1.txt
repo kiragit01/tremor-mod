@@ -1,0 +1,16 @@
+# Stage 4a (SPEC 9): leaving the game inside the hollow. Part 1 enters the hollow and quits while inside;
+# part 2 (stage4a-relog-2.txt, run next) must find the player back at the origin in the overworld.
+# Run: gradlew runClientAutotest -Ptremor_autotest_script=stage4a-relog-1.txt
+
+waitchunks
+cmd gamemode creative
+cmd tp @s 4.5 40.0 13.5 0 12
+wait 40
+waitchunks
+cmd tremor hollow enter
+wait 100
+waitchunks
+cmd data get entity @s Dimension
+cmd data get entity @s Pos
+cmd tremor hollow status
+quit

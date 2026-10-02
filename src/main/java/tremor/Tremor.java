@@ -9,6 +9,7 @@ import net.neoforged.fml.config.ModConfig;
 import net.neoforged.neoforge.common.NeoForge;
 import net.neoforged.neoforge.event.VanillaGameEvent;
 import net.neoforged.neoforge.event.entity.living.LivingFallEvent;
+import net.neoforged.neoforge.event.entity.player.PlayerEvent;
 import net.neoforged.neoforge.event.level.BlockEvent;
 import net.neoforged.neoforge.event.level.ExplosionEvent;
 import net.neoforged.neoforge.event.level.PistonEvent;
@@ -18,6 +19,8 @@ import tremor.config.TremorConfig;
 import tremor.debug.DebugParticles;
 import tremor.entity.TremorManager;
 import tremor.hearing.VibrationListener;
+import tremor.hollow.HollowManager;
+import tremor.hollow.HollowRules;
 import tremor.network.TremorNetwork;
 import tremor.sound.TremorSounds;
 import tremor.spawn.NaturalSpawner;
@@ -61,5 +64,34 @@ public final class Tremor {
         // After TremorManager's tick listener: draws the state of this tick.
         game.addListener(DebugParticles::onLevelTick);
         game.addListener(DebugParticles::onServerStopping);
+        // The hollow (SPEC 9, 12): its events, and the rules inside it.
+        game.addListener(HollowManager::onServerTick);
+        game.addListener(HollowManager::onPlayerLoggedOut);
+        game.addListener(HollowManager::onServerStopped);
+        game.addListener(HollowRules::onRightClickBlock);
+        game.addListener(HollowRules::onRightClickItem);
+        game.addListener(HollowRules::onToolModification);
+        game.addListener(HollowRules::onItemFished);
+        game.addListener(HollowRules::onBlockPlace);
+        // Lowest priority: a placing is the player's once everyone else let it be.
+        game.addListener(EventPriority.LOWEST, BlockEvent.EntityPlaceEvent.class, HollowRules::onBlockPlaced);
+        // Lowest priority, cancelled ones included: the block changed whatever the listeners did.
+        game.addListener(EventPriority.LOWEST, true, BlockEvent.NeighborNotifyEvent.class,
+                HollowRules::onNeighborNotify);
+        game.addListener(HollowRules::onBlockDrops);
+        game.addListener(HollowRules::onPistonMove);
+        // Lowest priority: takes the blocks away from the explosion after everyone else saw them.
+        game.addListener(EventPriority.LOWEST, ExplosionEvent.Detonate.class, HollowRules::onExplosion);
+        game.addListener(HollowRules::onServerTick);
+        game.addListener(HollowRules::onServerStopped);
+        game.addListener(HollowRules::onPotentialSpawns);
+        game.addListener(HollowRules::onEntityJoinLevel);
+        game.addListener(HollowRules::onEntityLeaveLevel);
+        game.addListener(HollowRules::onTravelToDimension);
+        game.addListener(HollowRules::onEnderPearl);
+        game.addListener(HollowRules::onLivingDrops);
+        game.addListener(HollowRules::onExperienceDrop);
+        // High priority: before HollowManager's listener ends the event (the place to drop at is still known).
+        game.addListener(EventPriority.HIGH, PlayerEvent.PlayerLoggedOutEvent.class, HollowRules::onPlayerLoggedOut);
     }
 }
