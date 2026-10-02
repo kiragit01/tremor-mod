@@ -1,0 +1,90 @@
+# Stage 2 acceptance (SPEC 15): a player walking on stone draws the bump; crouching, or walking on a wool deck, does
+# not; a thrown snowball (and a dropped item) lures the bump aside.
+# Uses the cave of stage1-cave.txt (run that one first in this autotest world).
+# Run: gradlew runClientAutotest -Ptremor_autotest_script=stage2-hearing.txt
+
+waitchunks
+cmd gamemode survival
+cmd effect give @s minecraft:night_vision infinite 0 true
+cmd tremor despawn
+cmd kill @e[type=!player]
+# Clean hall: stone floor (y 39), empty interior, a wool deck (y 40) along x 14..18
+cmd fill -10 40 10 26 50 25 minecraft:air
+cmd fill -10 40 26 26 50 40 minecraft:air
+cmd fill -10 39 10 26 39 40 minecraft:stone
+cmd fill 14 40 12 18 40 30 minecraft:white_wool
+cmd tp @s 4.5 40.0 13.5 0 12
+wait 40
+waitchunks
+hud off
+cmd tremor debug hearing on
+
+# The tremor waits on the floor at the far end of the hall, 22 blocks ahead of the player
+cmd tremor spawn 4 39 36
+# Since stage 3 a DORMANT entity ignores quiet sounds (SPEC 8): make it ALERT (it freezes at a sound, then creeps
+# toward it), with enough anger to stay ALERT for the whole run
+cmd tremor anger 45
+wait 30
+cmd tremor info
+screenshot 00_start
+
+# 1. Crouching on stone: steps make no vibration
+log --- 1. crouch-walk on stone
+hold forward+sneak 60
+wait 10
+cmd tremor info
+screenshot 01_after_crouch
+
+# 2. Walking on the wool deck: heavily insulated
+log --- 2. walk on the wool deck
+cmd tp @s 16.5 41.0 13.5 0 12
+wait 20
+hold forward 60
+wait 10
+cmd tremor info
+screenshot 02_after_wool
+
+# 3. Walking on stone: heard, the bump crawls toward the player
+log --- 3. walk on stone
+cmd tp @s 4.5 40.0 13.5 0 12
+wait 20
+hold forward 25
+wait 5
+cmd tremor info
+wait 40
+screenshot 03_coming_a
+wait 40
+screenshot 03_coming_b
+cmd tremor info
+
+# 4. Snowball decoy: the player stands still, a snowball lands on the stone far to the side
+log --- 4. snowball decoy
+cmd summon minecraft:snowball 21.5 47.0 33.5 {Motion:[0.0,-0.6,0.0]}
+wait 20
+cmd tremor info
+wait 60
+screenshot 04_lured_by_snowball
+wait 40
+cmd tremor info
+
+# 5. Item decoy: a dropped block hits the floor on the other side
+log --- 5. dropped item decoy
+cmd summon minecraft:item -6.5 45.0 33.5 {Item:{id:"minecraft:cobblestone",count:1},Motion:[0.0,-0.3,0.0]}
+wait 25
+cmd tremor info
+wait 100
+screenshot 05_lured_by_item
+cmd tremor info
+
+# 6. Sprinting is louder than walking (compare perceived values in the debug lines)
+log --- 6. sprint on stone
+cmd tp @s 0.5 40.0 13.5 0 12
+wait 20
+hold forward+sprint 20
+wait 10
+cmd tremor info
+
+cmd tremor debug hearing off
+cmd tremor despawn
+hud on
+quit

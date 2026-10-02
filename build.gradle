@@ -1,0 +1,170 @@
+plugins {
+    id 'java-library'
+    id 'net.neoforged.moddev' version '2.0.148'
+    id 'idea'
+}
+
+tasks.named('wrapper', Wrapper).configure {
+    distributionType = Wrapper.DistributionType.BIN
+}
+
+version = mod_version
+group = mod_group_id
+
+sourceSets.main.resources {
+    srcDir('src/generated/resources')
+    exclude("**/*.bbmodel")
+    exclude("src/generated/**/.cache")
+}
+
+base {
+    archivesName = mod_id
+}
+
+// Mojang ships Java 21 to end users in 1.21.1, so mods should target Java 21.
+java.toolchain.languageVersion = JavaLanguageVersion.of(21)
+
+neoForge {
+    version = project.neo_version
+
+    parchment {
+        mappingsVersion = project.parchment_mappings_version
+        minecraftVersion = project.parchment_minecraft_version
+    }
+
+    runs {
+        client {
+            client()
+            systemProperty 'neoforge.enabledGameTestNamespaces', project.mod_id
+        }
+
+        // Scripted in-game check: boots straight into a fixed-seed dev world and runs a script of commands,
+        // benchmarks and screenshots (see tremor.client.dev.AutoTest). Uses its own game directory so the
+        // normal dev profile is never touched. Script: -Ptremor_autotest_script=<name> (a file in ./autotest).
+        clientAutotest {
+            client()
+            ideName = 'Client (autotest)'
+            gameDirectory = project.file('run-autotest')
+            programArguments.addAll '--width', '1600', '--height', '900'
+            systemProperty 'tremor.autotest', project.file("autotest/${providers.gradleProperty('tremor_autotest_script').getOrElse('stage0.txt')}").absolutePath
+        }
+
+        server {
+            server()
+            programArgument '--nogui'
+            gameDirectory = project.file('run-server')
+            systemProperty 'neoforge.enabledGameTestNamespaces', project.mod_id
+        }
+
+        gameTestServer {
+            type = "gameTestServer"
+            gameDirectory = project.file('run-gametest')
+            systemProperty 'neoforge.enabledGameTestNamespaces', project.mod_id
+        }
+
+        data {
+            data()
+            gameDirectory = project.file('run-data')
+            programArguments.addAll '--mod', project.mod_id, '--all', '--output', file('src/generated/resources/').getAbsolutePath(), '--existing', file('src/main/resources/').getAbsolutePath()
+        }
+
+        configureEach {
+            systemProperty 'forge.logging.markers', 'REGISTRIES'
+            logLevel = org.slf4j.event.Level.DEBUG
+            // Hot swap: on JetBrains Runtime this enables enhanced class redefinition (add/remove methods & fields
+            // from the debugger). Any other JVM silently ignores the flag, so it is safe to keep on.
+            jvmArgument '-XX:+IgnoreUnrecognizedVMOptions'
+            jvmArgument '-XX:+AllowEnhancedClassRedefinition'
+        }
+    }
+
+    mods {
+        "${mod_id}" {
+            sourceSet(sourceSets.main)
+        }
+    }
+}
+
+// -Ptremor_hotswap=true runs the game on JetBrains Runtime 21 (auto-provisioned by the foojay resolver if it is not
+// installed), so `gradlew runClient --debug-jvm` + attaching a debugger gives full hot swap.
+// In IntelliJ just pick a JBR 21 as the JRE of the generated run configuration instead.
+if (providers.gradleProperty('tremor_hotswap').map { it.toBoolean() }.getOrElse(false)) {
+    tasks.withType(JavaExec).matching { it.name.startsWith('run') }.configureEach {
+        javaLauncher = javaToolchains.launcherFor {
+            languageVersion = JavaLanguageVersion.of(21)
+            vendor = JvmVendorSpec.JETBRAINS
+        }
+    }
+}
+
+repositories {
+    exclusiveContent {
+        forRepository {
+            maven {
+                name = 'Modrinth'
+                url = 'https://api.modrinth.com/maven'
+            }
+        }
+        filter {
+            includeGroup 'maven.modrinth'
+        }
+    }
+}
+
+configurations {
+    runtimeClasspath.extendsFrom localRuntime
+}
+
+dependencies {
+    // -Ptremor_sodium=true adds Sodium to the dev runtime to check render compatibility (SPEC 6.3).
+    if (providers.gradleProperty('tremor_sodium').map { it.toBoolean() }.getOrElse(false)) {
+        localRuntime "maven.modrinth:sodium:${sodium_version}"
+    }
+
+    // Pure-math core (tremor.core) is tested with plain JUnit 5, without booting the game.
+    testImplementation platform("org.junit:junit-bom:${junit_version}")
+    testImplementation 'org.junit.jupiter:junit-jupiter'
+    testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+}
+
+tasks.named('test', Test).configure {
+    useJUnitPlatform()
+    // CoreIsolationTest scans these sources (imports never reach bytecode, so the classpath alone is not enough).
+    inputs.dir('src/main/java/tremor/core')
+            .withPathSensitivity(PathSensitivity.RELATIVE)
+            .withPropertyName('coreIsolationSources')
+    testLogging {
+        events 'failed', 'skipped'
+        exceptionFormat = 'full'
+    }
+}
+
+var generateModMetadata = tasks.register("generateModMetadata", ProcessResources) {
+    var replaceProperties = [
+            minecraft_version      : minecraft_version,
+            minecraft_version_range: minecraft_version_range,
+            neo_version            : neo_version,
+            loader_version_range   : loader_version_range,
+            mod_id                 : mod_id,
+            mod_name               : mod_name,
+            mod_license            : mod_license,
+            mod_version            : mod_version,
+    ]
+    inputs.properties replaceProperties
+    expand replaceProperties
+    from "src/main/templates"
+    into "build/generated/sources/modMetadata"
+}
+sourceSets.main.resources.srcDir generateModMetadata
+neoForge.ideSyncTask generateModMetadata
+
+tasks.withType(JavaCompile).configureEach {
+    options.encoding = 'UTF-8'
+}
+
+idea {
+    module {
+        downloadSources = true
+        downloadJavadoc = true
+    }
+}

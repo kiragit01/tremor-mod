@@ -1,0 +1,516 @@
+package tremor.config;
+
+import net.minecraft.network.chat.Component;
+import net.minecraft.resources.ResourceLocation;
+import net.neoforged.neoforge.common.ModConfigSpec;
+import net.neoforged.neoforge.common.TranslatableEnum;
+import tremor.core.behavior.BehaviorParams;
+import tremor.core.behavior.Stage;
+import tremor.core.hearing.HearingParams;
+import tremor.core.shape.BumpParams;
+import tremor.core.shape.RippleParams;
+import tremor.hearing.LoudnessTable;
+
+import java.util.EnumMap;
+import java.util.List;
+import java.util.Locale;
+
+/** All tunables (SPEC 14.2). COMMON is read by the server logic, CLIENT only by rendering. */
+public final class TremorConfig {
+    /** Translation key prefix of the config screen entries (assets/tremor/lang). */
+    private static final String KEY = "tremor.configuration.";
+
+    private TremorConfig() {
+    }
+
+    public static final class Common {
+        public final ModConfigSpec.DoubleValue amplitude;
+        public final ModConfigSpec.DoubleValue sigmaFront;
+        public final ModConfigSpec.DoubleValue sigmaBack;
+        public final ModConfigSpec.DoubleValue sigmaSide;
+        public final ModConfigSpec.DoubleValue trailLag;
+        public final ModConfigSpec.DoubleValue trailSigma;
+        public final ModConfigSpec.DoubleValue trailDepth;
+        public final ModConfigSpec.DoubleValue jitter;
+
+        public final ModConfigSpec.IntValue maxDiveDepth;
+        public final ModConfigSpec.DoubleValue diveCost;
+        public final ModConfigSpec.IntValue pathMaxNodes;
+        public final ModConfigSpec.IntValue pathNodesPerTick;
+        public final ModConfigSpec.DoubleValue speed;
+        public final ModConfigSpec.DoubleValue acceleration;
+        public final ModConfigSpec.DoubleValue normalSmoothing;
+        public final ModConfigSpec.DoubleValue amplitudeSmoothing;
+        public final ModConfigSpec.IntValue syncInterval;
+        public final ModConfigSpec.IntValue syncRange;
+        public final ModConfigSpec.IntValue cacheMaxAge;
+
+        public final ModConfigSpec.DoubleValue hearingThreshold;
+        public final ModConfigSpec.DoubleValue hearingMaxDistance;
+        public final ModConfigSpec.DoubleValue hearingSampleStep;
+        public final ModConfigSpec.DoubleValue minConductivity;
+        public final ModConfigSpec.DoubleValue angerPerLoudness;
+        public final ModConfigSpec.DoubleValue explosionAngerBonus;
+        public final ModConfigSpec.IntValue retargetCooldownTicks;
+        public final ModConfigSpec.ConfigValue<List<? extends String>> loudness;
+        public final ModConfigSpec.DoubleValue sprintStepLoudness;
+        public final ModConfigSpec.DoubleValue mountStepLoudness;
+        public final ModConfigSpec.DoubleValue itemLandLoudness;
+        public final ModConfigSpec.DoubleValue fallLoudness;
+        public final ModConfigSpec.DoubleValue mobLoudnessFactor;
+        public final ModConfigSpec.DoubleValue waterFactor;
+        public final ModConfigSpec.DoubleValue conductivityInsulating;
+        public final ModConfigSpec.DoubleValue conductivityWooden;
+        public final ModConfigSpec.DoubleValue conductivityGravelly;
+        public final ModConfigSpec.DoubleValue conductivitySandy;
+        public final ModConfigSpec.DoubleValue conductivityEarth;
+        public final ModConfigSpec.DoubleValue conductivityStony;
+        public final ModConfigSpec.DoubleValue conductivityFluid;
+        public final ModConfigSpec.DoubleValue conductivityAir;
+
+        public final ModConfigSpec.DoubleValue alertAt;
+        public final ModConfigSpec.DoubleValue huntAt;
+        public final ModConfigSpec.DoubleValue awakenAt;
+        public final ModConfigSpec.DoubleValue hysteresis;
+        public final ModConfigSpec.DoubleValue decayPerSecond;
+        public final ModConfigSpec.DoubleValue quietAfterSeconds;
+        public final ModConfigSpec.DoubleValue quietDecayFactor;
+        public final ModConfigSpec.DoubleValue dormantReactLoudness;
+        public final ModConfigSpec.DoubleValue alertFreezeSeconds;
+        public final ModConfigSpec.DoubleValue alertLoseInterestSeconds;
+        public final ModConfigSpec.DoubleValue huntSearchRadius;
+        public final ModConfigSpec.DoubleValue huntSearchSeconds;
+        public final ModConfigSpec.DoubleValue wanderPauseSeconds;
+        public final ModConfigSpec.DoubleValue wanderMinRadius;
+        public final ModConfigSpec.DoubleValue wanderMaxRadius;
+        public final ModConfigSpec.DoubleValue minWanderDistance;
+        public final ModConfigSpec.DoubleValue transitionVolume;
+        private final EnumMap<Stage, ModConfigSpec.DoubleValue> stageSpeedFactors = new EnumMap<>(Stage.class);
+        private final EnumMap<Stage, ModConfigSpec.DoubleValue> stageAmplitudeFactors = new EnumMap<>(Stage.class);
+        public final ModConfigSpec.DoubleValue contactRadius;
+        public final ModConfigSpec.IntValue contactCooldownTicks;
+        public final ModConfigSpec.DoubleValue contactDamage;
+        public final ModConfigSpec.DoubleValue contactKnockback;
+        public final ModConfigSpec.DoubleValue contactLift;
+        public final ModConfigSpec.DoubleValue contactAnger;
+        public final ModConfigSpec.DoubleValue despawnPlayerDistance;
+        public final ModConfigSpec.DoubleValue despawnFarSeconds;
+        public final ModConfigSpec.DoubleValue despawnQuietSeconds;
+
+        public final Spawn spawn;
+
+        Common(ModConfigSpec.Builder b) {
+            BumpParams d = BumpParams.defaults();
+            b.comment("Shape of the bump the entity pushes through the ground (SPEC 6.1). Lengths are in blocks.")
+                    .translation(KEY + "shape").push("shape");
+            amplitude = b.comment("A: height of the bump")
+                    .translation(KEY + "shape.amplitude").defineInRange("amplitude", d.amplitude(), 0.1, 8.0);
+            sigmaFront = b.comment("Half-length ahead of the bump (smaller = steeper front)")
+                    .translation(KEY + "shape.sigmaFront").defineInRange("sigmaFront", d.sigmaFront(), 0.25, 16.0);
+            sigmaBack = b.comment("Half-length behind the bump")
+                    .translation(KEY + "shape.sigmaBack").defineInRange("sigmaBack", d.sigmaBack(), 0.25, 16.0);
+            sigmaSide = b.comment("Half-width of the bump")
+                    .translation(KEY + "shape.sigmaSide").defineInRange("sigmaSide", d.sigmaSide(), 0.25, 16.0);
+            trailLag = b.comment("L: how far behind the bump the trailing depression sits")
+                    .translation(KEY + "shape.trailLag").defineInRange("trailLag", d.trailLag(), 0.0, 32.0);
+            trailSigma = b.comment("Length of the trailing depression")
+                    .translation(KEY + "shape.trailSigma").defineInRange("trailSigma", d.trailSigma(), 0.25, 16.0);
+            trailDepth = b.comment("k: depth of the trailing depression relative to A")
+                    .translation(KEY + "shape.trailDepth").defineInRange("trailDepth", d.trailDepth(), 0.0, 1.0);
+            jitter = b.comment("epsilon: amplitude of the fine tremble relative to A")
+                    .translation(KEY + "shape.jitter").defineInRange("jitter", d.jitter(), 0.0, 0.5);
+            b.pop();
+
+            b.comment("Movement over the surface of the world (SPEC 5)").translation(KEY + "movement").push("movement");
+            maxDiveDepth = b.comment("How far (blocks) the entity can travel straight through rock to another surface")
+                    .translation(KEY + "movement.maxDiveDepth").defineInRange("maxDiveDepth", 4, 0, 16);
+            diveCost = b.comment("Path cost of a block travelled through rock, relative to a block on the surface")
+                    .translation(KEY + "movement.diveCost").defineInRange("diveCost", 2.0, 1.0, 20.0);
+            pathMaxNodes = b.comment("A* gives up after expanding this many nodes and heads for the best one found")
+                    .translation(KEY + "movement.pathMaxNodes").defineInRange("pathMaxNodes", 4000, 100, 100000);
+            pathNodesPerTick = b.comment("A* nodes expanded per server tick (the search is spread over ticks)")
+                    .translation(KEY + "movement.pathNodesPerTick").defineInRange("pathNodesPerTick", 500, 10, 100000);
+            speed = b.comment("Crawling speed, blocks per second")
+                    .translation(KEY + "movement.speed").defineInRange("speed", 3.0, 0.1, 30.0);
+            acceleration = b.comment("Speed change limit, blocks per second squared")
+                    .translation(KEY + "movement.acceleration").defineInRange("acceleration", 3.0, 0.1, 100.0);
+            normalSmoothing = b.comment("Time constant (s) of the normal smoothing; a floor-to-wall turn takes ~3x this")
+                    .translation(KEY + "movement.normalSmoothing").defineInRange("normalSmoothing", 0.25, 0.0, 5.0);
+            amplitudeSmoothing = b.comment("Time constant (s) of the bump rising and sinking (surfacing / diving)")
+                    .translation(KEY + "movement.amplitudeSmoothing")
+                    .defineInRange("amplitudeSmoothing", 0.35, 0.0, 5.0);
+            b.pop();
+
+            b.comment("Server internals").translation(KEY + "server").push("server");
+            syncInterval = b.comment("Server ticks between state packets to nearby players (2 = 10 per second)")
+                    .translation(KEY + "server.syncInterval").defineInRange("syncInterval", 2, 1, 20);
+            syncRange = b.comment("Players within this many blocks of the entity receive its state")
+                    .translation(KEY + "server.syncRange").defineInRange("syncRange", 160, 16, 1024);
+            cacheMaxAge = b.comment("Ticks after which cached terrain is re-read even without a block change event")
+                    .translation(KEY + "server.cacheMaxAge").defineInRange("cacheMaxAge", 600, 20, 72000);
+            b.pop();
+
+            HearingParams h = HearingParams.defaults();
+            b.comment("Hearing: vibrations through the ground (SPEC 7).",
+                            "perceived = loudness * footing / (1 + distance * average resistance along the way)")
+                    .translation(KEY + "hearing").push("hearing");
+            hearingThreshold = b.comment("Perceived loudness from which the entity hears a vibration")
+                    .translation(KEY + "hearing.threshold").defineInRange("threshold", h.threshold(), 0.001, 100.0);
+            hearingMaxDistance = b.comment("Vibrations further away than this (blocks) are never heard")
+                    .translation(KEY + "hearing.maxDistance").defineInRange("maxDistance", h.maxDistance(), 4.0, 256.0);
+            hearingSampleStep = b.comment("Spacing (blocks) of the conductivity samples between source and entity;",
+                            "raised automatically so that one vibration reads at most " + MAX_HEARING_SAMPLES + " blocks")
+                    .translation(KEY + "hearing.sampleStep").defineInRange("sampleStep", h.sampleStep(), 0.1, 8.0);
+            minConductivity = b.comment("Conductivities are clamped to at least this before taking the resistance 1/c")
+                    .translation(KEY + "hearing.minConductivity")
+                    .defineInRange("minConductivity", h.minConductivity(), 0.001, 1.0);
+            angerPerLoudness = b.comment("Anger added per unit of perceived loudness of a heard vibration")
+                    .translation(KEY + "hearing.angerPerLoudness").defineInRange("angerPerLoudness", 6.0, 0.0, 100.0);
+            explosionAngerBonus = b.comment("Anger added on top when an explosion is heard")
+                    .translation(KEY + "hearing.explosionAngerBonus")
+                    .defineInRange("explosionAngerBonus", 20.0, 0.0, 100.0);
+            retargetCooldownTicks = b.comment("A heard sound replaces the one being followed at most this often (ticks),",
+                            "unless it is at least 1.5 times louder")
+                    .translation(KEY + "hearing.retargetCooldownTicks")
+                    .defineInRange("retargetCooldownTicks", 10, 0, 1200);
+            loudness = b.comment("Base loudness of vanilla game events, \"namespace:event=loudness\"; events not listed",
+                            "(or 0) are ignored. Steps of sneaking players are never heard.")
+                    .translation(KEY + "hearing.loudness")
+                    .defineListAllowEmpty("loudness", LoudnessTable.DEFAULTS, () -> "minecraft:step=0",
+                            LoudnessTable::isValid);
+            sprintStepLoudness = b.comment("Loudness of a sprinting player's step (replaces the step loudness)")
+                    .translation(KEY + "hearing.sprintStepLoudness")
+                    .defineInRange("sprintStepLoudness", 4.0, 0.0, 1000.0);
+            mountStepLoudness = b.comment("Loudness of a step of a mount ridden by a player, and of a moving minecart")
+                    .translation(KEY + "hearing.mountStepLoudness")
+                    .defineInRange("mountStepLoudness", 6.0, 0.0, 1000.0);
+            itemLandLoudness = b.comment("Loudness of a dropped item hitting the ground (up to 2 more for fast impacts)")
+                    .translation(KEY + "hearing.itemLandLoudness").defineInRange("itemLandLoudness", 3.0, 0.0, 1000.0);
+            fallLoudness = b.comment("Loudness of a fall with fall damage, plus the fall height in blocks")
+                    .translation(KEY + "hearing.fallLoudness").defineInRange("fallLoudness", 10.0, 0.0, 1000.0);
+            mobLoudnessFactor = b.comment("Loudness factor for living non-player sources (0: the entity listens for",
+                            "players, not cows); explosions always count fully")
+                    .translation(KEY + "hearing.mobLoudnessFactor").defineInRange("mobLoudnessFactor", 0.0, 0.0, 10.0);
+            waterFactor = b.comment("Footing of a source that is not on the ground but in water or in a boat",
+                            "(a source in the air makes no vibration)")
+                    .translation(KEY + "hearing.waterFactor").defineInRange("waterFactor", 0.2, 0.0, 10.0);
+
+            b.comment("Vibration conductivity of blocks by class (block tags #tremor:conductivity/<class>,",
+                            "first match in this order); 1 = baseline")
+                    .translation(KEY + "hearing.conductivity").push("conductivity");
+            conductivityInsulating = conductivity(b, "insulating", "Wool, carpets", 0.1);
+            conductivityWooden = conductivity(b, "wooden", "Planks, logs and other wooden blocks", 0.4);
+            conductivityGravelly = conductivity(b, "gravelly", "Gravel", 0.4);
+            conductivitySandy = conductivity(b, "sandy", "Sand, soul sand and soil, snow", 0.7);
+            conductivityStony = conductivity(b, "stony", "Stone, deepslate, ores, bedrock, obsidian", 1.2);
+            conductivityEarth = conductivity(b, "earth", "Any other block with a collision shape (dirt, grass...)", 1.0);
+            conductivityFluid = conductivity(b, "fluid", "Water and other fluids", 0.3);
+            conductivityAir = conductivity(b, "air", "Air and other open blocks; also unloaded terrain", 0.05);
+            b.pop(2);
+
+            BehaviorParams bp = BehaviorParams.defaults();
+            b.comment("Anger and stage behaviour (SPEC 8). The anger runs from 0 to awakenAt. Times are in seconds,",
+                            "distances in blocks, loudness in perceived units (see hearing). Needs",
+                            "0 < alertAt < huntAt < awakenAt and hysteresis < alertAt, else the defaults are used.")
+                    .translation(KEY + "behavior").push("behavior");
+            alertAt = b.comment("Anger from which the entity is ALERT")
+                    .translation(KEY + "behavior.alertAt").defineInRange("alertAt", bp.alertAt(), 1.0, 100.0);
+            huntAt = b.comment("Anger from which the entity is HUNTING")
+                    .translation(KEY + "behavior.huntAt").defineInRange("huntAt", bp.huntAt(), 1.0, 100.0);
+            awakenAt = b.comment("Anger of the AWAKENING (until stage 4 it hunts then); also the top of the scale")
+                    .translation(KEY + "behavior.awakenAt").defineInRange("awakenAt", bp.awakenAt(), 1.0, 100.0);
+            hysteresis = b.comment("A stage is left downwards only once the anger is this far below its threshold")
+                    .translation(KEY + "behavior.hysteresis").defineInRange("hysteresis", bp.hysteresis(), 0.0, 50.0);
+            decayPerSecond = b.comment("Anger lost per second")
+                    .translation(KEY + "behavior.decayPerSecond")
+                    .defineInRange("decayPerSecond", bp.decayPerSecond(), 0.0, 20.0);
+            quietAfterSeconds = b.comment("After this long without a heard sound...")
+                    .translation(KEY + "behavior.quietAfterSeconds")
+                    .defineInRange("quietAfterSeconds", bp.quietAfterSeconds(), 0.0, 3600.0);
+            quietDecayFactor = b.comment("...the anger decays this many times faster")
+                    .translation(KEY + "behavior.quietDecayFactor")
+                    .defineInRange("quietDecayFactor", bp.quietDecayFactor(), 1.0, 50.0);
+            dormantReactLoudness = b.comment("A DORMANT entity goes after a sound only if it is at least this loud",
+                            "(quieter heard sounds still add anger)")
+                    .translation(KEY + "behavior.dormantReactLoudness")
+                    .defineInRange("dormantReactLoudness", bp.dormantReactLoudness(), 0.0, 100.0);
+            alertFreezeSeconds = b.comment("An ALERT entity freezes and turns toward each heard sound for this long,",
+                            "then creeps toward it")
+                    .translation(KEY + "behavior.alertFreezeSeconds")
+                    .defineInRange("alertFreezeSeconds", bp.alertFreezeSeconds(), 0.0, 60.0);
+            alertLoseInterestSeconds = b.comment("An ALERT entity that hears nothing for this long wanders again")
+                    .translation(KEY + "behavior.alertLoseInterestSeconds")
+                    .defineInRange("alertLoseInterestSeconds", bp.alertLoseInterestSeconds(), 0.0, 600.0);
+            huntSearchRadius = b.comment("A HUNTING entity that finds nobody at the sound searches this far around it...")
+                    .translation(KEY + "behavior.huntSearchRadius")
+                    .defineInRange("huntSearchRadius", bp.huntSearchRadius(), 0.0, 64.0);
+            huntSearchSeconds = b.comment("...until this long after the sound, then wanders")
+                    .translation(KEY + "behavior.huntSearchSeconds")
+                    .defineInRange("huntSearchSeconds", bp.huntSearchSeconds(), 0.0, 600.0);
+            wanderPauseSeconds = b.comment("Mean pause between two legs of wandering (SPEC 5.6)")
+                    .translation(KEY + "behavior.wanderPauseSeconds")
+                    .defineInRange("wanderPauseSeconds", bp.wanderPauseSeconds(), 0.0, 120.0);
+            wanderMinRadius = b.comment("A wander leg ends at least this far away...")
+                    .translation(KEY + "behavior.wanderMinRadius").defineInRange("wanderMinRadius", 16.0, 1.0, 64.0);
+            wanderMaxRadius = b.comment("...and at most this far (a smaller value than wanderMinRadius counts as it)")
+                    .translation(KEY + "behavior.wanderMaxRadius").defineInRange("wanderMaxRadius", 32.0, 1.0, 64.0);
+            minWanderDistance = b.comment("A DORMANT entity wanders no closer than this to the nearest player")
+                    .translation(KEY + "behavior.minWanderDistance")
+                    .defineInRange("minWanderDistance", bp.minWanderDistance(), 0.0, 128.0);
+            transitionVolume = b.comment("Volume of the stage change sounds; heard up to 16 blocks times this away")
+                    .translation(KEY + "behavior.transitionVolume")
+                    .defineInRange("transitionVolume", 3.0, 0.0, 16.0);
+
+            b.comment("Movement per stage (SPEC 5.5, 8): factors on movement.speed and on the bump height")
+                    .translation(KEY + "behavior.stages").push("stages");
+            stage(b, Stage.DORMANT, "Lazy wandering: slow, a low bump", 0.6, 0.6);
+            stage(b, Stage.ALERT, "Freezing and creeping toward sounds", 0.5, 0.85);
+            stage(b, Stage.HUNTING, "Going for sounds: fast, a higher bump", 1.6, 1.25);
+            stage(b, Stage.AWAKENING, "Until stage 4, the same as hunting", 1.6, 1.25);
+            b.pop();
+
+            b.comment("Contact of the bump with a player while HUNTING or AWAKENING (SPEC 8), with the bump at least",
+                            "half up; not in creative or spectator mode, and never through rock")
+                    .translation(KEY + "behavior.contact").push("contact");
+            contactRadius = b.comment("Radius of the zone around the axis of the bump, from the middle of its block",
+                            "to 1.5 blocks above its top: players with feet, middle or head in it are struck")
+                    .translation(KEY + "behavior.contact.radius").defineInRange("radius", 1.6, 0.1, 8.0);
+            contactCooldownTicks = b.comment("Each player is struck at most this often (ticks)")
+                    .translation(KEY + "behavior.contact.cooldownTicks").defineInRange("cooldownTicks", 20, 1, 1200);
+            contactDamage = b.comment("Damage of a strike (2 = one heart); a shield does not block it")
+                    .translation(KEY + "behavior.contact.damage").defineInRange("damage", 4.0, 0.0, 100.0);
+            contactKnockback = b.comment("Horizontal speed a strike throws the player away with, blocks per tick, as",
+                            "the player's client gets it; times 1 - the player's knockback resistance")
+                    .translation(KEY + "behavior.contact.knockback").defineInRange("knockback", 0.9, 0.0, 3.9);
+            contactLift = b.comment("Upward speed of that throw, blocks per tick; also times 1 - the knockback",
+                            "resistance")
+                    .translation(KEY + "behavior.contact.lift").defineInRange("lift", 0.45, 0.0, 3.0);
+            contactAnger = b.comment("Anger added by a strike")
+                    .translation(KEY + "behavior.contact.anger").defineInRange("anger", 15.0, 0.0, 100.0);
+            b.pop();
+
+            b.comment("A naturally spawned entity leaves (sinks and disappears, SPEC 11) when no player was near for",
+                            "farSeconds, or nothing happened (no sound heard while DORMANT) for quietSeconds; while",
+                            "its chunk is not loaded the times run on, and it disappears at once")
+                    .translation(KEY + "behavior.despawn").push("despawn");
+            despawnPlayerDistance = b.comment("A player within this distance counts as near")
+                    .translation(KEY + "behavior.despawn.playerDistance")
+                    .defineInRange("playerDistance", 96.0, 8.0, 1024.0);
+            despawnFarSeconds = b.comment("Seconds without a player near")
+                    .translation(KEY + "behavior.despawn.farSeconds").defineInRange("farSeconds", 120.0, 1.0, 86400.0);
+            despawnQuietSeconds = b.comment("Seconds without anything happening")
+                    .translation(KEY + "behavior.despawn.quietSeconds")
+                    .defineInRange("quietSeconds", 600.0, 1.0, 86400.0);
+            b.pop(2);
+
+            spawn = new Spawn(b);
+        }
+
+        private static ModConfigSpec.DoubleValue conductivity(ModConfigSpec.Builder b, String name, String comment,
+                                                              double value) {
+            return b.comment(comment).translation(KEY + "hearing.conductivity." + name)
+                    .defineInRange(name, value, 0.0, 10.0);
+        }
+
+        /** The subsection {@code behavior.stages.<stage>}: its speed and amplitude factors. */
+        private void stage(ModConfigSpec.Builder b, Stage stage, String comment, double speed, double amplitude) {
+            String name = stage.name().toLowerCase(Locale.ROOT);
+            b.comment(comment).translation(KEY + "behavior.stages." + name).push(name);
+            stageSpeedFactors.put(stage, b.comment("Factor on movement.speed")
+                    .translation(KEY + "behavior.stages.speedFactor").defineInRange("speedFactor", speed, 0.05, 10.0));
+            stageAmplitudeFactors.put(stage, b.comment("Factor on the bump height (shape.amplitude)")
+                    .translation(KEY + "behavior.stages.amplitudeFactor")
+                    .defineInRange("amplitudeFactor", amplitude, 0.0, 4.0));
+            b.pop();
+        }
+
+        /**
+         * Stage behaviour (SPEC 8) from the {@code behavior} section.
+         *
+         * @throws IllegalArgumentException if the thresholds contradict each other ({@link BehaviorParams})
+         */
+        public BehaviorParams behaviorParams() {
+            return new BehaviorParams(alertAt.get(), huntAt.get(), awakenAt.get(), hysteresis.get(),
+                    decayPerSecond.get(), quietAfterSeconds.get(), quietDecayFactor.get(), dormantReactLoudness.get(),
+                    alertFreezeSeconds.get(), alertLoseInterestSeconds.get(), huntSearchRadius.get(),
+                    huntSearchSeconds.get(), wanderPauseSeconds.get(), minWanderDistance.get());
+        }
+
+        /** Factor on the crawling speed in {@code stage} (SPEC 5.5, 8). */
+        public double speedFactor(Stage stage) {
+            return stageSpeedFactors.get(stage).get();
+        }
+
+        /** Factor on the bump height in {@code stage} (SPEC 8). */
+        public double amplitudeFactor(Stage stage) {
+            return stageAmplitudeFactors.get(stage).get();
+        }
+
+        public BumpParams bumpParams() {
+            return new BumpParams(amplitude.get(), sigmaFront.get(), sigmaBack.get(), sigmaSide.get(),
+                    trailLag.get(), trailSigma.get(), trailDepth.get(), jitter.get());
+        }
+
+        /**
+         * How vibrations travel (SPEC 7.2). The sample step is raised where needed so that one vibration reads at
+         * most {@value TremorConfig#MAX_HEARING_SAMPLES} voxels.
+         */
+        public HearingParams hearingParams() {
+            double maxDistance = hearingMaxDistance.get();
+            return new HearingParams(hearingThreshold.get(), maxDistance,
+                    Math.max(hearingSampleStep.get(), maxDistance / MAX_HEARING_SAMPLES), minConductivity.get());
+        }
+    }
+
+    /** Natural spawn (SPEC 11), section {@code spawn} of COMMON; read by {@link tremor.spawn.NaturalSpawner}. */
+    public static final class Spawn {
+        public final ModConfigSpec.BooleanValue enabled;
+        public final ModConfigSpec.ConfigValue<List<? extends String>> dimensions;
+        public final ModConfigSpec.IntValue checkIntervalSeconds;
+        public final ModConfigSpec.DoubleValue baseChance;
+        public final ModConfigSpec.DoubleValue caveMultiplier;
+        public final ModConfigSpec.DoubleValue darkMultiplier;
+        public final ModConfigSpec.DoubleValue deepMultiplier;
+        public final ModConfigSpec.DoubleValue nightMultiplier;
+        public final ModConfigSpec.DoubleValue minDistance;
+        public final ModConfigSpec.DoubleValue maxDistance;
+        public final ModConfigSpec.DoubleValue routeHalfWidth;
+        public final ModConfigSpec.IntValue verticalRange;
+        public final ModConfigSpec.IntValue attempts;
+        public final ModConfigSpec.IntValue cooldownSeconds;
+        public final ModConfigSpec.IntValue graceSeconds;
+        public final ModConfigSpec.IntValue protectionRadius;
+        public final ModConfigSpec.BooleanValue allowPeaceful;
+
+        Spawn(ModConfigSpec.Builder b) {
+            b.comment("Natural spawn: the entity appears by itself in the distance (SPEC 11)")
+                    .translation(KEY + "spawn").push("spawn");
+            enabled = b.comment("Whether the entity appears by itself")
+                    .translation(KEY + "spawn.enabled").define("enabled", true);
+            dimensions = b.comment("Dimensions it appears in, ids like minecraft:overworld")
+                    .translation(KEY + "spawn.dimensions")
+                    .defineListAllowEmpty("dimensions", List.of("minecraft:overworld"), () -> "minecraft:overworld",
+                            Spawn::isDimensionId);
+            checkIntervalSeconds = b.comment("Every player in such a dimension gets a spawn check this often",
+                            "(seconds); the checks of different players are spread over this time")
+                    .translation(KEY + "spawn.checkIntervalSeconds")
+                    .defineInRange("checkIntervalSeconds", 30, 1, 3600);
+            baseChance = b.comment("Chance that a check spawns the entity, before the multipliers below")
+                    .translation(KEY + "spawn.baseChance").defineInRange("baseChance", 0.04, 0.0, 1.0);
+            caveMultiplier = b.comment("Chance multiplier when the player cannot see the sky (in a cave or under a",
+                            "roof; leaves and water are no roof)")
+                    .translation(KEY + "spawn.caveMultiplier").defineInRange("caveMultiplier", 2.5, 0.0, 100.0);
+            darkMultiplier = b.comment("Chance multiplier when the light at the player's eyes is below 7 (block light,",
+                            "or sky light dimmed by night and weather)")
+                    .translation(KEY + "spawn.darkMultiplier").defineInRange("darkMultiplier", 2.0, 0.0, 100.0);
+            deepMultiplier = b.comment("Chance multiplier when the player is below y = 0")
+                    .translation(KEY + "spawn.deepMultiplier").defineInRange("deepMultiplier", 1.5, 0.0, 100.0);
+            nightMultiplier = b.comment("Chance multiplier at night (a thunderstorm counts as night, as for beds)")
+                    .translation(KEY + "spawn.nightMultiplier").defineInRange("nightMultiplier", 2.0, 0.0, 100.0);
+            minDistance = b.comment("Nearest spawn point to the player (blocks)")
+                    .translation(KEY + "spawn.minDistance").defineInRange("minDistance", 40.0, 0.0, 256.0);
+            maxDistance = b.comment("Farthest spawn point from the player (blocks; at least minDistance + 1 is used).",
+                            "Only loaded terrain is searched; a point the player sees but will not pass must also",
+                            "lie within the player's view distance")
+                    .translation(KEY + "spawn.maxDistance").defineInRange("maxDistance", 80.0, 1.0, 256.0);
+            routeHalfWidth = b.comment("A spawn point the player does not see must lie within this distance (blocks,",
+                            "sideways) of the player's way ahead, which may climb or fall up to 45 degrees")
+                    .translation(KEY + "spawn.routeHalfWidth").defineInRange("routeHalfWidth", 10.0, 0.0, 64.0);
+            verticalRange = b.comment("Spawn points are looked for this many blocks above and below the player's feet")
+                    .translation(KEY + "spawn.verticalRange").defineInRange("verticalRange", 24, 0, 128);
+            attempts = b.comment("Candidate points tried per spawn (each costs a column scan and a line of sight)")
+                    .translation(KEY + "spawn.attempts").defineInRange("attempts", 48, 1, 1024);
+            cooldownSeconds = b.comment("No natural spawn in a dimension for this long after a naturally spawned",
+                            "entity left it (seconds)")
+                    .translation(KEY + "spawn.cooldownSeconds").defineInRange("cooldownSeconds", 600, 0, 86400);
+            graceSeconds = b.comment("A player's first spawn check comes this long after the player enters the",
+                            "dimension: joining, the server starting, changing dimension (seconds)")
+                    .translation(KEY + "spawn.graceSeconds").defineInRange("graceSeconds", 60, 0, 3600);
+            protectionRadius = b.comment("No spawn this close (blocks, horizontally) to the world spawn point and to",
+                            "the beds and respawn anchors of the players online; 0 = off")
+                    .translation(KEY + "spawn.protectionRadius").defineInRange("protectionRadius", 32, 0, 1024);
+            allowPeaceful = b.comment("Whether the entity appears by itself in peaceful difficulty too")
+                    .translation(KEY + "spawn.allowPeaceful").define("allowPeaceful", false);
+            b.pop();
+        }
+
+        private static boolean isDimensionId(Object entry) {
+            return entry instanceof String s && ResourceLocation.tryParse(s) != null;
+        }
+    }
+
+    /** Upper bound of the conductivity samples per vibration (performance, SPEC 16). */
+    public static final int MAX_HEARING_SAMPLES = 128;
+
+    /** How the deformation is drawn. */
+    public enum Style implements TranslatableEnum {
+        /** SPEC 6.3: whole block copies shifted along the normal, the gap filled with more copies. */
+        BLOCKS,
+        /** Every vertex shifted by the height at that vertex: one smooth continuous mound. */
+        WARP;
+
+        @Override
+        public Component getTranslatedName() {
+            return Component.translatable(KEY + "render.style." + name().toLowerCase(Locale.ROOT));
+        }
+    }
+
+    public static final class Client {
+        public final ModConfigSpec.IntValue maxDeformedBlocks;
+        public final ModConfigSpec.IntValue renderDistance;
+        public final ModConfigSpec.BooleanValue jitter;
+        public final ModConfigSpec.EnumValue<Style> style;
+        public final ModConfigSpec.BooleanValue ripple;
+        public final ModConfigSpec.DoubleValue rippleAmplitude;
+        public final ModConfigSpec.BooleanValue rippleDust;
+        public final ModConfigSpec.DoubleValue rustleVolume;
+
+        Client(ModConfigSpec.Builder b) {
+            b.comment("Rendering quality of the ground deformation").translation(KEY + "render").push("render");
+            maxDeformedBlocks = b.comment("Upper bound of block copies drawn per frame; the rest is skipped")
+                    .translation(KEY + "render.maxDeformedBlocks").defineInRange("maxDeformedBlocks", 1500, 0, 20000);
+            renderDistance = b.comment("Deformation further than this from the camera (blocks) is not drawn")
+                    .translation(KEY + "render.renderDistance").defineInRange("renderDistance", 128, 16, 512);
+            jitter = b.comment("Draw the fine tremble of the ground (noise term of the shape)")
+                    .translation(KEY + "render.jitter").define("jitter", true);
+            style = b.comment("blocks: whole block copies pushed out, the gap filled with more copies;",
+                            "warp: every vertex moved by the height at that vertex, a smooth mound")
+                    .translation(KEY + "render.style").defineEnum("style", Style.BLOCKS);
+            b.pop();
+
+            b.comment("Visible effects of the entity's behaviour (SPEC 8)")
+                    .translation(KEY + "effects").push("effects");
+            ripple = b.comment("Draw the ripple that runs over the ground around an alerted entity")
+                    .translation(KEY + "effects.ripple").define("ripple", true);
+            rippleAmplitude = b.comment("Height of the ripple around a bump of full height (shape.amplitude), blocks",
+                            "(0 = off); it is lower around a lower bump and gone while the bump dives")
+                    .translation(KEY + "effects.rippleAmplitude")
+                    .defineInRange("rippleAmplitude", RippleParams.defaults().amplitude(), 0.0, 1.0);
+            rippleDust = b.comment("Kick up a little dust of the ground along the front of the ripple while it is",
+                            "drawn; half as much with the Particles video setting at Decreased, none at Minimal")
+                    .translation(KEY + "effects.rippleDust").define("rippleDust", true);
+            b.pop();
+
+            b.comment("Sounds of the entity (SPEC 13)").translation(KEY + "sound").push("sound");
+            rustleVolume = b.comment("Volume of the rustle of the moving bump (1 = normal, 0 = silent). Above 1 it is",
+                            "louder than the other hostile sounds, but at most at full volume: that only counts while",
+                            "the Hostile Creatures volume is below 100%")
+                    .translation(KEY + "sound.rustleVolume").defineInRange("rustleVolume", 1.0, 0.0, 2.0);
+            b.pop();
+        }
+    }
+
+    public static final Common COMMON;
+    public static final ModConfigSpec COMMON_SPEC;
+    public static final Client CLIENT;
+    public static final ModConfigSpec CLIENT_SPEC;
+
+    static {
+        ModConfigSpec.Builder common = new ModConfigSpec.Builder();
+        COMMON = new Common(common);
+        COMMON_SPEC = common.build();
+        ModConfigSpec.Builder client = new ModConfigSpec.Builder();
+        CLIENT = new Client(client);
+        CLIENT_SPEC = client.build();
+    }
+}

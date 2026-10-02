@@ -1,0 +1,42 @@
+# Stage 1: smoothness of the moving bump ("the bump does not jerk"). Uses the cave of stage1-cave.txt (run that one
+# first in a fresh autotest world). The tremor cruises 28 blocks along the floor at constant speed; frame-to-frame
+# speed of the drawn bump is measured at different frame rates (report: "motion" lines).
+# Run: gradlew runClientAutotest -Ptremor_autotest_script=stage1-smooth.txt
+
+waitchunks
+cmd gamemode spectator
+cmd effect give @s minecraft:night_vision infinite 0 true
+cmd tremor despawn
+cmd tp @s 4.5 46.0 25.5 -90 45
+wait 40
+waitchunks
+hud off
+
+fps 60
+cmd tremor spawn -8 39 11
+# Stage 1 checks motion only: no brain (stage 3), and the stage factors of DORMANT neutralised
+cmd tremor ai off
+config behavior.stages.dormant.speedFactor 1.0
+config behavior.stages.dormant.amplitudeFactor 1.0
+wait 20
+cmd tremor goto -8 39 39
+wait 30
+bench cruise_60fps 140
+wait 100
+
+fps 140
+cmd tremor goto -8 39 11
+wait 30
+bench cruise_140fps 140
+wait 100
+
+fps 260
+cmd tremor goto -8 39 39
+wait 30
+bench cruise_unlimited 140
+wait 100
+cmd tremor info
+
+cmd tremor despawn
+hud on
+quit

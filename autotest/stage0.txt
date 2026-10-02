@@ -1,0 +1,11 @@
+# Stage 0 smoke test of the autotest harness (the real stage-0 benchmark script comes later).
+# Run: gradlew runClientAutotest            (results: run-autotest/tremor-autotest/latest.txt)
+waitchunks
+cmd time set noon
+cmd gamerule doDaylightCycle false
+hud off
+wait 20
+screenshot smoke_spawn
+bench idle 200
+hud on
+quit

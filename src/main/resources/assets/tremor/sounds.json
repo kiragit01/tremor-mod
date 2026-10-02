@@ -1,0 +1,52 @@
+{
+  "entity.tremor.rumble": {
+    "subtitle": "subtitles.tremor.rumble",
+    "sounds": [
+      {"name": "minecraft:mob/warden/dig", "pitch": 0.6, "volume": 0.9},
+      {"name": "minecraft:ambient/cave/cave13", "pitch": 0.5}
+    ]
+  },
+  "entity.tremor.crack": {
+    "subtitle": "subtitles.tremor.crack",
+    "sounds": [
+      {"name": "minecraft:block/deepslate/break1", "pitch": 0.5},
+      {"name": "minecraft:block/deepslate/break2", "pitch": 0.5},
+      {"name": "minecraft:block/deepslate/break3", "pitch": 0.45},
+      {"name": "minecraft:block/deepslate/break4", "pitch": 0.45}
+    ]
+  },
+  "entity.tremor.sigh": {
+    "subtitle": "subtitles.tremor.sigh",
+    "sounds": [
+      {"name": "minecraft:mob/warden/emerge", "pitch": 0.5, "volume": 0.7}
+    ]
+  },
+  "entity.tremor.rustle": {
+    "subtitle": "subtitles.tremor.rustle",
+    "sounds": [
+      {"name": "minecraft:minecart/base", "attenuation_distance": 20}
+    ]
+  },
+  "entity.tremor.strike": {
+    "subtitle": "subtitles.tremor.strike",
+    "sounds": [
+      {"name": "minecraft:random/explode1", "pitch": 0.5, "volume": 0.5},
+      {"name": "minecraft:block/deepslate/break2", "pitch": 0.4}
+    ]
+  },
+  "entity.tremor.pulse": {
+    "subtitle": "subtitles.tremor.pulse",
+    "sounds": [
+      {"name": "minecraft:mob/warden/heartbeat_1", "pitch": 0.7},
+      {"name": "minecraft:mob/warden/heartbeat_2", "pitch": 0.7},
+      {"name": "minecraft:mob/warden/heartbeat_3", "pitch": 0.7},
+      {"name": "minecraft:mob/warden/heartbeat_4", "pitch": 0.7}
+    ]
+  },
+  "entity.tremor.awaken": {
+    "subtitle": "subtitles.tremor.awaken",
+    "sounds": [
+      {"name": "minecraft:mob/warden/emerge", "pitch": 0.35}
+    ]
+  }
+}

@@ -1,0 +1,61 @@
+# Stage 3 close-up of the ALERT ground ripple (SPEC 8): the entity freezes at a snowball and rings run out over the
+# ground. Seen from above (spectator, no footsteps) in both render styles. Uses the sky platform of
+# stage3-aggression.txt (run that one first in this autotest world).
+# Run: gradlew runClientAutotest -Ptremor_autotest_script=stage3-ripple.txt
+
+waitchunks
+cmd gamemode spectator
+cmd time set noon
+cmd tremor despawn
+cmd kill @e[type=!player]
+cmd tp @s 300.5 209.0 304.5 0 38
+wait 40
+waitchunks
+hud off
+
+log --- blocks style
+cmd tremor spawn 300 200 318
+cmd tremor anger 45
+config behavior.wanderPauseSeconds 120
+wait 60
+cmd summon minecraft:snowball 305.5 206.0 318.5 {Motion:[0.0,-0.6,0.0]}
+wait 10
+screenshot 10_blocks_t0
+wait 8
+screenshot 11_blocks_t1
+wait 8
+screenshot 12_blocks_t2
+wait 8
+screenshot 13_blocks_t3
+wait 8
+screenshot 14_blocks_t4
+wait 8
+screenshot 15_blocks_t5
+wait 8
+screenshot 16_blocks_t6
+wait 8
+screenshot 17_blocks_t7
+cmd tremor info
+
+log --- warp style
+config client:render.style warp
+cmd tremor spawn 300 200 318
+cmd tremor anger 45
+wait 60
+cmd summon minecraft:snowball 305.5 206.0 318.5 {Motion:[0.0,-0.6,0.0]}
+wait 10
+screenshot 20_warp_t0
+wait 8
+screenshot 21_warp_t1
+wait 8
+screenshot 22_warp_t2
+wait 8
+screenshot 23_warp_t3
+wait 8
+screenshot 24_warp_t4
+wait 8
+screenshot 25_warp_t5
+cmd tremor despawn
+hud on
+cmd gamemode survival
+quit

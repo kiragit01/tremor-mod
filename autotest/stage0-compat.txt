@@ -1,0 +1,68 @@
+# Stage 0 render compatibility: translucent copies (ice), water behind the bump, Fabulous graphics, close-up of
+# the crest. Uses the entity (standing still, brain off) instead of the stage 0 spike. Run it plain and with Sodium:
+#   gradlew runClientAutotest -Ptremor_autotest_script=stage0-compat.txt
+#   gradlew runClientAutotest -Ptremor_autotest_script=stage0-compat.txt -Ptremor_sodium=true
+
+waitchunks
+cmd time set noon
+cmd weather clear
+cmd gamerule doDaylightCycle false
+cmd gamerule doWeatherCycle false
+cmd gamerule doMobSpawning false
+cmd kill @e[type=!player]
+cmd gamemode spectator
+
+# The stage 0 spike arena, plus a strip of ice through the bump and a pool of water behind it
+cmd fill -16 59 4 32 62 52 minecraft:dirt
+cmd fill -16 63 4 32 63 52 minecraft:grass_block
+cmd fill -16 64 4 32 73 52 minecraft:air
+cmd fill -16 74 4 32 84 52 minecraft:air
+cmd fill 30 64 18 32 73 38 minecraft:stone
+cmd fill 2 63 29 14 63 30 minecraft:ice
+cmd fill 2 63 36 14 63 40 minecraft:water
+
+cmd tp @s 8.5 67.6 18.5 0 22
+wait 60
+waitchunks
+hud off
+
+cmd tremor spawn 8 63 28
+cmd tremor ai off
+cmd tremor set amplitude 2.5
+wait 40
+graphics fancy
+waitchunks
+wait 10
+screenshot 10_fancy_blocks
+config client:render.style warp
+wait 10
+screenshot 11_fancy_warp
+config client:render.style blocks
+
+graphics fabulous
+waitchunks
+wait 20
+screenshot 12_fabulous_blocks
+config client:render.style warp
+wait 10
+screenshot 13_fabulous_warp
+config client:render.style blocks
+bench fabulous_additive 200
+
+graphics fancy
+waitchunks
+wait 20
+cmd tp @s 8.5 69.6 13.5 0 27
+wait 10
+cmd tremor set amplitude 3.0
+cmd tremor set sigmaSide 2.2
+wait 40
+screenshot 14_big
+bench additive_big 300
+cmd tremor despawn
+
+# Restore the arena
+cmd fill 2 63 29 14 63 30 minecraft:grass_block
+cmd fill 2 63 36 14 63 40 minecraft:grass_block
+hud on
+quit

@@ -1,0 +1,93 @@
+# Stage 1 review fixes, checked in game. Needs the cave of stage1-cave.txt (run that first in this autotest world).
+#  1. Reversal: while cruising, a goto to a point behind it must not jerk (motion "frame-to-frame change" stays small).
+#  2. Short dive through a 2-block wall into a west chamber: the bump must be hidden while in the rock
+#     (amplitude in the info lines around the dive).
+# Run: gradlew runClientAutotest -Ptremor_autotest_script=stage1-fixes.txt
+
+waitchunks
+cmd gamemode spectator
+cmd effect give @s minecraft:night_vision infinite 0 true
+cmd tremor despawn
+# West chamber behind the hall's 2-thick west wall (x -12..-11)
+cmd fill -18 37 18 -13 48 32 minecraft:stone
+cmd fill -16 40 21 -13 46 29 minecraft:air
+cmd tp @s 4.5 46.0 25.5 -90 45
+wait 40
+waitchunks
+hud off
+
+# 1. Reversal at cruise speed
+fps 60
+cmd tremor spawn -6 39 11
+# Stage 1 checks motion only: no brain (stage 3), and the stage factors of DORMANT neutralised
+cmd tremor ai off
+config behavior.stages.dormant.speedFactor 1.0
+config behavior.stages.dormant.amplitudeFactor 1.0
+wait 20
+cmd tremor goto -6 39 39
+wait 50
+bench before_reversal 30
+cmd tremor goto -6 39 11
+bench reversal 80
+cmd tremor info
+wait 60
+
+# 2. Short dive into the west chamber (dive edge (-11,y,z) -> (-12,y,z))
+cmd tremor goto -9 39 25
+wait 120
+cmd tremor goto -15 39 25
+wait 3
+cmd tremor info
+wait 3
+cmd tremor info
+wait 3
+cmd tremor info
+wait 3
+cmd tremor info
+wait 3
+cmd tremor info
+wait 3
+cmd tremor info
+wait 3
+cmd tremor info
+wait 3
+cmd tremor info
+wait 3
+cmd tremor info
+wait 3
+cmd tremor info
+wait 3
+cmd tremor info
+wait 3
+cmd tremor info
+wait 3
+cmd tremor info
+wait 3
+cmd tremor info
+wait 3
+cmd tremor info
+wait 3
+cmd tremor info
+wait 3
+cmd tremor info
+wait 3
+cmd tremor info
+wait 3
+cmd tremor info
+wait 3
+cmd tremor info
+wait 3
+cmd tremor info
+wait 3
+cmd tremor info
+wait 3
+cmd tremor info
+wait 3
+cmd tremor info
+wait 40
+cmd tremor info
+
+cmd tremor despawn
+fps 260
+hud on
+quit

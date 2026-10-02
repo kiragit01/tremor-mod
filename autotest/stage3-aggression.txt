@@ -1,0 +1,211 @@
+# Stage 3 acceptance (SPEC 15): in survival the entity appears by itself far away, reacts to noise by stage, can be
+# angered and calmed down by silence; transitions are audible, contact while HUNTING hurts and throws the player.
+# Arena: a 3-block-thick stone platform of 161 x 161 blocks high in the sky (y 198..200), so that the entity has
+# nowhere else to wander and is always in view; a one-block perch above it that the entity cannot reach.
+# The player stands at the centre (300.5, 201, 300.5) and looks south (+z).
+# Run: gradlew runClientAutotest -Ptremor_autotest_script=stage3-aggression.txt
+
+waitchunks
+# Built in spectator mode (no fall while the platform does not exist yet), played in survival
+cmd gamemode spectator
+cmd difficulty normal
+cmd time set noon
+cmd gamerule doDaylightCycle false
+cmd gamerule doMobSpawning false
+cmd effect give @s minecraft:night_vision infinite 0 true
+cmd tremor despawn
+cmd kill @e[type=!player]
+cmd tp @s 300.5 201.0 300.5 0 8
+wait 40
+waitchunks
+cmd fill 220 198 220 380 198 380 minecraft:stone
+cmd fill 220 199 220 380 199 380 minecraft:stone
+cmd fill 220 200 220 380 200 380 minecraft:stone
+cmd fill 300 210 290 300 210 290 minecraft:stone
+# Again, in case the far chunks were not loaded yet the first time ("That position is not loaded")
+wait 40
+cmd fill 220 198 220 380 198 380 minecraft:stone
+cmd fill 220 199 220 380 199 380 minecraft:stone
+cmd fill 220 200 220 380 200 380 minecraft:stone
+cmd tp @s 300.5 201.0 300.5 0 8
+cmd gamemode survival
+wait 20
+waitchunks
+hud off
+cmd tremor debug hearing on
+cmd effect give @s minecraft:instant_health 1 4 true
+
+# ---- 1. DORMANT: lazy, low and slow; wanders 16-32 blocks, keeps 24 blocks from the player, prefers being seen ----
+log --- 1. dormant: lazy wandering in view
+cmd tremor spawn 300 200 330
+wait 40
+cmd tremor info
+screenshot 10_dormant_start
+wait 200
+cmd tremor info
+screenshot 11_dormant_wander
+wait 200
+cmd tremor info
+screenshot 12_dormant_wander
+
+# ---- 2. Footsteps on stone anger it until it is ALERT (hearing lines show "dormant -> alert") ----
+# It stays put meanwhile (long wander pauses), so the walking stays within earshot.
+log --- 2. walking on stone until it is alert
+config behavior.wanderPauseSeconds 120
+cmd tremor spawn 300 200 322
+wait 20
+cmd tp @s 300.5 201.0 300.5 0 8
+wait 5
+hold forward 50
+cmd tp @s 300.5 201.0 300.5 0 8
+wait 5
+hold forward 50
+cmd tp @s 300.5 201.0 300.5 0 8
+wait 5
+hold forward 50
+cmd tremor info
+cmd tp @s 300.5 201.0 300.5 0 8
+wait 5
+hold forward 50
+cmd tp @s 300.5 201.0 300.5 0 8
+wait 5
+hold forward 50
+cmd tp @s 300.5 201.0 300.5 0 8
+wait 5
+hold forward 50
+cmd tremor info
+cmd tp @s 300.5 201.0 300.5 0 8
+wait 5
+hold forward 50
+cmd tp @s 300.5 201.0 300.5 0 8
+wait 5
+hold forward 50
+cmd tp @s 300.5 201.0 300.5 0 8
+wait 5
+hold forward 50
+cmd tremor info
+screenshot 20_alert_frozen
+wait 60
+cmd tremor info
+screenshot 21_alert_creeping
+
+# ---- 3. ALERT: a sound makes it freeze, turn toward the sound, and ripple the ground ----
+log --- 3. alert: freeze, turn and ripple at a snowball
+cmd tremor spawn 300 200 318
+cmd tremor anger 45
+cmd tp @s 300.5 201.0 300.5 0 12
+wait 60
+cmd tremor info
+cmd summon minecraft:snowball 305.5 206.0 318.5 {Motion:[0.0,-0.6,0.0]}
+wait 6
+screenshot 30_ripple_a
+wait 3
+screenshot 31_ripple_b
+wait 3
+screenshot 32_ripple_c
+wait 3
+screenshot 33_ripple_d
+wait 3
+screenshot 34_ripple_e
+wait 3
+screenshot 35_ripple_f
+wait 10
+cmd tremor info
+screenshot 36_frozen_facing
+wait 60
+cmd tremor info
+screenshot 37_creeping
+
+# ---- 4. HUNTING: sprinting makes it hunt; it comes fast and high, contact hurts and throws the player ----
+log --- 4. sprinting until it hunts; it comes for the player
+cmd data get entity @s Health
+cmd tp @s 300.5 201.0 290.5 0 8
+wait 5
+hold forward+sprint 30
+cmd tp @s 300.5 201.0 290.5 0 8
+wait 5
+hold forward+sprint 30
+cmd tp @s 300.5 201.0 290.5 0 8
+wait 5
+hold forward+sprint 30
+cmd tp @s 300.5 201.0 290.5 0 8
+wait 5
+hold forward+sprint 30
+cmd tremor info
+screenshot 40_hunting_a
+wait 20
+screenshot 41_hunting_b
+wait 20
+screenshot 42_hunting_c
+wait 20
+screenshot 43_hunting_d
+wait 20
+cmd data get entity @s Health
+cmd tremor info
+screenshot 44_after_contact
+wait 60
+cmd data get entity @s Health
+cmd tremor info
+
+# ---- 5. Silence calms it down: the player waits on the perch, out of its reach ----
+log --- 5. silence on the perch: anger decays, stages fall
+cmd tp @s 300.5 211.0 290.5 0 40
+cmd effect give @s minecraft:instant_health 1 4 true
+wait 200
+cmd tremor info
+wait 400
+cmd tremor info
+wait 400
+cmd tremor info
+wait 400
+cmd tremor info
+wait 400
+cmd tremor info
+screenshot 50_calm
+cmd tremor debug hearing off
+cmd tremor despawn
+
+# ---- 6. Natural spawn: spawn checks every second, certain to succeed ----
+log --- 6. natural spawn far from the player
+cmd tp @s 300.5 201.0 300.5 0 4
+wait 20
+config spawn.protectionRadius 0
+config spawn.cooldownSeconds 0
+config spawn.graceSeconds 0
+config spawn.checkIntervalSeconds 1
+config spawn.baseChance 1.0
+wait 200
+cmd tremor info
+look 0 4
+wait 5
+screenshot 60_look_south
+look 90 4
+wait 5
+screenshot 61_look_west
+look 180 4
+wait 5
+screenshot 62_look_north
+look 270 4
+wait 5
+screenshot 63_look_east
+
+# ---- 7. Nothing happens near it: it leaves (sinks), and is not replaced during the cooldown ----
+log --- 7. despawn by silence, then the cooldown
+config spawn.cooldownSeconds 600
+config behavior.despawn.quietSeconds 5
+wait 60
+cmd tremor info
+wait 100
+cmd tremor info
+wait 200
+cmd tremor info
+
+# ---- 8. The op command finds a natural spawn point at once ----
+log --- 8. /tremor spawn natural
+config spawn.enabled false
+cmd tremor spawn natural
+wait 20
+cmd tremor info
+cmd tremor despawn
+hud on
+quit
