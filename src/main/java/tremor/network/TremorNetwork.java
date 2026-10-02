@@ -4,7 +4,7 @@ import net.neoforged.neoforge.network.event.RegisterPayloadHandlersEvent;
 import net.neoforged.neoforge.network.registration.PayloadRegistrar;
 
 public final class TremorNetwork {
-    private static final String PROTOCOL = "5";
+    private static final String PROTOCOL = "6";
 
     private TremorNetwork() {
     }
@@ -22,5 +22,7 @@ public final class TremorNetwork {
                 (payload, context) -> tremor.client.awakening.ClientAwakening.accept(payload));
         registrar.playToClient(TremorStepRipplePayload.TYPE, TremorStepRipplePayload.STREAM_CODEC,
                 (payload, context) -> tremor.client.awakening.ClientAwakening.acceptRipple(payload));
+        registrar.playToClient(TremorHollowStatePayload.TYPE, TremorHollowStatePayload.STREAM_CODEC,
+                (payload, context) -> tremor.client.hollow.ClientHollow.accept(payload));
     }
 }

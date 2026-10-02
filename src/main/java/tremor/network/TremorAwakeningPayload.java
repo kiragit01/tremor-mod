@@ -34,6 +34,11 @@ public record TremorAwakeningPayload(int id, Vec3 center, float radius, Phase ph
         SWALLOWING,
         /** The target is in the hollow; for everyone else the ground is smooth as if nothing happened. */
         HOLLOW,
+        /**
+         * After a victory (SPEC 9): at the focus (the swallow point) a hill rises, the player comes out of it, and it
+         * settles back over the phase.
+         */
+        EMERGING,
         /** Over (escape, victory, defeat or cancelled): drop it. */
         ENDED
     }

@@ -36,6 +36,7 @@ public final class TremorClient {
         game.addListener(ClientBlackout::onRespawn);
         game.addListener(ClientBlackout::onLoggingOut);
         game.addListener(tremor.client.awakening.ClientAwakening::onLoggingOut);
+        game.addListener(tremor.client.hollow.ClientHollow::onLoggingOut);
         // Lowest priority: the root's part is taken out of the view after other mods changed it.
         game.addListener(EventPriority.LOWEST, tremor.client.awakening.ClientRoot::onComputeFovModifier);
         game.addListener(tremor.client.sound.AwakeningSounds::onClientTick);
