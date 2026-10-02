@@ -99,6 +99,7 @@ public final class TremorConfig {
 
         public final Spawn spawn;
         public final Hollow hollow;
+        public final Awakening awakening;
 
         Common(ModConfigSpec.Builder b) {
             BumpParams d = BumpParams.defaults();
@@ -218,7 +219,8 @@ public final class TremorConfig {
                     .translation(KEY + "behavior.alertAt").defineInRange("alertAt", bp.alertAt(), 1.0, 100.0);
             huntAt = b.comment("Anger from which the entity is HUNTING")
                     .translation(KEY + "behavior.huntAt").defineInRange("huntAt", bp.huntAt(), 1.0, 100.0);
-            awakenAt = b.comment("Anger of the AWAKENING (until stage 4 it hunts then); also the top of the scale")
+            awakenAt = b.comment("Anger of the AWAKENING (the Awakening starts, see the awakening section); also the",
+                            "top of the scale")
                     .translation(KEY + "behavior.awakenAt").defineInRange("awakenAt", bp.awakenAt(), 1.0, 100.0);
             hysteresis = b.comment("A stage is left downwards only once the anger is this far below its threshold")
                     .translation(KEY + "behavior.hysteresis").defineInRange("hysteresis", bp.hysteresis(), 0.0, 50.0);
@@ -267,7 +269,7 @@ public final class TremorConfig {
             stage(b, Stage.DORMANT, "Lazy wandering: slow, a low bump", 0.6, 0.6);
             stage(b, Stage.ALERT, "Freezing and creeping toward sounds", 0.5, 0.85);
             stage(b, Stage.HUNTING, "Going for sounds: fast, a higher bump", 1.6, 1.25);
-            stage(b, Stage.AWAKENING, "Until stage 4, the same as hunting", 1.6, 1.25);
+            stage(b, Stage.AWAKENING, "While there is nobody to take in an Awakening: hunting on", 1.6, 1.25);
             b.pop();
 
             b.comment("Contact of the bump with a player while HUNTING or AWAKENING (SPEC 8), with the bump at least",
@@ -306,6 +308,7 @@ public final class TremorConfig {
 
             spawn = new Spawn(b);
             hollow = new Hollow(b);
+            awakening = new Awakening(b);
         }
 
         private static ModConfigSpec.DoubleValue conductivity(ModConfigSpec.Builder b, String name, String comment,
@@ -476,6 +479,36 @@ public final class TremorConfig {
         }
     }
 
+    /**
+     * The Awakening (SPEC 9 phase 1), section {@code awakening} of COMMON; read by
+     * {@link tremor.awakening.AwakeningManager}.
+     */
+    public static final class Awakening {
+        public final ModConfigSpec.DoubleValue radius;
+        public final ModConfigSpec.IntValue buildupSeconds;
+        public final ModConfigSpec.IntValue swallowTicks;
+        public final ModConfigSpec.IntValue cooldownSeconds;
+
+        Awakening(ModConfigSpec.Builder b) {
+            b.comment("The Awakening (SPEC 9): at the top of its anger the entity becomes the whole area around a",
+                            "player; the player escapes by leaving the zone in time, or the ground swallows the player",
+                            "into the hollow")
+                    .translation(KEY + "awakening").push("awakening");
+            radius = b.comment("Radius of the zone (blocks, horizontally) around where the player stood at the start")
+                    .translation(KEY + "awakening.radius").defineInRange("radius", 30.0, 4.0, 128.0);
+            buildupSeconds = b.comment("Time to get out of the zone before it closes (seconds); the last third is dark")
+                    .translation(KEY + "awakening.buildupSeconds").defineInRange("buildupSeconds", 30, 1, 600);
+            swallowTicks = b.comment("How long the hill rises under the rooted player before the screen goes dark",
+                            "(ticks)")
+                    .translation(KEY + "awakening.swallowTicks").defineInRange("swallowTicks", 50, 1, 600);
+            cooldownSeconds = b.comment("After an Awakening the entity has gone deep: no natural spawn in the",
+                            "dimension for this long (seconds)")
+                    .translation(KEY + "awakening.cooldownSeconds")
+                    .defineInRange("cooldownSeconds", 3600, 0, 604800);
+            b.pop();
+        }
+    }
+
     /** Upper bound of the conductivity samples per vibration (performance, SPEC 16). */
     public static final int MAX_HEARING_SAMPLES = 128;
 
@@ -494,6 +527,7 @@ public final class TremorConfig {
 
     public static final class Client {
         public final ModConfigSpec.IntValue maxDeformedBlocks;
+        public final ModConfigSpec.IntValue awakeningMaxBlocks;
         public final ModConfigSpec.IntValue renderDistance;
         public final ModConfigSpec.BooleanValue jitter;
         public final ModConfigSpec.EnumValue<Style> style;
@@ -501,11 +535,19 @@ public final class TremorConfig {
         public final ModConfigSpec.DoubleValue rippleAmplitude;
         public final ModConfigSpec.BooleanValue rippleDust;
         public final ModConfigSpec.DoubleValue rustleVolume;
+        public final ModConfigSpec.DoubleValue silenceFloor;
+        public final ModConfigSpec.DoubleValue heartbeatVolume;
+        public final ModConfigSpec.DoubleValue humVolume;
 
         Client(ModConfigSpec.Builder b) {
             b.comment("Rendering quality of the ground deformation").translation(KEY + "render").push("render");
             maxDeformedBlocks = b.comment("Upper bound of block copies drawn per frame; the rest is skipped")
                     .translation(KEY + "render.maxDeformedBlocks").defineInRange("maxDeformedBlocks", 1500, 0, 20000);
+            awakeningMaxBlocks = b.comment("The same bound while the ground of an Awakening zone (SPEC 9) is drawn,",
+                            "where all of it in view breathes; the nearest is kept, and it lowers smoothly towards",
+                            "where the bound cuts it off")
+                    .translation(KEY + "render.awakeningMaxBlocks")
+                    .defineInRange("awakeningMaxBlocks", 4000, 0, 40000);
             renderDistance = b.comment("Deformation further than this from the camera (blocks) is not drawn")
                     .translation(KEY + "render.renderDistance").defineInRange("renderDistance", 128, 16, 512);
             jitter = b.comment("Draw the fine tremble of the ground (noise term of the shape)")
@@ -523,8 +565,9 @@ public final class TremorConfig {
                             "(0 = off); it is lower around a lower bump and gone while the bump dives")
                     .translation(KEY + "effects.rippleAmplitude")
                     .defineInRange("rippleAmplitude", RippleParams.defaults().amplitude(), 0.0, 1.0);
-            rippleDust = b.comment("Kick up a little dust of the ground along the front of the ripple while it is",
-                            "drawn; half as much with the Particles video setting at Decreased, none at Minimal")
+            rippleDust = b.comment("Kick up a little dust of the ground along the front of the ripples while they are",
+                            "drawn (around an alerted entity, and the rings of steps in an Awakening); half as much",
+                            "with the Particles video setting at Decreased, none at Minimal")
                     .translation(KEY + "effects.rippleDust").define("rippleDust", true);
             b.pop();
 
@@ -533,6 +576,17 @@ public final class TremorConfig {
                             "louder than the other hostile sounds, but at most at full volume: that only counts while",
                             "the Hostile Creatures volume is below 100%")
                     .translation(KEY + "sound.rustleVolume").defineInRange("rustleVolume", 1.0, 0.0, 2.0);
+            silenceFloor = b.comment("Inside the zone of an Awakening every sound of the world (mobs, weather, blocks,",
+                            "music) fades to this share of its volume over 3 s, and comes back once you are out",
+                            "(SPEC 9); the music plays on through it. 0 = complete silence, 1 = no silence; the menu",
+                            "and the mod's own sounds stay, and so may sound loops of other mods")
+                    .translation(KEY + "sound.silenceFloor").defineInRange("silenceFloor", 0.05, 0.0, 1.0);
+            heartbeatVolume = b.comment("Volume of the heartbeat heard inside the zone of an Awakening; it starts at",
+                            "40% of this and quickens and grows to all of it as the zone closes (0 = off)")
+                    .translation(KEY + "sound.heartbeatVolume").defineInRange("heartbeatVolume", 0.8, 0.0, 1.0);
+            humVolume = b.comment("Volume of the low hum of the ground inside the zone of an Awakening; it starts at",
+                            "35% of this and swells to all of it as the zone closes (0 = off)")
+                    .translation(KEY + "sound.humVolume").defineInRange("humVolume", 0.7, 0.0, 1.0);
             b.pop();
         }
     }

@@ -53,6 +53,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.function.Consumer;
 import java.util.function.IntUnaryOperator;
 
@@ -103,8 +104,25 @@ public final class HollowManager {
     private static State state;
     /** The entity this class is moving at this moment ({@link #isMoving}), or null. */
     private static Entity moving;
+    /** Told about every event that ends ({@link #addEndListener}). */
+    private static final List<EndListener> END_LISTENERS = new CopyOnWriteArrayList<>();
 
     private HollowManager() {
+    }
+
+    /** Told when the player part of an event ends (SPEC 9: the Awakening that swallowed the player ends with it). */
+    @FunctionalInterface
+    public interface EndListener {
+        /**
+         * The event has just entered CLEARING ({@code why} is its {@link HollowEvent#end()}); server thread. Also
+         * called for the events a (re)start finds in the saved data, before anything else of the hollow runs.
+         */
+        void ended(HollowEvent event, HollowEvent.End why);
+    }
+
+    /** Adds a listener told about every event that ends (for the mod's setup); one that throws is logged. */
+    public static void addEndListener(EndListener listener) {
+        END_LISTENERS.add(listener);
     }
 
     /** Why an event could not start or change ({@link #enter}, {@link #leave}); the message is for the player. */
@@ -941,6 +959,13 @@ public final class HollowManager {
             event.light.clear();
             data.setDirty();
             Tremor.LOGGER.info("Hollow: {} ended ({}), clearing the slot", event, why.id());
+            for (EndListener listener : END_LISTENERS) {
+                try {
+                    listener.ended(event, why);
+                } catch (RuntimeException e) {
+                    Tremor.LOGGER.error("Hollow: a listener failed on the end of {}", event, e);
+                }
+            }
         }
 
         /**

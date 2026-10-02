@@ -10,8 +10,9 @@ import tremor.core.math.Vec3;
 
 /**
  * Per-dimension saved state ({@code data/tremor.dat} of the dimension): at most one entity (SPEC 4), the counter its
- * instance numbers come from, which only ever grows so clients can tell a respawned entity from the old one, and when a
- * naturally spawned entity was last removed (for the natural spawn cooldown, SPEC 11).
+ * instance numbers come from, which only ever grows so clients can tell a respawned entity from the old one, when a
+ * naturally spawned entity was last removed (for the natural spawn cooldown, SPEC 11), and when the last Awakening
+ * ended (the entity went deep: the long cooldown of SPEC 9).
  */
 public final class TremorSavedData extends SavedData {
     public static final String NAME = Tremor.MODID;
@@ -21,6 +22,7 @@ public final class TremorSavedData extends SavedData {
     private int lastInstance;
     private TremorEntity entity;
     private long lastNaturalDespawn = Long.MIN_VALUE;
+    private long lastAwakeningEnd = Long.MIN_VALUE;
 
     private TremorSavedData() {
     }
@@ -46,6 +48,20 @@ public final class TremorSavedData extends SavedData {
      */
     public long lastNaturalDespawn() {
         return lastNaturalDespawn;
+    }
+
+    /**
+     * Game time the last Awakening of the dimension ended (SPEC 9: the entity goes deep, a long cooldown), or
+     * {@link Long#MIN_VALUE} if there never was one.
+     */
+    public long lastAwakeningEnd() {
+        return lastAwakeningEnd;
+    }
+
+    /** An Awakening ended at {@code gameTime}: the natural spawn pause after it starts now. */
+    public void awakeningEnded(long gameTime) {
+        lastAwakeningEnd = gameTime;
+        setDirty();
     }
 
     /**
@@ -76,6 +92,9 @@ public final class TremorSavedData extends SavedData {
         if (lastNaturalDespawn != Long.MIN_VALUE) {
             tag.putLong("lastNaturalDespawn", lastNaturalDespawn);
         }
+        if (lastAwakeningEnd != Long.MIN_VALUE) {
+            tag.putLong("lastAwakeningEnd", lastAwakeningEnd);
+        }
         if (entity != null) {
             tag.put("entity", entity.save());
         }
@@ -87,6 +106,9 @@ public final class TremorSavedData extends SavedData {
         data.lastInstance = tag.getInt("lastInstance");
         if (tag.contains("lastNaturalDespawn", Tag.TAG_LONG)) {
             data.lastNaturalDespawn = tag.getLong("lastNaturalDespawn");
+        }
+        if (tag.contains("lastAwakeningEnd", Tag.TAG_LONG)) {
+            data.lastAwakeningEnd = tag.getLong("lastAwakeningEnd");
         }
         if (tag.contains("entity", Tag.TAG_COMPOUND)) {
             try {

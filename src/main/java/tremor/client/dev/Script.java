@@ -27,6 +27,7 @@ import java.util.stream.Collectors;
  * waitchunks [timeoutTicks]    wait until chunks stopped arriving and visible sections are meshed (default 600)
  * cmd &lt;command&gt;               run a command as the player (a leading slash is optional)
  * hud &lt;on|off&gt;                show / hide the GUI (F1)
+ * view &lt;first|back|front&gt;     camera: first person, third person from behind or from the front (F5)
  * look &lt;yaw&gt; &lt;pitch&gt;          set the camera rotation, pitch in [-90, 90]
  * hold &lt;keys&gt; &lt;ticks&gt;          hold movement keys for that many client ticks (at least 1), then release them; keys
  *                              are forward back left right jump sneak sprint joined with '+', e.g. forward+sprint
@@ -70,7 +71,7 @@ record Script(Path path, List<Step> steps) {
     static final int FPS_UNLIMITED = 260;
 
     enum Kind {
-        WAIT, WAITCHUNKS, CMD, HUD, LOOK, HOLD, RELEASE, GRAPHICS, FPS, BENCH, SCREENSHOT, LOG, CONFIG, WAITFOR, QUIT,
+        WAIT, WAITCHUNKS, CMD, HUD, VIEW, LOOK, HOLD, RELEASE, GRAPHICS, FPS, BENCH, SCREENSHOT, LOG, CONFIG, WAITFOR, QUIT,
         INVALID
     }
 
@@ -148,7 +149,7 @@ record Script(Path path, List<Step> steps) {
      * @param text   command / label / screenshot name / log text / hold keys joined with {@code +} / config path in its
      *               canonical {@link ConfigPath#toString() form} / waitfor regex, or the error message of an invalid
      *               step
-     * @param number ticks (wait, waitchunks timeout, hold, bench, waitfor limit), {@code 1}/{@code 0} for hud on/off
+     * @param number ticks (wait, waitchunks timeout, hold, bench, waitfor limit), {@code 1}/{@code 0} for hud on/off, the camera for view (0 first, 1 back, 2 front)
      * @param keys   the keys of a hold, empty for every other step
      * @param value  the value of a config step as written, empty for every other step
      */
@@ -236,6 +237,17 @@ record Script(Path path, List<Step> steps) {
                         throw new IllegalArgumentException("usage: hud <on|off>");
                     }
                     yield Step.of(line, source, Kind.HUD, value, value.equals("on") ? 1 : 0);
+                }
+                case "view" -> {
+                    expectArgs(args, 1, 1, "view <first|back|front>");
+                    String value = args[0].toLowerCase(Locale.ROOT);
+                    int camera = switch (value) {
+                        case "first" -> 0;
+                        case "back" -> 1;
+                        case "front" -> 2;
+                        default -> throw new IllegalArgumentException("usage: view <first|back|front>");
+                    };
+                    yield Step.of(line, source, Kind.VIEW, value, camera);
                 }
                 case "look" -> {
                     expectArgs(args, 2, 2, "look <yaw> <pitch>");

@@ -376,6 +376,29 @@ public final class TremorRuntime {
     }
 
     /**
+     * Hands the entity to an Awakening (SPEC 9, {@link TremorMind#absorb}): it drops its target and stops (braking)
+     * and from now on is the whole area rather than a bump, until it is removed. Nothing happens if it is taken
+     * already. @throws IllegalStateException if there is no entity
+     */
+    public void absorb() {
+        TremorEntity entity = requireEntity();
+        TremorMind mind = mind(entity);
+        if (mind.absorbed()) {
+            return;
+        }
+        beginPass();
+        dropTarget(entity);
+        mind.absorb();
+        data.setDirty();
+    }
+
+    /** Whether an Awakening took the entity ({@link #absorb}); false if there is none. */
+    public boolean absorbed() {
+        TremorEntity entity = data.entity();
+        return entity != null && mind(entity).absorbed();
+    }
+
+    /**
      * Reaction to a vibration in the level (SPEC 7.2, 7.3, 8). Its perceived loudness at the entity is
      * {@link Hearing#perceived} over the live level. From the threshold on it is heard: {@code lastHeard} is updated,
      * the anger grows by {@code perceived * angerPerLoudness} plus the vibration's bonus, and the brain hears it

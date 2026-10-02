@@ -35,6 +35,21 @@ public final class TremorClient {
         game.addListener(ClientBlackout::onScreenRender);
         game.addListener(ClientBlackout::onRespawn);
         game.addListener(ClientBlackout::onLoggingOut);
+        game.addListener(tremor.client.awakening.ClientAwakening::onLoggingOut);
+        // Lowest priority: the root's part is taken out of the view after other mods changed it.
+        game.addListener(EventPriority.LOWEST, tremor.client.awakening.ClientRoot::onComputeFovModifier);
+        game.addListener(tremor.client.sound.AwakeningSounds::onClientTick);
+        game.addListener(tremor.client.sound.AwakeningSounds::onLoggingOut);
+        game.addListener(tremor.client.sound.WorldSilence::onClientTick);
+        // Lowest priority: the silence wraps the sound other mods settled on.
+        game.addListener(EventPriority.LOWEST, tremor.client.sound.WorldSilence::onPlaySound);
+        game.addListener(EventPriority.NORMAL, true, net.neoforged.neoforge.client.event.SelectMusicEvent.class,
+                tremor.client.sound.WorldSilence::onSelectMusic);
+        game.addListener(tremor.client.sound.WorldSilence::onLoggingOut);
+        game.addListener(tremor.client.sound.WorldSilence::onLevelUnload);
+        // Fired on the sound engine's thread.
+        game.addListener(tremor.client.sound.WorldSilence::onSoundStarted);
+        game.addListener(tremor.client.sound.WorldSilence::onStreamStarted);
 
         // Dev-only scripted run (gradlew runClientAutotest); inert unless -Dtremor.autotest is set.
         if (AutoTest.isEnabled()) {

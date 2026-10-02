@@ -24,12 +24,14 @@ import net.neoforged.neoforge.client.event.ModelEvent;
 import net.neoforged.neoforge.client.event.RenderLevelStageEvent;
 import net.neoforged.neoforge.client.model.data.ModelData;
 import tremor.client.ClientTremor;
+import tremor.client.awakening.AwakeningGround;
 import tremor.config.TremorConfig;
 import tremor.core.VoxelView;
 import tremor.core.deform.SurfaceCollector;
 import tremor.core.deform.SurfacePoint;
 import tremor.core.math.Vec3;
 import tremor.core.math.VoxelPos;
+import tremor.core.shape.AwakeningField;
 import tremor.core.shape.BumpFrame;
 import tremor.core.shape.BumpParams;
 import tremor.core.shape.BumpShape;
@@ -42,7 +44,6 @@ import tremor.world.SurfaceLight;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;
-import java.util.IdentityHashMap;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -53,21 +54,26 @@ import java.util.SequencedMap;
  * Additive client-side deformation (SPEC 6.3): the world is never touched; instead copies of the affected surface
  * blocks are drawn pushed out along the surface normal, following the entity's bump as {@link ClientTremor}
  * interpolates it, and, while one runs, the ground ripple of an ALERT freeze (SPEC 8) around it ({@link HeightField}),
- * fading with the bump ({@link Ripple#visibility}).
+ * fading with the bump ({@link Ripple#visibility}). While an Awakening runs in the real world (SPEC 9, phase 1), the
+ * ground of its whole zone moves too ({@link AwakeningGround}): it breathes, rings run out from steps, a hill rises
+ * under the swallowed player; its height adds to the bump's where both cover a voxel, and is drawn without the entity
+ * (sunk during the event) as well.
  * <p>
- * The deformed voxels are re-collected only when the bump has moved or turned noticeably (or every few ticks), over a
+ * The bump's voxels are re-collected only when the bump has moved or turned noticeably (or every few ticks), over a
  * client-side {@link VoxelCache} of the level, and only as far out as the height can reach the render threshold
  * ({@link RenderReach}): a starting ripple widens the collection once, and it shrinks back once the ripple is over.
- * A voxel's block model is tesselated into {@link VertexList}s (with the real biome tint and the
+ * The zone's voxels are scanned once over several frames and kept ({@link ZoneColumns}); each frame evaluates only
+ * those in view. A voxel's block model is tesselated into {@link VertexList}s (with the real biome tint and the
  * light of the open space next to the original block) the first time it rises above the threshold, a limited number
- * per frame, and kept, keyed by position, while the bump stays near, so a moving bump only bakes the voxels it newly
- * raises. Every frame the heights are evaluated for the current frame of the bump and the baked meshes are replayed at
- * that offset, so the per-frame cost is just copying vertices. Opaque layers are drawn after the block entities,
- * translucent and tripwire layers in their own terrain passes so that they blend correctly (and survive Fabulous
- * graphics, which clears its translucent target before the translucent terrain).
+ * per frame, and kept, keyed by position, while the bump stays near or the zone lasts, so a moving bump only bakes the
+ * voxels it newly raises; the zone's ground that will breathe is baked ahead in the spare bakes of each frame. Every
+ * frame the heights are evaluated and the baked meshes are replayed at that offset, so the per-frame cost is just
+ * copying vertices. Opaque layers are drawn after the block entities, translucent and tripwire layers in their own
+ * terrain passes so that they blend correctly (and survive Fabulous graphics, which clears its translucent target
+ * before the translucent terrain).
  * <p>
- * Once per game tick a running ripple also kicks up a little dust of the ground along its front ({@link #spawnDust}),
- * from the collected voxels.
+ * Once per game tick a running ripple and every step ring also kick up a little dust of the ground along their fronts
+ * ({@link #spawnDust}, {@link #spawnRingDust}), from the collected voxels.
  */
 public final class DeformationRenderer {
     private static final List<RenderType> OPAQUE = List.of(RenderType.solid(), RenderType.cutoutMipped(), RenderType.cutout());
@@ -94,6 +100,12 @@ public final class DeformationRenderer {
     private static final int VALIDATE_INTERVAL = 5;
     /** Ticks between re-reads of the light of the drawn copies. */
     private static final int LIGHT_INTERVAL = 20;
+    /**
+     * Drawn columns checked per {@link #validate} at most. A larger drawn set (an Awakening zone) is checked a slice
+     * at a time, round and round, with its light re-read on every check: each column is looked at about every
+     * {@link #LIGHT_INTERVAL} ticks for the default budget.
+     */
+    private static final int MAX_VALIDATED = 1024;
     /** Columns (baked or not) the bump has not covered for this many ticks are dropped. */
     private static final int EVICT_AGE = 100;
     private static final int EVICT_INTERVAL = 20;
@@ -109,6 +121,8 @@ public final class DeformationRenderer {
     private static final int SECTION_EXPIRE = 400;
     /** Surface and normal estimation (SPEC 6.2) read up to this many voxels beyond the collected ones. */
     private static final int NORMAL_REACH = 2;
+    /** What a voxel is for the surface ({@link #surface}): not loaded, ground, open. */
+    private static final int UNKNOWN = 0, GROUND = 1, OPEN = 2;
     /**
      * Constant depth bias of the copies, so they win against the original block's faces they exactly overlap. No
      * slope factor: that would also push faces seen edge-on (the shared sides of neighbouring copies) through the
@@ -129,55 +143,6 @@ public final class DeformationRenderer {
     private static final double DUST_LAUNCH = 1.5;
     private static final Comparator<Column> NEAREST_FIRST = Comparator.comparingDouble(c -> c.distanceSq);
     private static final Comparator<Column> HIGHEST_FIRST = Comparator.comparingDouble(c -> -c.h);
-
-    /** One deformed surface voxel: where it is and, once baked, its geometry per render layer. */
-    private static final class Column {
-        final int x, y, z;
-        final BlockPos pos;
-        /** Where a plant/snow layer riding on the voxel sits. */
-        final BlockPos decoPos;
-        final double cx, cy, cz;
-        final Direction axis;
-        /** Smoothed surface normal, refreshed by every collection. */
-        Vec3 normal;
-        BlockState state;
-        BlockState decoState;
-        BlockPos lightPos;
-        int skyLight;
-        int blockLight;
-        /** Block-local model of the voxel itself and of a plant/snow layer sitting on it (offset by {@link #axis}). */
-        final Map<RenderType, VertexList> meshes = new IdentityHashMap<>();
-        final Map<RenderType, VertexList> decoMeshes = new IdentityHashMap<>();
-        /** Whether the meshes were baked; columns start unbaked and are baked once they rise above the threshold. */
-        boolean baked;
-        long lastUsed;
-        double h;
-        /** h at the 8 corners of the voxel, for the warp style. Index: x + 2y + 4z. */
-        final double[] corners = new double[8];
-        double distanceSq;
-
-        Column(int x, int y, int z, Direction axis, Vec3 normal) {
-            this.x = x;
-            this.y = y;
-            this.z = z;
-            this.pos = new BlockPos(x, y, z);
-            this.decoPos = pos.relative(axis);
-            this.cx = x + 0.5;
-            this.cy = y + 0.5;
-            this.cz = z + 0.5;
-            this.axis = axis;
-            this.normal = normal;
-        }
-
-        boolean hasGeometry() {
-            return !meshes.isEmpty() || !decoMeshes.isEmpty();
-        }
-
-        /** Copies drawn: the stack filling the gap down to the original, plus the decoration. */
-        int cost() {
-            return (meshes.isEmpty() ? 0 : (int) Math.ceil(h)) + (decoMeshes.isEmpty() ? 0 : 1);
-        }
-    }
 
     /**
      * Source of the terrain cache: the level read through a {@link LevelVoxelView} that is replaced for every pass,
@@ -217,22 +182,26 @@ public final class DeformationRenderer {
         }
     }
 
-    /** Columns (baked or not yet) by packed position, reused across collections. */
+    /** Columns (baked or not yet) by packed position, reused across collections, the bump's and the zone's alike. */
     private static final Map<Long, Column> columns = new HashMap<>();
-    /** Columns of the last collection. */
+    /** Columns of the bump's last collection. */
     private static final List<Column> active = new ArrayList<>();
-    /** This frame's columns with a visible height that are not baked yet. */
+    /** This frame's columns with a height: the bump's, then the zone's in view not already among them. */
+    private static final List<Column> frameColumns = new ArrayList<>();
+    /** This frame's columns with a visible height that are not baked yet, then those baked ahead. */
     private static final List<Column> pending = new ArrayList<>();
     /** This frame's baked columns with a visible height, within budget. */
     private static final List<Column> drawn = new ArrayList<>();
-    /** Columns on the ripple's front, gathered by {@link #spawnDust} and emptied again before it returns. */
+    /** Columns on the front of a ripple, gathered for the dust and emptied again by {@link #kickUpDust}. */
     private static final List<Column> dustFront = new ArrayList<>();
     /** Terrain sections in use by packed section position, with the tick they were last (re)read. */
     private static final Map<Long, Long> sectionReads = new HashMap<>();
     private static final ProbeLevel probe = new ProbeLevel();
     private static final RandomSource random = RandomSource.create();
     private static final LevelSource source = new LevelSource();
-    private static VoxelCache voxels;
+    private static final VoxelCache voxels = new VoxelCache(source);
+    private static final ZoneColumns zone = new ZoneColumns(voxels, DeformationRenderer::column,
+            DeformationRenderer::chunkLoaded);
     private static MultiBufferSource.BufferSource buffers;
 
     private static ClientLevel boundLevel;
@@ -245,13 +214,19 @@ public final class DeformationRenderer {
     private static long collectTick;
     private static long nextValidateTick;
     private static long nextLightTick;
+    /** Where the next {@link #validate} of a large drawn set starts. */
+    private static int validateCursor;
     private static long nextEvictTick;
-    /** Game time of the last {@link #spawnDust}. */
+    /** Game time of the last dust. */
     private static long dustTick = Long.MIN_VALUE;
 
     // per-frame state, prepared in the first pass and reused by the translucent passes of the same frame
     private static boolean frameReady;
+    /** Number of the frame, for {@link Column#stamp}. */
+    private static int frameStamp;
     private static boolean frameWarp;
+    /** Distance from the camera at which the budget cut an Awakening's ground off ({@link RenderBudget}); NaN: none. */
+    private static double frameCut = Double.NaN;
     private static double camX, camY, camZ;
     private static int frameCopies;
     private static int frameVertices;
@@ -269,12 +244,13 @@ public final class DeformationRenderer {
     public static void reset() {
         columns.clear();
         active.clear();
+        frameColumns.clear();
         pending.clear();
         drawn.clear();
         sectionReads.clear();
-        if (voxels != null) {
-            voxels.clear();
-        }
+        voxels.clear();
+        zone.clear();
+        AwakeningGround.reset();
         source.clear();
         boundLevel = null;
         collected = false;
@@ -313,7 +289,7 @@ public final class DeformationRenderer {
         }
     }
 
-    /** Brings the collection and the bakes up to date and computes this frame's heights and the columns to draw. */
+    /** Brings the collections and the bakes up to date and computes this frame's heights and the columns to draw. */
     private static boolean prepare(RenderLevelStageEvent event) {
         ClientLevel level = Minecraft.getInstance().level;
         if (level != boundLevel) {
@@ -328,92 +304,83 @@ public final class DeformationRenderer {
             modelsChanged = false;
             columns.clear();
             active.clear();
+            zone.clear();
             collected = false;
         }
         long tick = level.getGameTime();
         if (due(tick, nextEvictTick, EVICT_INTERVAL)) {
             nextEvictTick = tick + EVICT_INTERVAL;
+            zone.touch(tick);
             columns.values().removeIf(col -> tick - col.lastUsed > EVICT_AGE);
         }
 
         float partialTick = event.getPartialTick().getGameTimeDeltaPartialTick(false);
-        ClientTremor.RenderState state = ClientTremor.renderState(level, partialTick);
-        if (state == null) {
-            return false;
-        }
-        BumpFrame frame = state.frame();
-        BumpParams params = state.params();
-        RippleParams ripple = runningRipple(state.rippleAgeSeconds(),
-                Ripple.visibility(params.amplitude(), state.fullAmplitude()));
-        if (!(params.amplitude() >= BumpShape.RENDER_THRESHOLD) && ripple == null) {
-            return false; // dived (or inverted), and its ripple is gone with it, or there is none
-        }
         net.minecraft.world.phys.Vec3 cam = event.getCamera().getPosition();
         camX = cam.x;
         camY = cam.y;
         camZ = cam.z;
-        Vec3 c = frame.center();
-        RenderStats.recordCenter(c.x(), c.y(), c.z(), System.nanoTime());
-        double range = TremorConfig.CLIENT.renderDistance.get();
-        double ox = c.x() - camX, oy = c.y() - camY, oz = c.z() - camZ;
-        if (ox * ox + oy * oy + oz * oz > range * range) {
+        HeightField bump = bump(level, partialTick, tick);
+        AwakeningField ground = ground(level, (double) tick + partialTick, tick);
+        if (bump == null && ground == null) {
             return false;
         }
-        SurfaceCollector.Options options = SurfaceCollector.Options.forParams(params);
-        double radius = RenderReach.collectRadius(params, ripple, REACH_SLACK, options.normalBand(), RADIUS_STEP);
-        if (needsCollect(frame, radius, tick)) {
-            collect(level, frame, new SurfaceCollector.Options(radius, options.normalBand(), options.minNormalDot()),
-                    tick);
-        }
 
-        HeightField field = new HeightField(params, frame, state.timeSeconds(), TremorConfig.CLIENT.jitter.get(),
-                ripple, state.rippleAgeSeconds());
-        frameWarp = TremorConfig.CLIENT.style.get() == TremorConfig.Style.WARP;
-        for (int i = 0, n = active.size(); i < n; i++) {
-            Column col = active.get(i);
-            col.h = field.at(col.cx, col.cy, col.cz);
+        frameStamp++;
+        frameColumns.clear();
+        if (bump != null) {
+            for (int i = 0, n = active.size(); i < n; i++) {
+                Column col = active.get(i);
+                col.stamp = frameStamp;
+                col.inBump = true;
+                col.inZone = false;
+                col.h = bump.at(col.cx, col.cy, col.cz);
+                frameColumns.add(col);
+            }
+        }
+        if (ground != null) {
+            zone.evaluate(ground, event.getFrustum(), frameStamp, frameColumns);
+        }
+        for (int i = 0, n = frameColumns.size(); i < n; i++) {
+            Column col = frameColumns.get(i);
             if (!col.baked && col.h >= BumpShape.RENDER_THRESHOLD) {
                 pending.add(col);
             }
         }
-        bakePending(level);
-        if (ripple != null && tick != dustTick && TremorConfig.CLIENT.rippleDust.get()) {
-            // Once per game tick (per frame below 20 fps); none while the game time stands still, like the ripple.
+        bakePending(level, ground);
+        boolean bumpRipple = bump != null && bump.ripple() != null;
+        boolean rings = ground != null && !ground.rings().isEmpty();
+        if ((bumpRipple || rings) && tick != dustTick && TremorConfig.CLIENT.rippleDust.get()) {
+            // Once per game tick (per frame below 20 fps); none while the game time stands still, like the ripples.
             dustTick = tick;
-            spawnDust(level, frame, ripple, state.rippleAgeSeconds());
+            if (bumpRipple) {
+                spawnDust(level, bump.frame(), bump.ripple(), bump.rippleAge());
+            }
+            if (rings) {
+                spawnRingDust(level, ground);
+            }
         }
+        frameWarp = TremorConfig.CLIENT.style.get() == TremorConfig.Style.WARP;
         int total = 0;
-        for (int i = 0, n = active.size(); i < n; i++) {
-            Column col = active.get(i);
+        for (int i = 0, n = frameColumns.size(); i < n; i++) {
+            Column col = frameColumns.get(i);
             if (col.h < BumpShape.RENDER_THRESHOLD) {
                 continue; // the trailing depression (h < 0) needs hidden real blocks: stage 4
             }
             if (!col.baked || !col.hasGeometry()) {
                 continue; // waits for its bake in a later frame, or there is nothing to draw
             }
-            if (frameWarp) {
-                for (int k = 0; k < 8; k++) {
-                    col.corners[k] = field.at(col.x + (k & 1), col.y + (k >> 1 & 1), col.z + (k >> 2 & 1));
-                }
-            }
             drawn.add(col);
             total += col.cost();
         }
-        int budget = TremorConfig.CLIENT.maxDeformedBlocks.get();
+        frameCut = Double.NaN;
+        int budget = ground != null ? TremorConfig.CLIENT.awakeningMaxBlocks.get()
+                : TremorConfig.CLIENT.maxDeformedBlocks.get();
         if (total > budget) {
-            // Over budget: keep whole columns (block + decoration together), nearest to the camera first.
+            trim(budget, ground != null);
+        }
+        if (frameWarp) {
             for (int i = 0, n = drawn.size(); i < n; i++) {
-                Column col = drawn.get(i);
-                double dx = col.cx - camX, dy = col.cy - camY, dz = col.cz - camZ;
-                col.distanceSq = dx * dx + dy * dy + dz * dz;
-            }
-            drawn.sort(NEAREST_FIRST);
-            int used = 0, keep = 0;
-            while (keep < drawn.size() && used + drawn.get(keep).cost() <= budget) {
-                used += drawn.get(keep++).cost();
-            }
-            while (drawn.size() > keep) {
-                drawn.removeLast();
+                warpCorners(drawn.get(i), bump, ground);
             }
         }
         if (due(tick, nextValidateTick, VALIDATE_INTERVAL)) {
@@ -422,6 +389,64 @@ public final class DeformationRenderer {
         frameCopies = 0;
         frameVertices = 0;
         return !drawn.isEmpty();
+    }
+
+    /**
+     * The entity's bump this frame, with the ground ripple of an ALERT freeze while one runs, its voxels collected;
+     * null if there is no entity, nothing of it is high enough to draw, or it is too far from the camera.
+     */
+    private static HeightField bump(ClientLevel level, float partialTick, long tick) {
+        ClientTremor.RenderState state = ClientTremor.renderState(level, partialTick);
+        if (state == null) {
+            return null;
+        }
+        BumpFrame frame = state.frame();
+        BumpParams params = state.params();
+        RippleParams ripple = runningRipple(state.rippleAgeSeconds(),
+                Ripple.visibility(params.amplitude(), state.fullAmplitude()));
+        if (!(params.amplitude() >= BumpShape.RENDER_THRESHOLD) && ripple == null) {
+            return null; // dived (or inverted), and its ripple is gone with it, or there is none
+        }
+        Vec3 c = frame.center();
+        RenderStats.recordCenter(c.x(), c.y(), c.z(), System.nanoTime());
+        double range = TremorConfig.CLIENT.renderDistance.get();
+        double ox = c.x() - camX, oy = c.y() - camY, oz = c.z() - camZ;
+        if (ox * ox + oy * oy + oz * oz > range * range) {
+            return null;
+        }
+        SurfaceCollector.Options options = SurfaceCollector.Options.forParams(params);
+        double radius = RenderReach.collectRadius(params, ripple, REACH_SLACK, options.normalBand(), RADIUS_STEP);
+        if (needsCollect(frame, radius, tick)) {
+            collect(level, frame, new SurfaceCollector.Options(radius, options.normalBand(), options.minNormalDot()),
+                    tick);
+        }
+        return new HeightField(params, frame, state.timeSeconds(), TremorConfig.CLIENT.jitter.get(), ripple,
+                state.rippleAgeSeconds());
+    }
+
+    /**
+     * The ground of the Awakening this frame ({@link AwakeningGround}) with its zone scanned ({@link ZoneColumns});
+     * null if there is none, it is too far from the camera, or the first scan of its zone is not complete yet.
+     *
+     * @param gameTime the level's game time plus the partial tick
+     */
+    private static AwakeningField ground(ClientLevel level, double gameTime, long tick) {
+        AwakeningField ground = AwakeningGround.frame(gameTime);
+        if (ground == null || !nearCamera(ground)) {
+            zone.release();
+            return null;
+        }
+        source.begin(level);
+        return zone.update(ground, tick, camX, camY, camZ) ? ground : null;
+    }
+
+    /** Whether the zone's ground can lie within the deformation draw distance of the camera. */
+    private static boolean nearCamera(AwakeningField ground) {
+        double range = TremorConfig.CLIENT.renderDistance.get();
+        Vec3 c = ground.center();
+        double dx = c.x() - camX, dz = c.z() - camZ, across = range + ground.reach();
+        return dx * dx + dz * dz <= across * across
+                && Math.abs(c.y() - camY) <= range + ground.params().verticalReach();
     }
 
     /**
@@ -439,19 +464,69 @@ public final class DeformationRenderer {
     }
 
     /**
+     * Over budget: keeps whole columns (block + decoration together), nearest to the camera first. While an
+     * Awakening is drawn ({@code soft}), the kept ground also lowers smoothly towards the distance where the budget
+     * ran out ({@link RenderBudget}), and what falls below the threshold is not drawn.
+     */
+    private static void trim(int budget, boolean soft) {
+        for (int i = 0, n = drawn.size(); i < n; i++) {
+            Column col = drawn.get(i);
+            double dx = col.cx - camX, dy = col.cy - camY, dz = col.cz - camZ;
+            col.distanceSq = dx * dx + dy * dy + dz * dz;
+        }
+        drawn.sort(NEAREST_FIRST);
+        int used = 0, keep = 0;
+        while (keep < drawn.size() && used + drawn.get(keep).cost() <= budget) {
+            used += drawn.get(keep++).cost();
+        }
+        if (soft && keep < drawn.size()) {
+            frameCut = Math.sqrt(drawn.get(keep).distanceSq);
+        }
+        while (drawn.size() > keep) {
+            drawn.removeLast();
+        }
+        if (Double.isNaN(frameCut)) {
+            return;
+        }
+        int kept = 0;
+        for (int i = 0, n = drawn.size(); i < n; i++) {
+            Column col = drawn.get(i);
+            col.h *= RenderBudget.fade(Math.sqrt(col.distanceSq), frameCut);
+            if (col.h >= BumpShape.RENDER_THRESHOLD) {
+                drawn.set(kept++, col);
+            }
+        }
+        while (drawn.size() > kept) {
+            drawn.removeLast();
+        }
+    }
+
+    /** Warp style: the height at the 8 corners of the voxel, from the fields that cover it this frame. */
+    private static void warpCorners(Column col, HeightField bump, AwakeningField ground) {
+        for (int k = 0; k < 8; k++) {
+            double x = col.x + (k & 1), y = col.y + (k >> 1 & 1), z = col.z + (k >> 2 & 1);
+            double h = 0;
+            if (col.inBump) {
+                h += bump.at(x, y, z);
+            }
+            if (col.inZone) {
+                h += ground.at(x, y, z);
+            }
+            if (!Double.isNaN(frameCut)) {
+                double dx = x - camX, dy = y - camY, dz = z - camZ;
+                h *= RenderBudget.fade(Math.sqrt(dx * dx + dy * dy + dz * dz), frameCut);
+            }
+            col.corners[k] = h;
+        }
+    }
+
+    /**
      * A little dust of the ground kicked up along the front of the running {@code ripple} (SPEC 8 ALERT), so that the
      * rings read where raised copies of a block over the same block show only as thin seams: {@link RippleDust#count}
-     * particles, each a {@link ParticleTypes#BLOCK} particle of the surface block (as vanilla's running and landing
-     * dust) on the open face of a random collected voxel on the front circle, raised with the copy drawn over the
-     * voxel, and thrown out along the surface normal. As with vanilla's rain splashes, half as many at the decreased
-     * particle setting and none at minimal; the level then thins and culls them like any particle. Voxels in chunks
-     * that are no longer loaded, or whose open face got covered since the collection, give no dust.
+     * particles on the open faces of random collected voxels on the front circle ({@link #kickUpDust}).
      */
     private static void spawnDust(ClientLevel level, BumpFrame frame, RippleParams ripple, double ageSeconds) {
-        ParticleStatus setting = Minecraft.getInstance().options.particles().get();
-        double share = setting == ParticleStatus.ALL ? 1 : (setting == ParticleStatus.DECREASED ? 0.5 : 0);
-        RandomSource rand = level.random;
-        int count = RippleDust.count(ripple, ageSeconds, share, rand.nextDouble());
+        int count = RippleDust.count(ripple, ageSeconds, dustShare(), level.random.nextDouble());
         if (count == 0) {
             return;
         }
@@ -462,9 +537,50 @@ public final class DeformationRenderer {
                 dustFront.add(col);
             }
         }
-        if (dustFront.isEmpty()) {
-            return; // no ground on the front, or it ran beyond the collection, where the ripple is too low to draw
+        kickUpDust(level, count);
+    }
+
+    /**
+     * The same dust along the fronts of the step rings of an Awakening (SPEC 9), {@link RippleDust#count} particles
+     * per ring on the zone's voxels on its front sphere ({@link ZoneColumns#front}). All the rings running at once kick
+     * up no more than one ripple at its densest ({@link RippleDust#MAX_PER_TICK}) between them.
+     */
+    private static void spawnRingDust(ClientLevel level, AwakeningField ground) {
+        double share = dustShare(), total = 0;
+        for (AwakeningField.Ring ring : ground.rings()) {
+            total += Math.min(RippleDust.rate(ring.params(), ring.ageSeconds()), RippleDust.MAX_PER_TICK);
         }
+        if (total > RippleDust.MAX_PER_TICK) {
+            share *= RippleDust.MAX_PER_TICK / total;
+        }
+        for (AwakeningField.Ring ring : ground.rings()) {
+            int count = RippleDust.count(ring.params(), ring.ageSeconds(), share, level.random.nextDouble());
+            if (count > 0) {
+                zone.front(ring.origin(), RippleDust.front(ring.params(), ring.ageSeconds()), dustFront);
+                kickUpDust(level, count);
+            }
+        }
+    }
+
+    /** Share of the dust the particle setting allows: as with vanilla's rain splashes, half at decreased, none at minimal. */
+    private static double dustShare() {
+        ParticleStatus setting = Minecraft.getInstance().options.particles().get();
+        return setting == ParticleStatus.ALL ? 1 : (setting == ParticleStatus.DECREASED ? 0.5 : 0);
+    }
+
+    /**
+     * Spawns {@code count} dust particles on {@link #dustFront} and empties it: each a {@link ParticleTypes#BLOCK}
+     * particle of the surface block (as vanilla's running and landing dust) on the open face of a random voxel of the
+     * front, raised with the copy drawn over the voxel this frame, and thrown out along the surface normal. The level
+     * then thins and culls them like any particle. Voxels in chunks that are no longer loaded, or whose open face got
+     * covered since the collection, give no dust; no voxels on the front (it ran beyond the collection, where the
+     * ripple is too low to draw), no dust.
+     */
+    private static void kickUpDust(ClientLevel level, int count) {
+        if (dustFront.isEmpty()) {
+            return;
+        }
+        RandomSource rand = level.random;
         LevelVoxelView view = source.begin(level);
         double out = 0.5 + DUST_CLEARANCE;
         for (int i = 0; i < count; i++) {
@@ -495,7 +611,7 @@ public final class DeformationRenderer {
                 }
             }
             Vec3 normal = col.normal;
-            double lift = col.h >= BumpShape.RENDER_THRESHOLD ? col.h : 0;
+            double lift = col.stamp == frameStamp && col.h >= BumpShape.RENDER_THRESHOLD ? col.h : 0;
             level.addParticle(new BlockParticleOption(ParticleTypes.BLOCK, block).setPos(col.pos),
                     x + normal.x() * lift, y + normal.y() * lift, z + normal.z() * lift,
                     normal.x() * DUST_LAUNCH, normal.y() * DUST_LAUNCH, normal.z() * DUST_LAUNCH);
@@ -526,28 +642,13 @@ public final class DeformationRenderer {
      */
     private static void collect(ClientLevel level, BumpFrame frame, SurfaceCollector.Options options, long tick) {
         source.begin(level);
-        if (voxels == null) {
-            voxels = new VoxelCache(source);
-        }
         voxels.setTime(tick);
         refreshSections(frame.center(), options.radius(), tick);
         List<SurfacePoint> points = SurfaceCollector.collect(voxels, frame, options);
 
         active.clear();
         for (SurfacePoint p : points) {
-            long key = VoxelPos.pack(p.x(), p.y(), p.z());
-            Vec3 n = p.normal();
-            Direction axis = Direction.getNearest(n.x(), n.y(), n.z());
-            Column col = columns.get(key);
-            if (col == null || col.axis != axis) {
-                col = new Column(p.x(), p.y(), p.z(), axis, n);
-                columns.put(key, col);
-            } else if (!col.hasGeometry()) {
-                col.baked = false; // baked empty (no model, chunk not loaded): look again when it rises next
-            }
-            col.normal = n;
-            col.lastUsed = tick;
-            active.add(col);
+            active.add(column(p, tick));
         }
         Vec3 c = frame.center();
         collectX = c.x();
@@ -558,6 +659,23 @@ public final class DeformationRenderer {
         collectTick = tick;
         collected = true;
         recollect = false;
+    }
+
+    /** The column of a collected surface voxel (the bump's or the zone's), made or refreshed, used at {@code tick}. */
+    private static Column column(SurfacePoint p, long tick) {
+        long key = VoxelPos.pack(p.x(), p.y(), p.z());
+        Vec3 n = p.normal();
+        Direction axis = Direction.getNearest(n.x(), n.y(), n.z());
+        Column col = columns.get(key);
+        if (col == null || col.axis != axis) {
+            col = new Column(p.x(), p.y(), p.z(), axis, n);
+            columns.put(key, col);
+        } else if (!col.hasGeometry()) {
+            col.baked = false; // baked empty (no model, chunk not loaded): look again when it rises next
+        }
+        col.normal = n;
+        col.lastUsed = tick;
+        return col;
     }
 
     /**
@@ -603,25 +721,41 @@ public final class DeformationRenderer {
 
     /**
      * Bakes this frame's newly raised columns, the highest first and at most {@link #MAX_BAKES_PER_FRAME}; the rest
-     * are left unbaked (and undrawn) until a later frame.
+     * are left unbaked (and undrawn) until a later frame. Bakes to spare go to the zone's ground that the breathing is
+     * going to raise ({@link ZoneColumns#prebake}), nearest first.
      */
-    private static void bakePending(ClientLevel level) {
-        if (pending.isEmpty()) {
-            return;
-        }
+    private static void bakePending(ClientLevel level, AwakeningField ground) {
         if (pending.size() > MAX_BAKES_PER_FRAME) {
             pending.sort(HIGHEST_FIRST);
+            pending.subList(MAX_BAKES_PER_FRAME, pending.size()).clear();
         }
-        LevelVoxelView view = source.begin(level);
-        for (int i = 0, n = Math.min(pending.size(), MAX_BAKES_PER_FRAME); i < n; i++) {
-            bake(level, view, pending.get(i));
+        LevelVoxelView view = null;
+        if (!pending.isEmpty()) {
+            view = source.begin(level);
+            for (int i = 0, n = pending.size(); i < n; i++) {
+                bake(level, view, pending.get(i));
+            }
         }
+        int spare = MAX_BAKES_PER_FRAME - pending.size();
         pending.clear();
+        if (ground != null && spare > 0) {
+            zone.prebake(ground, spare, pending);
+            if (!pending.isEmpty() && view == null) {
+                view = source.begin(level);
+            }
+            for (int i = 0, n = pending.size(); i < n; i++) {
+                bake(level, view, pending.get(i));
+            }
+            pending.clear();
+        }
     }
 
     /**
      * Re-bakes drawn columns whose block (or the block riding on it) changed, and every {@link #LIGHT_INTERVAL} ticks
-     * those whose light changed.
+     * those whose light changed; at most {@link #MAX_VALIDATED} per call. A change that moves the surface (ground
+     * became open or the other way round, or the chunk came or went: {@link #surface}) also has the terrain around it
+     * re-read, and the bump's voxels collected and the zone scanned again; one that does not (a crop growing, a door,
+     * redstone power, a water level) only re-bakes the column, since the surface reads nothing else.
      */
     private static void validate(ClientLevel level, long tick) {
         nextValidateTick = tick + VALIDATE_INTERVAL;
@@ -629,24 +763,51 @@ public final class DeformationRenderer {
         if (light) {
             nextLightTick = tick + LIGHT_INTERVAL;
         }
+        int n = drawn.size();
+        boolean sliced = n > MAX_VALIDATED;
+        int first = sliced ? validateCursor % n : 0, count = Math.min(n, MAX_VALIDATED);
+        validateCursor = sliced ? (first + count) % n : 0;
+        light |= sliced;
         LevelVoxelView view = source.begin(level);
-        for (int i = 0, n = drawn.size(); i < n; i++) {
-            Column col = drawn.get(i);
-            boolean blocksChanged = view.stateAt(col.x, col.y, col.z) != col.state
-                    || view.stateAt(col.decoPos.getX(), col.decoPos.getY(), col.decoPos.getZ()) != col.decoState;
+        for (int j = 0; j < count; j++) {
+            Column col = drawn.get((first + j) % n);
+            BlockPos decoPos = col.decoPos;
+            BlockState state = view.stateAt(col.x, col.y, col.z);
+            BlockState deco = view.stateAt(decoPos.getX(), decoPos.getY(), decoPos.getZ());
+            boolean blocksChanged = state != col.state || deco != col.decoState;
+            boolean surfaceChanged = blocksChanged
+                    && (surface(view, state, col.pos) != surface(view, col.state, col.pos)
+                    || surface(view, deco, decoPos) != surface(view, col.decoState, decoPos));
             boolean lightChanged = light && col.lightPos != null
                     && (level.getBrightness(LightLayer.SKY, col.lightPos) != col.skyLight
                     || level.getBrightness(LightLayer.BLOCK, col.lightPos) != col.blockLight);
             if (blocksChanged || lightChanged) {
                 bake(level, view, col);
             }
-            if (blocksChanged && voxels != null) {
+            if (surfaceChanged) {
                 // The surface around it changed too: re-read the terrain there and collect again.
                 voxels.invalidateBox(col.x - NORMAL_REACH, col.y - NORMAL_REACH, col.z - NORMAL_REACH,
                         col.x + NORMAL_REACH, col.y + NORMAL_REACH, col.z + NORMAL_REACH);
                 recollect = true;
+                if (col.inZone) {
+                    zone.requestRescan();
+                }
             }
         }
+    }
+
+    /**
+     * What a block state makes of its voxel for the surface, as the terrain cache reads it ({@link LevelVoxelView}):
+     * {@link #UNKNOWN} (no chunk), {@link #GROUND} or {@link #OPEN}.
+     */
+    private static int surface(LevelVoxelView view, BlockState state, BlockPos pos) {
+        return state == null ? UNKNOWN : view.isSkin(state, pos) ? GROUND : OPEN;
+    }
+
+    /** Whether the client has the chunk now (the zone's terrain arriving, {@link ZoneColumns}). */
+    private static boolean chunkLoaded(int chunkX, int chunkZ) {
+        ClientLevel level = boundLevel;
+        return level != null && level.getChunkSource().getChunkNow(chunkX, chunkZ) != null;
     }
 
     private static void draw(RenderType layer) {

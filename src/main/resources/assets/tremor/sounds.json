@@ -11,8 +11,8 @@
     "sounds": [
       {"name": "minecraft:block/deepslate/break1", "pitch": 0.5},
       {"name": "minecraft:block/deepslate/break2", "pitch": 0.5},
-      {"name": "minecraft:block/deepslate/break3", "pitch": 0.45},
-      {"name": "minecraft:block/deepslate/break4", "pitch": 0.45}
+      {"name": "minecraft:block/deepslate/break3", "pitch": 0.5},
+      {"name": "minecraft:block/deepslate/break4", "pitch": 0.5}
     ]
   },
   "entity.tremor.sigh": {
@@ -31,7 +31,7 @@
     "subtitle": "subtitles.tremor.strike",
     "sounds": [
       {"name": "minecraft:random/explode1", "pitch": 0.5, "volume": 0.5},
-      {"name": "minecraft:block/deepslate/break2", "pitch": 0.4}
+      {"name": "minecraft:block/deepslate/break2", "pitch": 0.5}
     ]
   },
   "entity.tremor.pulse": {
@@ -46,7 +46,13 @@
   "entity.tremor.awaken": {
     "subtitle": "subtitles.tremor.awaken",
     "sounds": [
-      {"name": "minecraft:mob/warden/emerge", "pitch": 0.35}
+      {"name": "minecraft:mob/warden/emerge", "pitch": 0.5}
+    ]
+  },
+  "entity.tremor.hum": {
+    "subtitle": "subtitles.tremor.hum",
+    "sounds": [
+      {"name": "minecraft:ambient/nether/nether_wastes/ambience", "stream": true, "pitch": 0.5}
     ]
   }
 }

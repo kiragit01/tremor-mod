@@ -29,6 +29,11 @@ public final class TremorSounds {
     public static final DeferredHolder<SoundEvent, SoundEvent> PULSE = register("entity.tremor.pulse");
     /** The awakening begins (stage 4). */
     public static final DeferredHolder<SoundEvent, SoundEvent> AWAKEN = register("entity.tremor.awaken");
+    /**
+     * Low hum of the ground around a player in the zone of an awakening, played as a loop (SPEC 9: "остаётся низкий
+     * гул"); so a loopable sound, unlike the short {@link #RUMBLE}.
+     */
+    public static final DeferredHolder<SoundEvent, SoundEvent> HUM = register("entity.tremor.hum");
 
     private TremorSounds() {
     }

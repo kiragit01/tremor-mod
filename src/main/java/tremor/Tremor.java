@@ -8,12 +8,15 @@ import net.neoforged.fml.common.Mod;
 import net.neoforged.fml.config.ModConfig;
 import net.neoforged.neoforge.common.NeoForge;
 import net.neoforged.neoforge.event.VanillaGameEvent;
+import net.neoforged.neoforge.event.entity.living.LivingDeathEvent;
 import net.neoforged.neoforge.event.entity.living.LivingFallEvent;
 import net.neoforged.neoforge.event.entity.player.PlayerEvent;
 import net.neoforged.neoforge.event.level.BlockEvent;
 import net.neoforged.neoforge.event.level.ExplosionEvent;
 import net.neoforged.neoforge.event.level.PistonEvent;
+import net.neoforged.neoforge.event.server.ServerStoppingEvent;
 import org.slf4j.Logger;
+import tremor.awakening.AwakeningManager;
 import tremor.command.TremorCommands;
 import tremor.config.TremorConfig;
 import tremor.debug.DebugParticles;
@@ -93,5 +96,19 @@ public final class Tremor {
         game.addListener(HollowRules::onExperienceDrop);
         // High priority: before HollowManager's listener ends the event (the place to drop at is still known).
         game.addListener(EventPriority.HIGH, PlayerEvent.PlayerLoggedOutEvent.class, HollowRules::onPlayerLoggedOut);
+        // The Awakening (SPEC 9, stage 4b). Its tick comes after TremorManager's: it sees the stage of this tick.
+        game.addListener(AwakeningManager::onLevelTick);
+        game.addListener(AwakeningManager::onLevelUnload);
+        game.addListener(AwakeningManager::onPlayerLoggedOut);
+        game.addListener(AwakeningManager::onPlayerChangedDimension);
+        game.addListener(AwakeningManager::onPlayerRespawn);
+        game.addListener(AwakeningManager::onPlayerLoggedIn);
+        // Lowest priority: a death another listener cancelled is none.
+        game.addListener(EventPriority.LOWEST, LivingDeathEvent.class, AwakeningManager::onLivingDeath);
+        // Highest priority: the fall of a rooted target does not happen, for anybody else either.
+        game.addListener(EventPriority.HIGHEST, LivingFallEvent.class, AwakeningManager::onLivingFall);
+        // High priority: the entities go deep before TremorManager drops its runtimes.
+        game.addListener(EventPriority.HIGH, ServerStoppingEvent.class, AwakeningManager::onServerStopping);
+        HollowManager.addEndListener(AwakeningManager::onHollowEnded);
     }
 }

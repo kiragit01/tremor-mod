@@ -19,6 +19,8 @@ import net.minecraft.world.entity.Entity;
 import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.HitResult;
 import net.neoforged.neoforge.event.RegisterCommandsEvent;
+import tremor.awakening.AwakeningCommands;
+import tremor.awakening.AwakeningManager;
 import tremor.config.TremorConfig;
 import tremor.core.behavior.DespawnClock;
 import tremor.core.behavior.Stage;
@@ -46,7 +48,8 @@ import java.util.UUID;
  * <ul>
  *   <li>{@code spawn [pos]}, {@code spawn natural} (a natural spawn for the player at once, SPEC 11),
  *   {@code despawn}, {@code goto [pos]} (without a position: the block looked at, else the feet; heard sounds do
- *   not replace it until it is reached), {@code stop} (forget the target, goto or sound), {@code info};</li>
+ *   not replace it until it is reached), {@code stop} (forget the target, goto or sound), {@code info} (also the
+ *   Awakening of the dimension, and the natural spawn pause after one, with or without an entity);</li>
  *   <li>{@code set} lists the parameters, {@code set <param> <value>} overrides one for the entity,
  *   {@code set reset} restores the config values;</li>
  *   <li>{@code anger <0..100>} sets the anger and the stage it implies, {@code stage <dormant|alert|hunting|awakening>}
@@ -55,6 +58,7 @@ import java.util.UUID;
  *   <li>{@code debug <path|normals|graph|hearing> <on|off>} toggles particles (hearing: also the action bar) for the
  *   player.</li>
  *   <li>{@code hollow <enter|leave|status>} and {@code restore}: the hollow, see {@link HollowCommands}.</li>
+ *   <li>{@code awaken [player]} and {@code awaken stop}: the Awakening, see {@link AwakeningCommands}.</li>
  * </ul>
  */
 public final class TremorCommands {
@@ -108,7 +112,8 @@ public final class TremorCommands {
                         .then(Commands.literal("off").executes(ctx -> ai(ctx, false))))
                 .then(debug())
                 .then(HollowCommands.hollow())
-                .then(HollowCommands.restore()));
+                .then(HollowCommands.restore())
+                .then(AwakeningCommands.awaken()));
     }
 
     /** {@code /tremor stage <dormant|alert|hunting|awakening>} */
@@ -228,9 +233,22 @@ public final class TremorCommands {
         return 1;
     }
 
+    /**
+     * The entity (stage, anger, behaviour, despawn clock, motion, route, cost), then the Awakening of the dimension
+     * and the natural spawn pause after one ({@link AwakeningManager#describe}); the latter also without an entity.
+     */
     private static int info(CommandContext<CommandSourceStack> ctx) throws CommandSyntaxException {
         CommandSourceStack source = ctx.getSource();
-        TremorRuntime runtime = requireRuntime(source);
+        String awakening = AwakeningManager.describe(source.getLevel());
+        TremorRuntime runtime = TremorManager.runtime(source.getLevel());
+        if (runtime == null || runtime.entity() == null) {
+            if (awakening == null) {
+                throw NO_ENTITY.create();
+            }
+            source.sendSuccess(() -> Component.literal("No tremor in " + source.getLevel().dimension().location()
+                    + "\n" + awakening), false);
+            return 0;
+        }
         TremorEntity entity = runtime.entity();
         Crawler crawler = entity.crawler();
         long node = runtime.currentNode();
@@ -256,8 +274,8 @@ public final class TremorCommands {
         // The stage's cruise speed and bump height (SPEC 8).
         text.append(String.format(Locale.ROOT, "\nSpeed %.2f of %.2f b/s, amplitude %.2f of %.2f%s", crawler.speed(),
                 entity.params().get(Param.SPEED) * TremorConfig.COMMON.speedFactor(entity.stage()),
-                crawler.amplitude(), entity.params().get(Param.AMPLITUDE)
-                        * (entity.leaving() ? 0 : TremorConfig.COMMON.amplitudeFactor(entity.stage())),
+                crawler.amplitude(), entity.params().get(Param.AMPLITUDE) * (entity.leaving() || runtime.absorbed()
+                        ? 0 : TremorConfig.COMMON.amplitudeFactor(entity.stage())),
                 crawler.diving() ? ", diving" : ""));
         BlockPos target = entity.target();
         PathSearch search = runtime.search();
@@ -283,6 +301,9 @@ public final class TremorCommands {
                 runtime.averageTickMillis(), runtime.maxTickMillis(), runtime.measuredTicks()));
         if (runtime.error() != null) {
             text.append("\nStopped after an error: ").append(runtime.error());
+        }
+        if (awakening != null) {
+            text.append('\n').append(awakening);
         }
         source.sendSuccess(() -> Component.literal(text.toString()), false);
         return entity.instance();

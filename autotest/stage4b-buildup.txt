@@ -1,0 +1,79 @@
+# Stage 4b (SPEC 9, phase 1): the build-up of the Awakening in the real world - the ground of the zone breathes,
+# every step sends a ring over the ground, the world goes silent; the player can run out of the zone (escape), or is
+# swallowed by a hill into the hollow. Uses the sky platform of stage3-aggression.txt (run that one first).
+# Run: gradlew runClientAutotest -Ptremor_autotest_script=stage4b-buildup.txt
+
+waitchunks
+cmd gamemode spectator
+cmd time set noon
+cmd tremor despawn
+cmd kill @e[type=!player]
+cmd tp @s 300.5 201.0 300.5 0 20
+wait 40
+waitchunks
+cmd gamemode survival
+cmd effect give @s minecraft:night_vision infinite 0 true
+cmd effect give @s minecraft:instant_health 1 4 true
+hud off
+
+# ---- 1. Build-up: breathing ground, rings from steps; then escape out of the zone ----
+log --- 1. build-up, then escape
+cmd tremor spawn 300 200 320
+wait 20
+cmd tremor awaken
+wait 20
+cmd tremor info
+screenshot 10_buildup_start
+wait 40
+screenshot 11_breathing_a
+wait 30
+screenshot 12_breathing_b
+bench breathing 100
+hold forward 20
+screenshot 13_step_rings_a
+wait 6
+screenshot 14_step_rings_b
+wait 6
+screenshot 15_step_rings_c
+view back
+wait 10
+screenshot 16_rings_third_person
+view first
+cmd tremor info
+hold forward+sprint 140
+wait 10
+cmd tremor info
+screenshot 17_after_escape
+
+# ---- 2. Build-up, stay in the zone: swallowed by the hill into the hollow ----
+log --- 2. build-up, stay: swallowed
+config awakening.buildupSeconds 8
+cmd tp @s 300.5 201.0 300.5 0 20
+wait 20
+cmd tremor awaken
+wait 100
+cmd tremor info
+view back
+wait 40
+screenshot 20_before_swallow
+wait 30
+screenshot 21_hill_rising_a
+wait 15
+screenshot 22_hill_rising_b
+wait 15
+screenshot 23_hill_rising_c
+view first
+wait 100
+waitchunks
+cmd data get entity @s Dimension
+cmd tremor info
+cmd tremor hollow status
+screenshot 24_in_the_hollow
+cmd tremor hollow leave
+wait 80
+waitchunks
+cmd data get entity @s Dimension
+cmd tremor info
+cmd tremor awaken stop
+hud on
+quit

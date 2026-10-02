@@ -733,6 +733,7 @@ final class AutoTestRunner {
             }
             case CMD -> player.connection.sendCommand(step.text());
             case HUD -> mc.options.hideGui = step.number() == 0;
+            case VIEW -> mc.options.setCameraType(net.minecraft.client.CameraType.values()[(int) step.number()]);
             case LOOK -> look(player, step.yaw(), step.pitch());
             case HOLD -> {
                 hold = new Hold(step, player.position());

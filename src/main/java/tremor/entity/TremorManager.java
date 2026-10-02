@@ -16,6 +16,8 @@ import net.neoforged.neoforge.event.level.PistonEvent;
 import net.neoforged.neoforge.event.server.ServerStoppingEvent;
 import net.neoforged.neoforge.event.tick.LevelTickEvent;
 import net.neoforged.neoforge.network.PacketDistributor;
+import tremor.Tremor;
+import tremor.core.behavior.Stage;
 import tremor.core.graph.SurfaceGraph;
 import tremor.network.TremorStatePayload;
 
@@ -79,6 +81,18 @@ public final class TremorManager {
         return runtime.despawn();
     }
 
+    /**
+     * The level's entity goes deep at the end of an Awakening (SPEC 9: "сущность уходит глубоко, долгий кулдаун"):
+     * removed as by {@link #despawn} if there is one, and natural spawns of the dimension wait
+     * {@code awakening.cooldownSeconds} from now ({@link TremorSavedData#awakeningEnded}). Returns whether there was
+     * an entity.
+     */
+    public static boolean goDeep(ServerLevel level) {
+        boolean removed = despawn(level);
+        TremorSavedData.get(level).awakeningEnded(level.getGameTime());
+        return removed;
+    }
+
     /** Sends the entity of the player's level (shape and state), or that there is none. */
     public static void sync(ServerPlayer player) {
         ServerLevel level = player.serverLevel();
@@ -93,10 +107,21 @@ public final class TremorManager {
 
     // ---- events ----
 
+    /**
+     * Takes up the saved entity. One saved in AWAKENING goes deep at once (as at the end of an Awakening, see
+     * {@link #goDeep}): Awakenings are not saved (SPEC 9), so the one it was in, or was about to start, is gone.
+     */
     public static void onLevelLoad(LevelEvent.Load event) {
         if (event.getLevel() instanceof ServerLevel level) {
             TremorSavedData data = TremorSavedData.get(level);
-            if (data.entity() != null) {
+            TremorEntity entity = data.entity();
+            if (entity != null && entity.stage() == Stage.AWAKENING) {
+                long now = level.getGameTime();
+                data.remove(now);
+                data.awakeningEnded(now);
+                Tremor.LOGGER.info("Tremor #{} in {} was saved in AWAKENING: it goes deep", entity.instance(),
+                        level.dimension().location());
+            } else if (entity != null) {
                 RUNTIMES.put(level.dimension(), new TremorRuntime(level, data));
             }
         }

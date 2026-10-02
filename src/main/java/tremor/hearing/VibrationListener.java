@@ -16,6 +16,7 @@ import net.minecraft.world.entity.vehicle.AbstractMinecart;
 import net.minecraft.world.level.gameevent.GameEvent;
 import net.neoforged.neoforge.event.VanillaGameEvent;
 import net.neoforged.neoforge.event.entity.living.LivingFallEvent;
+import tremor.awakening.AwakeningManager;
 import tremor.config.TremorConfig;
 import tremor.core.math.Vec3;
 import tremor.debug.DebugParticles;
@@ -30,8 +31,10 @@ import java.util.Locale;
 /**
  * Server-side sources of vibrations (SPEC 7.1, 7.4): vanilla game events ({@link VanillaGameEvent}, fired for server
  * levels only) and falls ({@link LivingFallEvent}); registered on the game bus by {@link tremor.Tremor}. Each becomes a
- * {@link Vibration} for the entity of the level ({@link TremorRuntime#hear}). Nothing is computed for a level without
- * an entity or a source beyond the hearing distance. Server thread only.
+ * {@link Vibration} for the entity of the level ({@link TremorRuntime#hear}) and for the level's Awakening, with the
+ * player behind it ({@link AwakeningManager#vibration}: who was heard last, the ring waves of steps in its zone, SPEC
+ * 9). Nothing is computed for a source that is beyond the hearing distance of the level's entity (or there is none)
+ * and not in the zone of a running Awakening. Server thread only.
  * <p>
  * Loudness: the {@code hearing.loudness} config list per game event (events not listed are ignored), then by source
  * ({@code context.sourceEntity()}):
@@ -67,6 +70,8 @@ import java.util.Locale;
 public final class VibrationListener {
     /** Sources this much beyond the hearing distance (from the event position) are dropped before anything else. */
     private static final double RANGE_MARGIN = 3;
+    /** The game event of a step ({@link #walkingStepLoudness}). */
+    private static final ResourceLocation STEP = ResourceLocation.withDefaultNamespace("step");
 
     private static List<? extends String> parsedFrom;
     private static Object2DoubleOpenHashMap<ResourceLocation> loudness = new Object2DoubleOpenHashMap<>();
@@ -82,7 +87,7 @@ public final class VibrationListener {
             return;
         }
         TremorRuntime runtime = TremorManager.runtime(level);
-        if (runtime == null || runtime.entity() == null) {
+        if (!hasEntity(runtime) && !AwakeningManager.listens(level)) {
             return;
         }
         GameEvent.Context context = event.getContext();
@@ -118,7 +123,7 @@ public final class VibrationListener {
         }
         ResourceLocation id = key(event.getVanillaEvent());
         double base = id == null ? 0 : table().getDouble(id);
-        if (!(base > 0) || outOfRange(runtime, pos)) {
+        if (!(base > 0) || !wanted(level, runtime, pos)) {
             return;
         }
         TremorConfig.Common config = TremorConfig.COMMON;
@@ -127,7 +132,7 @@ public final class VibrationListener {
         if (type == GameEvent.EXPLODE.value()) {
             Contact contact = Contact.ofBlast(view, pos);
             emit(level, runtime, new Vibration(name, contact.point(), base, contact.footing(),
-                    (float) config.explosionAngerBonus.getAsDouble(), null));
+                    (float) config.explosionAngerBonus.getAsDouble(), null), cause);
             return;
         }
 
@@ -168,7 +173,7 @@ public final class VibrationListener {
             contact = Contact.ofEntity(view, cause, false);
         }
         emit(level, runtime, new Vibration(name, contact.point(), loudness, contact.footing(), 0,
-                join(join(note, drop), contact.note())));
+                join(join(note, drop), contact.note())), cause);
     }
 
     /**
@@ -182,7 +187,7 @@ public final class VibrationListener {
             return;
         }
         TremorRuntime runtime = TremorManager.runtime(level);
-        if (runtime == null || runtime.entity() == null) {
+        if (!hasEntity(runtime) && !AwakeningManager.listens(level)) {
             return;
         }
         if (LAST_FALL.isMarked(entity.getRootVehicle().getId(), level.getGameTime())) {
@@ -215,12 +220,12 @@ public final class VibrationListener {
         }
         Entity root = entity.getRootVehicle();
         LAST_FALL.mark(root.getId(), level.getGameTime());
-        if (outOfRange(runtime, root.position())) {
+        if (!wanted(level, runtime, root.position())) {
             return;
         }
         Contact contact = Contact.ofEntity(new LevelVoxelView(level), root, true);
         emit(level, runtime, new Vibration("fall", contact.point(), loudness, contact.footing(), 0,
-                join(note, String.format(Locale.ROOT, "%.1f blocks", distance))));
+                join(note, String.format(Locale.ROOT, "%.1f blocks", distance))), entity);
     }
 
     /**
@@ -231,29 +236,74 @@ public final class VibrationListener {
                                    net.minecraft.world.phys.Vec3 pos) {
         double speed = -item.getDeltaMovement().y;
         double loudness = SoundRules.itemLanding(TremorConfig.COMMON.itemLandLoudness.getAsDouble(), speed);
-        if (!(loudness > 0) || outOfRange(runtime, pos)) {
+        if (!(loudness > 0) || !wanted(level, runtime, pos)) {
             return;
         }
         Contact contact = Contact.ofEntity(new LevelVoxelView(level), item, true);
         emit(level, runtime, new Vibration("item_land", contact.point(), loudness, contact.footing(), 0,
-                String.format(Locale.ROOT, "%.2f b/t", speed)));
+                String.format(Locale.ROOT, "%.2f b/t", speed)), item);
     }
 
-    private static void emit(ServerLevel level, TremorRuntime runtime, Vibration vibration) {
-        Perception perception = runtime.hear(vibration);
+    /**
+     * The vibration goes to the level's entity, if there is one, then to the level's Awakening with the player behind
+     * it ({@link #playerBehind}).
+     *
+     * @param cause what made it, or null
+     */
+    private static void emit(ServerLevel level, TremorRuntime runtime, Vibration vibration, Entity cause) {
+        Perception perception = runtime == null ? null : runtime.hear(vibration);
         if (perception != null) {
             DebugParticles.hearing(level, vibration, perception);
         }
+        AwakeningManager.vibration(level, vibration, playerBehind(cause), perception);
     }
 
-    private static boolean outOfRange(TremorRuntime runtime, net.minecraft.world.phys.Vec3 pos) {
-        TremorEntity entity = runtime.entity();
-        if (entity == null) {
-            return true;
+    private static boolean hasEntity(TremorRuntime runtime) {
+        return runtime != null && runtime.entity() != null;
+    }
+
+    /**
+     * Whether a source at {@code pos} concerns anybody: the level's entity, if the source is within its hearing
+     * distance (plus a margin), or the level's Awakening, if the source lies in its zone
+     * ({@link AwakeningManager#listens(ServerLevel, double, double)}).
+     */
+    private static boolean wanted(ServerLevel level, TremorRuntime runtime, net.minecraft.world.phys.Vec3 pos) {
+        TremorEntity entity = runtime == null ? null : runtime.entity();
+        if (entity != null) {
+            Vec3 c = entity.crawler().position();
+            double range = TremorConfig.COMMON.hearingMaxDistance.getAsDouble() + RANGE_MARGIN;
+            if (pos.distanceToSqr(c.x(), c.y(), c.z()) <= range * range) {
+                return true;
+            }
         }
-        Vec3 c = entity.crawler().position();
-        double range = TremorConfig.COMMON.hearingMaxDistance.getAsDouble() + RANGE_MARGIN;
-        return pos.distanceToSqr(c.x(), c.y(), c.z()) > range * range;
+        return AwakeningManager.listens(level, pos.x, pos.z);
+    }
+
+    /**
+     * The player behind a vibration of {@code cause}: the player itself, or a player riding it or riding with it (a
+     * mount, a minecart, a boat); null for anything else (mobs, items, projectiles, explosions) and for no cause.
+     */
+    private static Player playerBehind(Entity cause) {
+        if (cause == null) {
+            return null;
+        }
+        if (cause instanceof Player player) {
+            return player;
+        }
+        for (Entity passenger : cause.getRootVehicle().getIndirectPassengers()) {
+            if (passenger instanceof Player player) {
+                return player;
+            }
+        }
+        return null;
+    }
+
+    /**
+     * Loudness of a walking step in the config ({@code minecraft:step} of {@code hearing.loudness}; 0 if steps are
+     * not heard): the measure of the Awakening's step ripples (SPEC 9).
+     */
+    public static double walkingStepLoudness() {
+        return table().getDouble(STEP);
     }
 
     /** A vehicle or mount with a player on board. */

@@ -14,6 +14,7 @@ import net.minecraft.world.level.levelgen.Heightmap;
 import net.neoforged.neoforge.event.level.LevelEvent;
 import net.neoforged.neoforge.event.tick.LevelTickEvent;
 import tremor.Tremor;
+import tremor.awakening.AwakeningManager;
 import tremor.config.TremorConfig;
 import tremor.core.behavior.SpawnRules;
 import tremor.core.behavior.SurfacePicker;
@@ -44,9 +45,11 @@ import java.util.function.Predicate;
  * In each level of the configured dimensions every player gets a spawn check every {@code checkIntervalSeconds},
  * the players spread over that time, the first check {@code graceSeconds} after the player entered the level
  * ({@link CheckSchedule}). A check rolls only for a living player in survival or adventure mode, outside peaceful
- * difficulty (unless allowed), in a level without an entity and past the cooldown after the last natural one left
- * ({@link Cooldown}). With the probability {@link SpawnRules#chance} for the player's {@link #conditions} it spawns a
- * natural entity on a surface point {@code minDistance}..{@link #maxDistance} away that the player sees or will pass
+ * difficulty (unless allowed), in a level without an entity and without a running Awakening
+ * ({@link AwakeningManager#runs}: it would take a new entity at once), past the cooldown after the last natural one
+ * left ({@link Cooldown}) and past the long pause after the last Awakening ({@link #awakeningCooldown}). With the
+ * probability {@link SpawnRules#chance} for the player's {@link #conditions} it spawns a natural entity on a surface
+ * point {@code minDistance}..{@link #maxDistance} away that the player sees or will pass
  * ({@link SurfacePicker#spawnPoint}, the player's way from {@link Heading}), outside the {@link #protection} zones.
  * A point the player only sees must lie in the player's view distance: the server keeps chunks loaded beyond it,
  * which the client does not draw. The point search runs only after a successful roll; it reads only loaded chunks,
@@ -184,6 +187,15 @@ public final class NaturalSpawner {
                 search.heading().source().id(), chance, search.millis()));
     }
 
+    /**
+     * Ticks left of the natural spawn pause after the last Awakening of the level ended (SPEC 9: the entity went deep,
+     * a long cooldown; {@code awakening.cooldownSeconds}); 0 if there is none.
+     */
+    public static long awakeningCooldown(ServerLevel level) {
+        return Cooldown.remaining(level.getGameTime(), TremorSavedData.get(level).lastAwakeningEnd(),
+                (long) TremorConfig.COMMON.awakening.cooldownSeconds.get() * TICKS_PER_SECOND);
+    }
+
     /** One due check of a player at {@code now}; {@code previous} is where it was at the last one (or null). */
     private static void check(ServerLevel level, ServerPlayer player, Vec3 feet, Vec3 previous, long now) {
         String skipped = skipReason(level, player, now);
@@ -240,10 +252,18 @@ public final class NaturalSpawner {
         if (runtime != null && runtime.entity() != null) {
             return "tremor #" + runtime.entity().instance() + " is in the dimension";
         }
+        if (AwakeningManager.runs(level)) {
+            return "an Awakening runs in the dimension";
+        }
         long left = Cooldown.remaining(now, TremorSavedData.get(level).lastNaturalDespawn(),
                 (long) config.cooldownSeconds.get() * TICKS_PER_SECOND);
         if (left > 0) {
             return String.format(Locale.ROOT, "cooldown, %.0f s left", (double) left / TICKS_PER_SECOND);
+        }
+        long deep = awakeningCooldown(level);
+        if (deep > 0) {
+            return String.format(Locale.ROOT, "gone deep after an Awakening, %.0f s left",
+                    (double) deep / TICKS_PER_SECOND);
         }
         return null;
     }

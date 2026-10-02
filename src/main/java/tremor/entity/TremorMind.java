@@ -63,6 +63,10 @@ import java.util.random.RandomGenerator;
  * drops its target and its bump sinks; once it is down (or after {@value #MAX_LEAVING_TICKS} ticks) the runtime
  * removes it. While its chunk is not loaded the clock runs on, and the runtime removes it at once when it is due
  * ({@link #pausedTick}).</li>
+ * <li><b>Awakening</b> (SPEC 9; {@link #absorb}): taken by an Awakening, the entity is the whole area rather than a
+ * bump: its brain is suspended, the anger stays at the top, the bump sinks, it strikes nobody, does not leave by
+ * itself and hears nothing ({@code awakening}). Until it is removed: every Awakening ends with that
+ * ({@link tremor.awakening.AwakeningManager}).</li>
  * </ul>
  */
 final class TremorMind {
@@ -92,8 +96,6 @@ final class TremorMind {
 
     /** The {@code behavior} config values last rejected (logged once), or null. */
     private static String rejected;
-    /** The AWAKENING event (stage 4) is reported as missing once per server run. */
-    private static boolean awakeningLogged;
 
     private final TremorRuntime runtime;
     private final ServerLevel level;
@@ -111,6 +113,8 @@ final class TremorMind {
     /** A vibration was heard since the last tick (eventful for the despawn clock). */
     private boolean heardSinceTick;
     private int leavingTicks;
+    /** Taken by an Awakening ({@link #absorb}). Not saved: an entity loaded in AWAKENING goes deep at once. */
+    private boolean absorbed;
 
     TremorMind(TremorRuntime runtime, TremorEntity entity) {
         this.runtime = runtime;
@@ -134,11 +138,14 @@ final class TremorMind {
      *
      * @return what the entity makes of it, for the hearing debug view: {@code ignores it} (DORMANT, too quiet),
      * {@code investigates}, {@code freezes}, {@code hunts}, or why nothing follows ({@code ai off},
-     * {@code goto under way}, {@code leaving})
+     * {@code goto under way}, {@code leaving}, {@code awakening})
      */
     String heard(Vec3 source, double perceived, double anger) {
         if (entity.leaving()) {
             return "leaving";
+        }
+        if (absorbed) {
+            return "awakening";
         }
         heardSinceTick = true;
         addAnger(anger);
@@ -170,8 +177,8 @@ final class TremorMind {
             brain = newBrain();
             orders.clear();
         }
-        if (entity.leaving()) {
-            return; // its anger no longer matters
+        if (entity.leaving() || absorbed) {
+            return; // its anger no longer matters, or it stays at the top
         }
         Stage before = entity.stage();
         meter.tick(TremorRuntime.TICK_SECONDS, secondsSinceHeard(now));
@@ -198,13 +205,14 @@ final class TremorMind {
     }
 
     /**
-     * This tick's motion: the entity's parameters with the stage's speed and bump height (SPEC 5.5, 8); a leaving
-     * entity's bump sinks to nothing.
+     * This tick's motion: the entity's parameters with the stage's speed and bump height (SPEC 5.5, 8); the bump of a
+     * leaving entity, or of one taken by an Awakening, sinks to nothing.
      */
     MotionParams motion() {
         MotionParams base = entity.params().motionParams();
         Stage stage = meter.stage();
-        double amplitude = entity.leaving() ? 0 : base.amplitude() * TremorConfig.COMMON.amplitudeFactor(stage);
+        double amplitude = entity.leaving() || absorbed ? 0
+                : base.amplitude() * TremorConfig.COMMON.amplitudeFactor(stage);
         return new MotionParams(base.maxSpeed() * TremorConfig.COMMON.speedFactor(stage), base.acceleration(),
                 base.normalSmoothingSeconds(), amplitude, base.amplitudeSmoothingSeconds());
     }
@@ -217,6 +225,9 @@ final class TremorMind {
     boolean afterMove(long now) {
         boolean heard = heardSinceTick;
         heardSinceTick = false;
+        if (absorbed) {
+            return false; // the Awakening removes it
+        }
         if (entity.leaving()) {
             return Math.abs(entity.crawler().amplitude()) < SUNK || ++leavingTicks >= MAX_LEAVING_TICKS;
         }
@@ -246,7 +257,7 @@ final class TremorMind {
      * @return true once the entity is gone: the runtime removes it
      */
     boolean pausedTick() {
-        if (!entity.natural()) {
+        if (!entity.natural() || absorbed) {
             return false;
         }
         if (entity.leaving()) {
@@ -297,8 +308,28 @@ final class TremorMind {
         orders.clear();
     }
 
+    /**
+     * Taken by an Awakening (SPEC 9: "сущность перестаёт быть бугром и становится всей округой"): the anger goes to
+     * the top (the stage to AWAKENING, with its sound if it was not there yet) and stays there, the brain is
+     * suspended, the bump sinks, and the entity neither strikes nor leaves by itself. A leaving entity stops leaving.
+     */
+    void absorb() {
+        absorbed = true;
+        orders.clear();
+        entity.setLeaving(false);
+        forceStage(Stage.AWAKENING);
+    }
+
+    /** Whether an Awakening took the entity ({@link #absorb}). */
+    boolean absorbed() {
+        return absorbed;
+    }
+
     /** What the behaviour is doing, e.g. {@code hunting: searching, 12 s left}. */
     String describe() {
+        if (absorbed) {
+            return "awakening: it is the whole area, not a bump";
+        }
         if (entity.leaving()) {
             return "leaving";
         }
@@ -341,11 +372,6 @@ final class TremorMind {
             case SIGH -> play(TremorSounds.SIGH, skin(), volume, 1);
             case NONE -> {
             }
-        }
-        if (stage == Stage.AWAKENING && !awakeningLogged) {
-            awakeningLogged = true;
-            Tremor.LOGGER.info("Tremor #{} in {} reached AWAKENING: the awakening event is not implemented yet "
-                    + "(stage 4); it hunts instead", entity.instance(), level.dimension().location());
         }
         runtime.stageChanged(entity);
     }
