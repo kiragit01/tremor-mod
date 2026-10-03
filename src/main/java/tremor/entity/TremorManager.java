@@ -17,7 +17,6 @@ import net.neoforged.neoforge.event.server.ServerStoppingEvent;
 import net.neoforged.neoforge.event.tick.LevelTickEvent;
 import net.neoforged.neoforge.network.PacketDistributor;
 import tremor.Tremor;
-import tremor.core.behavior.Stage;
 import tremor.core.graph.SurfaceGraph;
 import tremor.network.TremorStatePayload;
 
@@ -108,18 +107,21 @@ public final class TremorManager {
     // ---- events ----
 
     /**
-     * Takes up the saved entity. One saved in AWAKENING goes deep at once (as at the end of an Awakening, see
-     * {@link #goDeep}): Awakenings are not saved (SPEC 9), so the one it was in, or was about to start, is gone.
+     * Takes up the saved entity. One saved while an Awakening had taken it ({@link TremorEntity#absorbed}: the server
+     * crashed or was killed during an Awakening, after an autosave) goes deep at once (as at the end of an Awakening,
+     * see {@link #goDeep}): Awakenings are not saved (SPEC 9), so the one it was in is gone. One saved in AWAKENING
+     * without that was seeking a player; the seeking is not saved either, and it goes on as HUNTING at the calm-down
+     * anger ({@link TremorMind}).
      */
     public static void onLevelLoad(LevelEvent.Load event) {
         if (event.getLevel() instanceof ServerLevel level) {
             TremorSavedData data = TremorSavedData.get(level);
             TremorEntity entity = data.entity();
-            if (entity != null && entity.stage() == Stage.AWAKENING) {
+            if (entity != null && entity.absorbed()) {
                 long now = level.getGameTime();
                 data.remove(now);
                 data.awakeningEnded(now);
-                Tremor.LOGGER.info("Tremor #{} in {} was saved in AWAKENING: it goes deep", entity.instance(),
+                Tremor.LOGGER.info("Tremor #{} in {} was saved in an Awakening: it goes deep", entity.instance(),
                         level.dimension().location());
             } else if (entity != null) {
                 RUNTIMES.put(level.dimension(), new TremorRuntime(level, data));

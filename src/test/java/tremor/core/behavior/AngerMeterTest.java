@@ -226,7 +226,7 @@ class AngerMeterTest {
 
     @Test
     void zeroHysteresisSwitchesExactlyAtTheThresholds() {
-        BehaviorParams p = new BehaviorParams(25, 60, 100, 0, 0.5, 20, 3, 0.35, 2.5, 12, 8, 20, 4, 24);
+        BehaviorParams p = new BehaviorParams(25, 60, 100, 0, 0.5, 20, 3, 0.35, 2.5, 12, 8, 20, 4, 24, 4);
         AngerMeter m = new AngerMeter(p, 25, null);
         assertEquals(Stage.ALERT, m.stage());
         assertEquals(Stage.DORMANT, m.add(-0.01));

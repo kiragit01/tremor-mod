@@ -9,10 +9,12 @@ import tremor.core.noise.PerlinNoise;
  *     <li><b>heaving</b> ("пространство ходит ходуном"): every patch of the walls and the floor rises and falls,
  *     {@code A·(0.5 - 0.5·cos(2πt/T + φ(p)))}, out of step with its neighbours ({@link #heave}); {@code A} grows as
  *     the hollow closes ({@link #breathAmplitude});</li>
- *     <li><b>the node's rings</b> ("выдаёт себя ... рябью в такт пульсу"): a {@link Ripple} from the node on every
- *     beat, higher as the hollow closes ({@link #nodeRing});</li>
+ *     <li><b>the node's rings</b> ("по волне видно, откуда она пришла"): a {@link Ripple} from the node on every
+ *     beat, higher as the hollow closes ({@link #nodeRing}), long-lived enough to reach the player from across the
+ *     copy still plain to see ({@link #ringStrength}), its crest higher where it passes the player
+ *     ({@link #crestShare});</li>
  * </ul>
- * both only around the player ({@link #near}). Pure math, thread-safe.
+ * both only around the player ({@link #near}): the fog of the hollow hides the rest. Pure math, thread-safe.
  */
 public final class HollowShape {
     /**
@@ -55,6 +57,43 @@ public final class HollowShape {
      */
     public static RippleParams nodeRing(HollowParams p, double closeness) {
         return p.ring().withAmplitude(lerp(p.ring().amplitude(), p.ringEnd(), share(closeness)));
+    }
+
+    /**
+     * Share of its starting height a ring keeps when its leading crest (a quarter wavelength behind the front)
+     * reaches {@code distance} blocks from its origin: the ring's envelope {@code 1 - age/duration} at that moment,
+     * {@code 1 - (distance + wavelength/4) / (speed·duration)}, clamped to 0..1 (0 for a NaN). It falls only slowly
+     * with the distance: a ring of the node reaches the player across the copy still plain to see.
+     */
+    public static double ringStrength(RippleParams ring, double distance) {
+        double age = (Math.max(distance, 0) + ring.wavelength() / 4) / ring.speed();
+        return share(1 - age / ring.duration());
+    }
+
+    /**
+     * Share of {@link HollowParams#crestBoost} a ring gains {@code distance} blocks from the player:
+     * {@code smoothstep((crestRadius - d) / crestRadius)}, all of it at the player, half halfway out, none from
+     * {@link HollowParams#crestRadius} on. The crest swells as it runs under and past the player and sinks back
+     * behind, so the wave reads where the player stands, on the floor, the walls and the ceiling alike.
+     */
+    public static double crestShare(HollowParams p, double distance) {
+        return AwakeningShape.smoothstep((p.crestRadius() - distance) / p.crestRadius());
+    }
+
+    /**
+     * Whether the train of a ring {@code ageSeconds} old (from its tail {@code front - waves·wavelength} out to its
+     * front {@code speed·age}) can lie within {@code reach} of a player {@code distance} blocks from its origin, that
+     * is, whether it can raise anything drawn around the player now: a running ring whose train overlaps
+     * {@code [distance - reach, distance + reach]}. Rings that have not come near yet or have passed are left out of
+     * a frame.
+     */
+    public static boolean ringNear(RippleParams ring, double ageSeconds, double distance, double reach) {
+        if (!Ripple.active(ring, ageSeconds)) {
+            return false;
+        }
+        double front = ring.speed() * ageSeconds;
+        double tail = front - ring.waves() * ring.wavelength();
+        return front > distance - reach && tail < distance + reach;
     }
 
     /**

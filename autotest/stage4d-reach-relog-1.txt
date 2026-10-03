@@ -1,0 +1,27 @@
+# Stage 4d REACH (SPEC 8): an entity saved while it seeks a player in AWAKENING must not get stuck. Part 1 puts the
+# entity into AWAKENING (seeking, the player quiet 35 blocks away) and quits; part 2 (stage4d-reach-relog-2.txt, run
+# right after) must find it HUNTING at the calm-down anger (80), decaying as usual, with the server log line "was
+# saved seeking a player in AWAKENING". Uses the sky platform of stage3-aggression.txt (repaired here).
+# Run: tools/gradle-locked.sh runClientAutotest -Ptremor_autotest_script=stage4d-reach-relog-1.txt
+
+waitchunks
+cmd gamemode spectator
+cmd time set noon
+cmd tremor awaken stop
+cmd tremor despawn
+cmd kill @e[type=!player]
+cmd tp @s 300.5 201.0 300.5 0 8
+wait 40
+waitchunks
+cmd fill 220 198 220 380 198 380 minecraft:stone
+cmd fill 220 199 220 380 199 380 minecraft:stone
+cmd fill 220 200 220 380 200 380 minecraft:stone
+cmd tp @s 300.5 201.0 300.5 0 8
+cmd gamemode survival
+wait 20
+cmd tremor spawn 300 200 335
+wait 20
+cmd tremor anger 100
+wait 20
+cmd tremor info
+quit

@@ -1,0 +1,164 @@
+# Stage 4d SEARCH (SPEC 9, phase 2): the ways through a natural cave are walled corridors, not bridges. The stone block
+# of stage4d-search-tunnel.txt (63 x 63 x 37 blocks on the sky platform) with the closed 1x2 tunnel, and around the
+# swallow point a square ring of cave 4 wide, 12 to 16 blocks out, from 13 blocks under the player's feet to 7 over,
+# with lava on its floor: every way out of the start cave (the node lies 40-60 steps away) has to cross it, through
+# the air of the ring. The player enters with /tremor hollow enter (no outcome); shown: /tremor hollow status and walk,
+# then spectator views from the four corners of the ring along its sides, with the fog pushed back (each way through
+# it a corridor of stone across the ring, walled and roofed over a floor laid for it, no ledge beside the drop to the
+# lava), and the way walked to the node. The floor of the tunnel and around it is magma two blocks deep: the floors
+# the hollow lays in the start cave (where the widening fills a floor that hurts) are stone, never magma again (the
+# player has fire resistance against the real one). The block is taken away again at the end.
+# Run: gradlew runClientAutotest -Ptremor_autotest_script=stage4d-search-cave.txt
+
+waitchunks
+cmd gamemode spectator
+cmd time set noon
+cmd tremor despawn
+cmd kill @e[type=!player]
+cmd tp @s 255.5 212.0 255.5 0 20
+wait 40
+waitchunks
+# The block: x and z 224..286, y 186..222 (the platform is y 198..200); a fill takes 32768 blocks at most
+cmd fill 224 186 224 286 193 286 minecraft:stone
+cmd fill 224 194 224 286 201 286 minecraft:stone
+cmd fill 224 202 224 286 209 286 minecraft:stone
+cmd fill 224 210 224 286 217 286 minecraft:stone
+cmd fill 224 218 224 286 222 286 minecraft:stone
+# The ring of cave: x and z 239..271 outside, 243..267 inside, y 196..216; lava on its floor (y 196)
+cmd fill 239 196 239 271 216 242 minecraft:air
+cmd fill 239 196 268 271 216 271 minecraft:air
+cmd fill 239 196 243 242 216 267 minecraft:air
+cmd fill 268 196 243 271 216 267 minecraft:air
+cmd fill 239 196 239 271 196 242 minecraft:lava
+cmd fill 239 196 268 271 196 271 minecraft:lava
+cmd fill 239 196 243 242 196 267 minecraft:lava
+cmd fill 268 196 243 271 196 267 minecraft:lava
+# Magma two deep under the tunnel and around it (y 207..208), inside the ring
+cmd fill 245 207 245 265 208 265 minecraft:magma_block
+# The 1x2 tunnel, closed at both ends (x 245..265: inside the ring)
+cmd fill 245 209 255 265 210 255 minecraft:air
+cmd tp @s 255.5 209.0 255.5 90 10
+cmd gamemode survival
+cmd effect clear @s
+cmd effect give @s minecraft:night_vision infinite 0 true
+cmd effect give @s minecraft:instant_health 1 4 true
+cmd effect give @s minecraft:fire_resistance infinite 0 true
+cmd clear @s
+# No closing and no sinking while the network is looked at
+config hollow.level.graceSeconds 600
+config hollow.level.stillSeconds 60
+config hollow.level.sinkSeconds 120
+wait 20
+hud off
+screenshot 10_tunnel_real
+cmd gamemode spectator
+cmd tp @s ~-15 ~-3 ~-15 270 15
+wait 10
+screenshot 11_ring_real
+cmd tp @s 255.5 209.0 255.5 90 10
+cmd gamemode survival
+wait 10
+
+log --- swallowed in the tunnel, the ring of cave around
+cmd tremor hollow enter
+wait 100
+waitchunks
+cmd data get entity @s Dimension
+cmd data get entity @s Pos
+cmd tremor hollow status
+cmd tremor hollow walk
+log the floor laid under the player where magma was (two deep): not magma (Test failed), but stone (Test passed)
+cmd execute if block ~ ~-1 ~ minecraft:magma_block
+cmd execute if block ~ ~-1 ~ minecraft:stone
+config client:effects.hollowFogDistance 32
+look 90 60
+wait 5
+screenshot 12_start_cave_floor_west
+look 270 60
+wait 5
+screenshot 13_start_cave_floor_east
+config client:effects.hollowFogDistance 5.5
+
+log --- spectator views from the corners of the ring along its sides, the fog pushed back
+config client:effects.hollowFogDistance 32
+cmd gamemode spectator
+log the north-west corner (15 blocks west and north of the swallow point, 4 down): along the north side, the west side
+cmd tp @s ~-15 ~-4 ~-15 270 -8
+wait 20
+waitchunks
+screenshot 20_nw_along_north
+cmd tp @s ~ ~ ~ 0 -8
+wait 5
+screenshot 21_nw_along_west
+cmd tp @s ~ ~ ~ 315 50
+wait 5
+screenshot 22_nw_down_to_the_lava
+log the north-east corner: along the north side, the east side
+cmd tp @s ~30 ~ ~ 90 -8
+wait 20
+waitchunks
+screenshot 23_ne_along_north
+cmd tp @s ~ ~ ~ 0 -8
+wait 5
+screenshot 24_ne_along_east
+log the south-east corner: along the south side, the east side
+cmd tp @s ~ ~ ~30 90 -8
+wait 20
+waitchunks
+screenshot 25_se_along_south
+cmd tp @s ~ ~ ~ 180 -8
+wait 5
+screenshot 26_se_along_east
+log the south-west corner: along the south side, the west side
+cmd tp @s ~-30 ~ ~ 270 -8
+wait 20
+waitchunks
+screenshot 27_sw_along_south
+cmd tp @s ~ ~ ~ 180 -8
+wait 5
+screenshot 28_sw_along_west
+cmd tp @s ~15 ~4 ~-15 90 10
+cmd gamemode survival
+wait 10
+cmd data get entity @s Pos
+
+log --- the way walked to the node (8 steps at a time), in the fog pushed back
+cmd tremor hollow walk 8
+wait 8
+screenshot 30_way_08
+cmd tremor hollow walk 8
+wait 8
+screenshot 31_way_16
+cmd tremor hollow walk 8
+wait 8
+screenshot 32_way_24
+cmd tremor hollow walk 8
+wait 8
+screenshot 33_way_32
+cmd tremor hollow walk 8
+wait 8
+screenshot 34_way_40
+cmd tremor hollow walk 8
+wait 8
+screenshot 35_way_48
+cmd tremor hollow walk 8
+cmd tremor hollow walk
+wait 5
+screenshot 36_near_the_node
+cmd tremor hollow status
+config client:effects.hollowFogDistance 5.5
+cmd tremor hollow leave
+wait 60
+waitchunks
+cmd data get entity @s Dimension
+
+log --- clean-up: the block taken away, the platform as it was
+cmd gamemode spectator
+cmd fill 224 186 224 286 193 286 minecraft:air
+cmd fill 224 194 224 286 197 286 minecraft:air
+cmd fill 224 198 224 286 200 286 minecraft:stone
+cmd fill 224 201 224 286 208 286 minecraft:air
+cmd fill 224 209 224 286 216 286 minecraft:air
+cmd fill 224 217 224 286 222 286 minecraft:air
+hud on
+quit

@@ -1,5 +1,6 @@
 package tremor.hollow;
 
+import com.mojang.brigadier.arguments.IntegerArgumentType;
 import com.mojang.brigadier.builder.LiteralArgumentBuilder;
 import com.mojang.brigadier.context.CommandContext;
 import com.mojang.brigadier.exceptions.CommandSyntaxException;
@@ -22,8 +23,13 @@ import java.util.Locale;
  *   move in);</li>
  *   <li>{@code hollow leave}: moves the executing player back out (an event still copying just stops);</li>
  *   <li>{@code hollow status}: the events, their phases, what the copying and clearing cost, the blocks their
- *   players placed, the level inside (the node, the closing, the noise, the sinking: {@link HollowLevels#describe}),
- *   and who is in the hollow;</li>
+ *   players placed, the level inside (the node and the network of ways to it: steps along the way, blocks in a straight
+ *   line, the dead ends, the throat; the closing, the noise, the sinking, what the preparation cost:
+ *   {@link HollowLevels#describe}), and who is in the hollow;</li>
+ *   <li>{@code hollow tonode}: moves the executing player next to the node of their level (debug, autotests);</li>
+ *   <li>{@code hollow walk [steps]}: walks the copy as it is now from the executing player to the node of their level
+ *   (the steps on foot, or how close it gets), and moves the player that many steps along the walk (debug, autotests:
+ *   the way to the node is open, the closing has not shut it);</li>
  *   <li>{@code restore}: ends every event at once, players back to their exits, all slots cleared.</li>
  * </ul>
  */
@@ -31,13 +37,16 @@ public final class HollowCommands {
     private HollowCommands() {
     }
 
-    /** {@code /tremor hollow <enter|leave|status|tonode>} */
+    /** {@code /tremor hollow <enter|leave|status|tonode|walk [steps]>} */
     public static LiteralArgumentBuilder<CommandSourceStack> hollow() {
         return Commands.literal("hollow")
                 .then(Commands.literal("enter").executes(HollowCommands::enter))
                 .then(Commands.literal("leave").executes(HollowCommands::leave))
                 .then(Commands.literal("status").executes(HollowCommands::status))
-                .then(Commands.literal("tonode").executes(HollowCommands::toNode));
+                .then(Commands.literal("tonode").executes(HollowCommands::toNode))
+                .then(Commands.literal("walk").executes(ctx -> walk(ctx, 0))
+                        .then(Commands.argument("steps", IntegerArgumentType.integer(0, 1000))
+                                .executes(ctx -> walk(ctx, IntegerArgumentType.getInteger(ctx, "steps")))));
     }
 
     /** {@code /tremor restore} */
@@ -107,6 +116,22 @@ public final class HollowCommands {
         net.minecraft.core.BlockPos to = best;
         ctx.getSource().sendSuccess(() -> Component.literal("Next to the node at " + node.toShortString()
                 + ", standing at " + to.toShortString()), true);
+        return 1;
+    }
+
+    /**
+     * Debug and autotests: walks the copy as it is now from the player to the node of their level and moves the player
+     * {@code steps} steps along the walk ({@link HollowLevels#walk}).
+     */
+    private static int walk(CommandContext<CommandSourceStack> ctx, int steps) throws CommandSyntaxException {
+        ServerPlayer player = ctx.getSource().getPlayerOrException();
+        HollowEvent event = HollowManager.event(player);
+        if (event == null || !HollowDimension.is(player.serverLevel())) {
+            ctx.getSource().sendFailure(Component.literal("You are not in a hollow"));
+            return 0;
+        }
+        String found = HollowLevels.walk(event, player, steps);
+        ctx.getSource().sendSuccess(() -> Component.literal(found), false);
         return 1;
     }
 

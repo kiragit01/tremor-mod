@@ -29,8 +29,8 @@ import java.util.UUID;
 
 /**
  * One Awakening (SPEC 9) in a level: the entity has become the whole area around one player, the target. Created and
- * ended by {@link AwakeningManager}, ticked by it with the level. Not saved (an entity loaded in AWAKENING goes deep,
- * see {@link TremorManager#onLevelLoad}). The phases ({@link Phase}, as the clients get them):
+ * ended by {@link AwakeningManager}, ticked by it with the level. Not saved (an entity loaded as taken by one goes
+ * deep, see {@link TremorManager#onLevelLoad}). The phases ({@link Phase}, as the clients get them):
  * <ol>
  *   <li>BUILDUP (SPEC 9 phase 1, "нарастание", {@code awakening.buildupSeconds}): the zone is a vertical cylinder of
  *   {@code awakening.radius} around where the target stood at the start ({@link AwakeningRules#inZone}). The clients
@@ -47,7 +47,7 @@ import java.util.UUID;
  *   the hollow refuses (no free slot...), it ends ({@link End#CANCELLED}).</li>
  *   <li>HOLLOW: the target is in the hollow, released and out of the Darkness; for everyone else the ground is smooth,
  *   as if nobody had been there. The level in there ends in an outcome ({@link Outcomes}). An escape through the edge
- *   ends it when the target's event in the hollow ends ({@link End#EDGE_ESCAPED}), a defeat once the sinkhole is
+ *   ends it when the target's event in the hollow ends ({@link End#EDGE_ESCAPED}), a defeat once the crater is
  *   there and the target dead or on the way out ({@link End#DEFEAT}). Without an outcome it ends with the target's
  *   event in the hollow, whatever ended that ({@link End#HOLLOW_OVER}). After a victory ({@link #won}) it stays until
  *   the hill is due ({@link AwakeningRules#emergeDelay}: at its highest when the victor is moved out).</li>
@@ -72,7 +72,7 @@ final class Awakening {
         VICTORY,
         /** The target got out through the edge of the hollow before it closed (SPEC 9 "Побег"). */
         EDGE_ESCAPED,
-        /** The soft ground pulled the target in: a sinkhole at the swallow point (SPEC 9 "Поражение"). */
+        /** The soft ground pulled the target in: a crater at the swallow point (SPEC 9 "Поражение"). */
         DEFEAT,
         /**
          * Called off: the target died, logged out or left the dimension before getting into the hollow, the hollow
@@ -108,7 +108,7 @@ final class Awakening {
     /** The target's player object at the start: another one with the same UUID is the target respawned. */
     private final ServerPlayer instance;
     final String targetName;
-    /** Started by itself (the entity reached AWAKENING) rather than by {@code /tremor awaken}. */
+    /** Started by itself (the entity seeking in AWAKENING reached the target) rather than by {@code /tremor awaken}. */
     final boolean natural;
     final Vec3 center;
     final double radius;
@@ -199,7 +199,8 @@ final class Awakening {
     /**
      * Sends the state to the players near and logs the start.
      *
-     * @param sound marks the start by the AWAKEN sound at the centre (when no entity was there to make it)
+     * @param sound marks the start by the AWAKEN sound at the centre (when no entity made it just now by rising to
+     *              AWAKENING: there was none, or it had been seeking in AWAKENING for more than a moment)
      */
     void begin(boolean sound) {
         if (sound) {

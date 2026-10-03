@@ -1,0 +1,112 @@
+# Stage 4d REACH (SPEC 8 AWAKENING: "Затаиться и переждать пик — рабочая стратегия"): a player who keeps quiet
+# while the entity seeks at the top of its anger is not found by chance. With nothing heard the seeking entity roams,
+# and its roam must keep away from the player (behavior.minWanderDistance, as DORMANT does, and its way passes the
+# player nowhere within awakening.reachDistance), so that no Awakening starts and after awakening.seekSeconds (35) it
+# calms down to HUNTING. 1. The player hides in a closed stone hut (roam targets out of the player's sight would
+# otherwise fall back to the point nearest to the player: the hut). 2. The player stands in the open 20 blocks from
+# the entity. 3. The player sprints (heard: the anger tops out), then gets quietly 14 blocks away from the noise and
+# keeps still: the entity searches only awakening.searchRadius (4) around the last sound, so with its reach (8) it
+# does not find the player. Uses the sky platform of stage3-aggression.txt (repaired here). Each part ends with
+# "stage hunting" in /tremor info and "No Awakening here" from /tremor awaken stop (the server log has "reached
+# nobody within 35 s" for each).
+# Run: tools/gradle-locked.sh runClientAutotest -Ptremor_autotest_script=stage4d-reach-hiding.txt
+
+waitchunks
+cmd gamemode spectator
+cmd difficulty normal
+cmd time set noon
+cmd gamerule doDaylightCycle false
+cmd gamerule doMobSpawning false
+cmd effect give @s minecraft:night_vision infinite 0 true
+cmd tremor awaken stop
+cmd tremor despawn
+cmd kill @e[type=!player]
+cmd tp @s 300.5 201.0 300.5 0 8
+wait 40
+waitchunks
+cmd fill 220 198 220 380 198 380 minecraft:stone
+cmd fill 220 199 220 380 199 380 minecraft:stone
+cmd fill 220 200 220 380 200 380 minecraft:stone
+cmd fill 270 201 270 329 207 329 minecraft:air
+wait 40
+cmd fill 220 198 220 380 198 380 minecraft:stone
+cmd fill 220 199 220 380 199 380 minecraft:stone
+cmd fill 220 200 220 380 200 380 minecraft:stone
+# The hut: stone walls and roof around the player, 3 x 3 x 3 of air inside (its floor is the platform at y 200)
+cmd fill 298 200 298 302 204 302 minecraft:stone hollow
+cmd tp @s 300.5 201.0 300.5 0 8
+cmd gamemode survival
+cmd effect clear @s
+cmd effect give @s minecraft:night_vision infinite 0 true
+cmd effect give @s minecraft:instant_health 1 4 true
+wait 20
+waitchunks
+hud off
+# An Awakening that starts anyway must not swallow the player before the script stops it
+config awakening.buildupSeconds 600
+
+# ---- 1. Hiding in the hut, the entity 30 blocks away ----
+log --- 1. quiet in a closed hut, the entity seeks for 35 s
+cmd tremor spawn 300 200 330
+wait 20
+cmd tremor anger 100
+wait 200
+cmd tremor info
+wait 200
+cmd tremor info
+wait 200
+cmd tremor info
+wait 160
+cmd tremor info
+view back
+wait 5
+screenshot 10_hut_after_seeking
+view first
+
+# ---- 2. In the open, the entity 20 blocks away ----
+log --- 2. quiet in the open, the entity 20 blocks away seeks for 35 s
+cmd tremor awaken stop
+cmd fill 298 201 298 302 204 302 minecraft:air
+cmd tp @s 300.5 201.0 300.5 0 8
+cmd tremor spawn 300 200 320
+wait 20
+cmd tremor anger 100
+wait 200
+cmd tremor info
+wait 200
+cmd tremor info
+wait 200
+cmd tremor info
+wait 160
+cmd tremor info
+screenshot 20_open_after_seeking
+
+# ---- 3. Noise, then quietly 14 blocks away from it (more than searchRadius 4 + reachDistance 8) ----
+log --- 3. a sprint tops the anger out, then the player is quietly 14 blocks north of the noise and keeps still
+cmd tremor awaken stop
+cmd tremor despawn
+cmd tp @s 300.5 201.0 300.5 270 8
+cmd tremor spawn 300 200 325
+wait 20
+cmd tremor anger 99
+hold forward+sprint 20
+cmd tp @s ~ ~ ~-14
+look 0 30
+wait 2
+cmd tremor info
+wait 60
+cmd tremor info
+screenshot 30_noise_searching
+wait 140
+cmd tremor info
+wait 200
+cmd tremor info
+wait 200
+cmd tremor info
+wait 200
+cmd tremor info
+screenshot 31_noise_after_seeking
+cmd tremor awaken stop
+cmd tremor despawn
+hud on
+quit

@@ -1,0 +1,198 @@
+# Stage 4d (SPEC 9 phase 2, area DARK): the darkness of the hollow. In the real world first: 40 ticks of walking and
+# 40 ticks of sprinting for the distances. Then swallowed on the sky platform (shots every 8 ticks or so while the
+# screen goes dark and clears again: the fog is there as it clears): the view ends in a black fog some 5 blocks out
+# along the ground, nothing of the sky above, under the night vision the scripts give as well (and without it for
+# comparison); sprinting there gets no further than walking, nor does a double tap forward with a jump on the second
+# tap (the harness disarms the double tap only in holds without sprint, so the holds with sprint test the hollow's own
+# lock); the frame time in the fog; under water in the hollow
+# (a pool filled around the player) the fog is as in the air, not thicker, and sprinting no quicker. Then out with
+# /tremor hollow leave: the far view and sprinting are back. Uses the sky platform of stage3-aggression.txt (repaired
+# here); the standing still that softens the ground is put off so that the views are taken in peace.
+# Run: gradlew runClientAutotest -Ptremor_autotest_script=stage4d-dark-fog.txt
+
+waitchunks
+cmd gamemode spectator
+cmd time set noon
+cmd tremor despawn
+cmd kill @e[type=!player]
+cmd tp @s 300.5 201.0 300.5 270 10
+wait 40
+waitchunks
+# Repair the platform: earlier runs leave craters in it
+cmd fill 220 198 220 380 198 380 minecraft:stone
+cmd fill 220 199 220 380 199 380 minecraft:stone
+cmd fill 220 200 220 380 200 380 minecraft:stone
+cmd fill 220 201 220 380 201 380 minecraft:air
+cmd kill @e[type=item]
+cmd tp @s 240.5 201.0 300.5 270 10
+cmd gamemode survival
+cmd effect clear @s
+cmd effect give @s minecraft:night_vision infinite 0 true
+cmd effect give @s minecraft:instant_health 1 4 true
+cmd clear @s
+hud off
+config awakening.buildupSeconds 3
+config hollow.level.stillSeconds 60
+config hollow.level.graceSeconds 120
+
+# ---- 1. Real world: walking, then sprinting, 40 ticks each (east along z 300.5, then along z 304.5) ----
+log --- 1. real world: walk, then sprint
+wait 20
+cmd data get entity @s Pos
+hold forward 40
+cmd data get entity @s Pos
+cmd tp @s 240.5 201.0 304.5 270 10
+wait 10
+cmd data get entity @s Pos
+hold forward+sprint 40
+cmd data get entity @s Pos
+look 270 5
+wait 2
+screenshot 10_real_ground_east
+
+# ---- 2. Swallowed on the platform: black fog, no sky, no sprint ----
+log --- 2. the hollow: fog, no sky, no sprint
+cmd tp @s 300.5 201.0 300.5 270 5
+wait 10
+cmd tremor awaken
+# The swallow, the dark move in and the screen clearing: the fog is there before the screen clears
+wait 100
+screenshot 19_arrival_00
+wait 6
+screenshot 19_arrival_01
+wait 6
+screenshot 19_arrival_02
+wait 6
+screenshot 19_arrival_03
+wait 6
+screenshot 19_arrival_04
+wait 6
+screenshot 19_arrival_05
+wait 6
+screenshot 19_arrival_06
+wait 6
+screenshot 19_arrival_07
+wait 6
+screenshot 19_arrival_08
+wait 6
+screenshot 19_arrival_09
+wait 6
+screenshot 19_arrival_10
+wait 6
+screenshot 19_arrival_11
+wait 6
+screenshot 19_arrival_12
+wait 6
+screenshot 19_arrival_13
+wait 6
+screenshot 19_arrival_14
+wait 6
+wait 20
+waitchunks
+cmd data get entity @s Dimension
+cmd tremor hollow status
+look 270 5
+wait 2
+screenshot 20_hollow_ground_east
+look 90 5
+wait 2
+screenshot 21_hollow_ground_west
+look 0 35
+wait 2
+screenshot 22_hollow_floor_south
+look 270 -45
+wait 2
+screenshot 23_hollow_up
+look 0 -90
+wait 2
+screenshot 24_hollow_zenith
+look 270 20
+view back
+wait 5
+screenshot 25_hollow_third_person
+view first
+cmd effect clear @s
+look 270 5
+wait 5
+screenshot 26_hollow_no_night_vision
+cmd effect give @s minecraft:night_vision infinite 0 true
+wait 5
+log --- 2b. walk 40 ticks east, then sprint 40 ticks west
+look 270 0
+cmd data get entity @s Pos
+hold forward 40
+cmd data get entity @s Pos
+look 90 0
+hold forward+sprint 40
+cmd data get entity @s Pos
+log --- 2b. jumping: walk-jump 40 ticks east, then sprint-jump 40 ticks west (no further)
+look 270 0
+hold forward+jump 40
+cmd data get entity @s Pos
+look 90 0
+hold forward+sprint+jump 40
+cmd data get entity @s Pos
+log --- 2b. a double tap forward with a jump on the second tap: no sprint-jump push (as far as the plain tap-and-jump)
+cmd tp @s 12.5 201.0 12.5 270 0
+wait 10
+cmd data get entity @s Pos
+hold forward 1
+wait 2
+hold forward+jump 20
+cmd data get entity @s Pos
+cmd tp @s 12.5 201.0 12.5 270 0
+wait 10
+cmd data get entity @s Pos
+hold forward+sprint 1
+wait 2
+hold forward+sprint+jump 20
+cmd data get entity @s Pos
+look 270 10
+bench hollow_fog 100
+cmd tremor hollow status
+
+# ---- 2c. Under water in the hollow: the fog as in the air, not thicker (water's fog starts behind the eye) ----
+log --- 2c. under water: the fog as in the air
+look 270 10
+cmd effect clear @s
+wait 5
+screenshot 27_air_no_night_vision
+cmd execute at @s run fill ~-7 ~ ~-7 ~7 ~2 ~7 minecraft:water replace minecraft:air
+wait 20
+cmd data get entity @s Pos
+look 270 10
+wait 2
+screenshot 28_under_water_no_night_vision
+cmd effect give @s minecraft:night_vision infinite 0 true
+wait 5
+screenshot 29_under_water
+look 0 40
+wait 2
+screenshot 29_under_water_floor
+log --- 2d. under water: walk 30 ticks east, then sprint 30 ticks west (no quicker)
+look 270 0
+cmd data get entity @s Pos
+hold forward 30
+cmd data get entity @s Pos
+look 90 0
+hold forward+sprint 30
+cmd data get entity @s Pos
+cmd execute at @s run fill ~-15 ~-2 ~-15 ~15 ~3 ~15 minecraft:air replace minecraft:water
+wait 20
+
+# ---- 3. Out with /tremor hollow leave: the far view and sprinting are back ----
+log --- 3. out with /tremor hollow leave
+cmd tremor hollow leave
+wait 80
+waitchunks
+cmd data get entity @s Dimension
+cmd data get entity @s Pos
+cmd tp @s 240.5 201.0 308.5 270 5
+wait 20
+waitchunks
+screenshot 30_real_after_leave
+hold forward+sprint 40
+cmd data get entity @s Pos
+bench real_after 100
+hud on
+quit

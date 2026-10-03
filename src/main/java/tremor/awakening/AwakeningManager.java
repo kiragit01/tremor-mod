@@ -38,12 +38,17 @@ import java.util.UUID;
  * Runs the Awakenings (SPEC 9; stage 4b: the real-world part): at most one per level, each an {@link Awakening}.
  * Event handlers are registered by {@link tremor.Tremor}; server thread only.
  * <ul>
- *   <li><b>Start by itself</b> (SPEC 8 AWAKENING): once the level's entity is in AWAKENING (and not leaving) with no
- *   Awakening running, it takes a player ({@link AwakeningRules#chooseTarget}): the one it heard last
- *   ({@link #vibration}), if alive in survival mode (not adventure: the level in the hollow cannot be won without
- *   breaking blocks), in no event of the hollow and within the hearing distance of it; else the nearest such player.
- *   With nobody to take, nothing starts: the entity hunts on (its AWAKENING behaves as HUNTING) and it is tried again
- *   every tick.</li>
+ *   <li><b>Start by itself</b> (SPEC 8 AWAKENING, 9 phase 1): in AWAKENING the level's entity seeks a player (it goes
+ *   for the sounds it hears, faster than hunting, {@link tremor.core.behavior.Seeking}). Each tick after its move,
+ *   while it seeks (not leaving, no Awakening running, not in the hollow), the Awakening starts once its bump has
+ *   reached a player ({@link AwakeningRules#reaches}: within {@code awakening.reachDistance} horizontally and
+ *   {@link AwakeningRules#REACH_HEIGHT} vertically of the feet) who can be taken: alive, in survival mode (not
+ *   adventure: the level in the hollow cannot be won without breaking blocks) and in no event of the hollow. Of
+ *   several, the one it heard last ({@link #vibration}) if reached, else the nearest
+ *   ({@link AwakeningRules#chooseTarget}); the zone is around where that player stands. Reaching nobody within
+ *   {@code awakening.seekSeconds}, the entity calms down to HUNTING by itself (its mind); hiding quietly at the peak
+ *   lets it pass (it searches only {@code awakening.searchRadius} around the last sound, and its roam keeps away from
+ *   every player it could take, {@link #takeable}).</li>
  *   <li><b>By command</b> ({@link #start(ServerPlayer)}, {@code /tremor awaken [player]}, SPEC 14.1): for any living
  *   player who is not a spectator (also in adventure mode), with or without an entity; {@code /tremor awaken stop}
  *   ({@link #stop}) calls it off and gets a swallowed target out of the hollow again (a defeat decided there takes
@@ -51,8 +56,8 @@ import java.util.UUID;
  *   <li><b>The entity</b>: while an Awakening runs in its level, the level's entity (also one spawned meanwhile, by a
  *   command: natural spawns wait, {@link #runs}) is taken by it ({@link TremorRuntime#absorb}): it is the whole area
  *   now, not a bump. Every end makes it go deep ({@link TremorManager#goDeep}): removed, natural spawns of the
- *   dimension paused for {@code awakening.cooldownSeconds}. Awakenings are not saved: an entity loaded in AWAKENING goes deep at once
- *   ({@link TremorManager#onLevelLoad}).</li>
+ *   dimension paused for {@code awakening.cooldownSeconds}. Awakenings are not saved: an entity loaded as taken by
+ *   one goes deep at once ({@link TremorManager#onLevelLoad}).</li>
  *   <li><b>The hollow</b>: a swallowed target's Awakening ends by the outcome of the level in there
  *   ({@link Outcomes}: a victory makes it EMERGING first, once the hill is due, {@link Awakening#won}; a defeat ends it
  *   once carried out) or with the target's event in the hollow ({@link #onHollowEnded}, registered with
@@ -83,8 +88,6 @@ public final class AwakeningManager {
         /** The player whose vibration the entity heard last, and that entity's instance; null before. */
         UUID lastHeard;
         int lastHeardInstance;
-        /** Instance of the entity last logged as having nobody to take in AWAKENING; 0 for none. */
-        int loggedWaiting;
 
         LevelState(ServerLevel level) {
             this.level = level;
@@ -237,7 +240,7 @@ public final class AwakeningManager {
                 runtime.absorb();
             }
             awakening.tick(level.getGameTime());
-        } else if (entity != null && entity.stage() == Stage.AWAKENING && !entity.leaving()
+        } else if (entity != null && entity.stage() == Stage.AWAKENING && !entity.leaving() && !entity.absorbed()
                 && !HollowDimension.is(level)) {
             awakenBy(level, entity);
         }
@@ -247,7 +250,7 @@ public final class AwakeningManager {
      * The player part of an event of the hollow is over: an Awakening whose target it swallowed ends with it
      * ({@link AwakeningRules#afterHollow}), unless it is EMERGING after a victory (that ends by itself; one whose hill
      * is not due yet goes EMERGING now if the victor came out the normal way). An outcome decided in the hollow ends it
-     * as that (an escape through the edge, normally; also a defeat whose sinkhole was still being dug, the target
+     * as that (an escape through the edge, normally; also a defeat whose crater was still being dug, the target
      * having logged out meanwhile); else, before the move into the copy, it is a cancellation (the player died, logged
      * out or left the dimension while it got dark, or the move failed), and afterwards
      * {@link Awakening.End#HOLLOW_OVER}.
@@ -409,41 +412,51 @@ public final class AwakeningManager {
         }
     }
 
-    /** The level's entity is in AWAKENING without an Awakening: it takes a player, if there is one to take. */
+    /**
+     * The level's entity seeks in AWAKENING without an Awakening: once its bump has reached a player who can be taken
+     * ({@link AwakeningRules#chooseTarget}), the Awakening starts for that player.
+     */
     private static void awakenBy(ServerLevel level, TremorEntity entity) {
-        LevelState state = state(level, true);
-        Vec3 at = entity.crawler().position();
+        Vec3 bump = entity.crawler().position();
+        double reach = TremorConfig.COMMON.awakening.reachDistance.get();
         List<AwakeningRules.Candidate> candidates = new ArrayList<>();
         for (ServerPlayer player : level.players()) {
-            candidates.add(new AwakeningRules.Candidate(player.getUUID(), at.distance(new Vec3(player.getX(),
-                    player.getY(), player.getZ())), takeable(player)));
+            Vec3 feet = new Vec3(player.getX(), player.getY(), player.getZ());
+            if (AwakeningRules.reaches(bump, feet, reach)) {
+                candidates.add(new AwakeningRules.Candidate(player.getUUID(), feet, takeable(player)));
+            }
         }
-        double hearing = TremorConfig.COMMON.hearingMaxDistance.getAsDouble();
-        UUID chosen = AwakeningRules.chooseTarget(state.lastHeardInstance == entity.instance() ? state.lastHeard : null,
-                candidates, hearing);
+        if (candidates.isEmpty()) {
+            return;
+        }
+        LevelState state = state(level, false);
+        UUID lastHeard = state != null && state.lastHeardInstance == entity.instance() ? state.lastHeard : null;
+        UUID chosen = AwakeningRules.chooseTarget(lastHeard, bump, candidates, reach);
         ServerPlayer target = chosen == null ? null : level.getServer().getPlayerList().getPlayer(chosen);
         if (target != null) {
+            Tremor.LOGGER.info(String.format(Locale.ROOT, "Tremor #%d in %s has reached %s (%.1f blocks away) in "
+                            + "AWAKENING", entity.instance(), level.dimension().location(),
+                    target.getGameProfile().getName(), AwakeningRules.horizontalDistance(bump, new Vec3(target.getX(),
+                            target.getY(), target.getZ()))));
             start(level, target, true);
-        } else if (state.loggedWaiting != entity.instance()) {
-            state.loggedWaiting = entity.instance();
-            Tremor.LOGGER.info(String.format(Locale.ROOT, "Tremor #%d in %s is in AWAKENING but has nobody to take "
-                            + "(no living player in survival mode within %.0f blocks): it hunts until somebody comes",
-                    entity.instance(), level.dimension().location(), hearing));
         }
     }
 
     /**
      * Whether an Awakening starting by itself may take the player: alive, in survival mode, not in the hollow. Not in
      * adventure mode: there the node cannot be broken nor the ground dug, so the level in the hollow cannot be won.
+     * The roam of the seeking entity keeps away from these players (its mind, {@code tremor.entity.TremorMind}).
      */
-    private static boolean takeable(ServerPlayer player) {
+    public static boolean takeable(ServerPlayer player) {
         return player.isAlive() && player.gameMode.getGameModeForPlayer() == GameType.SURVIVAL
                 && HollowManager.event(player) == null;
     }
 
     /**
      * Starts an Awakening for the target. The level's entity, if any, is taken (its stage change to AWAKENING, if it
-     * was not there yet, sounds); without one, the start sounds at the centre.
+     * was not there yet, sounds). The start sounds at the centre, unless the entity made that sound just now
+     * ({@link TremorRuntime#awakenSounded}: rising as it is taken, or a moment before it reached the target, by a strike
+     * or a sound that topped its anger); not twice at once, which would sound as one doubled.
      */
     private static Awakening start(ServerLevel level, ServerPlayer target, boolean natural) {
         TremorConfig.Awakening config = TremorConfig.COMMON.awakening;
@@ -455,7 +468,7 @@ public final class AwakeningManager {
         if (entity) {
             runtime.absorb();
         }
-        awakening.begin(!entity);
+        awakening.begin(!entity || !runtime.awakenSounded());
         return awakening;
     }
 

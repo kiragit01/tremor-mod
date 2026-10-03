@@ -7,6 +7,7 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.util.List;
 import java.util.SplittableRandom;
 import java.util.random.RandomGenerator;
 
@@ -126,14 +127,14 @@ class SurfacePickerTest {
         SurfaceGraph floor = graph(ArrayVoxelGrid.flatFloor(0));
         Vec3 from = new Vec3(0.5, 0.5, 0.5);
         for (int seed = 0; seed < 20; seed++) {
-            Vec3 target = SurfacePicker.wanderTarget(floor, from, 16, 32, 8, null, 0, new SplittableRandom(seed), 8);
+            Vec3 target = SurfacePicker.wanderTarget(floor, from, 16, 32, 8, null, KeepAway.NONE,
+                    new SplittableRandom(seed), 8);
             assertNotNull(target);
             assertEquals(0.5, target.y());
             double d = horizontalDistance(target, from);
             assertTrue(d >= 16 - 1 && d <= 32 + 1, "distance " + d);
-            assertEquals(target,
-                    SurfacePicker.wanderTarget(floor, from, 16, 32, 8, null, 0, new SplittableRandom(seed), 8),
-                    "deterministic");
+            assertEquals(target, SurfacePicker.wanderTarget(floor, from, 16, 32, 8, null, KeepAway.NONE,
+                    new SplittableRandom(seed), 8), "deterministic");
         }
     }
 
@@ -147,11 +148,13 @@ class SurfacePickerTest {
         Vec3 eye = new Vec3(-9.5, 2.62, 0.5);
         int hidden = 0;
         for (int seed = 0; seed < 30; seed++) {
-            Vec3 target = SurfacePicker.wanderTarget(graph, from, 16, 32, 8, eye, 0, new SplittableRandom(seed), 16);
+            Vec3 target = SurfacePicker.wanderTarget(graph, from, 16, 32, 8, eye, KeepAway.NONE,
+                    new SplittableRandom(seed), 16);
             assertNotNull(target);
             assertTrue(SurfacePicker.visible(graph, eye, VoxelPos.containing(target)), "seed " + seed);
             // A single attempt takes whatever it finds.
-            Vec3 single = SurfacePicker.wanderTarget(graph, from, 16, 32, 8, eye, 0, new SplittableRandom(seed), 1);
+            Vec3 single = SurfacePicker.wanderTarget(graph, from, 16, 32, 8, eye, KeepAway.NONE,
+                    new SplittableRandom(seed), 1);
             if (single != null && !SurfacePicker.visible(graph, eye, VoxelPos.containing(single))) {
                 hidden++;
             }
@@ -166,30 +169,139 @@ class SurfacePickerTest {
         // Three candidates 16 blocks from the start, toward +x, -x and +z (an angle and a radius draw each).
         double[] draws = {0, 0, 0.5, 0, 0.25, 0};
         Vec3 east = new Vec3(16.5, 0.5, 0.5), west = new Vec3(-15.5, 0.5, 0.5), south = new Vec3(0.5, 0.5, 16.5);
-        // A viewer in the rock sees none of them; south is 8.3 from its eye, east 25.4, west 27.8.
+        // A viewer in the rock sees none of them; south is 8.3 from its eye, east 25.4, west 27.8. It is also the
+        // player kept away from.
         Vec3 buried = new Vec3(2.5, -6.5, 20.5);
-        assertEquals(south, SurfacePicker.wanderTarget(floor, from, 16, 32, 8, buried, 0, scripted(draws), 3));
-        assertEquals(east, SurfacePicker.wanderTarget(floor, from, 16, 32, 8, buried, 10, scripted(draws), 3),
-                "the nearest one at least minDistanceToViewer away");
-        assertEquals(west, SurfacePicker.wanderTarget(floor, from, 16, 32, 8, buried, 26, scripted(draws), 3));
-        assertNull(SurfacePicker.wanderTarget(floor, from, 16, 32, 8, buried, 30, scripted(draws), 3));
-        assertEquals(east, SurfacePicker.wanderTarget(floor, from, 16, 32, 8, buried, 0, scripted(draws), 2),
-                "only the attempts made count");
-        // Without a viewer the first candidate wins.
-        assertEquals(east, SurfacePicker.wanderTarget(floor, from, 16, 32, 8, null, 0, scripted(draws), 3));
+        assertEquals(south, wander(floor, from, buried, away(buried, 0), draws, 3));
+        assertEquals(east, wander(floor, from, buried, away(buried, 10), draws, 3),
+                "the nearest one at least minDistance away");
+        assertEquals(west, wander(floor, from, buried, away(buried, 26), draws, 3));
+        assertNull(wander(floor, from, buried, away(buried, 30), draws, 3));
+        assertEquals(east, wander(floor, from, buried, away(buried, 0), draws, 2), "only the attempts made count");
+        // Without a viewer the first acceptable candidate wins.
+        assertEquals(east, wander(floor, from, null, KeepAway.NONE, draws, 3));
+        assertEquals(west, wander(floor, from, null, away(new Vec3(24.5, 1, 4.5), 24), draws, 3));
     }
 
     @Test
-    void wanderTargetKeepsAwayFromTheViewer() {
+    void wanderTargetKeepsAwayFromThePlayer() {
         SurfaceGraph floor = graph(ArrayVoxelGrid.flatFloor(0));
         Vec3 from = new Vec3(0.5, 0.5, 0.5);
         Vec3 eye = new Vec3(10.5, 2.62, 0.5);
         for (int seed = 0; seed < 30; seed++) {
-            Vec3 target = SurfacePicker.wanderTarget(floor, from, 16, 32, 8, eye, 24, new SplittableRandom(seed), 16);
+            Vec3 target = SurfacePicker.wanderTarget(floor, from, 16, 32, 8, eye, away(eye, 24),
+                    new SplittableRandom(seed), 16);
             assertNotNull(target);
             assertTrue(target.distance(eye) >= 24, "seed " + seed + ": " + target);
         }
-        assertNull(SurfacePicker.wanderTarget(floor, from, 16, 32, 8, eye, 100, new SplittableRandom(1), 16));
+        assertNull(SurfacePicker.wanderTarget(floor, from, 16, 32, 8, eye, away(eye, 100), new SplittableRandom(1),
+                16));
+    }
+
+    @Test
+    void wanderTargetKeepsAwayFromEveryPlayerNotOnlyTheViewer() {
+        SurfaceGraph floor = graph(ArrayVoxelGrid.flatFloor(0));
+        Vec3 from = new Vec3(0.5, 0.5, 0.5);
+        double[] draws = {0, 0, 0.5, 0, 0.25, 0}; // east, west, south, 16 blocks away (see above)
+        Vec3 west = new Vec3(-15.5, 0.5, 0.5), south = new Vec3(0.5, 0.5, 16.5);
+        // A is 8.9 from east, B 5 from west; south is 26.8 and 26.4 from them.
+        Vec3 a = new Vec3(24.5, 1, 4.5), b = new Vec3(-20.5, 1, 0.5);
+        assertEquals(west, wander(floor, from, null, new KeepAway(List.of(a), 24, 0, 0), draws, 3));
+        assertEquals(south, wander(floor, from, null, new KeepAway(List.of(a, b), 24, 0, 0), draws, 3));
+        assertEquals(south, wander(floor, from, a.add(0, 1.62, 0), new KeepAway(List.of(a, b), 24, 0, 0), draws, 3),
+                "the viewer (the nearest player) is not the only one kept away from");
+
+        // Two players on either side of the entity, 20 and 30 blocks away: every leg ends 24 from both.
+        Vec3 near = new Vec3(20.5, 1, 0.5), far = new Vec3(-29.5, 1, 0.5);
+        Vec3 eye = near.add(0, 1.62, 0);
+        KeepAway both = new KeepAway(List.of(near, far), 24, 0, 0);
+        KeepAway nearOnly = new KeepAway(List.of(near), 24, 0, 0);
+        int nearTheOther = 0;
+        for (int seed = 0; seed < 200; seed++) {
+            Vec3 target = SurfacePicker.wanderTarget(floor, from, 16, 32, 8, eye, both, new SplittableRandom(seed),
+                    48);
+            assertNotNull(target, "seed " + seed);
+            assertTrue(target.distance(near) >= 24 && target.distance(far) >= 24, "seed " + seed + ": " + target);
+            Vec3 single = SurfacePicker.wanderTarget(floor, from, 16, 32, 8, eye, nearOnly,
+                    new SplittableRandom(seed), 48);
+            if (single.distance(far) < 24) {
+                nearTheOther++;
+            }
+        }
+        assertTrue(nearTheOther > 0, "keeping away from the nearest one only would end legs near the other one");
+    }
+
+    @Test
+    void whileSeekingACreativePlayerNearestToTheEntityTakesNoCareAwayFromASurvivalOne() {
+        SurfaceGraph floor = graph(ArrayVoxelGrid.flatFloor(0));
+        Vec3 from = new Vec3(0.5, 0.5, 0.5);
+        // An operator in creative mode 12 blocks east (the nearest player, the viewer), a survival player 20 west.
+        Vec3 creative = new Vec3(12.5, 1, 0.5), survival = new Vec3(-19.5, 1, 0.5);
+        Vec3 eye = creative.add(0, 1.62, 0);
+        KeepAway seeking = KeepAway.of(Stage.AWAKENING, 24, List.of(new KeepAway.Player(creative, false, false),
+                new KeepAway.Player(survival, true, false)), 10, 6);
+        // The rule before: the viewer alone kept 24 away from.
+        KeepAway viewerOnly = new KeepAway(List.of(creative), 24, 0, 0);
+        int reachedBefore = 0;
+        for (int seed = 0; seed < 200; seed++) {
+            Vec3 target = SurfacePicker.wanderTarget(floor, from, 16, 32, 8, eye, seeking, new SplittableRandom(seed),
+                    48);
+            assertNotNull(target, "seed " + seed);
+            assertTrue(target.distance(survival) >= 24, "seed " + seed + ": " + target);
+            assertTrue(seeking.passesClear(from, target), "seed " + seed + ": " + target);
+            Vec3 before = SurfacePicker.wanderTarget(floor, from, 16, 32, 8, eye, viewerOnly,
+                    new SplittableRandom(seed), 48);
+            if (!seeking.passesClear(from, before)) {
+                reachedBefore++;
+            }
+        }
+        assertTrue(reachedBefore > 0, "keeping away from the creative player only, legs pass the survival one");
+    }
+
+    @Test
+    void wanderTargetWhoseStraightWayPassesNearAPlayerIsSkipped() {
+        SurfaceGraph floor = graph(ArrayVoxelGrid.flatFloor(0));
+        Vec3 from = new Vec3(0.5, 0.5, 0.5);
+        // First candidate 32 blocks west, then one 16 blocks east.
+        double[] draws = {0.5, 1, 0, 0};
+        Vec3 west = new Vec3(-31.5, 0.5, 0.5), east = new Vec3(16.5, 0.5, 0.5);
+        // The player is 11.4 from the start, 26.6 from west and 24.7 from east; the way west passes 9 from it.
+        Vec3 player = new Vec3(-6.5, 1, 9.5);
+        assertEquals(west, wander(floor, from, null, new KeepAway(List.of(player), 24, 0, 0), draws, 2));
+        assertEquals(east, wander(floor, from, null, new KeepAway(List.of(player), 24, 10, 6), draws, 2));
+        assertEquals(west, wander(floor, from, null, new KeepAway(List.of(player), 24, 8.5, 6), draws, 2));
+        assertEquals(west, wander(floor, from, null, new KeepAway(List.of(player.add(0, -7, 0)), 24, 10, 6), draws,
+                2), "far enough below the way");
+
+        // From 12 blocks away no leg's straight way comes within 10 of the player; without the rule some would.
+        Vec3 start = new Vec3(12.5, 0.5, 0.5);
+        Vec3 feet = new Vec3(0.5, 1, 0.5);
+        KeepAway reach = new KeepAway(List.of(feet), 24, 10, 6);
+        KeepAway endOnly = new KeepAway(List.of(feet), 24, 0, 0);
+        int crossing = 0;
+        for (int seed = 0; seed < 300; seed++) {
+            Vec3 target = SurfacePicker.wanderTarget(floor, start, 16, 32, 8, null, reach, new SplittableRandom(seed),
+                    48);
+            assertNotNull(target, "seed " + seed);
+            assertTrue(reach.passesClear(start, target), "seed " + seed + ": " + target);
+            Vec3 single = SurfacePicker.wanderTarget(floor, start, 16, 32, 8, null, endOnly,
+                    new SplittableRandom(seed), 48);
+            if (!reach.passesClear(start, single)) {
+                crossing++;
+            }
+        }
+        assertTrue(crossing > 0, "without the way rule some legs cross the reach");
+    }
+
+    /** {@link SurfacePicker#wanderTarget} with the radii 16..32, a vertical range of 8 and scripted draws. */
+    private static Vec3 wander(SurfaceGraph graph, Vec3 from, Vec3 eye, KeepAway keepAway, double[] draws,
+                               int attempts) {
+        return SurfacePicker.wanderTarget(graph, from, 16, 32, 8, eye, keepAway, scripted(draws), attempts);
+    }
+
+    /** Keeps legs {@code minDistance} away from one player, with no rule for the way. */
+    private static KeepAway away(Vec3 player, double minDistance) {
+        return new KeepAway(List.of(player), minDistance, 0, 0);
     }
 
     @Test
@@ -367,7 +479,8 @@ class SurfacePickerTest {
         // The floor is out of the vertical range.
         SurfaceGraph deep = graph(ArrayVoxelGrid.flatFloor(-12));
         assertNull(SurfacePicker.spawnPoint(deep, FEET, EYE, null, 40, 80, 4, 8, null, new SplittableRandom(1), 32));
-        assertNull(SurfacePicker.wanderTarget(deep, FEET, 16, 32, 8, null, 0, new SplittableRandom(1), 32));
+        assertNull(SurfacePicker.wanderTarget(deep, FEET, 16, 32, 8, null, KeepAway.NONE, new SplittableRandom(1),
+                32));
         assertNull(SurfacePicker.spawnPoint(graph(ArrayVoxelGrid.flatFloor(0)), FEET, EYE, null, 40, 80, 4, 8, null,
                 new SplittableRandom(1), 0), "no attempts");
     }
@@ -377,7 +490,7 @@ class SurfacePickerTest {
         SurfaceGraph floor = graph(ArrayVoxelGrid.flatFloor(0));
         SplittableRandom random = new SplittableRandom(1);
         assertThrows(IllegalArgumentException.class,
-                () -> SurfacePicker.wanderTarget(floor, FEET, 32, 16, 8, null, 0, random, 8));
+                () -> SurfacePicker.wanderTarget(floor, FEET, 32, 16, 8, null, KeepAway.NONE, random, 8));
         assertThrows(IllegalArgumentException.class,
                 () -> SurfacePicker.searchTarget(floor, FEET, -1, random, 8));
         assertThrows(IllegalArgumentException.class,

@@ -1,6 +1,9 @@
 # Stage 4c (SPEC 9): victory. The player is swallowed in a 1x2 tunnel: the hollow widens a cave around them, places
 # the node at the end of a dug way, the player breaks it (held attack with a pickaxe) and comes out of a hill at the
-# swallow point. Uses the sky platform of stage3-aggression.txt (a stone block with the tunnel is built on it).
+# swallow point. Uses the sky platform of stage3-aggression.txt: a stone block with the tunnel is built on it, as big
+# as the one of stage4d-search-tunnel.txt (63 x 63 x 37 blocks), so that the network of ways (stage 4d: the node 40-60
+# steps away, under the ground, 20 blocks down at most) lies in rock, not in the air around a small block. The block
+# is taken away again at the end.
 # Run: gradlew runClientAutotest -Ptremor_autotest_script=stage4c-victory.txt
 
 waitchunks
@@ -11,8 +14,13 @@ cmd kill @e[type=!player]
 cmd tp @s 255.5 212.0 255.5 0 20
 wait 40
 waitchunks
-# A block of stone on the platform with a closed 1x2 tunnel through it
-cmd fill 240 201 240 270 215 270 minecraft:stone
+# The block: x and z 224..286, y 186..222 (the platform is y 198..200); a fill takes 32768 blocks at most
+cmd fill 224 186 224 286 193 286 minecraft:stone
+cmd fill 224 194 224 286 201 286 minecraft:stone
+cmd fill 224 202 224 286 209 286 minecraft:stone
+cmd fill 224 210 224 286 217 286 minecraft:stone
+cmd fill 224 218 224 286 222 286 minecraft:stone
+# The 1x2 tunnel, closed at both ends
 cmd fill 245 209 255 265 210 255 minecraft:air
 cmd tp @s 255.5 209.0 255.5 90 10
 cmd gamemode survival
@@ -56,5 +64,14 @@ wait 60
 cmd data get entity @s Dimension
 cmd data get entity @s Pos
 cmd tremor info
+
+log --- clean-up: the block taken away, the platform as it was
+cmd gamemode spectator
+cmd fill 224 186 224 286 193 286 minecraft:air
+cmd fill 224 194 224 286 197 286 minecraft:air
+cmd fill 224 198 224 286 200 286 minecraft:stone
+cmd fill 224 201 224 286 208 286 minecraft:air
+cmd fill 224 209 224 286 216 286 minecraft:air
+cmd fill 224 217 224 286 222 286 minecraft:air
 hud on
 quit

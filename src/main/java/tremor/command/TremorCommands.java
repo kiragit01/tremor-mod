@@ -21,6 +21,7 @@ import net.minecraft.world.phys.HitResult;
 import net.neoforged.neoforge.event.RegisterCommandsEvent;
 import tremor.awakening.AwakeningCommands;
 import tremor.awakening.AwakeningManager;
+import tremor.awakening.Craters;
 import tremor.config.TremorConfig;
 import tremor.core.behavior.DespawnClock;
 import tremor.core.behavior.Stage;
@@ -53,14 +54,17 @@ import java.util.UUID;
  *   <li>{@code set} lists the parameters, {@code set <param> <value>} overrides one for the entity,
  *   {@code set reset} restores the config values;</li>
  *   <li>{@code anger <0..100>} sets the anger and the stage it implies, {@code stage <dormant|alert|hunting|awakening>}
- *   jumps to a stage (both with the sound and state update of a stage change, SPEC 8), {@code ai <on|off>} switches
- *   the stage behaviour's decisions (off: the entity only obeys {@code goto} and {@code stop});</li>
+ *   jumps to a stage (both with the sound and state update of a stage change, SPEC 8; at the top the entity starts
+ *   seeking a player afresh, and the Awakening starts once it has reached one, unlike {@code awaken}, which starts it
+ *   at once), {@code ai <on|off>} switches the stage behaviour's decisions (off: the entity only obeys {@code goto}
+ *   and {@code stop});</li>
  *   <li>{@code debug <path|normals|graph|hearing> <on|off>} toggles particles (hearing: also the action bar) for the
  *   player.</li>
  *   <li>{@code hollow <enter|leave|status>} and {@code restore}: the hollow, see {@link HollowCommands}.</li>
  *   <li>{@code awaken [player]} and {@code awaken stop}: the Awakening, see {@link AwakeningCommands}.</li>
  *   <li>{@code hollow outcome <victory|edge|defeat>}: ends the level inside the hollow for the player, see
  *   {@link AwakeningCommands}.</li>
+ *   <li>{@code crater [pos]}: digs a crater there without an event, see {@link AwakeningCommands}.</li>
  * </ul>
  */
 public final class TremorCommands {
@@ -117,7 +121,8 @@ public final class TremorCommands {
                 .then(HollowCommands.restore())
                 // Merged into the hollow branch above: hollow outcome <victory|edge|defeat>.
                 .then(AwakeningCommands.hollowOutcome())
-                .then(AwakeningCommands.awaken()));
+                .then(AwakeningCommands.awaken())
+                .then(AwakeningCommands.crater()));
     }
 
     /** {@code /tremor stage <dormant|alert|hunting|awakening>} */
@@ -238,12 +243,15 @@ public final class TremorCommands {
     }
 
     /**
-     * The entity (stage, anger, behaviour, despawn clock, motion, route, cost), then the Awakening of the dimension
-     * and the natural spawn pause after one ({@link AwakeningManager#describe}); the latter also without an entity.
+     * The entity (stage, anger, behaviour with the seeking at the top, despawn clock, motion, route, cost), then the
+     * Awakening of the dimension and the natural spawn pause after one ({@link AwakeningManager#describe}), and the
+     * craters being dug there ({@link Craters#describe}); the latter also without an entity.
      */
     private static int info(CommandContext<CommandSourceStack> ctx) throws CommandSyntaxException {
         CommandSourceStack source = ctx.getSource();
-        String awakening = AwakeningManager.describe(source.getLevel());
+        String described = AwakeningManager.describe(source.getLevel());
+        String craters = Craters.describe(source.getLevel());
+        String awakening = described == null ? craters : craters == null ? described : described + "\n" + craters;
         TremorRuntime runtime = TremorManager.runtime(source.getLevel());
         if (runtime == null || runtime.entity() == null) {
             if (awakening == null) {
@@ -325,10 +333,16 @@ public final class TremorCommands {
         return reportAnger(ctx, runtime.entity());
     }
 
-    /** {@code Tremor #1: anger 25.0, stage alert}; returns the stage's ordinal. */
+    /**
+     * {@code Tremor #1: anger 25.0, stage alert}, at the top with the seeking ({@code ..., stage awakening: seeking a
+     * player for 35 s}); returns the stage's ordinal.
+     */
     private static int reportAnger(CommandContext<CommandSourceStack> ctx, TremorEntity entity) {
-        ctx.getSource().sendSuccess(() -> Component.literal(String.format(Locale.ROOT, "Tremor #%d: anger %.1f, stage %s",
-                entity.instance(), entity.anger(), entity.stage().name().toLowerCase(Locale.ROOT))), true);
+        String seeking = entity.stage() == Stage.AWAKENING && !entity.absorbed() ? String.format(Locale.ROOT,
+                ": seeking a player for %d s", TremorConfig.COMMON.awakening.seekSeconds.get()) : "";
+        ctx.getSource().sendSuccess(() -> Component.literal(String.format(Locale.ROOT,
+                "Tremor #%d: anger %.1f, stage %s%s", entity.instance(), entity.anger(),
+                entity.stage().name().toLowerCase(Locale.ROOT), seeking)), true);
         return entity.stage().ordinal();
     }
 

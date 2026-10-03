@@ -10,6 +10,7 @@ import tremor.hearing.Vibration;
 import tremor.hollow.HollowDimension;
 import tremor.hollow.HollowEvent;
 import tremor.hollow.HollowManager;
+import tremor.hollow.TickBudget;
 
 import java.util.IdentityHashMap;
 import java.util.List;
@@ -26,7 +27,7 @@ import java.util.Set;
  *   <li>{@link tremor.hearing.VibrationListener}: {@link #listens} and {@link #vibration}, the player's noise and the
  *   lures;</li>
  *   <li>{@link tremor.block.HeartNodeBlock}: {@link #nodeBroken};</li>
- *   <li>{@code /tremor hollow status}: {@link #describe}.</li>
+ *   <li>{@code /tremor hollow status}: {@link #describe}; {@code /tremor hollow walk}: {@link #walk}.</li>
  * </ul>
  * A level that fails (an exception) is logged and stands still, and its player is brought back to where the player
  * was swallowed, with no outcome ({@link HollowManager#leave}; an event still copying is called off), rather than left
@@ -43,14 +44,15 @@ public final class HollowLevels {
     }
 
     /**
-     * Prepares the level of {@code event}, a step per call (the copy and its light are done, the player is not in yet):
-     * true once it is ready. If it fails, the event is called off (false; true only if that is refused, and the player
-     * is brought back from inside then).
+     * Prepares the level of {@code event}, a step per call (the copy and its light are done, the player is not in yet)
+     * within the time {@code budget} of this tick has left, which the copying and clearing of all events share (at
+     * least a part per call): true once it is ready. If it fails, the event is called off (false; true only if that is
+     * refused, and the player is brought back from inside then).
      */
-    public static boolean prepare(ServerLevel hollow, HollowEvent event) {
+    public static boolean prepare(ServerLevel hollow, HollowEvent event, TickBudget budget) {
         EventLevel level = LEVELS.computeIfAbsent(event, e -> new EventLevel(hollow, e, nextId++));
         try {
-            return level.prepare();
+            return level.prepare(budget);
         } catch (RuntimeException e) {
             Tremor.LOGGER.error("Hollow level: preparing {} failed, the event is called off", event, e);
             level.fail(e);
@@ -158,6 +160,15 @@ public final class HollowLevels {
     public static BlockPos node(HollowEvent event) {
         EventLevel level = LEVELS.get(event);
         return level == null ? null : level.node();
+    }
+
+    /**
+     * {@code /tremor hollow walk}: the walk of the copy as it is now from {@code player} to the node of the level of
+     * {@code event}, and the move of {@code steps} steps along it ({@link EventLevel#walk}).
+     */
+    public static String walk(HollowEvent event, ServerPlayer player, int steps) {
+        EventLevel level = LEVELS.get(event);
+        return level == null ? "No level" : level.walk(player, steps);
     }
 
     /** The level of {@code event} for {@code /tremor hollow status}, or null if it has none. */

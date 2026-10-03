@@ -1,7 +1,7 @@
 package tremor.hearing;
 
 /**
- * Loudness and attention rules of SPEC 7.1 / 7.3 that do not need the game (unit-tested directly).
+ * Loudness, footing and attention rules of SPEC 7.1 - 7.3 that do not need the game (unit-tested directly).
  */
 public final class SoundRules {
     /** An item hitting the ground slower than this (blocks per tick, downward) makes no vibration. */
@@ -62,6 +62,17 @@ public final class SoundRules {
             return 0;
         }
         return base + ITEM_SPEED_BONUS * Math.min(1, (speed - MIN_ITEM_SPEED) / ITEM_SPEED_RANGE);
+    }
+
+    /**
+     * Footing of a source on the ground (SPEC 7.2, insulation under the feet): the {@code conductivity} of the block it
+     * stands or lands on, except on a rustling block ({@code #tremor:rustling}: leaves), which makes the step louder
+     * rather than softer: {@code rustlingFactor} then. Along the way of the vibration the leaves the source rustles in
+     * conduct at that footing; leaves farther on keep their conductivity (they insulate), see
+     * {@link tremor.core.hearing.Hearing}.
+     */
+    public static double footing(double conductivity, boolean rustling, double rustlingFactor) {
+        return rustling ? rustlingFactor : conductivity;
     }
 
     /** Loudness of a fall with fall damage (SPEC 7.1: 10 + height); 0 if the base is 0 (falls ignored). */

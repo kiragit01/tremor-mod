@@ -23,14 +23,17 @@ import java.util.zip.ZipFile;
 import org.junit.jupiter.api.Test;
 
 /**
- * The conductivity block tags ({@code data/tremor/tags/block/conductivity}) against the game data: a required entry
+ * The block tags of the hearing (the conductivity classes in {@code data/tremor/tags/block/conductivity}, and
+ * {@code #tremor:rustling}) against the game data: a required entry
  * that does not exist makes the whole tag fail to load, so every required {@code minecraft:} block and tag must exist
  * in the vanilla data, and every optional common ({@code c:}) tag in NeoForge's (a typo there would be ignored
  * silently). The data is read from the jars ModDevGradle puts under {@code build/moddev/artifacts}; without them the
  * check is skipped.
  */
 class ConductivityTagsTest {
-    private static final List<String> CLASSES = List.of("insulating", "wooden", "gravelly", "sandy", "stony");
+    /** The tags of the hearing: the conductivity classes and the rustling blocks under the feet. */
+    private static final List<String> TAGS = List.of("conductivity/insulating", "conductivity/wooden",
+            "conductivity/gravelly", "conductivity/sandy", "conductivity/stony", "rustling");
     private static final Pattern OBJECT = Pattern.compile("\\{[^{}]*}");
     private static final Pattern OBJECT_ID = Pattern.compile("\"id\"\\s*:\\s*\"([^\"]+)\"");
     private static final Pattern STRING = Pattern.compile("\"([^\"]+)\"");
@@ -39,8 +42,14 @@ class ConductivityTagsTest {
     private record Entries(Set<String> required, Set<String> optional) {
     }
 
+    /** Entries of the tag of conductivity class {@code tag}. */
     private static Entries entries(String tag) throws IOException {
-        String path = "/data/tremor/tags/block/conductivity/" + tag + ".json";
+        return tagEntries("conductivity/" + tag);
+    }
+
+    /** Entries of the block tag {@code tremor:<tag>}. */
+    private static Entries tagEntries(String tag) throws IOException {
+        String path = "/data/tremor/tags/block/" + tag + ".json";
         String json;
         try (InputStream in = ConductivityTagsTest.class.getResourceAsStream(path)) {
             assertNotNull(in, "missing " + path);
@@ -102,8 +111,8 @@ class ConductivityTagsTest {
             assumeTrue(exists(jars, "assets/minecraft/blockstates/stone.json"), "no vanilla resources jar");
             assumeTrue(exists(jars, "data/c/tags/block/ores.json"), "no NeoForge jar");
             List<String> problems = new ArrayList<>();
-            for (String tag : CLASSES) {
-                Entries entries = entries(tag);
+            for (String tag : TAGS) {
+                Entries entries = tagEntries(tag);
                 for (String entry : entries.required()) {
                     if (!entry.startsWith("minecraft:") && !entry.startsWith("#minecraft:")) {
                         problems.add(tag + ": required entry outside minecraft: " + entry);
@@ -146,5 +155,11 @@ class ConductivityTagsTest {
     @Test
     void leavesInsulate() throws IOException {
         assertTrue(entries("insulating").required().contains("#minecraft:leaves"));
+    }
+
+    @Test
+    void leavesRustleUnderTheFeet() throws IOException {
+        // SPEC 7.2 (2026-10-03): louder under the feet, while along the way they still insulate (above).
+        assertTrue(tagEntries("rustling").required().contains("#minecraft:leaves"));
     }
 }

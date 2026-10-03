@@ -8,8 +8,9 @@ import tremor.core.math.Vec3;
 public interface BrainWorld {
     /**
      * A wander destination (SPEC 5.6): a reachable surface point 16-32 blocks from {@code from}, preferably one the
-     * nearest player can see, else one near that player, at least {@code minDistanceToPlayer} from that player; null
-     * if none was found.
+     * nearest player can see, else one near that player, at least {@code minDistanceToPlayer} from every player it
+     * keeps away from (which ones is the world's call; while the entity seeks in AWAKENING the way there also passes
+     * none of them within reach, see {@link KeepAway}); null if none was found.
      */
     Vec3 wanderTarget(Vec3 from, double minDistanceToPlayer, RandomGenerator random);
 

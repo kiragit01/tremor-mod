@@ -6,7 +6,10 @@ import com.mojang.brigadier.exceptions.CommandSyntaxException;
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.commands.Commands;
 import net.minecraft.commands.arguments.EntityArgument;
+import net.minecraft.commands.arguments.coordinates.BlockPosArgument;
+import net.minecraft.core.BlockPos;
 import net.minecraft.network.chat.Component;
+import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.level.GameType;
 import tremor.config.TremorConfig;
@@ -29,8 +32,11 @@ import java.util.Locale;
  *   must be alive in the copy, as the level would ({@link Outcomes}); {@code edge} gets out where the player stands
  *   (at a safe spot near the matching place of the real world, else at the swallow point).
  *   It joins the {@code hollow} branch of {@link tremor.hollow.HollowCommands} (brigadier merges the two).</li>
+ *   <li>{@code crater [pos]}: digs a crater of the configured size at the position (default: where the executing
+ *   one stands; the block its feet are in is the swallow point), without an event and without any items
+ *   ({@link Craters}).</li>
  * </ul>
- * {@code /tremor info} shows the running one.
+ * {@code /tremor info} shows the running Awakening, and the craters being dug ({@link Craters#describe}).
  */
 public final class AwakeningCommands {
     private AwakeningCommands() {
@@ -53,6 +59,34 @@ public final class AwakeningCommands {
                 .then(Commands.literal("defeat").executes(ctx -> outcome(ctx, HollowOutcome.DEFEAT))));
     }
 
+    /** {@code /tremor crater [pos]} */
+    public static LiteralArgumentBuilder<CommandSourceStack> crater() {
+        return Commands.literal("crater")
+                .executes(ctx -> crater(ctx, BlockPos.containing(ctx.getSource().getPosition())))
+                .then(Commands.argument("pos", BlockPosArgument.blockPos())
+                        .executes(ctx -> crater(ctx, BlockPosArgument.getBlockPos(ctx, "pos"))));
+    }
+
+    private static int crater(CommandContext<CommandSourceStack> ctx, BlockPos at) {
+        TremorConfig.Awakening config = TremorConfig.COMMON.awakening;
+        if (config.craterRadius.get() == 0) {
+            ctx.getSource().sendFailure(Component.literal("No crater: awakening.craterRadius is 0"));
+            return 0;
+        }
+        ServerLevel level = ctx.getSource().getLevel();
+        if (!level.isInWorldBounds(at)) {
+            ctx.getSource().sendFailure(Component.literal(at.toShortString() + " is outside the world"));
+            return 0;
+        }
+        int id = Craters.dig(level, at, "command", () -> true, crater -> {
+        });
+        ctx.getSource().sendSuccess(() -> Component.literal(String.format(Locale.ROOT,
+                "Crater #%d opens at %s: radius %d, depth %d, %d blocks per tick (/tremor info shows it)", id,
+                at.toShortString(), config.craterRadius.get(), config.craterDepth.get(),
+                config.craterBlocksPerTick.get())), true);
+        return id;
+    }
+
     private static int outcome(CommandContext<CommandSourceStack> ctx, HollowOutcome outcome)
             throws CommandSyntaxException {
         ServerPlayer player = ctx.getSource().getPlayerOrException();
@@ -68,15 +102,15 @@ public final class AwakeningCommands {
                     net.minecraft.world.phys.Vec3 reached = Outcomes.escape(player, new Vec3(player.getX(),
                             player.getY(), player.getZ()));
                     yield "Escape through the edge: " + name + " comes out at a safe spot near " + text(reached)
-                            + " (else at the swallow point)";
+                            + " outside the crater that opens then (else at the swallow point, without a crater)";
                 }
                 case DEFEAT -> {
                     HollowEvent event = Outcomes.lose(player);
                     TremorConfig.Awakening config = TremorConfig.COMMON.awakening;
-                    yield "Defeat: " + (config.sinkholeRadius.get() == 0 ? "no sinkhole (awakening.sinkholeRadius 0)"
-                            : "a sinkhole opens at " + text(event.origin().position())) + "; then " + name
-                            + (config.lethal.get() ? " dies (unless a totem or creative mode saves them)"
-                            : " comes out on its bottom, weakened");
+                    yield "Defeat: " + (config.craterRadius.get() == 0 ? "no crater (awakening.craterRadius 0)"
+                            : "a crater opens at " + text(event.origin().position())) + "; then " + name
+                            + (config.lethal.get() ? " dies (unless a totem or creative mode saves them), the things "
+                            + "hidden in caches on its bottom" : " comes out on its bottom, weakened");
                 }
             };
         } catch (HollowManager.Refusal refusal) {

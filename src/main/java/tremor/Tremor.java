@@ -9,6 +9,7 @@ import net.neoforged.fml.config.ModConfig;
 import net.neoforged.neoforge.common.NeoForge;
 import net.neoforged.neoforge.event.VanillaGameEvent;
 import net.neoforged.neoforge.event.entity.living.LivingDeathEvent;
+import net.neoforged.neoforge.event.entity.living.LivingDropsEvent;
 import net.neoforged.neoforge.event.entity.living.LivingFallEvent;
 import net.neoforged.neoforge.event.entity.player.PlayerEvent;
 import net.neoforged.neoforge.event.level.BlockEvent;
@@ -17,9 +18,10 @@ import net.neoforged.neoforge.event.level.PistonEvent;
 import net.neoforged.neoforge.event.server.ServerStoppingEvent;
 import org.slf4j.Logger;
 import tremor.awakening.AwakeningManager;
+import tremor.awakening.CraterCaches;
+import tremor.awakening.Craters;
 import tremor.awakening.EdgeExits;
 import tremor.awakening.Outcomes;
-import tremor.awakening.Sinkholes;
 import tremor.block.TremorBlocks;
 import tremor.command.TremorCommands;
 import tremor.config.TremorConfig;
@@ -28,6 +30,7 @@ import tremor.entity.TremorManager;
 import tremor.hearing.VibrationListener;
 import tremor.hollow.HollowManager;
 import tremor.hollow.HollowRules;
+import tremor.hollow.SprintLock;
 import tremor.hollow.level.HollowLevels;
 import tremor.network.TremorNetwork;
 import tremor.sound.TremorSounds;
@@ -104,6 +107,8 @@ public final class Tremor {
         game.addListener(HollowRules::onExperienceDrop);
         // High priority: before HollowManager's listener ends the event (the place to drop at is still known).
         game.addListener(EventPriority.HIGH, PlayerEvent.PlayerLoggedOutEvent.class, HollowRules::onPlayerLoggedOut);
+        // No running in the hollow, whatever the client sends.
+        game.addListener(SprintLock::onPlayerTick);
         // The Awakening (SPEC 9, stage 4b). Its tick comes after TremorManager's: it sees the stage of this tick.
         game.addListener(AwakeningManager::onLevelTick);
         game.addListener(AwakeningManager::onLevelUnload);
@@ -117,9 +122,14 @@ public final class Tremor {
         game.addListener(EventPriority.HIGHEST, LivingFallEvent.class, AwakeningManager::onLivingFall);
         // High priority: the entities go deep before TremorManager drops its runtimes.
         game.addListener(EventPriority.HIGH, ServerStoppingEvent.class, AwakeningManager::onServerStopping);
-        // The sinkholes of defeats (SPEC 9 "Поражение"), dug over a few ticks.
-        game.addListener(Sinkholes::onServerTick);
-        game.addListener(Sinkholes::onServerStopped);
+        // The craters of defeats and edge escapes (SPEC 9 "Исходы"), dug over many ticks.
+        game.addListener(Craters::onServerTick);
+        game.addListener(Craters::onServerStopped);
+        // The things that waited for the crater of a defeat lie at its swallow point, while the levels are there.
+        game.addListener(Outcomes::onServerStopping);
+        // High priority: the things of a player the ground killed go into the crater's caches before HollowRules
+        // moves them.
+        game.addListener(EventPriority.HIGH, LivingDropsEvent.class, CraterCaches::onLivingDrops);
         // Where escapes through the edge come out (SPEC 9 "Побег"), once the real chunks there are loaded.
         game.addListener(EdgeExits::onServerTick);
         game.addListener(EdgeExits::onServerStopped);

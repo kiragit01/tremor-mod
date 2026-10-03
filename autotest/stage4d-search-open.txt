@@ -1,0 +1,186 @@
+# Stage 4d SEARCH (SPEC 9, phase 2): the network of ways on open ground, and the closing that never shuts the way.
+# Part 1, the flattened surface at the world spawn (as stage4a-hollow.txt): the player is under the sky, so the true
+# way starts with a throat, a trench 4-8 blocks away that goes down into the ground at a walkable slope, with one or
+# two decoy throats into dead ends; the node lies under the ground. Shown with /tremor hollow status and walk, a
+# spectator view from above the copy, and the way walked step by step (the feet go down).
+# Part 2, natural terrain a little away from the spawn: the same, then a fast closing (no grace, 3 blocks a second):
+# once the hollow has closed down to its smallest radius the way is still walked to the node, step by step.
+# Part 3, the surface of the sky platform: no ground under it at all; the status says honestly whether the node got
+# under the ground there.
+# The player enters with /tremor hollow enter and leaves with /tremor hollow leave (no outcome, the real world is not
+# changed). Sinking is held off (the player stands still while the screenshots are taken).
+# Run: gradlew runClientAutotest -Ptremor_autotest_script=stage4d-search-open.txt
+
+waitchunks
+cmd gamemode creative
+cmd time set noon
+cmd tremor despawn
+cmd kill @e[type=!player]
+cmd effect clear @s
+cmd effect give @s minecraft:night_vision infinite 0 true
+config hollow.level.stillSeconds 60
+config hollow.level.sinkSeconds 120
+hud off
+
+# ---- 1. The surface at the spawn ----
+log --- 1. open ground at the spawn
+config hollow.level.graceSeconds 600
+cmd tp @s 0.5 64.0 4.5 0 10
+wait 40
+waitchunks
+cmd tp @s 0.5 ~ 4.5 0 10
+cmd gamemode survival
+wait 10
+screenshot 10_spawn_real
+cmd tremor hollow enter
+wait 100
+waitchunks
+cmd data get entity @s Dimension
+cmd data get entity @s Pos
+cmd tremor hollow status
+cmd tremor hollow walk
+screenshot 11_spawn_hollow_in_the_fog
+config client:effects.hollowFogDistance 32
+wait 5
+screenshot 12_spawn_hollow_south
+look 90 10
+wait 5
+screenshot 13_spawn_hollow_west
+look 180 10
+wait 5
+screenshot 14_spawn_hollow_north
+look 270 10
+wait 5
+screenshot 15_spawn_hollow_east
+cmd gamemode spectator
+cmd tp @s ~ ~18 ~ 0 90
+wait 20
+waitchunks
+screenshot 16_spawn_from_above
+cmd tp @s ~ ~-18 ~ 0 10
+cmd gamemode survival
+wait 10
+log the way, 6 steps at a time (the feet go down the throat)
+cmd tremor hollow walk 6
+wait 8
+screenshot 17_spawn_way_06
+cmd tremor hollow walk 6
+wait 8
+screenshot 18_spawn_way_12
+cmd tremor hollow walk 6
+wait 8
+screenshot 19_spawn_way_18
+cmd tremor hollow walk 12
+wait 8
+screenshot 20_spawn_way_30
+cmd tremor hollow walk 12
+cmd tremor hollow walk 12
+wait 8
+screenshot 21_spawn_way_end
+cmd tremor hollow walk
+cmd tremor hollow tonode
+wait 5
+screenshot 22_spawn_node
+cmd tremor hollow leave
+wait 60
+waitchunks
+cmd data get entity @s Dimension
+config client:effects.hollowFogDistance 5.5
+
+# ---- 2. Natural terrain, then a fast closing ----
+log --- 2. natural terrain and a fast closing
+config hollow.level.graceSeconds 0
+config hollow.level.closeSpeed 3.0
+cmd gamemode creative
+cmd tp @s 60.5 120.0 -40.5 0 10
+wait 40
+waitchunks
+cmd spreadplayers 60 -40 0 1 false @s
+wait 20
+waitchunks
+cmd data get entity @s Pos
+cmd gamemode survival
+wait 10
+screenshot 30_natural_real
+cmd tremor hollow enter
+wait 100
+waitchunks
+cmd data get entity @s Dimension
+cmd tremor hollow status
+cmd tremor hollow walk
+log the closing runs (3 blocks a second from the edge down to 6 blocks)
+wait 120
+cmd tremor hollow status
+cmd tremor hollow walk
+wait 200
+cmd tremor hollow status
+log closed down: the way must still be open
+cmd tremor hollow walk
+config client:effects.hollowFogDistance 32
+cmd gamemode spectator
+cmd tp @s ~ ~18 ~ 0 90
+wait 20
+waitchunks
+screenshot 31_natural_closed_from_above
+cmd tp @s ~ ~-18 ~ 0 10
+cmd gamemode survival
+wait 10
+cmd tremor hollow walk 10
+wait 8
+screenshot 32_natural_closed_way_10
+cmd tremor hollow walk 10
+wait 8
+screenshot 33_natural_closed_way_20
+cmd tremor hollow walk 10
+wait 8
+screenshot 34_natural_closed_way_30
+cmd tremor hollow walk 10
+cmd tremor hollow walk 10
+cmd tremor hollow walk 10
+wait 8
+screenshot 35_natural_closed_way_end
+cmd tremor hollow walk
+cmd tremor hollow status
+cmd tremor hollow leave
+wait 60
+waitchunks
+cmd data get entity @s Dimension
+config client:effects.hollowFogDistance 5.5
+
+# ---- 3. The surface of the sky platform: no ground under it ----
+log --- 3. the sky platform
+config hollow.level.graceSeconds 600
+cmd gamemode creative
+cmd tp @s 300.5 201.0 300.5 0 10
+wait 40
+waitchunks
+# The platform as it was: no blocks over it within the copy, nor the block of stage4d-search-tunnel.txt next to it
+cmd fill 224 201 224 286 208 286 minecraft:air
+cmd fill 224 209 224 286 216 286 minecraft:air
+cmd fill 224 217 224 286 222 286 minecraft:air
+cmd fill 268 201 268 332 207 332 minecraft:air
+cmd fill 268 208 268 332 214 332 minecraft:air
+cmd fill 268 215 268 332 221 332 minecraft:air
+cmd fill 268 198 268 332 200 332 minecraft:stone
+cmd tp @s 300.5 201.0 300.5 0 10
+cmd gamemode survival
+wait 10
+cmd tremor hollow enter
+wait 100
+waitchunks
+cmd data get entity @s Dimension
+cmd tremor hollow status
+cmd tremor hollow walk
+config client:effects.hollowFogDistance 32
+cmd gamemode spectator
+cmd tp @s ~ ~12 ~ 0 70
+wait 20
+waitchunks
+screenshot 40_platform_from_above
+cmd tp @s ~ ~-12 ~ 0 10
+cmd gamemode survival
+cmd tremor hollow leave
+wait 60
+cmd data get entity @s Dimension
+hud on
+quit

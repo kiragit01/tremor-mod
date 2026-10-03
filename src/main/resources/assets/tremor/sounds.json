@@ -73,5 +73,14 @@
       {"name": "minecraft:block/muddy_mangrove_roots/step2", "pitch": 0.6},
       {"name": "minecraft:block/muddy_mangrove_roots/step4", "pitch": 0.6}
     ]
+  },
+  "entity.tremor.thump": {
+    "subtitle": "subtitles.tremor.thump",
+    "sounds": [
+      {"name": "minecraft:mob/warden/step_1", "pitch": 0.6},
+      {"name": "minecraft:mob/warden/step_2", "pitch": 0.6},
+      {"name": "minecraft:mob/warden/step_3", "pitch": 0.6},
+      {"name": "minecraft:mob/warden/step_4", "pitch": 0.6}
+    ]
   }
 }

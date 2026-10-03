@@ -12,7 +12,7 @@ public enum HollowOutcome {
     VICTORY,
     /** The player got to the edge before it closed: out at the matching place of the real world (SPEC 9 "Побег"). */
     EDGE_ESCAPE,
-    /** The soft ground pulled the player in: a sinkhole at the swallow point (SPEC 9 "Поражение"). */
+    /** The soft ground pulled the player in: a crater at the swallow point (SPEC 9 "Поражение"). */
     DEFEAT;
 
     public String id() {

@@ -59,6 +59,7 @@ public final class TremorConfig {
         public final ModConfigSpec.DoubleValue fallLoudness;
         public final ModConfigSpec.DoubleValue mobLoudnessFactor;
         public final ModConfigSpec.DoubleValue waterFactor;
+        public final ModConfigSpec.DoubleValue rustlingFactor;
         public final ModConfigSpec.DoubleValue conductivityInsulating;
         public final ModConfigSpec.DoubleValue conductivityWooden;
         public final ModConfigSpec.DoubleValue conductivityGravelly;
@@ -196,6 +197,11 @@ public final class TremorConfig {
             waterFactor = b.comment("Footing of a source that is not on the ground but in water or in a boat",
                             "(a source in the air makes no vibration)")
                     .translation(KEY + "hearing.waterFactor").defineInRange("waterFactor", 0.2, 0.0, 10.0);
+            rustlingFactor = b.comment("Footing of a source on a rustling block (block tag #tremor:rustling: leaves),",
+                            "which rustles under the feet: louder than stone. The leaves it rustles in carry the",
+                            "rustle at this factor too; leaves farther along the way conduct as their class below",
+                            "(leaves: insulating)")
+                    .translation(KEY + "hearing.rustlingFactor").defineInRange("rustlingFactor", 1.5, 0.0, 10.0);
 
             b.comment("Vibration conductivity of blocks by class (block tags #tremor:conductivity/<class>,",
                             "first match in this order); 1 = baseline")
@@ -219,8 +225,8 @@ public final class TremorConfig {
                     .translation(KEY + "behavior.alertAt").defineInRange("alertAt", bp.alertAt(), 1.0, 100.0);
             huntAt = b.comment("Anger from which the entity is HUNTING")
                     .translation(KEY + "behavior.huntAt").defineInRange("huntAt", bp.huntAt(), 1.0, 100.0);
-            awakenAt = b.comment("Anger of the AWAKENING (the Awakening starts, see the awakening section); also the",
-                            "top of the scale")
+            awakenAt = b.comment("Anger of the AWAKENING (the entity seeks a player; the Awakening starts once it has",
+                            "reached one, see the awakening section); also the top of the scale")
                     .translation(KEY + "behavior.awakenAt").defineInRange("awakenAt", bp.awakenAt(), 1.0, 100.0);
             hysteresis = b.comment("A stage is left downwards only once the anger is this far below its threshold")
                     .translation(KEY + "behavior.hysteresis").defineInRange("hysteresis", bp.hysteresis(), 0.0, 50.0);
@@ -257,7 +263,10 @@ public final class TremorConfig {
                     .translation(KEY + "behavior.wanderMinRadius").defineInRange("wanderMinRadius", 16.0, 1.0, 64.0);
             wanderMaxRadius = b.comment("...and at most this far (a smaller value than wanderMinRadius counts as it)")
                     .translation(KEY + "behavior.wanderMaxRadius").defineInRange("wanderMaxRadius", 32.0, 1.0, 64.0);
-            minWanderDistance = b.comment("A DORMANT entity wanders no closer than this to the nearest player")
+            minWanderDistance = b.comment("A DORMANT entity wanders no closer than this to any player; nor does one",
+                            "seeking at the top of its anger (AWAKENING) with no sound to go for, to any player it",
+                            "could take (alive, in survival mode), and its way there passes none of them within",
+                            "awakening.reachDistance")
                     .translation(KEY + "behavior.minWanderDistance")
                     .defineInRange("minWanderDistance", bp.minWanderDistance(), 0.0, 128.0);
             transitionVolume = b.comment("Volume of the stage change sounds; heard up to 16 blocks times this away")
@@ -269,7 +278,8 @@ public final class TremorConfig {
             stage(b, Stage.DORMANT, "Lazy wandering: slow, a low bump", 0.6, 0.6);
             stage(b, Stage.ALERT, "Freezing and creeping toward sounds", 0.5, 0.85);
             stage(b, Stage.HUNTING, "Going for sounds: fast, a higher bump", 1.6, 1.25);
-            stage(b, Stage.AWAKENING, "While there is nobody to take in an Awakening: hunting on", 1.6, 1.25);
+            stage(b, Stage.AWAKENING, "Seeking a player at the top of the anger (see the awakening section): faster and"
+                    + " higher than hunting", 2.1, 1.4);
             b.pop();
 
             b.comment("Contact of the bump with a player while HUNTING or AWAKENING (SPEC 8), with the bump at least",
@@ -330,7 +340,8 @@ public final class TremorConfig {
         }
 
         /**
-         * Stage behaviour (SPEC 8) from the {@code behavior} section.
+         * Stage behaviour (SPEC 8) from the {@code behavior} section, and the search radius of the seeking from the
+         * {@code awakening} one.
          *
          * @throws IllegalArgumentException if the thresholds contradict each other ({@link BehaviorParams})
          */
@@ -338,7 +349,8 @@ public final class TremorConfig {
             return new BehaviorParams(alertAt.get(), huntAt.get(), awakenAt.get(), hysteresis.get(),
                     decayPerSecond.get(), quietAfterSeconds.get(), quietDecayFactor.get(), dormantReactLoudness.get(),
                     alertFreezeSeconds.get(), alertLoseInterestSeconds.get(), huntSearchRadius.get(),
-                    huntSearchSeconds.get(), wanderPauseSeconds.get(), minWanderDistance.get());
+                    huntSearchSeconds.get(), wanderPauseSeconds.get(), minWanderDistance.get(),
+                    awakening.searchRadius.get());
         }
 
         /** Factor on the crawling speed in {@code stage} (SPEC 5.5, 8). */
@@ -465,8 +477,8 @@ public final class TremorConfig {
                     .translation(KEY + "hollow.below").defineInRange("below", 24, 4, 128);
             above = b.comment("Blocks copied above the player's feet (cut at the top of the world)")
                     .translation(KEY + "hollow.above").defineInRange("above", 24, 4, 128);
-            budgetMillis = b.comment("Server time per tick for copying the terrain and clearing it again",
-                            "(milliseconds); the work is spread over as many ticks as it needs")
+            budgetMillis = b.comment("Server time per tick for copying the terrain, preparing the level inside it and",
+                            "clearing it again (milliseconds); the work is spread over as many ticks as it needs")
                     .translation(KEY + "hollow.budgetMillis").defineInRange("budgetMillis", 5.0, 0.5, 50.0);
             fadeTicks = b.comment("Length of the fade to black before a move into or out of the hollow, and of the",
                             "fade back (ticks)")
@@ -490,6 +502,9 @@ public final class TremorConfig {
         public final ModConfigSpec.IntValue widenBelow;
         public final ModConfigSpec.IntValue nodeMinDistance;
         public final ModConfigSpec.IntValue nodeMaxDistance;
+        public final ModConfigSpec.DoubleValue nodeMinStraight;
+        public final ModConfigSpec.IntValue minDeadEnds;
+        public final ModConfigSpec.IntValue maxDeadEnds;
         public final ModConfigSpec.IntValue graceSeconds;
         public final ModConfigSpec.DoubleValue closeSpeed;
         public final ModConfigSpec.DoubleValue noiseFactor;
@@ -511,16 +526,29 @@ public final class TremorConfig {
             b.comment("The level inside the hollow (SPEC 9): the node to destroy, the edges closing in, walls that",
                             "move, ground that pulls in a player who stands still")
                     .translation(KEY + "hollow.level").push("level");
-            budgetMillis = b.comment("Server time per tick for the level of one player (milliseconds); the closing",
-                            "gets what the rest leaves of it")
+            budgetMillis = b.comment("Server time per tick for the level of one player while the player is inside",
+                            "(milliseconds; it is prepared within hollow.budgetMillis); the closing gets what the rest",
+                            "leaves of it")
                     .translation(KEY + "hollow.level.budgetMillis").defineInRange("budgetMillis", 2.0, 0.2, 20.0);
             widenBelow = b.comment("A place with fewer open blocks than this connected to the player within 8 blocks",
-                            "(a 1x2 tunnel, a small room) is widened into a cave before the player arrives (0 = never)")
-                    .translation(KEY + "hollow.level.widenBelow").defineInRange("widenBelow", 100, 0, 2000);
-            nodeMinDistance = b.comment("The node lies at least this many steps from the player (along the way there)")
-                    .translation(KEY + "hollow.level.nodeMinDistance").defineInRange("nodeMinDistance", 14, 2, 64);
-            nodeMaxDistance = b.comment("...and at most this many; a tunnel is dug to it if no such place is open")
-                    .translation(KEY + "hollow.level.nodeMaxDistance").defineInRange("nodeMaxDistance", 24, 2, 64);
+                            "(a tunnel up to some 4 blocks across, a small room) is widened into a cave some 16 blocks",
+                            "across before the player arrives (0 = never)")
+                    .translation(KEY + "hollow.level.widenBelow").defineInRange("widenBelow", 400, 0, 2000);
+            nodeMinDistance = b.comment("The node is put at least this many steps from the player along the way",
+                            "there, a tunnel dug through the copy to a chamber under the ground (where the copy leaves",
+                            "no room for that, the best way found is taken: /tremor hollow status and the log say SHORT)")
+                    .translation(KEY + "hollow.level.nodeMinDistance").defineInRange("nodeMinDistance", 40, 2, 120);
+            nodeMaxDistance = b.comment("...and at most this many")
+                    .translation(KEY + "hollow.level.nodeMaxDistance").defineInRange("nodeMaxDistance", 60, 2, 120);
+            nodeMinStraight = b.comment("...and at least this far from where the player arrived in a straight line",
+                            "(blocks)")
+                    .translation(KEY + "hollow.level.nodeMinStraight")
+                    .defineInRange("nodeMinStraight", 12.0, 0.0, 64.0);
+            minDeadEnds = b.comment("Dead ends dug besides the way to the node, at least: out of the start (or decoy",
+                            "throats on open ground) and forking off the way")
+                    .translation(KEY + "hollow.level.minDeadEnds").defineInRange("minDeadEnds", 3, 0, 12);
+            maxDeadEnds = b.comment("...and at most")
+                    .translation(KEY + "hollow.level.maxDeadEnds").defineInRange("maxDeadEnds", 5, 0, 12);
             graceSeconds = b.comment("The edges start closing in this long after the player arrives (seconds)")
                     .translation(KEY + "hollow.level.graceSeconds").defineInRange("graceSeconds", 10, 0, 600);
             closeSpeed = b.comment("How fast the edges close in while the player is silent (blocks per second)")
@@ -570,23 +598,47 @@ public final class TremorConfig {
 
     /**
      * The Awakening (SPEC 9 phase 1 and the outcomes), section {@code awakening} of COMMON; read by
-     * {@link tremor.awakening.AwakeningManager} and {@link tremor.awakening.Outcomes}.
+     * {@link tremor.awakening.AwakeningManager}, {@link tremor.awakening.Outcomes} and
+     * {@link tremor.awakening.Craters}, and the seeking before it (SPEC 8 AWAKENING) by the entity's mind
+     * ({@link tremor.entity.TremorMind}).
      */
     public static final class Awakening {
+        public final ModConfigSpec.IntValue seekSeconds;
+        public final ModConfigSpec.DoubleValue reachDistance;
+        public final ModConfigSpec.DoubleValue searchRadius;
         public final ModConfigSpec.DoubleValue radius;
         public final ModConfigSpec.IntValue buildupSeconds;
         public final ModConfigSpec.IntValue swallowTicks;
         public final ModConfigSpec.IntValue cooldownSeconds;
         public final ModConfigSpec.IntValue emergeTicks;
-        public final ModConfigSpec.IntValue sinkholeRadius;
-        public final ModConfigSpec.IntValue sinkholeDepth;
+        public final ModConfigSpec.IntValue craterRadius;
+        public final ModConfigSpec.IntValue craterDepth;
+        public final ModConfigSpec.IntValue craterBlocksPerTick;
+        public final ModConfigSpec.DoubleValue craterBudgetMillis;
         public final ModConfigSpec.BooleanValue lethal;
 
         Awakening(ModConfigSpec.Builder b) {
-            b.comment("The Awakening (SPEC 9): at the top of its anger the entity becomes the whole area around a",
-                            "player; the player escapes by leaving the zone in time, or the ground swallows the player",
-                            "into the hollow")
+            b.comment("The Awakening (SPEC 9): at the top of its anger the entity seeks a player, and once it has",
+                            "reached one it becomes the whole area around that player; the player escapes by leaving",
+                            "the zone in time, or the ground swallows the player into the hollow")
                     .translation(KEY + "awakening").push("awakening");
+            seekSeconds = b.comment("At the top of its anger (AWAKENING) the entity goes for the sounds it hears,",
+                            "faster than hunting, its anger held at the top; if it has reached nobody this long after",
+                            "it got there, it calms down to HUNTING (halfway between behavior.huntAt and awakenAt) and",
+                            "the anger decays again (seconds)")
+                    .translation(KEY + "awakening.seekSeconds").defineInRange("seekSeconds", 35, 1, 600);
+            reachDistance = b.comment("The Awakening starts once the bump of the seeking entity is this close to a",
+                            "player in survival mode (blocks, horizontally, and at most 5 blocks above or below the",
+                            "feet); the zone is around that player")
+                    .translation(KEY + "awakening.reachDistance").defineInRange("reachDistance", 8.0, 1.0, 32.0);
+            searchRadius = b.comment("The seeking entity searches only this far around the last sound it heard",
+                            "(blocks; behavior.huntSearchRadius applies while hunting). So a player who makes a noise,",
+                            "then gets quietly a little more than searchRadius + reachDistance (12) blocks away from",
+                            "it before the entity is there, not toward the entity coming for it, and keeps still, is",
+                            "not found; with nothing to go for the entity roams away from the players",
+                            "(behavior.minWanderDistance)")
+                    .translation(KEY + "awakening.searchRadius")
+                    .defineInRange("searchRadius", BehaviorParams.defaults().seekSearchRadius(), 0.0, 64.0);
             radius = b.comment("Radius of the zone (blocks, horizontally) around where the player stood at the start")
                     .translation(KEY + "awakening.radius").defineInRange("radius", 30.0, 4.0, 128.0);
             buildupSeconds = b.comment("Time to get out of the zone before it closes (seconds); the last third is dark")
@@ -601,14 +653,28 @@ public final class TremorConfig {
             emergeTicks = b.comment("After a victory: how long the hill at the swallow point rises, lets the player",
                             "out and settles again (ticks)")
                     .translation(KEY + "awakening.emergeTicks").defineInRange("emergeTicks", 80, 1, 600);
-            sinkholeRadius = b.comment("After a defeat a real sinkhole opens where the player was swallowed: its",
-                            "radius (blocks; 0 = no sinkhole). It never takes blocks with a block entity, blocks of",
-                            "#tremor:protected, unbreakable blocks or the spawn protection, nor lets a fluid in")
-                    .translation(KEY + "awakening.sinkholeRadius").defineInRange("sinkholeRadius", 4, 0, 8);
-            sinkholeDepth = b.comment("Depth of the sinkhole at its middle (blocks)")
-                    .translation(KEY + "awakening.sinkholeDepth").defineInRange("sinkholeDepth", 6, 1, 12);
-            lethal = b.comment("A defeat kills the player, whose things land on the bottom of the sinkhole; false:",
-                            "the player comes out there alive, keeping everything, but badly weakened")
+            craterRadius = b.comment("After a defeat, and after an escape through the edge of the hollow, a real",
+                            "crater opens where the player was swallowed: an irregular funnel with steep walls; its",
+                            "radius (blocks, the rim up to a quarter nearer or farther by direction, so it reaches up",
+                            "to 1.25 x the radius; 0 = no crater). It never takes blocks with a block entity, blocks of",
+                            "#tremor:protected, unbreakable blocks or the spawn protection, nor lets a fluid in (the",
+                            "fluid is plugged where it touches the crater)")
+                    .translation(KEY + "awakening.craterRadius").defineInRange("craterRadius", 12, 0, 24);
+            craterDepth = b.comment("Depth of the crater at its middle (blocks). At the surface it also takes all that",
+                            "stands over it up to the top of the terrain (a hill, trees; 48 blocks over the swallow",
+                            "point at most); deep under a roof (a cave, a mine) it cuts this far up, under the rest")
+                    .translation(KEY + "awakening.craterDepth").defineInRange("craterDepth", 20, 1, 40);
+            craterBlocksPerTick = b.comment("The crater caves in gradually, from the top down: at most this many blocks",
+                            "are changed per tick")
+                    .translation(KEY + "awakening.craterBlocksPerTick")
+                    .defineInRange("craterBlocksPerTick", 120, 1, 10000);
+            craterBudgetMillis = b.comment("Server time per tick for digging the craters, however many blocks that",
+                            "is (milliseconds)")
+                    .translation(KEY + "awakening.craterBudgetMillis")
+                    .defineInRange("craterBudgetMillis", 2.0, 0.1, 50.0);
+            lethal = b.comment("A defeat kills the player, whose things are hidden on the bottom of the crater (in",
+                            "caches of rubble, some of them buried); false: the player comes out there alive,",
+                            "keeping everything, but badly weakened")
                     .translation(KEY + "awakening.lethal").define("lethal", true);
             b.pop();
         }
@@ -639,6 +705,7 @@ public final class TremorConfig {
         public final ModConfigSpec.BooleanValue ripple;
         public final ModConfigSpec.DoubleValue rippleAmplitude;
         public final ModConfigSpec.BooleanValue rippleDust;
+        public final ModConfigSpec.DoubleValue hollowFogDistance;
         public final ModConfigSpec.DoubleValue rustleVolume;
         public final ModConfigSpec.DoubleValue silenceFloor;
         public final ModConfigSpec.DoubleValue heartbeatVolume;
@@ -672,9 +739,16 @@ public final class TremorConfig {
                     .translation(KEY + "effects.rippleAmplitude")
                     .defineInRange("rippleAmplitude", RippleParams.defaults().amplitude(), 0.0, 1.0);
             rippleDust = b.comment("Kick up a little dust of the ground along the front of the ripples while they are",
-                            "drawn (around an alerted entity, and the rings of steps in an Awakening); half as much",
-                            "with the Particles video setting at Decreased, none at Minimal")
+                            "drawn (around an alerted entity, the rings of steps in an Awakening and the rings of the",
+                            "node in the hollow, there with a few faint glints where it is too dark to see dust); half",
+                            "as much with the Particles video setting at Decreased, none at Minimal")
                     .translation(KEY + "effects.rippleDust").define("rippleDust", true);
+            hollowFogDistance = b.comment("In the hollow (SPEC 9) a black fog hides everything further than this",
+                            "(blocks); it starts about a tenth of the way out and closes in a little as the hollow",
+                            "closes. Night vision does not lift it. The rings of the node and the heaving ground are",
+                            "drawn only about as far as this (at most 20 blocks)")
+                    .translation(KEY + "effects.hollowFogDistance")
+                    .defineInRange("hollowFogDistance", 5.5, 2.0, 32.0);
             b.pop();
 
             b.comment("Sounds of the entity (SPEC 13)").translation(KEY + "sound").push("sound");
@@ -689,7 +763,9 @@ public final class TremorConfig {
                     .translation(KEY + "sound.silenceFloor").defineInRange("silenceFloor", 0.05, 0.0, 1.0);
             heartbeatVolume = b.comment("Volume of the heartbeat heard inside the zone of an Awakening; it starts at",
                             "40% of this and quickens and grows to all of it as the zone closes (0 = off). In the",
-                            "hollow the heartbeat comes from the node: louder near it and as the hollow closes")
+                            "hollow the heartbeat comes from the node: louder near it and as the hollow closes, and",
+                            "never quieter than about a fifth of this far off; the ring of a beat thumps faintly",
+                            "under you as it passes")
                     .translation(KEY + "sound.heartbeatVolume").defineInRange("heartbeatVolume", 0.8, 0.0, 1.0);
             humVolume = b.comment("Volume of the low hum of the ground inside the zone of an Awakening and in the",
                             "hollow; it starts at 35% of this and swells to all of it as the zone (the hollow) closes",

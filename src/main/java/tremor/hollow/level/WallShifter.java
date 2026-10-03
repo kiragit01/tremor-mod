@@ -12,9 +12,9 @@ import tremor.hollow.HollowManager;
  * The walls move (SPEC 9: "пространство «ходит ходуном»"; "стены двигаются и путают, но путь не замуровывается
  * насовсем"): now and then a few blocks of wall {@value #NEAR} to {@value #FAR} blocks from the player trade places
  * with the air next to them, so the wall bulges out where the block went and recedes where it was. Only plain blocks
- * of the copy move ({@link Materials#usable}), and only ones nothing leans on (a torch, a plant, a fluid); never near
- * the player, into the way to the node or out of its floor, nor the node itself, nor outside the part of the hollow that
- * is still open.
+ * of the copy move ({@link Materials#usable}), and only ones nothing leans on (a torch, a plant, a fluid) and that
+ * leave no hole (a full block under where they were, unless they move down into it); never near the player, into the
+ * way to the node or out of its floor, nor the node itself, nor outside the part of the hollow that is still open.
  */
 final class WallShifter {
     /** Nothing moves closer to the player than this (blocks, from the middle of the player's body). */
@@ -45,7 +45,7 @@ final class WallShifter {
                 BlockState state = level.getBlockState(wall);
                 if (!Materials.usable(level, wall, state) || !owner.mayShift(wall, player, radius, NEAR, FAR)
                         || owner.keepsOpen(wall.above().asLong()) || HollowManager.isPlayerPlaced(level, wall)
-                        || leanedOn(level, wall, air)) {
+                        || side != Direction.UP && !floored(level, wall) || leanedOn(level, wall, air)) {
                     continue;
                 }
                 level.setBlock(air, state, Materials.FLAGS);
@@ -60,6 +60,15 @@ final class WallShifter {
     /** Blocks moved so far. */
     long shifted() {
         return shifted;
+    }
+
+    /**
+     * Whether a full block lies under {@code wall}: once its block is gone, the cell is a niche, not a hole into a
+     * pit (the floor of a corridor over a cave, the wall of one over a drop).
+     */
+    private static boolean floored(ServerLevel level, BlockPos wall) {
+        BlockPos below = wall.below();
+        return level.getBlockState(below).isCollisionShapeFullBlock(level, below);
     }
 
     /** Whether something but air or a full block touches {@code wall} (other than through {@code air}). */

@@ -173,8 +173,9 @@ public final class HollowEvent {
     }
 
     /**
-     * Where the things of the player go if the player dies in the event: the bottom of the sinkhole after a defeat
-     * ({@link HollowManager#setDeathDrops}), else the place the player was swallowed (SPEC 9: the things lie there).
+     * Where the things of the player go if the player dies in the event: the bottom of the crater after a defeat
+     * ({@link HollowManager#setDeathDrops}; the items into its caches), else the place the player was swallowed
+     * (SPEC 9: the things lie there).
      */
     public Origin deathDrops() {
         return deathDrops != null ? deathDrops : origin;

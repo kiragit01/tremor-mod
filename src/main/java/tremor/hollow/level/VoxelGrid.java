@@ -4,7 +4,7 @@ import java.util.HashSet;
 import java.util.Set;
 
 /**
- * What the planning of the level (SPEC 9, phase 2: the widened cave, the way to the node) needs to know of each block
+ * What the planning of the level (SPEC 9, phase 2: the widened cave, the network of ways) needs to know of each block
  * of a box of the hollow: whether a player passes through it, whether it holds a fluid, whether it hurts, whether it
  * is too tall to stand on. A snapshot taken once (the game fills it from the copy) or built by hand in the tests;
  * cells outside the box read as solid, but are never stood on ({@link #standable}). Plain Java.
@@ -47,6 +47,21 @@ public final class VoxelGrid {
         sizeY = maxY - minY + 1;
         sizeZ = maxZ - minZ + 1;
         cells = new byte[sizeX * sizeY * sizeZ];
+    }
+
+    private VoxelGrid(VoxelGrid other) {
+        minX = other.minX;
+        minY = other.minY;
+        minZ = other.minZ;
+        sizeX = other.sizeX;
+        sizeY = other.sizeY;
+        sizeZ = other.sizeZ;
+        cells = other.cells.clone();
+    }
+
+    /** A grid over the same box with the same cells, changed apart from this one (a plan tried out on it). */
+    public VoxelGrid copy() {
+        return new VoxelGrid(this);
     }
 
     public int minX() {

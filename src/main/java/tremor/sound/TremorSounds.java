@@ -41,6 +41,11 @@ public final class TremorSounds {
      * again and again while the player sinks.
      */
     public static final DeferredHolder<SoundEvent, SoundEvent> PULL = register("entity.tremor.pull");
+    /**
+     * A faint, deep thump of the ground under a player in the hollow as the ring of a beat of the node runs under them
+     * (SPEC 9 phase 2), unlike the {@link #PULSE} of the node itself.
+     */
+    public static final DeferredHolder<SoundEvent, SoundEvent> THUMP = register("entity.tremor.thump");
 
     private TremorSounds() {
     }

@@ -11,7 +11,7 @@ import tremor.core.math.Vec3;
  * is; the body (server runtime) carries out the {@link Decision}s.
  * <ul>
  *   <li><b>DORMANT</b>: wanders lazily (pauses of about {@code wanderPauseSeconds}, targets from
- *   {@link BrainWorld#wanderTarget} kept {@code minWanderDistance} from the player). Goes after a heard sound only
+ *   {@link BrainWorld#wanderTarget} kept {@code minWanderDistance} from the players). Goes after a heard sound only
  *   if it is at least {@code dormantReactLoudness} loud ("investigate").</li>
  *   <li><b>ALERT</b>: on every heard sound it freezes and turns toward it for {@code alertFreezeSeconds}; then creeps
  *   toward the last heard position. With nothing heard for {@code alertLoseInterestSeconds} it goes back to
@@ -19,7 +19,14 @@ import tremor.core.math.Vec3;
  *   <li><b>HUNTING</b>: goes straight for each heard sound; arriving with nothing new heard it searches around the
  *   last sound ({@link BrainWorld#searchTarget}, radius {@code huntSearchRadius}) for {@code huntSearchSeconds}, then
  *   wanders.</li>
- *   <li><b>AWAKENING</b>: until stage 4, behaves like HUNTING.</li>
+ *   <li><b>AWAKENING</b>: seeking a player ({@link Seeking}): behaves like HUNTING (goes for each heard sound, searches
+ *   around the last one), except that it searches only {@code seekSearchRadius} around the sound, and with no sound
+ *   to go for it wanders as far from the players as DORMANT does (the world keeps those legs and their ways away from
+ *   the players who can be taken, {@link BrainWorld#wanderTarget}): a player who makes a noise, then gets quietly a
+ *   little farther from it than that radius plus the reach before the entity is there, and keeps still, is not found
+ *   by chance (SPEC 8: "Затаиться и переждать пик — рабочая стратегия"; a search point is the centre of a surface
+ *   voxel, up to half a voxel diagonal past the radius). The body is faster and its bump higher, and the Awakening
+ *   starts once it has reached a player, or the entity calms down to HUNTING when the seeking runs out.</li>
  * </ul>
  * Deterministic for a given seed and input sequence.
  *
@@ -45,16 +52,17 @@ import tremor.core.math.Vec3;
  *   <li>Wander pauses are drawn uniformly from [0.5, 1.5) x {@code wanderPauseSeconds} and run only while the body is
  *   idle (a route still being followed finishes first). After the pause the brain asks for a wander target; if there
  *   is none it waits another pause. A DORMANT investigation, once arrived, goes back to wandering (pause first).</li>
- *   <li>{@code minWanderDistance} is passed to {@link BrainWorld#wanderTarget} only while DORMANT (SPEC 5.6); ALERT
- *   and HUNTING wandering passes 0.</li>
+ *   <li>{@code minWanderDistance} is passed to {@link BrainWorld#wanderTarget} only while DORMANT (SPEC 5.6) and
+ *   while AWAKENING (seeking); ALERT and HUNTING wandering passes 0.</li>
  *   <li>Giving up a chase (ALERT losing interest, a HUNTING search running out, dropping to DORMANT): an idle entity
  *   starts wandering with a pause; a moving one asks for a wander leg right away, so the chase route is replaced (if
  *   no wander target is found, it finishes its route and then pauses).</li>
  *   <li>ALERT loses interest {@code alertLoseInterestSeconds} after the last heard sound (the freeze counts), while
  *   creeping or while listening at the sound (idle after the creep).</li>
  *   <li>HUNTING searches until {@code huntSearchSeconds} have passed since the last heard sound (time spent going to
- *   the sound counts); a search leg is asked from {@link BrainWorld#searchTarget} each time the body is idle again;
- *   if none is found, it asks again after {@link #SEARCH_RETRY_SECONDS} (still idle).</li>
+ *   the sound counts); a search leg is asked from {@link BrainWorld#searchTarget} each time the body is idle again,
+ *   within {@code huntSearchRadius} of the sound ({@code seekSearchRadius} while AWAKENING); if none is found, it asks
+ *   again after {@link #SEARCH_RETRY_SECONDS} (still idle).</li>
  * </ul>
  *
  * <h2>Stage changes</h2>
@@ -262,7 +270,13 @@ public final class Brain {
         }
     }
 
+    /**
+     * HUNTING, and AWAKENING (seeking), whose search is narrower ({@code seekSearchRadius}) and whose wandering keeps
+     * {@code minWanderDistance} from the players.
+     */
     private Decision hunting(double dt, boolean heard, Vec3 position, boolean idle, BrainWorld world) {
+        boolean seeking = stage == Stage.AWAKENING;
+        double minDistance = seeking ? params.minWanderDistance() : 0;
         if (heard) {
             mode = Mode.HUNT;
             return go(lastHeard, "hunt");
@@ -290,14 +304,15 @@ public final class Brain {
         }
         if (mode == Mode.SEARCH) {
             if (searchOver()) {
-                return calmDown(idle, position, world, 0);
+                return calmDown(idle, position, world, minDistance);
             }
             if (!idle) {
                 return Decision.stay("search");
             }
             timer -= dt;
             if (timer <= EPS) {
-                Vec3 target = world.searchTarget(lastHeard, params.huntSearchRadius(), random);
+                Vec3 target = world.searchTarget(lastHeard,
+                        seeking ? params.seekSearchRadius() : params.huntSearchRadius(), random);
                 if (target != null) {
                     timer = 0;
                     return go(target, "search");
@@ -306,7 +321,7 @@ public final class Brain {
             }
             return Decision.stay("search");
         }
-        return wander(dt, idle, position, world, 0);
+        return wander(dt, idle, position, world, minDistance);
     }
 
     /** Lazy wandering; {@link #mode} is PAUSE or WANDER. The pause runs only while idle. */

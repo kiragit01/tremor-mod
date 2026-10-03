@@ -29,6 +29,22 @@ final class Materials {
     /** The sides tried after the preferred one: below first (walls grow up from the floor), above last. */
     private static final Direction[] AROUND = {Direction.DOWN, Direction.NORTH, Direction.SOUTH, Direction.WEST,
             Direction.EAST, Direction.UP};
+    /** The sides tried with a preferred one, by its {@link Direction#ordinal}: it first, then the others of AROUND. */
+    private static final Direction[][] FIRST = new Direction[Direction.values().length][];
+
+    static {
+        for (Direction first : Direction.values()) {
+            Direction[] sides = new Direction[AROUND.length];
+            sides[0] = first;
+            int n = 1;
+            for (Direction side : AROUND) {
+                if (side != first) {
+                    sides[n++] = side;
+                }
+            }
+            FIRST[first.ordinal()] = sides;
+        }
+    }
 
     private Materials() {
     }
@@ -55,38 +71,38 @@ final class Materials {
     }
 
     /**
-     * What grows into the open cell at {@code pos}: a copy of a usable neighbour ({@code first} tried first, if not
-     * null, then {@link #AROUND}), sand as sandstone; else, next to any solid block, stone (deepslate below y 0);
-     * null if every neighbour is open (nothing to grow from).
+     * What grows into the open cell at {@code pos}: a copy of a usable neighbour that does not hurt ({@code first}
+     * tried first, if not null, then {@link #AROUND}), sand as sandstone; else, next to any solid block, stone
+     * (deepslate below y 0); null if every neighbour is open (nothing to grow from). See {@link MaterialChoice}.
      */
     static BlockState material(ServerLevel level, BlockPos pos, Direction first) {
+        Direction[] sides = first == null ? AROUND : FIRST[first.ordinal()];
         BlockPos.MutableBlockPos at = new BlockPos.MutableBlockPos();
-        boolean solid = false;
-        for (int i = first == null ? 1 : 0; i <= AROUND.length; i++) {
-            Direction side = i == 0 ? first : AROUND[i - 1];
-            if (i > 0 && side == first) {
-                continue;
-            }
-            at.setWithOffset(pos, side);
-            BlockState state = level.getBlockState(at);
-            if (open(state)) {
-                continue;
-            }
-            solid = true;
-            if (state.is(Blocks.SAND)) {
-                return Blocks.SANDSTONE.defaultBlockState();
-            }
-            if (state.is(Blocks.RED_SAND)) {
-                return Blocks.RED_SANDSTONE.defaultBlockState();
-            }
-            if (usable(level, at, state)) {
-                return state;
-            }
+        int chosen = MaterialChoice.choose(sides.length, i -> kind(level, at.setWithOffset(pos, sides[i])));
+        if (chosen < 0) {
+            return chosen == MaterialChoice.STONE ? stone(pos) : null;
         }
-        return solid ? stone(pos) : null;
+        BlockState state = level.getBlockState(at.setWithOffset(pos, sides[chosen]));
+        if (state.is(Blocks.SAND)) {
+            return Blocks.SANDSTONE.defaultBlockState();
+        }
+        return state.is(Blocks.RED_SAND) ? Blocks.RED_SANDSTONE.defaultBlockState() : state;
     }
 
-    /** {@link #material}, or stone if there is nothing around to grow from (a floor laid over a void). */
+    /** What the block at {@code pos} is to {@link #material}. */
+    private static MaterialChoice.Kind kind(ServerLevel level, BlockPos pos) {
+        BlockState state = level.getBlockState(pos);
+        if (open(state)) {
+            return MaterialChoice.Kind.OPEN;
+        }
+        return state.is(Blocks.SAND) || state.is(Blocks.RED_SAND) || usable(level, pos, state) && !hazard(state)
+                ? MaterialChoice.Kind.COPY : MaterialChoice.Kind.OTHER;
+    }
+
+    /**
+     * {@link #material} with the block below tried first, or stone if there is nothing around to grow from (a floor
+     * laid over a void): never magma or another block that hurts, so a floor laid where one was is safe ground.
+     */
     static BlockState floor(ServerLevel level, BlockPos pos) {
         BlockState state = material(level, pos, Direction.DOWN);
         return state != null ? state : stone(pos);

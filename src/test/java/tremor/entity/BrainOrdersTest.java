@@ -30,6 +30,8 @@ class BrainOrdersTest {
             assertEquals(BrainOrders.Type.GO, order.type());
             assertEquals(A, order.point());
             assertFalse(order.sound());
+            // Only a wander leg's route must keep away from the players (a search leg searches where it heard).
+            assertEquals(reason.equals("wander"), order.wander(), reason);
             assertEquals(0, order.perceived());
             assertFalse(orders.waiting());
         }
@@ -54,7 +56,7 @@ class BrainOrdersTest {
             // The brain says STAY while it waits ("keep following that route"): the GO is ordered once allowed.
             assertSame(BrainOrders.Order.NONE, orders.next(Decision.stay(reason), 0.3, false, p -> false));
             order = orders.next(Decision.stay(reason), 0.3, false, p -> true);
-            assertEquals(new BrainOrders.Order(BrainOrders.Type.GO, B, true, 0.3), order);
+            assertEquals(new BrainOrders.Order(BrainOrders.Type.GO, B, true, false, 0.3), order);
             assertFalse(orders.waiting());
             assertSame(BrainOrders.Order.NONE, orders.next(Decision.stay(reason), 0.3, false, p -> true));
         }
@@ -65,11 +67,11 @@ class BrainOrdersTest {
         BrainOrders orders = new BrainOrders();
         orders.next(Decision.go(A, "hunt"), 0.4, false, p -> false);
         orders.next(Decision.go(B, "hunt"), 0.5, false, p -> false);
-        assertEquals(new BrainOrders.Order(BrainOrders.Type.GO, B, true, 0.5),
+        assertEquals(new BrainOrders.Order(BrainOrders.Type.GO, B, true, false, 0.5),
                 orders.next(Decision.stay("hunt"), 0.5, false, p -> true));
 
         orders.next(Decision.go(A, "hunt"), 0.4, false, p -> false);
-        assertEquals(new BrainOrders.Order(BrainOrders.Type.GO, C, false, 0),
+        assertEquals(new BrainOrders.Order(BrainOrders.Type.GO, C, false, true, 0),
                 orders.next(Decision.go(C, "wander"), 0.4, false, p -> false));
         assertFalse(orders.waiting());
 
@@ -81,10 +83,10 @@ class BrainOrdersTest {
     @Test
     void aFreezeIsOrderedWhenItStartsAndWhenItsFacingChanges() {
         BrainOrders orders = new BrainOrders();
-        assertEquals(new BrainOrders.Order(BrainOrders.Type.FREEZE, A, false, 0),
+        assertEquals(new BrainOrders.Order(BrainOrders.Type.FREEZE, A, false, false, 0),
                 orders.next(Decision.freeze(A, "freeze"), 0.4, false, p -> true));
         assertSame(BrainOrders.Order.NONE, orders.next(Decision.freeze(A, "freeze"), 0.4, false, p -> true));
-        assertEquals(new BrainOrders.Order(BrainOrders.Type.FREEZE, B, false, 0),
+        assertEquals(new BrainOrders.Order(BrainOrders.Type.FREEZE, B, false, false, 0),
                 orders.next(Decision.freeze(B, "freeze"), 0.4, false, p -> true));
         assertSame(BrainOrders.Order.NONE, orders.next(Decision.freeze(B, "freeze"), 0.4, false, p -> true));
         // Anything else ends the freeze; the next one starts anew, even toward the same point.

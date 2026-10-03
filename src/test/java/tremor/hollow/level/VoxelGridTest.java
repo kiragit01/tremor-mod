@@ -62,6 +62,20 @@ class VoxelGridTest {
     }
 
     @Test
+    void aCopyChangesApart() {
+        VoxelGrid grid = grid();
+        grid.set(1, 1, 1, VoxelGrid.OPEN);
+        VoxelGrid copy = grid.copy();
+        assertEquals(grid.volume(), copy.volume());
+        assertEquals(grid.maxY(), copy.maxY());
+        assertTrue(copy.open(1, 1, 1));
+        copy.set(2, 2, 2, WATER);
+        grid.set(1, 1, 1, 0);
+        assertFalse(grid.open(2, 2, 2));
+        assertTrue(copy.open(1, 1, 1) && !copy.dry(2, 2, 2));
+    }
+
+    @Test
     void theInteriorHasAllItsNeighboursInTheGrid() {
         VoxelGrid grid = grid();
         assertTrue(grid.interior(1, 1, 1) && grid.interior(3, 3, 3));

@@ -1,0 +1,321 @@
+# Stage 4d, CRATER (SPEC 9 "Поражение", 12): a defeat leaves a real crater at the swallow point. B: lethal (the
+# default): the player stands still in the hollow, the soft ground pulls them in, they die ("поглотила земля"); the
+# crater opens and the things lie in caches of rubble on its bottom, some on top, some buried (no item entities, they
+# would despawn). The caches are checked one by one, one lying open is looked at closely (its darker top, a glint now
+# and then), one is broken by hand and the others by a command, and the things are picked up and counted against the
+# known set given before (the helmet with the curse of vanishing is gone, as in vanilla). C: the soft variant
+# (awakening.lethal false): alive on the rubble of the bottom, weakened (1 health, the effects, and hungry: food 6, no
+# saturation, so the health does not come back by itself: still 1 twenty seconds later), with everything; no caches.
+# D: a defeat called off by /tremor restore while its crater is being dug (slowed down): the player is brought out at
+# the swallow point, now over the pit, and let down onto the layer dug so far instead of falling (no damage).
+# E: a lethal defeat whose player is killed (/kill) while its crater is still being dug: the things wait for the crater
+# and go into its caches once it is dug (no loose items, which would despawn).
+# Sites (blocks of ground in the sky, y 170..200, away from the sky platform of the other scripts):
+# B x 436..484, z 376..424, swallow point 460 201 400; C x 436..484, z 476..524, swallow point 460 201 500;
+# D x 436..484, z 576..624, swallow point 460 201 600; E x 436..484, z 876..924, swallow point 460 201 900.
+# Run: gradlew runClientAutotest -Ptremor_autotest_script=stage4d-crater-defeat.txt
+
+waitchunks
+cmd gamemode spectator
+cmd time set noon
+cmd gamerule doDaylightCycle false
+cmd gamerule doMobSpawning false
+cmd gamerule keepInventory false
+cmd tremor despawn
+cmd kill @e[type=!player]
+cmd effect clear @s
+cmd effect give @s minecraft:night_vision infinite 0 true
+cmd tp @s 460.5 210.0 450.5 0 20
+wait 40
+waitchunks
+# The blocks (a fill takes 32768 blocks at most); they also repair the craters of an earlier run
+cmd fill 436 170 376 484 182 424 minecraft:stone
+cmd fill 436 183 376 484 195 424 minecraft:stone
+cmd fill 436 196 376 484 199 424 minecraft:dirt
+cmd fill 436 200 376 484 200 424 minecraft:grass_block
+cmd fill 436 201 376 484 213 424 minecraft:air
+cmd fill 436 170 476 484 182 524 minecraft:stone
+cmd fill 436 183 476 484 195 524 minecraft:stone
+cmd fill 436 196 476 484 199 524 minecraft:dirt
+cmd fill 436 200 476 484 200 524 minecraft:grass_block
+cmd fill 436 201 476 484 213 524 minecraft:air
+cmd fill 436 170 576 484 182 624 minecraft:stone
+cmd fill 436 183 576 484 195 624 minecraft:stone
+cmd fill 436 196 576 484 199 624 minecraft:dirt
+cmd fill 436 200 576 484 200 624 minecraft:grass_block
+cmd fill 436 201 576 484 213 624 minecraft:air
+cmd kill @e[type=item]
+cmd kill @e[type=experience_orb]
+hud off
+config awakening.buildupSeconds 3
+
+# ---- B. Lethal defeat ----
+log --- B. lethal defeat at 460 201 400
+cmd tp @s 460.5 201.0 400.5 0 10
+wait 20
+waitchunks
+cmd gamemode survival
+cmd clear @s
+cmd effect give @s minecraft:instant_health 1 4 true
+cmd xp set @s 0 levels
+cmd xp set @s 0 points
+cmd give @s minecraft:diamond 7
+cmd give @s minecraft:iron_sword
+cmd give @s minecraft:bread 16
+cmd give @s minecraft:torch 64
+cmd give @s minecraft:cobblestone 1280
+cmd item replace entity @s armor.chest with minecraft:iron_chestplate
+cmd item replace entity @s weapon.offhand with minecraft:shield
+cmd item replace entity @s armor.head with minecraft:iron_helmet[enchantments={levels:{"minecraft:vanishing_curse":1}}]
+cmd xp set @s 5 levels
+wait 10
+cmd tremor awaken
+wait 220
+waitchunks
+cmd data get entity @s Dimension
+cmd tremor hollow status
+waitfor 900 swallowed by the ground
+wait 100
+waitchunks
+cmd tremor info
+cmd gamemode spectator
+cmd tp @s 460.5 236.0 400.5 0 90
+wait 40
+waitchunks
+screenshot 20_defeat_above
+# No loose items (they are in the caches); the experience lies on the bottom as orbs
+cmd execute positioned 460.5 190 400.5 if entity @e[type=minecraft:item,distance=..40]
+cmd execute positioned 460.5 190 400.5 if entity @e[type=minecraft:experience_orb,distance=..40]
+cmd tp @s 475.5 205.0 400.5 90 38
+wait 10
+screenshot 21_defeat_rim
+cmd tp @s 460.5 188.0 393.5 0 50
+wait 10
+screenshot 22_defeat_bottom
+# The caches one by one (the crater and the layout follow from the swallow point and the world's seed: the log of an
+# earlier run listed them): two on top of the rubble, four under one or two blocks of it
+cmd execute if block 465 186 395 tremor:rubble_cache
+cmd execute if block 465 187 395 minecraft:air
+cmd execute if block 461 183 405 tremor:rubble_cache
+cmd execute if block 461 184 405 minecraft:air
+cmd execute if block 454 185 393 tremor:rubble_cache
+cmd execute unless block 454 186 393 minecraft:air
+cmd execute if block 454 187 393 minecraft:air
+cmd execute if block 451 186 402 tremor:rubble_cache
+cmd execute unless block 451 187 402 minecraft:air
+cmd execute if block 451 188 402 minecraft:air
+cmd execute if block 459 181 398 tremor:rubble_cache
+cmd execute unless block 459 182 398 minecraft:air
+cmd execute unless block 459 183 398 minecraft:air
+cmd execute if block 459 184 398 minecraft:air
+cmd execute if block 467 183 402 tremor:rubble_cache
+cmd execute unless block 467 184 402 minecraft:air
+cmd execute unless block 467 185 402 minecraft:air
+cmd execute if block 467 186 402 minecraft:air
+cmd data get block 465 186 395 Items
+cmd data get block 459 181 398 Items
+cmd tp @s 463.5 189.0 398.5 160 45
+wait 5
+lookat 465.5 186.5 395.5
+wait 5
+screenshot 23_exposed_cache
+# Close over it (the hint for one who searches the bottom closely): its top a little darker in the middle, and now and
+# then a faint glint over it (some of these may catch one)
+cmd tp @s 465.5 188.3 397.3 180 55
+wait 5
+lookat 465.5 187.0 395.5
+wait 10
+screenshot 24_exposed_cache_close
+wait 20
+screenshot 25_exposed_cache_glint_a
+wait 20
+screenshot 26_exposed_cache_glint_b
+wait 20
+screenshot 27_exposed_cache_glint_c
+wait 20
+screenshot 28_exposed_cache_glint_d
+wait 20
+screenshot 29_exposed_cache_glint_e
+# One on top broken by hand from the bottom (it drops a gravel too), the others by a command that breaks them
+# (destroy: each spills what it holds and drops a gravel; a command that only replaces a cache empties it, as it does
+# a chest), then the things are picked up and counted
+cmd gamemode survival
+cmd tp @s 465.5 188.0 396.5 180 45
+wait 20
+lookat 465.5 186.9 395.5
+hold attack 40
+wait 20
+cmd execute if block 465 186 395 minecraft:air
+cmd gamemode spectator
+cmd setblock 461 183 405 minecraft:air destroy
+cmd setblock 454 185 393 minecraft:air destroy
+cmd setblock 451 186 402 minecraft:air destroy
+cmd setblock 459 181 398 minecraft:air destroy
+cmd setblock 467 183 402 minecraft:air destroy
+# None left (no blocks were filled)
+cmd fill 444 175 384 476 199 416 minecraft:air replace tremor:rubble_cache
+cmd gamemode survival
+cmd tp @s 460.5 186.0 400.5 0 0
+wait 30
+cmd tp @e[type=minecraft:item,distance=..40] @s
+wait 40
+cmd tp @e[type=minecraft:item,distance=..40] @s
+wait 20
+cmd clear @s minecraft:diamond 0
+cmd clear @s minecraft:iron_sword 0
+cmd clear @s minecraft:bread 0
+cmd clear @s minecraft:torch 0
+cmd clear @s minecraft:cobblestone 0
+cmd clear @s minecraft:iron_chestplate 0
+cmd clear @s minecraft:shield 0
+cmd clear @s minecraft:iron_helmet 0
+cmd clear @s minecraft:gravel 0
+cmd execute positioned 460.5 190 400.5 if entity @e[type=minecraft:item,distance=..40]
+cmd data get entity @s Pos
+
+# ---- C. Soft variant: alive on the bottom, weakened, keeping everything ----
+log --- C. soft defeat at 460 201 500
+config awakening.lethal false
+# (On peaceful vanilla heals a hungry player all the same.)
+cmd difficulty
+cmd gamemode spectator
+cmd tp @s 460.5 201.0 500.5 0 10
+wait 20
+waitchunks
+cmd gamemode survival
+cmd clear @s
+cmd effect clear @s
+cmd effect give @s minecraft:night_vision infinite 0 true
+cmd effect give @s minecraft:instant_health 1 4 true
+cmd give @s minecraft:diamond 7
+cmd give @s minecraft:iron_sword
+cmd give @s minecraft:bread 16
+cmd give @s minecraft:torch 64
+cmd give @s minecraft:cobblestone 1280
+cmd item replace entity @s armor.chest with minecraft:iron_chestplate
+cmd item replace entity @s weapon.offhand with minecraft:shield
+cmd item replace entity @s armor.head with minecraft:iron_helmet[enchantments={levels:{"minecraft:vanishing_curse":1}}]
+wait 10
+cmd tremor awaken
+wait 220
+waitchunks
+cmd data get entity @s Dimension
+cmd tremor hollow status
+wait 400
+waitchunks
+cmd data get entity @s Dimension
+cmd data get entity @s Pos
+cmd data get entity @s Health
+cmd data get entity @s foodLevel
+cmd data get entity @s foodSaturationLevel
+cmd data get entity @s active_effects
+cmd tremor info
+screenshot 30_soft_on_the_bottom
+# Ten and twenty seconds later the health has not come back (no natural regeneration while hungry)
+wait 200
+cmd data get entity @s Health
+cmd data get entity @s foodLevel
+wait 200
+cmd data get entity @s Health
+cmd data get entity @s foodLevel
+cmd data get entity @s foodSaturationLevel
+cmd clear @s minecraft:diamond 0
+cmd clear @s minecraft:iron_sword 0
+cmd clear @s minecraft:bread 0
+cmd clear @s minecraft:torch 0
+cmd clear @s minecraft:cobblestone 0
+cmd clear @s minecraft:iron_chestplate 0
+cmd clear @s minecraft:shield 0
+cmd clear @s minecraft:iron_helmet 0
+cmd fill 444 175 484 476 199 516 minecraft:air replace tremor:rubble_cache
+cmd execute positioned 460.5 190 500.5 if entity @e[type=minecraft:item,distance=..40]
+cmd gamemode spectator
+cmd effect clear @s
+cmd effect give @s minecraft:night_vision infinite 0 true
+cmd tp @s 460.5 236.0 500.5 0 90
+wait 40
+waitchunks
+screenshot 31_soft_above
+
+# ---- D. A defeat called off while its crater is dug: out at the swallow point, let down onto the pit ----
+log --- D. defeat at 460 201 600 called off by /tremor restore mid-dig
+config awakening.craterBlocksPerTick 40
+cmd tp @s 460.5 201.0 600.5 0 10
+wait 20
+waitchunks
+cmd gamemode survival
+cmd clear @s
+cmd effect clear @s
+cmd effect give @s minecraft:night_vision infinite 0 true
+cmd effect give @s minecraft:instant_health 1 4 true
+cmd effect give @s minecraft:saturation 1 20 true
+cmd tremor hollow enter
+wait 160
+waitchunks
+cmd data get entity @s Dimension
+cmd tremor hollow status
+cmd data get entity @s Health
+cmd tremor hollow outcome defeat
+wait 100
+cmd tremor info
+cmd tremor restore
+wait 20
+cmd data get entity @s Dimension
+cmd data get entity @s Pos
+cmd data get entity @s Health
+cmd data get entity @s FallDistance
+wait 40
+cmd data get entity @s Pos
+cmd data get entity @s Health
+cmd tremor info
+cmd gamemode spectator
+cmd tp @s 460.5 236.0 600.5 0 90
+wait 40
+waitchunks
+screenshot 40_called_off_above
+
+# ---- E. Killed while the crater of the defeat is still being dug: the things wait for it, then go into its caches ----
+# (Site E: x 436..484, z 876..924, swallow point 460 201 900. The server log must show the stacks hidden in caches,
+# not laid out as items.)
+log --- E. defeat at 460 201 900, the player killed during the dig
+config awakening.lethal true
+cmd tp @s 460.5 210.0 850.5 0 20
+wait 20
+waitchunks
+cmd fill 436 170 876 484 182 924 minecraft:stone
+cmd fill 436 183 876 484 195 924 minecraft:stone
+cmd fill 436 196 876 484 199 924 minecraft:dirt
+cmd fill 436 200 876 484 200 924 minecraft:grass_block
+cmd fill 436 201 876 484 213 924 minecraft:air
+cmd kill @e[type=item]
+cmd tp @s 460.5 201.0 900.5 0 10
+wait 20
+waitchunks
+cmd gamemode survival
+cmd clear @s
+cmd effect clear @s
+cmd effect give @s minecraft:night_vision infinite 0 true
+cmd effect give @s minecraft:instant_health 1 4 true
+cmd give @s minecraft:diamond 4
+cmd give @s minecraft:bread 8
+cmd give @s minecraft:iron_pickaxe
+cmd tremor hollow enter
+wait 160
+waitchunks
+cmd data get entity @s Dimension
+cmd tremor hollow outcome defeat
+wait 40
+cmd tremor info
+cmd kill @s
+wait 60
+cmd data get entity @s Dimension
+cmd gamemode spectator
+cmd tp @s 460.5 236.0 900.5 0 90
+wait 200
+waitchunks
+cmd tremor info
+# No loose items at the site (all in the caches; this test fails)
+cmd execute positioned 460.5 190 900.5 if entity @e[type=minecraft:item,distance=..40]
+screenshot 50_killed_during_dig_above
+hud on
+quit

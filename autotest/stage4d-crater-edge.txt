@@ -1,0 +1,172 @@
+# Stage 4d, CRATER (SPEC 9 "Побег", "Победа", 12): an escape through the edge of the hollow saves the player and the
+# things, but the crater still opens at the swallow point (without items), and the player comes out outside its
+# footprint (radius plus the wobble of the rim plus a margin) whatever the config; a victory leaves no crater.
+# D1: swallowed at 560 201 300, the player is put 28 blocks west in the copy and walks out over its edge (the
+#     footprint of the default crater: 15 + 4 = 19 blocks).
+# D2: awakening.craterRadius 20, craterDepth 8; swallowed at 560 201 420, the edge is called with /tremor hollow
+#     outcome edge where the player stands (the middle: inside the footprint, 25 + 4 = 29 blocks).
+# E:  swallowed in a closed 1x2 tunnel of a stone block at 560 209 520, the player breaks the node (as
+#     stage4c-victory.txt); the block is counted before and after (clone ... masked counts what is not air).
+# Sites: ground in the sky away from the sky platform of the other scripts: D1 x 520..600, z 260..340 (deep core
+# x 536..584, z 276..324, y 170..197); D2 x 515..605, z 375..465 (core x 532..588, z 392..448, y 186..197);
+# E x 545..575, y 195..215, z 505..535.
+# Run: gradlew runClientAutotest -Ptremor_autotest_script=stage4d-crater-edge.txt
+
+waitchunks
+cmd gamemode spectator
+cmd time set noon
+cmd gamerule doDaylightCycle false
+cmd gamerule doMobSpawning false
+cmd tremor despawn
+cmd kill @e[type=!player]
+cmd effect clear @s
+cmd effect give @s minecraft:night_vision infinite 0 true
+cmd tp @s 560.5 215.0 300.5 0 20
+wait 40
+waitchunks
+# D1 (a fill takes 32768 blocks at most); it also repairs the crater of an earlier run
+cmd fill 536 170 276 584 182 324 minecraft:stone
+cmd fill 536 183 276 584 195 324 minecraft:stone
+cmd fill 536 196 276 584 197 324 minecraft:stone
+cmd fill 520 198 260 600 199 340 minecraft:dirt
+cmd fill 520 200 260 600 200 340 minecraft:grass_block
+cmd fill 520 201 260 600 204 340 minecraft:air
+cmd fill 520 205 260 600 208 340 minecraft:air
+cmd fill 520 209 260 600 212 340 minecraft:air
+cmd tp @s 560.5 215.0 420.5 0 20
+wait 40
+waitchunks
+# D2
+cmd fill 532 186 392 588 191 448 minecraft:stone
+cmd fill 532 192 392 588 197 448 minecraft:stone
+cmd fill 515 198 375 605 199 465 minecraft:dirt
+cmd fill 515 200 375 605 200 465 minecraft:grass_block
+cmd fill 515 201 375 605 203 465 minecraft:air
+cmd fill 515 204 375 605 206 465 minecraft:air
+cmd fill 515 207 375 605 209 465 minecraft:air
+cmd tp @s 560.5 220.0 520.5 0 20
+wait 40
+waitchunks
+# E: the stone block and its closed tunnel
+cmd fill 545 195 505 575 215 535 minecraft:stone
+cmd fill 550 209 520 570 210 520 minecraft:air
+cmd fill 545 250 505 575 270 535 minecraft:air
+cmd kill @e[type=item]
+hud off
+config awakening.buildupSeconds 3
+
+# ---- D1. Out over the edge of the copy ----
+log --- D1. edge escape at 560 201 300
+cmd tp @s 560.5 201.0 300.5 270 10
+wait 20
+waitchunks
+cmd gamemode survival
+cmd clear @s
+cmd effect give @s minecraft:instant_health 1 4 true
+cmd give @s minecraft:diamond 7
+cmd give @s minecraft:iron_sword
+cmd give @s minecraft:cobblestone 64
+wait 10
+cmd tremor awaken
+wait 220
+waitchunks
+cmd data get entity @s Dimension
+cmd tremor hollow status
+cmd tp @s ~28 201.0 ~ 270 10
+wait 5
+hold forward 30
+wait 40
+waitchunks
+cmd data get entity @s Dimension
+cmd data get entity @s Pos
+# Out beyond the footprint (19 blocks): this test fails
+cmd execute positioned 560.5 201 300.5 if entity @s[distance=..19]
+cmd tremor info
+cmd clear @s minecraft:diamond 0
+cmd clear @s minecraft:iron_sword 0
+cmd clear @s minecraft:cobblestone 0
+look 90 25
+wait 10
+screenshot 40_edge_crater_opening
+wait 100
+cmd tremor info
+screenshot 41_edge_crater_done
+cmd gamemode spectator
+cmd tp @s 560.5 236.0 300.5 0 90
+wait 30
+waitchunks
+screenshot 42_edge_crater_above
+cmd fill 544 175 284 576 199 316 minecraft:air replace tremor:rubble_cache
+cmd execute positioned 560.5 190 300.5 if entity @e[type=minecraft:item,distance=..30]
+
+# ---- D2. The edge called in the middle, a larger crater: out beyond its footprint ----
+log --- D2. edge escape at 560 201 420, radius 20, depth 8
+config awakening.craterRadius 20
+config awakening.craterDepth 8
+cmd tp @s 560.5 201.0 420.5 270 10
+wait 20
+waitchunks
+cmd gamemode survival
+cmd clear @s
+cmd effect give @s minecraft:instant_health 1 4 true
+cmd give @s minecraft:diamond 7
+wait 10
+cmd tremor awaken
+wait 220
+waitchunks
+cmd data get entity @s Dimension
+cmd tremor hollow outcome edge
+wait 60
+waitchunks
+cmd data get entity @s Dimension
+cmd data get entity @s Pos
+# Out beyond the footprint (29 blocks): this test fails
+cmd execute positioned 560.5 201 420.5 if entity @s[distance=..29]
+cmd clear @s minecraft:diamond 0
+cmd tremor info
+wait 120
+cmd tremor info
+cmd gamemode spectator
+cmd tp @s 560.5 245.0 420.5 0 90
+wait 30
+waitchunks
+screenshot 43_edge_big_crater_above
+config awakening.craterRadius 12
+config awakening.craterDepth 20
+
+# ---- E. Victory: no crater ----
+log --- E. victory at 560 209 520
+cmd tp @s 560.5 209.0 520.5 90 10
+wait 20
+waitchunks
+cmd clone 545 195 505 575 215 535 545 250 505 masked
+cmd fill 545 250 505 575 270 535 minecraft:air
+cmd gamemode survival
+cmd clear @s
+cmd effect give @s minecraft:instant_health 1 4 true
+cmd give @s minecraft:iron_pickaxe
+wait 10
+cmd tremor awaken
+wait 220
+waitchunks
+cmd data get entity @s Dimension
+cmd tremor hollow status
+cmd tremor hollow tonode
+wait 10
+hold attack 140
+wait 10
+cmd tremor info
+wait 200
+cmd data get entity @s Dimension
+cmd data get entity @s Pos
+cmd tremor info
+cmd clone 545 195 505 575 215 535 545 250 505 masked
+cmd fill 545 250 505 575 270 535 minecraft:air
+cmd kill @e[type=item]
+cmd gamemode spectator
+cmd tp @s 560.5 230.0 545.5 180 35
+wait 20
+waitchunks
+screenshot 50_victory_block_after
+hud on
+quit

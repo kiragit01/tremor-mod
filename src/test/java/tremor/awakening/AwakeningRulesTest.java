@@ -50,55 +50,86 @@ class AwakeningRulesTest {
         assertEquals(0, AwakeningRules.horizontalDistance(CENTER, CENTER.add(0, -7, 0)), 1e-9);
     }
 
-    // ---- target ----
+    // ---- reach and target ----
+
+    /** The centre of the bump: in the floor block under {@link #feet}. */
+    private static final Vec3 BUMP = new Vec3(100.5, 63.5, -20.5);
+    private static final double REACH = 8;
+
+    /** Where a player stands {@code dx}, {@code dz} from the bump, on the floor it crawls in. */
+    private static Vec3 feet(double dx, double dz) {
+        return BUMP.add(dx, 0.5, dz);
+    }
+
+    private static AwakeningRules.Candidate player(UUID id, double dx, double dz, boolean eligible) {
+        return new AwakeningRules.Candidate(id, feet(dx, dz), eligible);
+    }
+
+    @Test
+    void theReachIsHorizontalWithItsEdgeInside() {
+        assertTrue(AwakeningRules.reaches(BUMP, feet(0, 0), REACH));
+        assertTrue(AwakeningRules.reaches(BUMP, feet(0, 8), REACH)); // exactly 8 away
+        assertTrue(AwakeningRules.reaches(BUMP, feet(-6, 3), REACH));
+        assertFalse(AwakeningRules.reaches(BUMP, feet(0, 8.01), REACH));
+        assertFalse(AwakeningRules.reaches(BUMP, feet(-20, 3), REACH));
+        assertFalse(AwakeningRules.reaches(BUMP, new Vec3(Double.NaN, 64, -20.5), REACH));
+    }
+
+    @Test
+    void theReachHasALimitedHeight() {
+        // On the ceiling of a tall room right above the player, or under the player's pillar: reached.
+        assertTrue(AwakeningRules.reaches(BUMP.add(0, AwakeningRules.REACH_HEIGHT, 0), BUMP, REACH));
+        assertTrue(AwakeningRules.reaches(BUMP.add(2, -AwakeningRules.REACH_HEIGHT, 0), BUMP, REACH));
+        // In the ground over a deep tunnel, or at the foot of a tower: not yet.
+        assertFalse(AwakeningRules.reaches(BUMP.add(0, AwakeningRules.REACH_HEIGHT + 0.01, 0), BUMP, REACH));
+        assertFalse(AwakeningRules.reaches(BUMP.add(1, -12, 1), BUMP, REACH));
+    }
 
     @Test
     void theLastHeardPlayerIsTakenEvenIfAnotherIsNearer() {
-        List<AwakeningRules.Candidate> players = List.of(new AwakeningRules.Candidate(A, 5, true),
-                new AwakeningRules.Candidate(B, 40, true));
-        assertEquals(B, AwakeningRules.chooseTarget(B, players, 64));
+        List<AwakeningRules.Candidate> players = List.of(player(A, 1, 1, true), player(B, 6, -3, true));
+        assertEquals(B, AwakeningRules.chooseTarget(B, BUMP, players, REACH));
     }
 
     @Test
-    void anUnfitLastHeardPlayerFallsBackToTheNearest() {
-        List<AwakeningRules.Candidate> players = List.of(new AwakeningRules.Candidate(A, 20, true),
-                new AwakeningRules.Candidate(B, 3, false), new AwakeningRules.Candidate(C, 10, true));
-        // B is in creative mode, dead or in the hollow.
-        assertEquals(C, AwakeningRules.chooseTarget(B, players, 64));
-        // Out of hearing distance.
-        List<AwakeningRules.Candidate> far = List.of(new AwakeningRules.Candidate(A, 20, true),
-                new AwakeningRules.Candidate(B, 70, true));
-        assertEquals(A, AwakeningRules.chooseTarget(B, far, 64));
+    void anUnfitOrUnreachedLastHeardPlayerFallsBackToTheNearestReached() {
+        List<AwakeningRules.Candidate> players = List.of(player(A, 7, 0, true), player(B, 1, 0, false),
+                player(C, 0, -5, true));
+        // B is in creative mode, dead or in an event of the hollow.
+        assertEquals(C, AwakeningRules.chooseTarget(B, BUMP, players, REACH));
+        // B was heard last, but the bump has not reached B yet.
+        List<AwakeningRules.Candidate> far = List.of(player(A, 7, 0, true), player(B, 30, 0, true));
+        assertEquals(A, AwakeningRules.chooseTarget(B, BUMP, far, REACH));
         // Not in the level at all.
-        assertEquals(A, AwakeningRules.chooseTarget(new UUID(9, 9), far, 64));
+        assertEquals(A, AwakeningRules.chooseTarget(new UUID(9, 9), BUMP, far, REACH));
     }
 
     @Test
-    void withoutALastHeardPlayerTheNearestFitOneIsTaken() {
-        List<AwakeningRules.Candidate> players = List.of(new AwakeningRules.Candidate(A, 12, true),
-                new AwakeningRules.Candidate(B, 8, true), new AwakeningRules.Candidate(C, 2, false));
-        assertEquals(B, AwakeningRules.chooseTarget(null, players, 64));
+    void withoutALastHeardPlayerTheNearestReachedOneIsTaken() {
+        List<AwakeningRules.Candidate> players = List.of(player(A, 6, 0, true), player(B, 0, 4, true),
+                player(C, 1, 0, false));
+        assertEquals(B, AwakeningRules.chooseTarget(null, BUMP, players, REACH));
+        // Nearest horizontally: a player right above it on a ledge is nearer than one 3 blocks aside.
+        List<AwakeningRules.Candidate> ledge = List.of(player(A, 3, 0, true),
+                new AwakeningRules.Candidate(B, BUMP.add(0.5, 4, 0), true));
+        assertEquals(B, AwakeningRules.chooseTarget(null, BUMP, ledge, REACH));
     }
 
     @Test
     void equallyNearPlayersGoInListOrder() {
-        List<AwakeningRules.Candidate> players = List.of(new AwakeningRules.Candidate(A, 8, true),
-                new AwakeningRules.Candidate(B, 8, true));
-        assertEquals(A, AwakeningRules.chooseTarget(null, players, 64));
+        List<AwakeningRules.Candidate> players = List.of(player(A, 3, 4, true), player(B, -5, 0, true));
+        assertEquals(A, AwakeningRules.chooseTarget(null, BUMP, players, REACH));
     }
 
     @Test
-    void theHearingDistanceItselfStillCounts() {
-        assertEquals(A, AwakeningRules.chooseTarget(null, List.of(new AwakeningRules.Candidate(A, 64, true)), 64));
-        assertNull(AwakeningRules.chooseTarget(A, List.of(new AwakeningRules.Candidate(A, 64.01, true)), 64));
-        assertNull(AwakeningRules.chooseTarget(A, List.of(new AwakeningRules.Candidate(A, Double.NaN, true)), 64));
-    }
-
-    @Test
-    void nobodyFitMeansNoTarget() {
-        assertNull(AwakeningRules.chooseTarget(null, List.of(), 64));
-        assertNull(AwakeningRules.chooseTarget(A, List.of(new AwakeningRules.Candidate(A, 1, false),
-                new AwakeningRules.Candidate(B, 100, true)), 64));
+    void nobodyReachedMeansNoTargetYet() {
+        assertNull(AwakeningRules.chooseTarget(null, BUMP, List.of(), REACH));
+        // Heard last and eligible, but 9 blocks away: the entity seeks on.
+        assertNull(AwakeningRules.chooseTarget(A, BUMP, List.of(player(A, 9, 0, true)), REACH));
+        assertNull(AwakeningRules.chooseTarget(A, BUMP, List.of(player(A, 1, 0, false), player(B, 0, 40, true)),
+                REACH));
+        assertNull(AwakeningRules.chooseTarget(null, BUMP, List.of(new AwakeningRules.Candidate(A,
+                BUMP.add(0, 20, 0), true)), REACH));
     }
 
     // ---- darkness ----

@@ -22,6 +22,7 @@ public final class TremorClient {
 
         modBus.addListener(DeformationRenderer::onModelBakingCompleted);
         modBus.addListener(tremor.client.hollow.SinkOverlay::onRegisterGuiLayers);
+        modBus.addListener(tremor.client.hollow.HollowSky::onRegisterDimensionEffects);
 
         IEventBus game = NeoForge.EVENT_BUS;
         game.addListener(DeformationRenderer::onRenderLevelStage);
@@ -43,6 +44,17 @@ public final class TremorClient {
         // The node's pulse and the pull of the ground first: the sounds of the hollow follow them in the same tick.
         game.addListener(tremor.client.hollow.HollowPulse::onClientTick);
         game.addListener(tremor.client.hollow.HollowSink::onClientTick);
+        // After the pulse: the wake of its rings counts a ring passing under the player for the sounds that follow.
+        game.addListener(tremor.client.hollow.HollowWake::onClientTick);
+        // The black fog of the hollow, at the lowest priority (also when cancelled): over what other mods set.
+        game.addListener(EventPriority.LOWEST, true, net.neoforged.neoforge.client.event.ViewportEvent.RenderFog.class,
+                tremor.client.hollow.HollowFog::onRenderFog);
+        game.addListener(EventPriority.LOWEST, tremor.client.hollow.HollowFog::onComputeFogColor);
+        // No running in the hollow: the sprint key is let go before the player's tick, a sprint stopped after it
+        // (and a sprint's push taken off a jump).
+        game.addListener(tremor.client.hollow.HollowStride::onPlayerTickPre);
+        game.addListener(tremor.client.hollow.HollowStride::onPlayerTickPost);
+        game.addListener(tremor.client.hollow.HollowStride::onJump);
         // The emerging hill's clock first too: its rumble follows it in the same tick.
         game.addListener(tremor.client.awakening.ClientEmerge::onClientTick);
         game.addListener(tremor.client.sound.AwakeningSounds::onClientTick);

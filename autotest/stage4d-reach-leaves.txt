@@ -1,0 +1,101 @@
+# Stage 4d REACH (SPEC 7.2, "Шелест"): leaves under the feet rustle, so a step on them is heard louder than on stone
+# (hearing.rustlingFactor 1.5 against stone's 1.2), and the leaves the player rustles in do not damp the rustle on
+# its way, while other leaves along the way still damp like an insulator. The entity waits 15 blocks south of a line
+# the player walks along (ai off, so it stays put); /tremor debug hearing shows each step on the action bar (footing,
+# average resistance of the way, perceived loudness). The same walk on: A. stone; B. a strip of leaves one block
+# wide; C. a floor of leaves 9 blocks wide (B and C louder than A); D. stone with a band of leaves between the player
+# and the entity (quieter than A). Uses the sky platform of stage3-aggression.txt (repaired here).
+# Run: tools/gradle-locked.sh runClientAutotest -Ptremor_autotest_script=stage4d-reach-leaves.txt
+
+waitchunks
+cmd gamemode spectator
+cmd difficulty normal
+cmd time set noon
+cmd gamerule doDaylightCycle false
+cmd gamerule doMobSpawning false
+cmd effect give @s minecraft:night_vision infinite 0 true
+cmd tremor awaken stop
+cmd tremor restore
+cmd tremor despawn
+cmd kill @e[type=!player]
+cmd tp @s 300.5 201.0 300.5 0 8
+wait 40
+waitchunks
+cmd fill 220 198 220 380 198 380 minecraft:stone
+cmd fill 220 199 220 380 199 380 minecraft:stone
+cmd fill 220 200 220 380 200 380 minecraft:stone
+cmd fill 270 201 280 329 207 349 minecraft:air
+wait 40
+cmd fill 220 198 220 380 198 380 minecraft:stone
+cmd fill 220 199 220 380 199 380 minecraft:stone
+cmd fill 220 200 220 380 200 380 minecraft:stone
+cmd tp @s 294.5 201.0 300.5 270 30
+cmd gamemode survival
+cmd effect clear @s
+cmd effect give @s minecraft:night_vision infinite 0 true
+cmd effect give @s minecraft:instant_health 1 4 true
+wait 20
+waitchunks
+cmd tremor spawn 300 200 315
+wait 20
+cmd tremor ai off
+cmd tremor anger 0
+cmd tremor info
+cmd tremor debug hearing on
+hud on
+# No command feedback during the walks, and a pause before each, so that the chat has faded from the action bar
+cmd gamerule sendCommandFeedback false
+
+# ---- A. On stone ----
+log --- A. walking on stone, 15 blocks from the entity
+cmd tp @s 294.5 201.0 300.5 270 30
+wait 200
+hold forward 25
+screenshot A1_stone
+hold forward 25
+screenshot A2_stone
+wait 10
+cmd tremor anger 0
+
+# ---- B. On a strip of leaves (one block wide, under the walk) ----
+log --- B. walking on a strip of leaves, the same way
+cmd fill 288 200 300 312 200 300 minecraft:oak_leaves[persistent=true]
+cmd tp @s 294.5 201.0 300.5 270 30
+wait 200
+hold forward 25
+screenshot B1_leaves_strip
+hold forward 25
+screenshot B2_leaves_strip
+wait 10
+cmd tremor anger 0
+
+# ---- C. On a floor of leaves (9 blocks wide: leaves on the way to the entity too) ----
+log --- C. walking on a floor of leaves, the same way
+cmd fill 288 200 296 312 200 304 minecraft:oak_leaves[persistent=true]
+cmd tp @s 294.5 201.0 300.5 270 30
+wait 200
+hold forward 25
+screenshot C1_leaves_floor
+hold forward 25
+screenshot C2_leaves_floor
+wait 10
+cmd tremor anger 0
+
+# ---- D. On stone, a band of leaves between the player and the entity ----
+log --- D. walking on stone, a band of leaves on the way to the entity
+cmd fill 288 200 296 312 200 304 minecraft:stone
+cmd fill 288 200 307 312 200 308 minecraft:oak_leaves[persistent=true]
+cmd tp @s 294.5 201.0 300.5 270 30
+wait 200
+hold forward 25
+screenshot D1_stone_band_between
+hold forward 25
+screenshot D2_stone_band_between
+wait 10
+cmd gamerule sendCommandFeedback true
+cmd tremor info
+
+cmd fill 288 200 307 312 200 308 minecraft:stone
+cmd tremor debug hearing off
+cmd tremor despawn
+quit

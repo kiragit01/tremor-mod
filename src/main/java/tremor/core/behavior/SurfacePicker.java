@@ -97,21 +97,25 @@ public final class SurfacePicker {
     /**
      * A wander destination (SPEC 5.6). Each of up to {@code attempts} candidates: a horizontal direction drawn
      * uniformly, a horizontal distance drawn uniformly from [{@code minRadius}, {@code maxRadius}] from {@code from},
-     * and the {@link #nodeInColumn} of that point around {@code floor(from.y)} within {@code verticalRange}. With a
-     * viewer, a candidate closer than {@code minDistanceToViewer} to {@code viewerEye} is skipped, and the first one
-     * {@link #visible} from the eye wins; if none is visible, the acceptable one nearest to the eye (the first on a
-     * tie), so that the bump stays where the viewer may come to see it rather than in some unseen cave across the
-     * radius. Without a viewer ({@code viewerEye} null) the first candidate with a node wins, and the distance rule
-     * does not apply. Whether the target is reachable over the graph is not checked: the body's path search finds out.
+     * and the {@link #nodeInColumn} of that point around {@code floor(from.y)} within {@code verticalRange}; the centre
+     * of its voxel is acceptable if it keeps away from the players of {@code keepAway}: it ends far enough from every
+     * one ({@link KeepAway#endsClear}), and the straight way to it from {@code from} passes none of them too near
+     * ({@link KeepAway#passesClear(Vec3, Vec3)}; the body's route may bend, so it is tested again once planned). With
+     * a viewer, the first acceptable candidate {@link #visible} from {@code viewerEye} wins; if none is visible, the
+     * acceptable one nearest to the eye (the first on a tie), so that the bump stays where the viewer may come to see
+     * it rather than in some unseen cave across the radius. Without a viewer ({@code viewerEye} null) the first
+     * acceptable candidate wins. Whether the target is reachable over the graph is not checked: the body's path search
+     * finds out.
      *
      * @return the centre of the chosen node's voxel ({@link VoxelPos#center}), or null if no candidate qualified
      * @throws IllegalArgumentException unless {@code 0 <= minRadius <= maxRadius}
      */
     public static Vec3 wanderTarget(SurfaceGraph graph, Vec3 from, double minRadius, double maxRadius,
-                                    int verticalRange, Vec3 viewerEye, double minDistanceToViewer,
+                                    int verticalRange, Vec3 viewerEye, KeepAway keepAway,
                                     RandomGenerator random, int attempts) {
         Objects.requireNonNull(graph, "graph");
         Objects.requireNonNull(from, "from");
+        Objects.requireNonNull(keepAway, "keepAway");
         Objects.requireNonNull(random, "random");
         if (!(0 <= minRadius && minRadius <= maxRadius) || Double.isInfinite(maxRadius)) {
             throw new IllegalArgumentException("radii " + minRadius + ", " + maxRadius);
@@ -128,13 +132,13 @@ public final class SurfacePicker {
                 continue;
             }
             Vec3 center = VoxelPos.center(node);
+            if (!keepAway.endsClear(center) || !keepAway.passesClear(from, center)) {
+                continue;
+            }
             if (viewerEye == null) {
                 return center;
             }
             double toViewer = center.distance(viewerEye);
-            if (toViewer < minDistanceToViewer) {
-                continue;
-            }
             if (visible(graph, viewerEye, node)) {
                 return center;
             }

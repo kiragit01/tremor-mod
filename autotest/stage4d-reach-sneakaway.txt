@@ -1,0 +1,124 @@
+# Stage 4d REACH (SPEC 8 AWAKENING: "Затаиться и переждать пик — рабочая стратегия"; awakening.searchRadius): the
+# rule a player can learn. A player whose noise tops the anger out, who then sneaks about 12-13 blocks away from where
+# the noise was and keeps still, is not taken: the entity rushes to the last sound, searches only searchRadius (4)
+# around it, which with its reach (8) does not find the player, and its roam keeps away from the player. A player who
+# stays at the noise is taken. The noise is real: the anger is set to 99.5 by command (HUNTING), and a step of a
+# sprint on stone, heard about 50 blocks away, tops it out. The entity is that far so that the player, sneaking at
+# 1.3 blocks a second, is 11-12 blocks from the noise when the entity (6.3 blocks a second) gets there.
+# 1. Sprint north, then sneak on north (away from the entity), 12.5 blocks from the last step, and keep still.
+# 2. Sprint north, then sneak 13 blocks west (across the entity's way) and keep still.
+# 3. Sprint north, then stand at the noise: reached, the build-up starts.
+# The seeking is shortened to 20 s (awakening.seekSeconds; the search runs 20 s after the last sound anyway). Parts 1
+# and 2 end with "stage hunting" in /tremor info and "No Awakening here" from /tremor awaken stop (the server log has
+# "reached nobody within 20 s"), part 3 with "Awakening #... for Dev stopped" (the log has "has reached Dev").
+# Uses the sky platform of stage3-aggression.txt (repaired here).
+# Run: tools/gradle-locked.sh runClientAutotest -Ptremor_autotest_script=stage4d-reach-sneakaway.txt
+
+waitchunks
+cmd gamemode spectator
+cmd difficulty normal
+cmd time set noon
+cmd gamerule doDaylightCycle false
+cmd gamerule doMobSpawning false
+cmd effect give @s minecraft:night_vision infinite 0 true
+cmd tremor awaken stop
+cmd tremor restore
+cmd tremor despawn
+cmd kill @e[type=!player]
+cmd tp @s 300.5 201.0 310.5 180 8
+wait 40
+waitchunks
+# The platform, and nothing on it around the test area (other scripts build there)
+cmd fill 220 198 220 380 198 380 minecraft:stone
+cmd fill 220 199 220 380 199 380 minecraft:stone
+cmd fill 220 200 220 380 200 380 minecraft:stone
+cmd fill 270 201 270 329 207 319 minecraft:air
+cmd fill 270 201 320 329 207 369 minecraft:air
+wait 40
+cmd fill 220 198 220 380 198 380 minecraft:stone
+cmd fill 220 199 220 380 199 380 minecraft:stone
+cmd fill 220 200 220 380 200 380 minecraft:stone
+cmd tp @s 300.5 201.0 310.5 180 8
+cmd gamemode survival
+cmd effect clear @s
+cmd effect give @s minecraft:night_vision infinite 0 true
+cmd effect give @s minecraft:instant_health 1 4 true
+wait 20
+waitchunks
+hud off
+# An Awakening that starts must not swallow the player before the script stops it
+config awakening.buildupSeconds 600
+config awakening.seekSeconds 20
+
+# ---- 1. Noise, then 12.5 blocks north (straight away from the entity coming from the south) ----
+log --- 1. a sprint 50 blocks from the entity tops the anger out; the player sneaks 12.5 blocks north and keeps still
+cmd tremor spawn 300 200 357
+wait 5
+cmd tremor anger 99.5
+hold forward+sprint 24
+cmd tremor info
+hold forward+sneak 170
+release
+log sneaked away: the position of the player is the release line above, the last sound in the info below
+cmd tremor info
+screenshot 10_north_sneaked
+wait 100
+cmd tremor info
+wait 100
+cmd tremor info
+view back
+wait 5
+screenshot 11_north_after_search
+view first
+wait 40
+cmd tremor info
+cmd tremor awaken stop
+cmd tremor despawn
+
+# ---- 2. Noise, then 13 blocks west (across the way of the entity) ----
+log --- 2. a sprint 50 blocks from the entity tops the anger out; the player sneaks 13 blocks west and keeps still
+cmd tp @s 300.5 201.0 310.5 180 8
+wait 20
+cmd tremor spawn 300 200 357
+wait 5
+cmd tremor anger 99.5
+hold forward+sprint 24
+cmd tremor info
+look 90 8
+hold forward+sneak 200
+release
+log sneaked away: the position of the player is the release line above, the last sound in the info below
+cmd tremor info
+screenshot 20_west_sneaked
+wait 100
+cmd tremor info
+wait 100
+cmd tremor info
+wait 40
+cmd tremor info
+cmd tremor awaken stop
+cmd tremor despawn
+
+# ---- 3. Noise, then the player stays where it was: taken ----
+log --- 3. a sprint 50 blocks from the entity tops the anger out; the player stays at the noise and is taken
+cmd tp @s 300.5 201.0 310.5 180 8
+wait 20
+cmd tremor spawn 300 200 357
+wait 5
+cmd tremor anger 99.5
+hold forward+sprint 24
+release
+cmd tremor info
+wait 100
+cmd tremor info
+wait 100
+cmd tremor info
+look 0 8
+wait 5
+screenshot 30_stayed_taken
+cmd tremor awaken stop
+cmd effect clear @s
+cmd effect give @s minecraft:night_vision infinite 0 true
+cmd tremor despawn
+hud on
+quit

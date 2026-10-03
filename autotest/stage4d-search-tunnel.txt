@@ -1,0 +1,261 @@
+# Stage 4d SEARCH (SPEC 9, phase 2): the network of ways from a tight place. A big block of stone on the sky platform
+# with a closed 1x2 tunnel through it (as stage4c-victory.txt, but 63 x 63 x 37 blocks so that the network fits): the
+# player is swallowed in the tunnel; the hollow widens a cave some 16 blocks across around them and digs the true way
+# 40-60 steps to a node under the ground, with 3-5 dead ends. Shown: /tremor hollow status (the network, the
+# preparation time), /tremor hollow walk (the way on foot in the copy as it is), the start cave in the fog and with the
+# fog pushed back, spectator x-ray views from inside the rock over the network, the way walked step by step, then the
+# node broken: the victory brings the player out at the swallow point. The closing is held off (a long grace) so the
+# network is seen as planned. Then a 3x3 tunnel and a small closed room: both are widened too. Last, a fast closing
+# (no grace, 3 blocks a second) of the network from the room: the way is walked to the node once it has closed.
+# Uses the sky platform of stage3-aggression.txt; the block is taken away again at the end.
+# Run: gradlew runClientAutotest -Ptremor_autotest_script=stage4d-search-tunnel.txt
+
+waitchunks
+cmd gamemode spectator
+cmd time set noon
+cmd tremor despawn
+cmd kill @e[type=!player]
+cmd tp @s 255.5 212.0 255.5 0 20
+wait 40
+waitchunks
+# The block: x and z 224..286, y 186..222 (the platform is y 198..200); a fill takes 32768 blocks at most
+cmd fill 224 186 224 286 193 286 minecraft:stone
+cmd fill 224 194 224 286 201 286 minecraft:stone
+cmd fill 224 202 224 286 209 286 minecraft:stone
+cmd fill 224 210 224 286 217 286 minecraft:stone
+cmd fill 224 218 224 286 222 286 minecraft:stone
+# The 1x2 tunnel, closed at both ends
+cmd fill 245 209 255 265 210 255 minecraft:air
+cmd tp @s 255.5 209.0 255.5 90 10
+cmd gamemode survival
+cmd effect clear @s
+cmd effect give @s minecraft:night_vision infinite 0 true
+cmd effect give @s minecraft:instant_health 1 4 true
+cmd clear @s
+cmd give @s minecraft:iron_pickaxe
+# No closing and no sinking while the network is looked at
+config hollow.level.graceSeconds 600
+config hollow.level.stillSeconds 60
+config hollow.level.sinkSeconds 120
+config awakening.buildupSeconds 3
+wait 20
+hud off
+screenshot 10_tunnel_real
+
+log --- swallowed in the tunnel
+cmd tremor awaken
+wait 220
+waitchunks
+cmd data get entity @s Dimension
+cmd data get entity @s Pos
+cmd tremor hollow status
+cmd tremor hollow walk
+screenshot 20_start_in_the_fog
+look 270 10
+wait 5
+screenshot 21_start_in_the_fog_back
+
+log --- the start cave with the fog pushed back
+config client:effects.hollowFogDistance 32
+look 90 15
+wait 10
+screenshot 22_start_cave_west
+look 270 15
+wait 5
+screenshot 23_start_cave_east
+look 0 15
+wait 5
+screenshot 24_start_cave_south
+look 180 15
+wait 5
+screenshot 25_start_cave_north
+
+log --- x-ray from inside the rock over the network (spectator)
+cmd gamemode spectator
+cmd tp @s ~ ~11 ~ 0 90
+wait 20
+waitchunks
+screenshot 30_xray_down
+cmd tp @s ~ ~ ~ 0 50
+wait 5
+screenshot 31_xray_south
+cmd tp @s ~ ~ ~ 90 50
+wait 5
+screenshot 32_xray_west
+cmd tp @s ~ ~ ~ 180 50
+wait 5
+screenshot 33_xray_north
+cmd tp @s ~ ~ ~ 270 50
+wait 5
+screenshot 34_xray_east
+cmd tp @s ~ ~-11 ~ 90 10
+cmd gamemode survival
+wait 10
+cmd data get entity @s Pos
+
+log --- walking the way to the node (8 steps at a time)
+cmd tremor hollow walk 8
+wait 10
+screenshot 40_way_08
+cmd tremor hollow walk 8
+wait 10
+screenshot 41_way_16
+cmd tremor hollow walk 8
+wait 10
+screenshot 42_way_24
+cmd tremor hollow walk 8
+wait 10
+screenshot 43_way_32
+cmd tremor hollow walk 8
+wait 10
+screenshot 44_way_40
+cmd tremor hollow walk 8
+wait 10
+screenshot 45_way_48
+cmd tremor hollow walk 8
+wait 10
+screenshot 46_way_56
+cmd tremor hollow walk
+config client:effects.hollowFogDistance 5.5
+wait 5
+screenshot 47_near_the_node_in_the_fog
+
+log --- the node broken: victory
+cmd tremor hollow tonode
+wait 10
+screenshot 50_node
+log without night vision and with the fog pushed back: the node lights only what is right next to it
+cmd effect clear @s
+config client:effects.hollowFogDistance 32
+wait 10
+screenshot 51_node_no_night_vision
+cmd tp @s ~ ~ ~ ~180 10
+wait 5
+screenshot 52_away_from_the_node_no_night_vision
+cmd tremor hollow tonode
+cmd effect give @s minecraft:night_vision infinite 0 true
+config client:effects.hollowFogDistance 5.5
+wait 5
+hold attack 120
+wait 10
+cmd tremor info
+wait 120
+cmd data get entity @s Dimension
+cmd data get entity @s Pos
+cmd tremor info
+screenshot 60_out_at_the_swallow_point
+
+log --- a 3x3 tunnel is widened too (hollow enter and leave: no outcome)
+cmd gamemode spectator
+cmd fill 240 209 254 270 211 256 minecraft:air
+cmd tp @s 255.5 209.0 255.5 90 10
+cmd gamemode survival
+cmd effect give @s minecraft:night_vision infinite 0 true
+wait 10
+cmd tremor hollow enter
+wait 100
+waitchunks
+cmd data get entity @s Dimension
+cmd tremor hollow status
+cmd tremor hollow walk
+config client:effects.hollowFogDistance 32
+cmd gamemode spectator
+cmd tp @s ~ ~11 ~ 0 90
+wait 20
+waitchunks
+screenshot 70_3x3_tunnel_xray_down
+cmd tp @s ~ ~-11 ~ 90 10
+cmd gamemode survival
+cmd tremor hollow leave
+wait 60
+waitchunks
+config client:effects.hollowFogDistance 5.5
+
+log --- a small closed room (6 x 6 x 3) is widened too
+cmd gamemode spectator
+cmd fill 240 209 254 270 211 256 minecraft:stone
+cmd fill 253 209 253 258 211 258 minecraft:air
+cmd tp @s 255.5 209.0 255.5 90 10
+cmd gamemode survival
+wait 10
+cmd tremor hollow enter
+wait 100
+waitchunks
+cmd data get entity @s Dimension
+cmd tremor hollow status
+cmd tremor hollow walk
+config client:effects.hollowFogDistance 32
+cmd gamemode spectator
+cmd tp @s ~ ~11 ~ 0 90
+wait 20
+waitchunks
+screenshot 71_room_xray_down
+cmd tp @s ~ ~-11 ~ 90 10
+cmd gamemode survival
+cmd tremor hollow leave
+wait 60
+waitchunks
+
+log --- a fast closing of the network under the ground: the way to the node stays open, dead ends may close
+config hollow.level.graceSeconds 0
+config hollow.level.closeSpeed 3.0
+config hollow.level.fillsPerTick 1000
+cmd tp @s 255.5 209.0 255.5 90 10
+wait 10
+cmd tremor hollow enter
+wait 100
+waitchunks
+cmd tremor hollow status
+cmd tremor hollow walk
+config client:effects.hollowFogDistance 32
+cmd gamemode spectator
+cmd tp @s ~ ~11 ~ 0 90
+wait 10
+screenshot 80_closing_xray_down_early
+cmd tp @s ~ ~-11 ~ 90 10
+cmd gamemode survival
+wait 300
+cmd tremor hollow status
+log closed down to the smallest radius: the way must still be open
+cmd tremor hollow walk
+cmd gamemode spectator
+cmd tp @s ~ ~11 ~ 0 90
+wait 20
+waitchunks
+screenshot 81_closed_xray_down
+cmd tp @s ~ ~ ~ 0 50
+wait 5
+screenshot 82_closed_xray_south
+cmd tp @s ~ ~ ~ 90 50
+wait 5
+screenshot 83_closed_xray_west
+cmd tp @s ~ ~ ~ 180 50
+wait 5
+screenshot 84_closed_xray_north
+cmd tp @s ~ ~ ~ 270 50
+wait 5
+screenshot 85_closed_xray_east
+cmd tp @s ~ ~-11 ~ 90 10
+cmd gamemode survival
+wait 10
+cmd tremor hollow walk 15
+cmd tremor hollow walk 15
+cmd tremor hollow walk 15
+cmd tremor hollow walk 15
+wait 5
+screenshot 86_closed_at_the_node
+cmd tremor hollow status
+cmd tremor hollow leave
+wait 60
+waitchunks
+
+log --- clean-up: the block taken away, the platform as it was
+cmd gamemode spectator
+cmd fill 224 186 224 286 193 286 minecraft:air
+cmd fill 224 194 224 286 197 286 minecraft:air
+cmd fill 224 198 224 286 200 286 minecraft:stone
+cmd fill 224 201 224 286 208 286 minecraft:air
+cmd fill 224 209 224 286 216 286 minecraft:air
+cmd fill 224 217 224 286 222 286 minecraft:air
+hud on
+quit

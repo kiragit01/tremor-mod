@@ -1,0 +1,372 @@
+# Stage 4d, CRATER (SPEC 9 "Исходы", 12): /tremor crater on deep solid ground, without an event. The crater is about
+# 25 blocks across and 20 deep, steep and irregular, with rubble on its bottom, dug gradually from the top down; a chest
+# in it stays on a pillar, water and lava next to it do not get in (plugged where they touch it, no wall of ground left
+# standing in the crater, also where the player stood in a stream: section 8), a tunnel through it is walled off; a hill and a tall tree over it are cut away up to their
+# tops (nothing left hanging over it); a villager in a cell beside the wall and a fish in water beside it are moved out
+# before their blocks are filled in. Also the cache block on its own: broken by hand, by an explosion and by
+# /setblock ... destroy it spills what it holds; a command that replaces it or moves it (/clone ... move) empties it
+# first, as a chest (nothing doubled); a piston does not move it, it does not fall; its top looks a little darker, and
+# one lying open glints faintly now and then.
+# Site A: a block of ground in the sky, x 436..484, z 276..324, y 170..200 (stone, dirt, grass on top), away from the
+# sky platform of stage3-aggression.txt (x and z 220..380) that the other scripts use. Swallow point 460 201 300.
+# Run: gradlew runClientAutotest -Ptremor_autotest_script=stage4d-crater-dig.txt
+
+waitchunks
+cmd gamemode spectator
+cmd time set noon
+cmd gamerule doDaylightCycle false
+cmd gamerule doMobSpawning false
+cmd tremor despawn
+cmd kill @e[type=!player]
+cmd effect clear @s
+cmd effect give @s minecraft:night_vision infinite 0 true
+cmd tp @s 460.5 210.0 300.5 270 20
+wait 40
+waitchunks
+# The block (a fill takes 32768 blocks at most); it also repairs the crater of an earlier run
+cmd fill 436 170 276 484 182 324 minecraft:stone
+cmd fill 436 183 276 484 195 324 minecraft:stone
+cmd fill 436 196 276 484 199 324 minecraft:dirt
+cmd fill 436 200 276 484 200 324 minecraft:grass_block
+cmd fill 436 201 276 484 213 324 minecraft:air
+cmd fill 436 214 276 484 226 324 minecraft:air
+cmd fill 436 227 276 484 239 324 minecraft:air
+# A tunnel through it at y 189..190 (dz +9), open at both ends
+cmd fill 436 189 309 484 190 309 minecraft:air
+# A chest on the ground (dx 3, dz 4) and one buried 8 blocks deep (dx -5, dz -4)
+cmd setblock 463 201 304 minecraft:chest
+cmd setblock 455 193 296 minecraft:chest
+# Water: a channel across the rim (dx 10..18, dz -4) and a pocket in the wall (dx 10, dz -6); lava under the wall
+cmd fill 470 200 296 478 200 296 minecraft:water
+cmd setblock 470 195 294 minecraft:water
+cmd setblock 450 197 306 minecraft:lava
+# A hill 29 blocks over the swallow point (dx -5..-2, dz 3..6) and an oak 26 high with its crown (dx 6, dz -6): more
+# than the crater's depth over it, all inside its rim
+cmd fill 455 201 303 458 229 306 minecraft:dirt
+cmd fill 455 230 303 458 230 306 minecraft:grass_block
+cmd fill 466 201 294 466 226 294 minecraft:oak_log
+cmd fill 464 223 292 468 228 296 minecraft:oak_leaves[persistent=true] keep
+# A villager in a closed cell 1x2 beside the west wall (dx -12, the wall at dx -11 goes 4 deep), and a cod in a channel
+# of water going east from the east wall (dx 15..18 at y 199, the wall at dx 14 goes 3 deep)
+cmd fill 448 198 300 448 199 300 minecraft:air
+cmd fill 475 199 300 478 199 300 minecraft:water
+cmd kill @e[type=item]
+cmd kill @e[type=armor_stand]
+cmd summon minecraft:villager 448.5 198.0 300.5 {Tags:["cell"],PersistenceRequired:1b}
+cmd summon minecraft:cod 475.5 199.1 300.5 {Tags:["pond"],NoAI:1b,PersistenceRequired:1b}
+wait 5
+hud off
+screenshot 00_site_before
+
+# ---- 1. The cache block on its own (in the corner of the block, far outside the crater) ----
+log --- 1. the cache block: hand, explosion, command, piston, gravity
+cmd setblock 440 201 280 minecraft:dirt
+cmd setblock 440 202 280 tremor:rubble_cache{Items:[{id:"minecraft:emerald",count:5}]}
+cmd setblock 448 201 280 tremor:rubble_cache{Items:[{id:"minecraft:gold_ingot",count:9}]}
+cmd setblock 452 201 280 tremor:rubble_cache{Items:[{id:"minecraft:apple",count:3}]}
+cmd setblock 444 201 292 tremor:rubble_cache
+cmd setblock 443 201 292 minecraft:piston[facing=east]
+cmd setblock 438 205 296 tremor:rubble_cache
+cmd data get block 440 202 280 Items
+cmd tp @s 440.5 201.0 281.5 180 0
+cmd gamemode survival
+cmd clear @s
+wait 10
+lookat 440.5 202.5 280.5
+wait 5
+screenshot 01_cache_block
+hold attack 40
+wait 20
+cmd execute if block 440 202 280 minecraft:air
+cmd clear @s minecraft:emerald 0
+cmd clear @s minecraft:gravel 0
+cmd gamemode spectator
+# A command breaks it (destroy): it spills, and drops its gravel
+cmd setblock 452 201 280 minecraft:air destroy
+wait 5
+cmd execute positioned 452.5 201 280.5 as @e[type=item,distance=..3] run data get entity @s Item
+cmd kill @e[type=item]
+# A command replaces it: emptied first, as a chest is (no item: this test fails)
+cmd setblock 456 201 280 tremor:rubble_cache{Items:[{id:"minecraft:bone",count:4}]}
+cmd setblock 456 201 280 minecraft:air
+wait 5
+cmd execute positioned 456.5 201 280.5 if entity @e[type=item,distance=..3]
+# A command moves it: what it holds goes along, once (no item at the old place: this test fails)
+cmd setblock 444 201 284 tremor:rubble_cache{Items:[{id:"minecraft:diamond",count:2}]}
+cmd clone 444 201 284 444 201 284 446 201 284 replace move
+wait 5
+cmd execute positioned 444.5 201 284.5 if entity @e[type=item,distance=..3]
+cmd data get block 446 201 284 Items
+cmd setblock 446 201 284 minecraft:air
+# An explosion
+cmd summon minecraft:tnt 448.5 202.0 280.5 {fuse:1s}
+wait 10
+cmd execute positioned 448.5 201 280.5 as @e[type=item,distance=..8] run data get entity @s Item
+# A piston pushes at one, another hangs in the air
+cmd setblock 442 201 292 minecraft:redstone_block
+wait 10
+cmd execute if block 444 201 292 tremor:rubble_cache
+cmd execute if block 445 201 292 minecraft:air
+cmd execute if block 443 201 292 minecraft:piston[extended=false]
+cmd execute if block 438 205 296 tremor:rubble_cache
+cmd tp @s 446.5 203.0 297.5 135 25
+wait 5
+screenshot 02_piston_and_hanging
+cmd kill @e[type=item]
+# Among rubble (gravel, tuff, cobbled deepslate, as on a crater's bottom): the caches are the 3x3 in the middle (their
+# tops a little darker); looked at from close by for a while, some glint
+cmd fill 438 200 284 446 200 292 minecraft:gravel
+cmd fill 438 200 284 446 200 284 minecraft:tuff
+cmd fill 438 200 292 446 200 292 minecraft:cobbled_deepslate
+cmd fill 441 200 287 443 200 289 tremor:rubble_cache
+cmd fill 438 201 284 446 203 292 minecraft:air
+cmd tp @s 442.5 203.2 293.0 180 50
+wait 20
+screenshot 03_caches_among_rubble
+wait 15
+screenshot 04_caches_glint_a
+wait 15
+screenshot 05_caches_glint_b
+wait 15
+screenshot 06_caches_glint_c
+cmd fill 438 200 284 446 200 292 minecraft:grass_block
+
+# ---- 2. The crater, dug gradually ----
+log --- 2. /tremor crater 460 201 300
+cmd tp @s 460.5 238.0 300.5 0 90
+wait 20
+waitchunks
+cmd tick query
+cmd tremor info
+screenshot 10_above_before
+cmd tremor crater 460 201 300
+wait 8
+cmd tremor info
+screenshot 11_digging_a
+wait 10
+cmd tremor info
+screenshot 12_digging_b
+wait 10
+cmd tremor info
+cmd tick query
+screenshot 13_digging_c
+wait 10
+cmd tremor info
+screenshot 14_digging_d
+cmd tp @s 479.5 207.0 300.5 90 32
+wait 10
+cmd tremor info
+screenshot 15_digging_rim
+wait 30
+cmd tremor info
+cmd tick query
+wait 60
+cmd tremor info
+cmd tick query
+screenshot 16_rim_after
+cmd tp @s 460.5 238.0 300.5 0 90
+wait 20
+waitchunks
+screenshot 17_above_after
+cmd tp @s 441.5 205.0 314.5 225 30
+wait 10
+screenshot 18_rim_northwest
+
+# ---- 2b. Nothing left over the crater, no wall of ground in it, the creatures alive ----
+log --- 2b. cut up to the top, fluids plugged, creatures moved out
+# The hill and the oak inside the rim are gone up to their tops (each: no blocks were filled)
+cmd fill 454 202 294 466 240 306 minecraft:air replace #minecraft:logs
+cmd fill 454 202 294 466 240 306 minecraft:air replace #minecraft:leaves
+cmd fill 454 202 294 466 240 306 minecraft:air replace minecraft:dirt
+cmd fill 454 202 294 466 240 306 minecraft:air replace minecraft:grass_block
+# The water channel across the rim (z 296, dx 10..13 in the crater, 12 to 3 deep): carved where it lay in the crater,
+# plugged with dirt at its first block outside (dx 14), the rest of it still water
+cmd execute if block 471 195 296 minecraft:air
+cmd execute if block 472 197 296 minecraft:air
+cmd execute if block 474 200 296 minecraft:dirt
+cmd execute if block 476 200 296 minecraft:water
+# The villager (moved from its cell into the crater) and the cod (moved one block on along its channel) are alive
+cmd execute as @e[type=minecraft:villager,tag=cell] run data get entity @s Pos
+cmd execute as @e[type=minecraft:villager,tag=cell] run data get entity @s Health
+cmd execute as @e[type=minecraft:cod,tag=pond] run data get entity @s Pos
+cmd execute as @e[type=minecraft:cod,tag=pond] run data get entity @s Health
+cmd execute if block 448 199 300 minecraft:dirt
+cmd execute if block 475 199 300 minecraft:dirt
+cmd kill @e[type=minecraft:villager]
+cmd kill @e[type=minecraft:cod]
+cmd fill 476 199 300 478 199 300 minecraft:dirt
+
+# ---- 3. What stayed: the chests on pillars ----
+log --- 3. chests on pillars
+cmd execute if block 463 201 304 minecraft:chest
+cmd execute if block 463 200 304 minecraft:grass_block
+cmd execute if block 463 186 304 minecraft:stone
+cmd execute if block 464 190 304 minecraft:air
+cmd execute if block 462 190 304 minecraft:air
+cmd execute if block 455 193 296 minecraft:chest
+cmd execute if block 455 186 296 minecraft:stone
+cmd execute if block 455 196 296 minecraft:air
+cmd tp @s 468.5 196.0 309.5 150 20
+wait 10
+screenshot 30_chest_pillar
+
+# ---- 4. The profile: armor stands dropped every block along x (z 300) and every two blocks along z (x 460) ----
+log --- 4. profile
+cmd summon minecraft:armor_stand 444.5 205 300.5 {Tags:["px"],Invisible:1b}
+cmd summon minecraft:armor_stand 445.5 205 300.5 {Tags:["px"],Invisible:1b}
+cmd summon minecraft:armor_stand 446.5 205 300.5 {Tags:["px"],Invisible:1b}
+cmd summon minecraft:armor_stand 447.5 205 300.5 {Tags:["px"],Invisible:1b}
+cmd summon minecraft:armor_stand 448.5 205 300.5 {Tags:["px"],Invisible:1b}
+cmd summon minecraft:armor_stand 449.5 205 300.5 {Tags:["px"],Invisible:1b}
+cmd summon minecraft:armor_stand 450.5 205 300.5 {Tags:["px"],Invisible:1b}
+cmd summon minecraft:armor_stand 451.5 205 300.5 {Tags:["px"],Invisible:1b}
+cmd summon minecraft:armor_stand 452.5 205 300.5 {Tags:["px"],Invisible:1b}
+cmd summon minecraft:armor_stand 453.5 205 300.5 {Tags:["px"],Invisible:1b}
+cmd summon minecraft:armor_stand 454.5 205 300.5 {Tags:["px"],Invisible:1b}
+cmd summon minecraft:armor_stand 455.5 205 300.5 {Tags:["px"],Invisible:1b}
+cmd summon minecraft:armor_stand 456.5 205 300.5 {Tags:["px"],Invisible:1b}
+cmd summon minecraft:armor_stand 457.5 205 300.5 {Tags:["px"],Invisible:1b}
+cmd summon minecraft:armor_stand 458.5 205 300.5 {Tags:["px"],Invisible:1b}
+cmd summon minecraft:armor_stand 459.5 205 300.5 {Tags:["px"],Invisible:1b}
+cmd summon minecraft:armor_stand 460.5 205 300.5 {Tags:["px"],Invisible:1b}
+cmd summon minecraft:armor_stand 461.5 205 300.5 {Tags:["px"],Invisible:1b}
+cmd summon minecraft:armor_stand 462.5 205 300.5 {Tags:["px"],Invisible:1b}
+cmd summon minecraft:armor_stand 463.5 205 300.5 {Tags:["px"],Invisible:1b}
+cmd summon minecraft:armor_stand 464.5 205 300.5 {Tags:["px"],Invisible:1b}
+cmd summon minecraft:armor_stand 465.5 205 300.5 {Tags:["px"],Invisible:1b}
+cmd summon minecraft:armor_stand 466.5 205 300.5 {Tags:["px"],Invisible:1b}
+cmd summon minecraft:armor_stand 467.5 205 300.5 {Tags:["px"],Invisible:1b}
+cmd summon minecraft:armor_stand 468.5 205 300.5 {Tags:["px"],Invisible:1b}
+cmd summon minecraft:armor_stand 469.5 205 300.5 {Tags:["px"],Invisible:1b}
+cmd summon minecraft:armor_stand 470.5 205 300.5 {Tags:["px"],Invisible:1b}
+cmd summon minecraft:armor_stand 471.5 205 300.5 {Tags:["px"],Invisible:1b}
+cmd summon minecraft:armor_stand 472.5 205 300.5 {Tags:["px"],Invisible:1b}
+cmd summon minecraft:armor_stand 473.5 205 300.5 {Tags:["px"],Invisible:1b}
+cmd summon minecraft:armor_stand 474.5 205 300.5 {Tags:["px"],Invisible:1b}
+cmd summon minecraft:armor_stand 475.5 205 300.5 {Tags:["px"],Invisible:1b}
+cmd summon minecraft:armor_stand 476.5 205 300.5 {Tags:["px"],Invisible:1b}
+cmd summon minecraft:armor_stand 460.5 205 284.5 {Tags:["pz"],Invisible:1b}
+cmd summon minecraft:armor_stand 460.5 205 286.5 {Tags:["pz"],Invisible:1b}
+cmd summon minecraft:armor_stand 460.5 205 288.5 {Tags:["pz"],Invisible:1b}
+cmd summon minecraft:armor_stand 460.5 205 289.5 {Tags:["pz"],Invisible:1b}
+cmd summon minecraft:armor_stand 460.5 205 290.5 {Tags:["pz"],Invisible:1b}
+cmd summon minecraft:armor_stand 460.5 205 291.5 {Tags:["pz"],Invisible:1b}
+cmd summon minecraft:armor_stand 460.5 205 292.5 {Tags:["pz"],Invisible:1b}
+cmd summon minecraft:armor_stand 460.5 205 294.5 {Tags:["pz"],Invisible:1b}
+cmd summon minecraft:armor_stand 460.5 205 296.5 {Tags:["pz"],Invisible:1b}
+cmd summon minecraft:armor_stand 460.5 205 298.5 {Tags:["pz"],Invisible:1b}
+cmd summon minecraft:armor_stand 460.5 205 302.5 {Tags:["pz"],Invisible:1b}
+cmd summon minecraft:armor_stand 460.5 205 304.5 {Tags:["pz"],Invisible:1b}
+cmd summon minecraft:armor_stand 460.5 205 306.5 {Tags:["pz"],Invisible:1b}
+cmd summon minecraft:armor_stand 460.5 205 308.5 {Tags:["pz"],Invisible:1b}
+cmd summon minecraft:armor_stand 460.5 205 309.5 {Tags:["pz"],Invisible:1b}
+cmd summon minecraft:armor_stand 460.5 205 310.5 {Tags:["pz"],Invisible:1b}
+cmd summon minecraft:armor_stand 460.5 205 311.5 {Tags:["pz"],Invisible:1b}
+cmd summon minecraft:armor_stand 460.5 205 312.5 {Tags:["pz"],Invisible:1b}
+cmd summon minecraft:armor_stand 460.5 205 314.5 {Tags:["pz"],Invisible:1b}
+cmd summon minecraft:armor_stand 460.5 205 316.5 {Tags:["pz"],Invisible:1b}
+wait 80
+cmd execute as @e[type=minecraft:armor_stand,tag=px] run data get entity @s Pos
+cmd execute as @e[type=minecraft:armor_stand,tag=pz] run data get entity @s Pos
+cmd kill @e[type=minecraft:armor_stand]
+# What lies on the bottom at the middle: the floor (y 180, 21 below the swallow point's feet), rubble on it
+cmd execute if block 460 180 300 minecraft:stone
+cmd execute if block 460 181 300 minecraft:gravel
+cmd execute if block 460 181 300 minecraft:tuff
+cmd execute if block 460 181 300 minecraft:cobbled_deepslate
+cmd execute if block 460 182 300 minecraft:gravel
+cmd execute if block 460 182 300 minecraft:tuff
+cmd execute if block 460 182 300 minecraft:cobbled_deepslate
+cmd execute if block 460 183 300 minecraft:air
+
+# ---- 5. Nothing flows in: neighbours of the fluids are updated, then the fluids under the rim are counted ----
+log --- 5. fluids
+cmd fill 470 201 296 478 201 296 minecraft:stone
+cmd fill 470 201 296 478 201 296 minecraft:air
+cmd execute if block 450 197 306 minecraft:lava run setblock 450 197 306 minecraft:magma_block
+cmd execute if block 450 197 306 minecraft:magma_block run setblock 450 197 306 minecraft:lava
+cmd execute if block 470 195 294 minecraft:water run setblock 470 195 294 minecraft:glass
+cmd execute if block 470 195 294 minecraft:glass run setblock 470 195 294 minecraft:water
+wait 100
+cmd tp @s 474.5 204.0 289.5 30 35
+wait 10
+screenshot 50_water_side
+cmd execute if block 450 197 306 minecraft:lava
+cmd execute if block 470 195 294 minecraft:water
+cmd fill 444 175 284 476 199 316 minecraft:air replace minecraft:water
+cmd fill 444 175 284 476 199 316 minecraft:air replace minecraft:lava
+
+# ---- 6. The tunnel is walled off at the crater ----
+log --- 6. tunnel
+cmd tp @s 460.5 186.0 300.5 0 0
+wait 10
+screenshot 60_bottom_towards_tunnel
+cmd execute if block 437 189 309 minecraft:air
+cmd execute if block 483 189 309 minecraft:air
+
+# ---- 7. Steep: from the middle of the bottom the player runs and jumps at the wall in five directions ----
+log --- 7. climbing out
+cmd gamemode survival
+cmd tp @s 460.5 186.0 300.5 0 0
+wait 40
+cmd data get entity @s Pos
+screenshot 70_bottom_view
+hold forward+jump 120
+cmd data get entity @s Pos
+cmd tp @s 460.5 186.0 300.5 90 0
+wait 30
+hold forward+jump 120
+cmd data get entity @s Pos
+cmd tp @s 460.5 186.0 300.5 180 0
+wait 30
+hold forward+jump 120
+cmd data get entity @s Pos
+cmd tp @s 460.5 186.0 300.5 270 0
+wait 30
+hold forward+jump 120
+cmd data get entity @s Pos
+cmd tp @s 460.5 186.0 300.5 225 0
+wait 30
+hold forward+jump 120
+cmd data get entity @s Pos
+look 270 -35
+wait 5
+screenshot 71_wall_from_below
+cmd gamemode spectator
+
+# ---- 8. Where the player stood in a stream: its water is carved like the rest, no wall of ground under it ----
+# Site W: x 444..476, z 784..816, y 190..201 (grass up to 201), a stream 2 wide along z at x 459..460, y 201 (its bed
+# at 200); a small crater (radius 6, depth 6) at 460 201 800, the swallow point in the water.
+log --- 8. crater in the stream the player stood in, 460 201 800
+config awakening.craterRadius 6
+config awakening.craterDepth 6
+cmd tp @s 471.5 208.0 800.5 90 35
+wait 20
+waitchunks
+cmd fill 444 190 784 476 199 816 minecraft:stone
+cmd fill 444 200 784 476 201 816 minecraft:grass_block
+cmd fill 444 202 784 476 212 816 minecraft:air
+cmd fill 459 201 784 460 201 816 minecraft:water
+wait 10
+screenshot 80_stream_before
+cmd tremor crater 460 201 800
+wait 100
+cmd tremor info
+# The stream's columns are carved down like the others (before, a wall of ground stood under it across the crater)
+cmd execute if block 460 201 800 minecraft:air
+cmd execute if block 460 198 800 minecraft:air
+cmd execute if block 459 198 800 minecraft:air
+cmd execute if block 460 200 797 minecraft:air
+cmd execute if block 459 200 803 minecraft:air
+# No water in the crater, also after the stream's neighbours were updated (no blocks were filled: this test fails)
+cmd fill 444 190 784 476 200 816 minecraft:air replace minecraft:water
+cmd fill 458 202 784 461 202 816 minecraft:stone
+cmd fill 458 202 784 461 202 816 minecraft:air
+wait 60
+cmd fill 444 190 784 476 200 816 minecraft:air replace minecraft:water
+screenshot 81_stream_after
+cmd tp @s 460.5 214.0 800.5 0 90
+wait 10
+screenshot 82_stream_above
+hud on
+quit

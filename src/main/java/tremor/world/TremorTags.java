@@ -19,6 +19,11 @@ public final class TremorTags {
     public static final TagKey<Block> CONDUCTIVITY_GRAVELLY = block("conductivity/gravelly");
     public static final TagKey<Block> CONDUCTIVITY_SANDY = block("conductivity/sandy");
     public static final TagKey<Block> CONDUCTIVITY_STONY = block("conductivity/stony");
+    /**
+     * Blocks that rustle under the feet (SPEC 7.2: leaves): a step on one is louder ({@code hearing.rustlingFactor}),
+     * while along the way of a vibration it conducts as its class.
+     */
+    public static final TagKey<Block> RUSTLING = block("rustling");
 
     private static TagKey<Block> block(String path) {
         return TagKey.create(Registries.BLOCK, ResourceLocation.fromNamespaceAndPath(Tremor.MODID, path));

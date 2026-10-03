@@ -52,6 +52,49 @@ class WideningTest {
     }
 
     @Test
+    void theGameWidensTunnelsUpToSomeFourAcrossAndSmallRoomsIntoACaveSixteenAcross() {
+        int threshold = 400;
+        VoxelGrid two = rock();
+        open(two, -20, 0, 0, 20, 1, 1);
+        VoxelGrid three = rock();
+        open(three, -20, 0, -1, 20, 2, 1);
+        VoxelGrid four = rock();
+        open(four, -20, 0, -1, 20, 3, 2);
+        VoxelGrid room = rock();
+        open(room, -3, 0, -3, 3, 3, 3);
+        for (VoxelGrid tight : new VoxelGrid[] {two, three, four, room}) {
+            assertTrue(Widening.needed(Widening.openSpace(tight, 0, 0, 0, 8, threshold), threshold));
+        }
+        // Open ground is roomy.
+        VoxelGrid field = rock();
+        open(field, -20, 0, -20, 20, 12, 20);
+        assertFalse(Widening.needed(Widening.openSpace(field, 0, 0, 0, 8, threshold), threshold));
+        // The cave of the game around a 1x2 tunnel: some 16 blocks across, and roomy enough itself.
+        for (long seed = 0; seed < 10; seed++) {
+            VoxelGrid grid = rock();
+            open(grid, -20, 0, 0, 20, 1, 0);
+            Widening.Cave cave = Widening.cave(grid, ANYWHERE, 0, 0, 0, 8, 6, seed);
+            cave.applyTo(grid);
+            int minX = 0;
+            int maxX = 0;
+            int minZ = 0;
+            int maxZ = 0;
+            for (long cell : cave.carve()) {
+                if (CellKey.z(cell) != 0) {
+                    minX = Math.min(minX, CellKey.x(cell));
+                    maxX = Math.max(maxX, CellKey.x(cell));
+                }
+                minZ = Math.min(minZ, CellKey.z(cell));
+                maxZ = Math.max(maxZ, CellKey.z(cell));
+            }
+            assertTrue(maxX - minX + 1 >= 14 && maxZ - minZ + 1 >= 14, "small, seed " + seed + ": "
+                    + (maxX - minX + 1) + " x " + (maxZ - minZ + 1));
+            assertFalse(Widening.needed(Widening.openSpace(grid, 0, 0, 0, 8, threshold), threshold),
+                    "seed " + seed);
+        }
+    }
+
+    @Test
     void openSpaceIsWhatIsConnected() {
         VoxelGrid grid = rock();
         open(grid, 0, 0, 0, 0, 1, 0);

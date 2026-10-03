@@ -1,0 +1,8 @@
+{
+  "parent": "minecraft:block/cube_bottom_top",
+  "textures": {
+    "top": "minecraft:block/suspicious_gravel_1",
+    "bottom": "minecraft:block/suspicious_gravel_0",
+    "side": "minecraft:block/suspicious_gravel_0"
+  }
+}

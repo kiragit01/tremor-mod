@@ -72,7 +72,8 @@ import java.util.UUID;
  * brain goes after ({@link #brainGo}, {@link TremorEntity.TargetKind#SOUND}: at most once per retarget cooldown, and
  * not again for a while near a goal whose search just failed from the same start, see {@link SoundPursuit}), or a
  * wander or search leg ({@link TremorEntity.TargetKind#ROAM}). A target without a path is given up (a DEBUG log for
- * the brain's targets, INFO for a goto), the retarget cooldown running on from the give-up, and the body is idle.
+ * the brain's targets, INFO for a goto), the retarget cooldown running on from the give-up, and the body is idle; so
+ * is a wander leg whose route does not keep away from the players ({@link TremorMind#wayClear}: while seeking).
  * <p>
  * Stopping (a give-up, a goal the body cannot go to, a freeze of the brain, {@code /tremor stop}) brakes along the
  * current path within the acceleration limit ({@link Crawler#brake}); in a dive the entity first goes on to the dive's
@@ -128,6 +129,8 @@ public final class TremorRuntime {
     private long diveFrom = SurfaceGraph.NO_NODE, diveTo = SurfaceGraph.NO_NODE;
     /** That route is partial: planning goes on from its end. */
     private boolean pathPartial;
+    /** The target is a wander leg of the brain: each route planned for it is checked ({@link #brainGo}). */
+    private boolean wanderRoute;
     private boolean replanRequested;
     /** Block positions ({@link BlockPos#asLong}) reported changed since the last tick. */
     private final LongOpenHashSet pendingChanges = new LongOpenHashSet();
@@ -399,8 +402,18 @@ public final class TremorRuntime {
     }
 
     /**
+     * Whether the entity made the sound of rising to AWAKENING just now ({@link TremorMind#awakenSounded}): an
+     * Awakening that starts now makes no sound of its own. False if there is none.
+     */
+    public boolean awakenSounded() {
+        TremorEntity entity = data.entity();
+        return entity != null && mind(entity).awakenSounded(level.getGameTime());
+    }
+
+    /**
      * Reaction to a vibration in the level (SPEC 7.2, 7.3, 8). Its perceived loudness at the entity is
-     * {@link Hearing#perceived} over the live level. From the threshold on it is heard: {@code lastHeard} is updated,
+     * {@link Hearing#perceived} over the live level (the leaves a rustling source rustles in do not damp it,
+     * {@link Vibration#foliage}). From the threshold on it is heard: {@code lastHeard} is updated,
      * the anger grows by {@code perceived * angerPerLoudness} plus the vibration's bonus, and the brain hears it
      * ({@link TremorMind#heard}); what the brain does about it is decided on the next tick.
      *
@@ -432,7 +445,7 @@ public final class TremorRuntime {
             return null; // its chunk unloaded since the last tick
         }
         double perceived = Hearing.perceived(view, vibration.source(), listener, vibration.loudness(),
-                vibration.footing(), params);
+                vibration.footing(), vibration.foliage(view), params);
         Stage stage = entity.stage();
         if (!(perceived >= params.threshold())) {
             return new Perception(listener, distance, perceived, false, 0, entity.anger(), stage, stage, null);
@@ -479,8 +492,10 @@ public final class TremorRuntime {
      * @param kind      {@link TremorEntity.TargetKind#SOUND} (the caller checked {@link #mayRetarget}) or
      *                  {@link TremorEntity.TargetKind#ROAM}
      * @param perceived how loud a sound target was heard (the loudness a later sound must beat)
+     * @param wander    a wander leg (a ROAM target that is no search leg): every route planned for it must keep away
+     *                  from the players ({@link TremorMind#wayClear}), or the leg is given up
      */
-    void brainGo(TremorEntity entity, Vec3 point, TremorEntity.TargetKind kind, double perceived) {
+    void brainGo(TremorEntity entity, Vec3 point, TremorEntity.TargetKind kind, double perceived, boolean wander) {
         long now = level.getGameTime();
         long goal = snapNode(floor(point.x()), floor(point.y()), floor(point.z()));
         if (goal == SurfaceGraph.NO_NODE) {
@@ -501,6 +516,7 @@ public final class TremorRuntime {
             return;
         }
         head(entity, start, goal, kind, null);
+        wanderRoute = wander;
     }
 
     /**
@@ -558,8 +574,9 @@ public final class TremorRuntime {
         return mind;
     }
 
-    /** Makes {@code goal} the target and starts the search for it. */
+    /** Makes {@code goal} the target (no wander leg, see {@link #brainGo}) and starts the search for it. */
     private void head(TremorEntity entity, long start, long goal, TremorEntity.TargetKind kind, UUID requester) {
+        wanderRoute = false;
         pursuit.targetSet();
         entity.setTarget(toBlockPos(goal), kind);
         data.setDirty();
@@ -795,6 +812,11 @@ public final class TremorRuntime {
         }
         if (exit == SurfaceGraph.NO_NODE) {
             path = skipPassed(path, crawler.position());
+        }
+        if (wanderRoute && !mind(entity).wayClear(path)) {
+            // Seeking (SPEC 8): a quiet player is not found by chance on the way to some wander point.
+            giveUp(entity, "the route passes within reach of a player");
+            return;
         }
         crawler.follow(path);
         pathActive = true;

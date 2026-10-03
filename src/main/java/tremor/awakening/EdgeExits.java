@@ -27,7 +27,9 @@ import java.util.function.Consumer;
 /**
  * Finds where a player who got out through the edge of the hollow comes out in the real world (SPEC 9 "Побег"): a safe
  * standing spot near the matching place with a way to the swallow point ({@link EdgeExitRules}), searched in the copied
- * box and a margin around it. The real chunks there are seldom loaded while their player is in the hollow, so a search
+ * box and a margin around it, never in the footprint of the crater that opens at the swallow point once the player is
+ * out ({@link Craters#footprint}; the search goes round it if need be, and as far out as it reaches, whatever the size
+ * of the copy). The real chunks there are seldom loaded while their player is in the hollow, so a search
  * holds a ticket on them ({@link RealArea}) and waits for them, at most {@value #LOAD_TIMEOUT_TICKS} ticks (then, and
  * without a spot, the player comes out at the swallow point). Event handlers are registered by {@link tremor.Tremor};
  * server thread only. Not saved: a server that stops meanwhile ends the event anyway, and its player is back at the
@@ -50,10 +52,11 @@ public final class EdgeExits {
     /**
      * Finds the exit for the player of {@code event} who reached the edge at {@code reached} (mapped into the real
      * world, in {@code level}) and tells {@code done} where its feet go (the middle of the bottom of the spot's block),
-     * or null for the swallow point: at once if the chunks are loaded, else once they are.
+     * or null for the swallow point: at once if the chunks are loaded, else once they are. No exit lies within
+     * {@code avoid} blocks (horizontally) of the swallow point (0: none avoided).
      */
-    static void find(ServerLevel level, HollowEvent event, Vec3 reached, Consumer<Vec3> done) {
-        Job job = new Job(nextId++, level, event, reached, done);
+    static void find(ServerLevel level, HollowEvent event, Vec3 reached, int avoid, Consumer<Vec3> done) {
+        Job job = new Job(nextId++, level, event, reached, avoid, done);
         if (job.area.ready()) {
             job.finish(true);
         } else {
@@ -103,21 +106,33 @@ public final class EdgeExits {
         final Vec3 reached;
         final Consumer<Vec3> done;
         final long startTick;
-        /** Where the search and the way to the swallow point may go: the copied box and the margin, in the world. */
+        /**
+         * Where the search and the way to the swallow point may go: the copied box and the margin, and the columns
+         * searched around the footprint avoided, in the world.
+         */
         final HollowBox within;
+        /** The footprint no exit lies in, or null. */
+        final EdgeExitRules.Avoid avoid;
         final RealArea area;
         final BlockPos.MutableBlockPos cursor = new BlockPos.MutableBlockPos();
 
-        Job(int id, ServerLevel level, HollowEvent event, Vec3 reached, Consumer<Vec3> done) {
+        Job(int id, ServerLevel level, HollowEvent event, Vec3 reached, int avoid, Consumer<Vec3> done) {
             this.id = id;
             this.event = event;
             this.reached = reached;
             this.done = done;
             this.startTick = level.getServer().getTickCount();
             HollowBox box = event.box();
-            within = new HollowBox(box.minX() - MARGIN, Math.max(level.getMinBuildHeight(),
-                    box.minY() - EdgeExitRules.DOWN - 1), box.minZ() - MARGIN, box.maxX() + MARGIN,
-                    Math.min(level.getMaxBuildHeight() - 1, box.maxY() + EdgeExitRules.UP + 2), box.maxZ() + MARGIN);
+            BlockPos origin = event.origin().blockPos();
+            this.avoid = avoid > 0 ? new EdgeExitRules.Avoid(origin.getX(), origin.getZ(), avoid) : null;
+            // The spots just outside the footprint and the columns around them.
+            int ring = avoid > 0 ? avoid + EdgeExitRules.AROUND + 2 : 0;
+            within = new HollowBox(Math.min(box.minX() - MARGIN, origin.getX() - ring),
+                    Math.max(level.getMinBuildHeight(), box.minY() - EdgeExitRules.DOWN - 1),
+                    Math.min(box.minZ() - MARGIN, origin.getZ() - ring),
+                    Math.max(box.maxX() + MARGIN, origin.getX() + ring),
+                    Math.min(level.getMaxBuildHeight() - 1, box.maxY() + EdgeExitRules.UP + 2),
+                    Math.max(box.maxZ() + MARGIN, origin.getZ() + ring));
             area = new RealArea(level, TICKET, id, within.minX(), within.minZ(), within.maxX(), within.maxZ());
         }
 
@@ -148,7 +163,7 @@ public final class EdgeExits {
             List<EdgeExitRules.Spot> targets = List.of(
                     new EdgeExitRules.Spot(origin.getX(), origin.getY(), origin.getZ()),
                     new EdgeExitRules.Spot(origin.getX(), origin.getY() + 1, origin.getZ()));
-            EdgeExitRules.Spot spot = EdgeExitRules.choose(this::cell, x, y, z, within, targets);
+            EdgeExitRules.Spot spot = EdgeExitRules.choose(this::cell, x, y, z, within, targets, avoid);
             Tremor.LOGGER.info(String.format(Locale.ROOT, "Edge exit #%d for %s: reached %d %d %d, %s", id,
                     event.playerName(), x, Mth.floor(reached.y), z, spot == null
                             ? "no safe spot with a way to the swallow point near, out there"

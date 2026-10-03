@@ -11,47 +11,68 @@ import net.minecraft.world.level.chunk.LevelChunkSection;
 import net.minecraft.world.phys.shapes.VoxelShape;
 
 /**
- * Takes the {@link VoxelGrid} snapshot of a box of the hollow the planning works on, straight from the chunk sections
- * (a box of the planning's size is some 75 thousand blocks). A block of a chunk that is not loaded reads as solid.
- * Server thread only.
+ * Takes the {@link VoxelGrid} snapshot of a box of the hollow the planning works on, straight from the chunk sections,
+ * a chunk column per {@link #step} (a box of the planning's size is some 140 thousand blocks, a column of it some 8
+ * thousand), so the reading is spread over ticks. A block of a chunk that is not loaded reads as solid. Server thread
+ * only.
  */
 final class GridReader {
-    private GridReader() {
+    private final ServerLevel level;
+    private final VoxelGrid grid;
+    /** The flags depend on the state only (a collision shape is empty or not, and as high, wherever the block is). */
+    private final Reference2IntOpenHashMap<BlockState> known = new Reference2IntOpenHashMap<>();
+    private final BlockPos.MutableBlockPos pos = new BlockPos.MutableBlockPos();
+    private final int minChunkX;
+    private final int chunksX;
+    private final int minChunkZ;
+    private final int chunks;
+    private int next;
+
+    /** The reading of the box {@code min..max} (bounds inclusive) of {@code level}. */
+    GridReader(ServerLevel level, int minX, int minY, int minZ, int maxX, int maxY, int maxZ) {
+        this.level = level;
+        grid = new VoxelGrid(minX, minY, minZ, maxX, maxY, maxZ);
+        known.defaultReturnValue(-1);
+        minChunkX = minX >> 4;
+        minChunkZ = minZ >> 4;
+        chunksX = (maxX >> 4) - minChunkX + 1;
+        chunks = chunksX * ((maxZ >> 4) - minChunkZ + 1);
     }
 
-    /** The grid of the box {@code min..max} (bounds inclusive) of {@code level}. */
-    static VoxelGrid read(ServerLevel level, int minX, int minY, int minZ, int maxX, int maxY, int maxZ) {
-        VoxelGrid grid = new VoxelGrid(minX, minY, minZ, maxX, maxY, maxZ);
-        // The flags depend on the state only (a collision shape is empty or not, and as high, wherever the block is).
-        Reference2IntOpenHashMap<BlockState> known = new Reference2IntOpenHashMap<>();
-        known.defaultReturnValue(-1);
-        BlockPos.MutableBlockPos pos = new BlockPos.MutableBlockPos();
-        for (int cz = minZ >> 4; cz <= maxZ >> 4; cz++) {
-            for (int cx = minX >> 4; cx <= maxX >> 4; cx++) {
-                LevelChunk chunk = level.getChunkSource().getChunkNow(cx, cz);
-                if (chunk == null) {
-                    continue;
-                }
-                int x0 = Math.max(minX, cx << 4);
-                int x1 = Math.min(maxX, (cx << 4) + 15);
-                int z0 = Math.max(minZ, cz << 4);
-                int z1 = Math.min(maxZ, (cz << 4) + 15);
-                for (int y = minY; y <= maxY; y++) {
-                    LevelChunkSection section = chunk.getSection(chunk.getSectionIndex(y));
-                    for (int z = z0; z <= z1; z++) {
-                        for (int x = x0; x <= x1; x++) {
-                            BlockState state = section.getBlockState(x & 15, y & 15, z & 15);
-                            int flags = known.getInt(state);
-                            if (flags < 0) {
-                                flags = flags(level, pos.set(x, y, z), state);
-                                known.put(state, flags);
-                            }
-                            grid.set(x, y, z, flags);
+    /** Reads the next chunk column of the box; true once all are read ({@link #grid}). */
+    boolean step() {
+        if (next >= chunks) {
+            return true;
+        }
+        int cx = minChunkX + next % chunksX;
+        int cz = minChunkZ + next / chunksX;
+        next++;
+        LevelChunk chunk = level.getChunkSource().getChunkNow(cx, cz);
+        if (chunk != null) {
+            int x0 = Math.max(grid.minX(), cx << 4);
+            int x1 = Math.min(grid.maxX(), (cx << 4) + 15);
+            int z0 = Math.max(grid.minZ(), cz << 4);
+            int z1 = Math.min(grid.maxZ(), (cz << 4) + 15);
+            for (int y = grid.minY(); y <= grid.maxY(); y++) {
+                LevelChunkSection section = chunk.getSection(chunk.getSectionIndex(y));
+                for (int z = z0; z <= z1; z++) {
+                    for (int x = x0; x <= x1; x++) {
+                        BlockState state = section.getBlockState(x & 15, y & 15, z & 15);
+                        int flags = known.getInt(state);
+                        if (flags < 0) {
+                            flags = flags(level, pos.set(x, y, z), state);
+                            known.put(state, flags);
                         }
+                        grid.set(x, y, z, flags);
                     }
                 }
             }
         }
+        return next >= chunks;
+    }
+
+    /** The grid: complete once {@link #step} said so. */
+    VoxelGrid grid() {
         return grid;
     }
 

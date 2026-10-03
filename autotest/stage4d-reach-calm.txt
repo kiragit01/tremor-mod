@@ -1,0 +1,75 @@
+# Stage 4d REACH: parts 4 and 5 of stage3-aggression.txt without the strikes. Since stage 4 the strikes there take the
+# anger to the top while the bump touches the player, so that run now ends in an Awakening (the striking bump has
+# reached the player); here the player sprints on stone until the entity hunts, then waits on the perch out of its
+# reach (10 blocks up, above awakening's 5-block reach height) at once: the anger decays and the stages fall
+# (hunting -> alert -> dormant). Uses the sky platform of stage3-aggression.txt (repaired here, with its perch).
+# Run: tools/gradle-locked.sh runClientAutotest -Ptremor_autotest_script=stage4d-reach-calm.txt
+
+waitchunks
+cmd gamemode spectator
+cmd difficulty normal
+cmd time set noon
+cmd gamerule doDaylightCycle false
+cmd gamerule doMobSpawning false
+cmd effect give @s minecraft:night_vision infinite 0 true
+cmd tremor awaken stop
+cmd tremor despawn
+cmd kill @e[type=!player]
+cmd tp @s 300.5 201.0 300.5 0 8
+wait 40
+waitchunks
+cmd fill 220 198 220 380 198 380 minecraft:stone
+cmd fill 220 199 220 380 199 380 minecraft:stone
+cmd fill 220 200 220 380 200 380 minecraft:stone
+cmd fill 270 201 270 329 207 329 minecraft:air
+cmd fill 300 210 290 300 210 290 minecraft:stone
+wait 40
+cmd fill 220 198 220 380 198 380 minecraft:stone
+cmd fill 220 199 220 380 199 380 minecraft:stone
+cmd fill 220 200 220 380 200 380 minecraft:stone
+cmd tp @s 300.5 201.0 290.5 0 8
+cmd gamemode survival
+cmd effect clear @s
+cmd effect give @s minecraft:night_vision infinite 0 true
+cmd effect give @s minecraft:instant_health 1 4 true
+wait 20
+waitchunks
+hud off
+cmd tremor debug hearing on
+
+log --- sprinting on stone until it hunts
+cmd tremor spawn 300 200 318
+cmd tremor anger 45
+wait 40
+cmd tp @s 300.5 201.0 290.5 0 8
+wait 5
+hold forward+sprint 30
+cmd tp @s 300.5 201.0 290.5 0 8
+wait 5
+hold forward+sprint 30
+cmd tp @s 300.5 201.0 290.5 0 8
+wait 5
+hold forward+sprint 30
+cmd tp @s 300.5 201.0 290.5 0 8
+wait 5
+hold forward+sprint 30
+cmd tremor info
+
+log --- silence on the perch: the anger decays, the stages fall
+cmd tp @s 300.5 211.0 290.5 0 40
+wait 200
+cmd tremor info
+screenshot 10_perch_hunting
+wait 400
+cmd tremor info
+wait 400
+cmd tremor info
+wait 400
+cmd tremor info
+wait 400
+cmd tremor info
+screenshot 11_perch_calm
+cmd tremor debug hearing off
+cmd tremor despawn
+hud on
+quit

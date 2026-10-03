@@ -65,10 +65,12 @@ import java.util.Locale;
  *   <li>a heard explosion adds {@code explosionAngerBonus} anger on top.</li>
  * </ul>
  * Footing ({@link Contact}): steps, landings and falls go into the ground under the source entity (a fall: under the
- * vehicle it rides), a step on a ladder, vine or scaffolding into what it climbs, a step in powder snow into the snow;
- * events that carry a block state (placed or broken block, a projectile hitting a block) into that block; an explosion
- * into the better conductor of its centre voxel and the one below; anything else through the source entity, or the
- * block at the event position if there is none.
+ * vehicle it rides; on leaves, {@code #tremor:rustling}, they rustle, louder than on stone, and the leaves they
+ * rustle in do not damp them on their way, {@link Vibration#foliage}), a step on a ladder, vine
+ * or scaffolding into what it climbs, a step in powder snow into the snow; events that carry a block state (placed or
+ * broken block, a projectile hitting a block) into that block; an explosion into the better conductor of its centre
+ * voxel and the one below; anything else through the source entity, or the block at the event position if there is
+ * none.
  */
 public final class VibrationListener {
     /** Sources this much beyond the hearing distance (from the event position) are dropped before anything else. */
@@ -176,7 +178,7 @@ public final class VibrationListener {
             contact = Contact.ofEntity(view, cause, false);
         }
         emit(level, runtime, new Vibration(name, contact.point(), loudness, contact.footing(), 0,
-                join(join(note, drop), contact.note())), cause);
+                join(join(note, drop), contact.note()), contact.rustling()), cause);
     }
 
     /**
@@ -228,7 +230,8 @@ public final class VibrationListener {
         }
         Contact contact = Contact.ofEntity(new LevelVoxelView(level), root, true);
         emit(level, runtime, new Vibration("fall", contact.point(), loudness, contact.footing(), 0,
-                join(note, String.format(Locale.ROOT, "%.1f blocks", distance))), entity);
+                join(join(note, String.format(Locale.ROOT, "%.1f blocks", distance)), contact.note()),
+                contact.rustling()), entity);
     }
 
     /**
@@ -244,7 +247,7 @@ public final class VibrationListener {
         }
         Contact contact = Contact.ofEntity(new LevelVoxelView(level), item, true);
         emit(level, runtime, new Vibration("item_land", contact.point(), loudness, contact.footing(), 0,
-                String.format(Locale.ROOT, "%.2f b/t", speed)), item);
+                join(String.format(Locale.ROOT, "%.2f b/t", speed), contact.note()), contact.rustling()), item);
     }
 
     /**

@@ -7,7 +7,7 @@ import net.minecraft.world.level.ChunkPos;
 import net.minecraft.world.level.chunk.LevelChunk;
 
 /**
- * A square of chunks of a real level that something of an outcome works on ({@link Sinkholes}, {@link EdgeExits}):
+ * A square of chunks of a real level that something of an outcome works on ({@link Craters}, {@link EdgeExits}):
  * held loaded by a region ticket from the first {@link #ready} until {@link #release}, and loaded once every chunk is
  * a full chunk with its entities. Server thread only.
  */

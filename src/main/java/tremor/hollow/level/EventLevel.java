@@ -15,9 +15,11 @@ import tremor.block.TremorBlocks;
 import tremor.config.TremorConfig;
 import tremor.hollow.HollowBox;
 import tremor.hollow.HollowEvent;
+import tremor.hollow.TickBudget;
 import tremor.network.TremorHollowStatePayload;
 
 import java.util.ArrayList;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Objects;
@@ -28,12 +30,16 @@ import java.util.concurrent.CompletableFuture;
  * The level of one event of the hollow (SPEC 9, phase 2): what is played out in the copy around the swallowed player.
  * Runtime only (an event does not survive a restart). Server thread only.
  * <p>
- * <b>Before the player arrives</b> ({@link #prepare}, while the screen is still dark; a step per tick, then the
- * light engine is waited for): a tight place around the player is widened into a cave ({@link Widening}); the node is
- * placed {@code nodeMinDistance}..{@code nodeMaxDistance} steps away, in the open (never under water) or at the end of
- * a dug tunnel, and the way to it is kept ({@link WayPlanner}). Both work on a snapshot of the copy around the player
- * and stay inside the copy, {@value #MARGIN} blocks from its sides, top and bottom and a quarter of its radius (4
- * blocks at least) from its round edge; what they carve is sealed from the fluids, lava and fire around it.
+ * <b>Before the player arrives</b> ({@link #prepare}, while the screen is still dark, within the
+ * {@code hollow.budgetMillis} per tick that the copying and clearing of all events share, as it finishes the copy; then
+ * the light engine is waited for): a snapshot of the copy around the player is read ({@link GridReader}, a chunk column
+ * at a time); a tight place around the player is widened into a cave some 16 blocks across ({@link Widening}); the
+ * network of ways is planned on the snapshot ({@link WayPlanner}, a part at a time): the node under the ground
+ * {@code nodeMinDistance}..{@code nodeMaxDistance} steps away, the way to it (from a throat on open ground) kept open
+ * for good, {@code minDeadEnds}..{@code maxDeadEnds} dead ends, walled corridors where they pass through caves; then
+ * the blocks are written, a batch at a time. All of it stays inside the copy, {@value #MARGIN} blocks from its sides,
+ * top and bottom and a quarter of its radius (4 blocks at least) from its round edge (a seal or a wall a block further
+ * out at most); what is carved is sealed from the fluids, lava and fire around it. The time it took is logged.
  * <p>
  * <b>While the player is inside</b> ({@link #tick}, within {@code hollow.level.budgetMillis}):
  * <ul>
@@ -55,16 +61,20 @@ import java.util.concurrent.CompletableFuture;
 final class EventLevel {
     /** Stays this far inside the sides, top and bottom of the copy (blocks). */
     private static final int MARGIN = 3;
-    /** The planning looks this far above and below the player's feet (blocks). */
-    private static final int SNAPSHOT_HEIGHT = 12;
+    /** The planning looks this far above the player's feet (blocks)... */
+    private static final int SNAPSHOT_ABOVE = 12;
+    /** ...and this far below: the node goes under the ground, on open ground some 10 blocks down. */
+    private static final int SNAPSHOT_BELOW = 20;
     /** How far around the player open space counts for the widening (blocks). */
     private static final int WIDEN_RADIUS = 8;
     /**
-     * The widened cave: radius and height under its middle (some 10 blocks across, 5 high, give or take the wobble of
-     * {@link Widening}: some 250 open blocks, well over {@code widenBelow}).
+     * The widened cave: radius and height under its middle (some 16 blocks across, 6 high, give or take the wobble of
+     * {@link Widening}: some 700 open blocks, well over {@code widenBelow}).
      */
-    private static final double CAVE_RADIUS = 5;
-    private static final double CAVE_HEIGHT = 5;
+    private static final double CAVE_RADIUS = 8;
+    private static final double CAVE_HEIGHT = 6;
+    /** Blocks written between two looks at the clock. */
+    private static final int CLOCK_EVERY = 32;
     /** How far the closing front wanders in and out (blocks). */
     private static final double FRONT_WOBBLE = 1.5;
     /** Standing within this distance of where the player stopped is standing still (blocks, SPEC 9). */
@@ -78,9 +88,11 @@ final class EventLevel {
     private static final double SINK_STEP = 0.02;
     /** The node is looked for this often (ticks). */
     private static final int NODE_CHECK_TICKS = 20;
+    /** {@code /tremor hollow walk} walks up to this many times the longest way planned ({@code nodeMaxDistance}). */
+    private static final int WALK_LENGTHS = 4;
 
     private enum Stage {
-        WIDEN, PLAN, LIGHT, READY
+        READ, WIDEN, PLAN, WRITE, LIGHT, READY
     }
 
     private final ServerLevel hollow;
@@ -99,21 +111,41 @@ final class EventLevel {
     /** Where the planning may change blocks and put the node. */
     private final VoxelGrid.Region region;
 
-    private Stage stage = Stage.WIDEN;
+    private Stage stage = Stage.READ;
+    private GridReader reader;
     private VoxelGrid grid;
+    private WayPlanner planner;
+    /** What the widening changes, until it is merged with the plan of the network. */
+    private Widening.Cave cave;
+    /** The cells to empty, then the cells to fill; {@link #written} of them are written so far. */
+    private long[] carving;
+    private long[] filling;
+    private int written;
     private final LongOpenHashSet changedChunks = new LongOpenHashSet();
     private final List<CompletableFuture<?>> light = new ArrayList<>();
     private int openAround;
     private boolean widened;
+    /** How big the widened cave is, for the log and the status; empty if there is none. */
+    private String caveSize = "";
     private int dug;
     private int filled;
     private BlockPos node;
     private boolean nodeBroken;
     /** The open cells of the way to the node: never filled, never moved into. */
     private LongSet way = new LongOpenHashSet();
-    private int wayLength;
-    private boolean tunnel;
+    /** The network as planned; null until then. */
+    private WayPlanner.Plan plan;
+    /** The steps to the node it was planned for ({@code nodeMinDistance}..{@code nodeMaxDistance} then). */
+    private int minLength;
+    private int maxLength;
+    /** The box of the snapshot the planning read (bounds inclusive), for {@link #walk}; null until it is read. */
+    private BlockPos snapshotMin;
+    private BlockPos snapshotMax;
     private double prepareMillis;
+    private int prepareTicks;
+    private int planSteps;
+    /** Server time each stage of the preparation took (nanoseconds), by {@link Stage#ordinal}. */
+    private final long[] stageNanos = new long[Stage.values().length];
     private String failure;
 
     private ClosingSchedule schedule;
@@ -151,17 +183,31 @@ final class EventLevel {
 
     // ---- before the player arrives ----
 
-    /** One step of the preparation; true once the level is ready (the player may be moved in). */
-    boolean prepare() {
+    /**
+     * One tick of the preparation: parts of it while {@code budget} has time (the tick's {@code hollow.budgetMillis},
+     * shared with the copying and the clearing of every event and the preparation of the others), at least one; true
+     * once the level is ready (the player may be moved in).
+     */
+    boolean prepare(TickBudget budget) {
         long begin = System.nanoTime();
+        if (stage != Stage.READY) {
+            prepareTicks++;
+        }
         try {
-            switch (stage) {
-                case WIDEN -> widen();
-                case PLAN -> plan();
-                case LIGHT -> settle();
-                case READY -> {
+            do {
+                Stage part = stage;
+                long from = System.nanoTime();
+                switch (stage) {
+                    case READ -> read();
+                    case WIDEN -> widen();
+                    case PLAN -> plan();
+                    case WRITE -> write(budget);
+                    case LIGHT -> settle();
+                    case READY -> {
+                    }
                 }
-            }
+                stageNanos[part.ordinal()] += System.nanoTime() - from;
+            } while (stage != Stage.LIGHT && stage != Stage.READY && budget.hasTime());
         } finally {
             prepareMillis += (System.nanoTime() - begin) / 1e6;
         }
@@ -172,36 +218,111 @@ final class EventLevel {
     void fail(RuntimeException e) {
         failure = e.toString();
         stage = Stage.READY;
+        reader = null;
         grid = null;
+        planner = null;
+        cave = null;
+        carving = null;
+        filling = null;
         light.clear();
     }
 
+    /** Reads the next chunk column of the snapshot. */
+    private void read() {
+        if (reader == null) {
+            TremorConfig.HollowLevel config = TremorConfig.COMMON.hollow.level;
+            int reach = Math.max(config.nodeMinDistance.get(), config.nodeMaxDistance.get()) + MARGIN;
+            snapshotMin = new BlockPos(Math.max(box.minX(), start.getX() - reach),
+                    Math.max(box.minY(), start.getY() - SNAPSHOT_BELOW), Math.max(box.minZ(), start.getZ() - reach));
+            snapshotMax = new BlockPos(Math.min(box.maxX(), start.getX() + reach),
+                    Math.min(box.maxY(), start.getY() + SNAPSHOT_ABOVE), Math.min(box.maxZ(), start.getZ() + reach));
+            reader = new GridReader(hollow, snapshotMin.getX(), snapshotMin.getY(), snapshotMin.getZ(),
+                    snapshotMax.getX(), snapshotMax.getY(), snapshotMax.getZ());
+        }
+        if (reader.step()) {
+            grid = reader.grid();
+            reader = null;
+            stage = Stage.WIDEN;
+        }
+    }
+
+    /** Widens a tight place into a cave (in the snapshot; the blocks are written with the network's). */
     private void widen() {
         TremorConfig.HollowLevel config = TremorConfig.COMMON.hollow.level;
-        int reach = Math.max(config.nodeMinDistance.get(), config.nodeMaxDistance.get()) + MARGIN;
-        grid = GridReader.read(hollow, Math.max(box.minX(), start.getX() - reach),
-                Math.max(box.minY(), start.getY() - SNAPSHOT_HEIGHT), Math.max(box.minZ(), start.getZ() - reach),
-                Math.min(box.maxX(), start.getX() + reach), Math.min(box.maxY(), start.getY() + SNAPSHOT_HEIGHT),
-                Math.min(box.maxZ(), start.getZ() + reach));
         int threshold = config.widenBelow.get();
         openAround = Widening.openSpace(grid, start.getX(), start.getY(), start.getZ(), WIDEN_RADIUS,
                 Math.max(threshold, 1));
         if (Widening.needed(openAround, threshold)) {
-            Widening.Cave cave = Widening.cave(grid, region, start.getX(), start.getY(), start.getZ(), CAVE_RADIUS,
-                    CAVE_HEIGHT, seed);
-            change(cave.carve(), cave.fill());
+            cave = Widening.cave(grid, region, start.getX(), start.getY(), start.getZ(), CAVE_RADIUS, CAVE_HEIGHT,
+                    seed);
             cave.applyTo(grid);
             widened = true;
+            caveSize = size(cave.carve());
         }
+        minLength = config.nodeMinDistance.get();
+        maxLength = Math.max(minLength, config.nodeMaxDistance.get());
+        planner = new WayPlanner(grid, region, start.getX(), start.getY(), start.getZ(), new WayPlanner.Params(
+                minLength, maxLength, config.nodeMinStraight.get(), config.minDeadEnds.get(),
+                Math.max(config.minDeadEnds.get(), config.maxDeadEnds.get())), seed + 1);
         stage = Stage.PLAN;
     }
 
+    /**
+     * A part of the planning of the network; once it is done, what the cave and the network change is merged into the
+     * blocks to write: a cell the cave filled and the network empties is empty, and the other way round.
+     */
     private void plan() {
-        TremorConfig.HollowLevel config = TremorConfig.COMMON.hollow.level;
-        int min = config.nodeMinDistance.get();
-        WayPlanner.Plan plan = WayPlanner.plan(grid, region, start.getX(), start.getY(), start.getZ(), min,
-                Math.max(min, config.nodeMaxDistance.get()), seed + 1);
-        change(plan.carve(), plan.fill());
+        planSteps++;
+        if (!planner.step()) {
+            return;
+        }
+        plan = planner.plan();
+        planner = null;
+        grid = null;
+        Set<Long> carve = new LinkedHashSet<>();
+        Set<Long> fill = new LinkedHashSet<>();
+        if (cave != null) {
+            carve.addAll(cave.carve());
+            fill.addAll(cave.fill());
+            cave = null;
+        }
+        carve.removeAll(plan.fill());
+        fill.removeAll(plan.carve());
+        carve.addAll(plan.carve());
+        fill.addAll(plan.fill());
+        carving = carve.stream().mapToLong(Long::longValue).toArray();
+        filling = fill.stream().mapToLong(Long::longValue).toArray();
+        way = new LongOpenHashSet(plan.way());
+        stage = Stage.WRITE;
+    }
+
+    /**
+     * Empties the cells to carve (air), then fills the cells to fill (floors, walls, sealed fluids) with what is around
+     * them, while {@code budget} has time; once all are written, places the node and waits for the light.
+     */
+    private void write(TickBudget budget) {
+        BlockPos.MutableBlockPos pos = new BlockPos.MutableBlockPos();
+        for (int n = 0; written < carving.length + filling.length; n++) {
+            if (n > 0 && n % CLOCK_EVERY == 0 && !budget.hasTime()) {
+                return;
+            }
+            if (written < carving.length) {
+                pos.set(carving[written]);
+                if (!hollow.getBlockState(pos).isAir()) {
+                    hollow.setBlock(pos, Materials.AIR, Materials.FLAGS);
+                    changedChunks.add(ChunkPos.asLong(pos));
+                    dug++;
+                }
+            } else {
+                pos.set(filling[written - carving.length]);
+                hollow.setBlock(pos, Materials.floor(hollow, pos), Materials.FLAGS);
+                changedChunks.add(ChunkPos.asLong(pos));
+                filled++;
+            }
+            written++;
+        }
+        carving = null;
+        filling = null;
         BlockPos at = BlockPos.of(plan.node());
         // Only if the planning had nowhere to go at all would it be the player's own cell: then there is no node.
         if (!at.equals(start) && !at.equals(start.above())) {
@@ -209,10 +330,6 @@ final class EventLevel {
             changedChunks.add(ChunkPos.asLong(at));
             node = at;
         }
-        way = new LongOpenHashSet(plan.way());
-        wayLength = plan.length();
-        tunnel = plan.tunnel();
-        grid = null;
         for (long chunk : changedChunks) {
             light.add(hollow.getChunkSource().getLightEngine().waitForPendingTasks(ChunkPos.getX(chunk),
                     ChunkPos.getZ(chunk)));
@@ -240,33 +357,61 @@ final class EventLevel {
         mire = new Mire(new SinkTracker.Params(ticks(config.stillSeconds.get()), STILL_DISTANCE,
                 SINK_DEPTH / sinkTicks, SINK_DEPTH), ticks(config.recoverSeconds.get()));
         stage = Stage.READY;
-        Tremor.LOGGER.info("Hollow level: {} ready in {} ms: {} ({} open blocks around the player{}); node {}, {} "
-                        + "steps away {}, way of {} blocks", event, String.format(Locale.ROOT, "%.1f", prepareMillis),
-                widened ? "widened" : "not widened", openAround,
-                widened ? ", " + dug + " dug, " + filled + " filled" : "", node == null ? "none" : text(node),
-                wayLength, tunnel ? "through a dug tunnel" : "in the open", way.size());
+        Tremor.LOGGER.info("Hollow level: {} ready in {} ms of server time over {} ticks (reading {} ms, widening {} "
+                        + "ms, planning {} ms in {} parts, writing {} ms); {}; {}", event,
+                String.format(Locale.ROOT, "%.1f", prepareMillis), prepareTicks, millis(Stage.READ),
+                millis(Stage.WIDEN), millis(Stage.PLAN), planSteps, millis(Stage.WRITE), network(), changes());
     }
 
-    /**
-     * Empties the cells {@code carve} (air) and fills the cells {@code fill} (floors, sealed fluids) with what is
-     * around them.
-     */
-    private void change(Set<Long> carve, Set<Long> fill) {
-        BlockPos.MutableBlockPos pos = new BlockPos.MutableBlockPos();
-        for (long cell : carve) {
-            pos.set(cell);
-            if (!hollow.getBlockState(pos).isAir()) {
-                hollow.setBlock(pos, Materials.AIR, Materials.FLAGS);
-                changedChunks.add(ChunkPos.asLong(pos));
-                dug++;
-            }
+    /** Server time the stage of the preparation took, for the log. */
+    private String millis(Stage part) {
+        return String.format(Locale.ROOT, "%.1f", stageNanos[part.ordinal()] / 1e6);
+    }
+
+    /** The node and the network, for the log and the status. */
+    private String network() {
+        BlockPos mouth = BlockPos.of(plan.mouth());
+        String throat = plan.throat() ? String.format(Locale.ROOT, "a throat down from the surface at %s (%.1f blocks "
+                + "from the player)", text(mouth), Math.hypot(mouth.getX() - start.getX(), mouth.getZ() - start.getZ()))
+                : "no throat";
+        String length = plan.length() < 0 ? "NOT reached on foot"
+                : plan.length() < minLength ? String.format(Locale.ROOT, "%d steps away along the way, SHORT (fewer "
+                + "than nodeMinDistance %d)", plan.length(), minLength)
+                : plan.length() > maxLength ? String.format(Locale.ROOT, "%d steps away along the way, LONG (more "
+                + "than nodeMaxDistance %d)", plan.length(), maxLength)
+                : plan.length() + " steps away along the way";
+        return String.format(Locale.ROOT, "node %s%s, %s, %.1f blocks in a straight line "
+                        + "(%.1f from the nearest place of the start)%s%s; %s; %d dead ends (%d out of the start, %d "
+                        + "decoy throats); way of %d blocks (%d tries)", node == null ? "none" : text(node),
+                nodeBroken ? " (destroyed)" : "", length, plan.straight(), plan.clearance(),
+                plan.covered() ? ", under the ground" : ", NOT under the ground (nowhere deep enough)",
+                plan.stuck() == 0 ? "" : ", STUCK: " + plan.stuck() + " places walked to without a way on to it",
+                throat, plan.branches(), plan.fromStart(), plan.decoys(), way.size(), plan.tries());
+    }
+
+    /** What the preparation changed, for the log and the status. */
+    private String changes() {
+        return String.format(Locale.ROOT, "%s (%d open blocks around the player)%s; %d blocks dug, %d filled",
+                widened ? "widened" : "not widened", openAround, caveSize, dug, filled);
+    }
+
+    /** The size of the widened cave ({@code cells}: what it digs), for {@link #changes}. */
+    private static String size(Set<Long> cells) {
+        if (cells.isEmpty()) {
+            return "";
         }
-        for (long cell : fill) {
-            pos.set(cell);
-            hollow.setBlock(pos, Materials.floor(hollow, pos), Materials.FLAGS);
-            changedChunks.add(ChunkPos.asLong(pos));
-            filled++;
+        int minX = Integer.MAX_VALUE, minY = Integer.MAX_VALUE, minZ = Integer.MAX_VALUE;
+        int maxX = Integer.MIN_VALUE, maxY = Integer.MIN_VALUE, maxZ = Integer.MIN_VALUE;
+        for (long cell : cells) {
+            minX = Math.min(minX, CellKey.x(cell));
+            maxX = Math.max(maxX, CellKey.x(cell));
+            minY = Math.min(minY, CellKey.y(cell));
+            maxY = Math.max(maxY, CellKey.y(cell));
+            minZ = Math.min(minZ, CellKey.z(cell));
+            maxZ = Math.max(maxZ, CellKey.z(cell));
         }
+        return String.format(Locale.ROOT, " into a cave of %d blocks, %d x %d across and %d high", cells.size(),
+                maxX - minX + 1, maxZ - minZ + 1, maxY - minY + 1);
     }
 
     // ---- while the player is inside ----
@@ -394,11 +539,8 @@ final class EventLevel {
         if (stage != Stage.READY) {
             return "level: preparing (" + stage.name().toLowerCase(Locale.ROOT) + ")";
         }
-        StringBuilder text = new StringBuilder(String.format(Locale.ROOT,
-                "level #%d: node %s%s, %d steps away %s, way of %d blocks; %s (%d open blocks around)", id,
-                node == null ? "none" : text(node), nodeBroken ? " (destroyed)" : "", wayLength,
-                tunnel ? "through a dug tunnel" : "in the open", way.size(),
-                widened ? "widened: " + dug + " dug, " + filled + " filled" : "not widened", openAround));
+        StringBuilder text = new StringBuilder(String.format(Locale.ROOT, "level #%d: %s\n  %s", id, network(),
+                changes()));
         String closing = schedule.graceLeft() > 0
                 ? String.format(Locale.ROOT, "grace %.1f s", schedule.graceLeft() / 20.0)
                 : schedule.pauseLeft() > 0 ? String.format(Locale.ROOT, "lured, %.1f s", schedule.pauseLeft() / 20.0)
@@ -410,14 +552,82 @@ final class EventLevel {
                 schedule.lures(), closer.filled(), closer.pending(), walls.shifted()));
         text.append(String.format(Locale.ROOT, "\n  sink %.2f (still for %.1f s, softened %.2f blocks), %d soft "
                         + "blocks; a beat every %d ticks; %s; work %.3f ms per tick on average, worst %.2f ms; "
-                        + "prepared in %.1f ms", mire.sink(), mire.tracker().stillTicks() / 20.0,
-                mire.tracker().depth(), mire.size(), schedule.beatTicks(),
+                        + "prepared in %.1f ms over %d ticks (planning %s ms)", mire.sink(),
+                mire.tracker().stillTicks() / 20.0, mire.tracker().depth(), mire.size(), schedule.beatTicks(),
                 outcomeCalled || event.outcome() != null ? "stopped (outcome)" : running() ? "running" : "waiting",
-                ticks == 0 ? 0 : workNanos / 1e6 / ticks, worstNanos / 1e6, prepareMillis));
+                ticks == 0 ? 0 : workNanos / 1e6 / ticks, worstNanos / 1e6, prepareMillis, prepareTicks,
+                millis(Stage.PLAN)));
         return text.toString();
     }
 
+    /**
+     * Debug ({@code /tremor hollow walk}): walks the copy as it is now (the box the planning read, read afresh, the
+     * moving walls and the closing included) from where {@code player} stands to the node, the way the planning walks
+     * ({@link WayPlanner#landing}), up to {@value #WALK_LENGTHS} times {@code nodeMaxDistance} steps; then moves the
+     * player {@code steps} steps along that walk (0: not at all, at most to the cell before the node), facing the step
+     * after. What it found, for the command.
+     */
+    String walk(ServerPlayer player, int steps) {
+        if (node == null || nodeBroken || stage != Stage.READY || failure != null || snapshotMin == null) {
+            return "No node to walk to";
+        }
+        BlockPos feet = player.blockPosition();
+        if (feet.equals(node)) {
+            return "You are at the node";
+        }
+        if (feet.getX() < snapshotMin.getX() || feet.getY() < snapshotMin.getY() || feet.getZ() < snapshotMin.getZ()
+                || feet.getX() > snapshotMax.getX() || feet.getY() > snapshotMax.getY()
+                || feet.getZ() > snapshotMax.getZ()) {
+            return "You stand outside the part of the copy the level was planned in";
+        }
+        GridReader read = new GridReader(hollow, snapshotMin.getX(), snapshotMin.getY(), snapshotMin.getZ(),
+                snapshotMax.getX(), snapshotMax.getY(), snapshotMax.getZ());
+        while (!read.step()) {
+            // A debug command: all at once.
+        }
+        VoxelGrid now = read.grid();
+        now.carve(node.asLong());
+        WayPlanner.Walk walk = WayPlanner.distances(now, feet.getX(), feet.getY(), feet.getZ(),
+                WALK_LENGTHS * maxLength);
+        int length = walk.distance(node.getX(), node.getY(), node.getZ());
+        if (length < 0) {
+            BlockPos closest = feet;
+            for (int i = 0; i < walk.reached(); i++) {
+                BlockPos at = BlockPos.of(key(now, walk.order()[i]));
+                if (at.distSqr(node) < closest.distSqr(node)) {
+                    closest = at;
+                }
+            }
+            return String.format(Locale.ROOT, "No way on foot from %s to the node at %s within %d steps: %d cells "
+                            + "reached, the closest %s, %.1f blocks from it", text(feet), text(node),
+                    WALK_LENGTHS * maxLength, walk.reached(), text(closest), Math.sqrt(closest.distSqr(node)));
+        }
+        List<BlockPos> path = new ArrayList<>();
+        for (int at = now.index(node.getX(), node.getY(), node.getZ()); at >= 0; at = walk.parent()[at]) {
+            path.add(0, BlockPos.of(key(now, at)));
+        }
+        String found = String.format(Locale.ROOT, "The node at %s is %d steps on foot from %s (%.1f blocks in a "
+                + "straight line)", text(node), length, text(feet), Math.sqrt(feet.distSqr(node)));
+        if (steps <= 0) {
+            return found;
+        }
+        int to = Math.min(steps, length - 1);
+        BlockPos stand = path.get(to);
+        BlockPos next = path.get(to + 1);
+        float yaw = (float) Math.toDegrees(Math.atan2(-(next.getX() - stand.getX()), next.getZ() - stand.getZ()));
+        player.teleportTo(hollow, stand.getX() + 0.5, stand.getY(), stand.getZ() + 0.5, yaw, 10);
+        return found + String.format(Locale.ROOT, "; moved %d steps to %s, %d left", to, text(stand), length - to);
+    }
+
     // ---- internals ----
+
+    /** The cell of {@code grid} at the index {@code index}, as a {@link CellKey}. */
+    private static long key(VoxelGrid grid, int index) {
+        int sizeX = grid.maxX() - grid.minX() + 1;
+        int sizeZ = grid.maxZ() - grid.minZ() + 1;
+        return CellKey.of(grid.minX() + index % sizeX, grid.minY() + index / sizeX / sizeZ,
+                grid.minZ() + index / sizeX % sizeZ);
+    }
 
     /**
      * How the player at {@code at} (feet) is out of the copy, or null if not: within a block of its round edge, with

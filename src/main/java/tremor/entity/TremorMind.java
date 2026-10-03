@@ -13,6 +13,8 @@ import net.minecraft.world.damagesource.DamageSource;
 import net.minecraft.world.damagesource.DamageType;
 import net.minecraft.world.entity.ai.attributes.Attributes;
 import tremor.Tremor;
+import tremor.awakening.AwakeningManager;
+import tremor.awakening.AwakeningRules;
 import tremor.config.TremorConfig;
 import tremor.core.behavior.AngerMeter;
 import tremor.core.behavior.BehaviorParams;
@@ -21,15 +23,20 @@ import tremor.core.behavior.BrainWorld;
 import tremor.core.behavior.ContactZone;
 import tremor.core.behavior.Decision;
 import tremor.core.behavior.DespawnClock;
+import tremor.core.behavior.KeepAway;
+import tremor.core.behavior.Seeking;
 import tremor.core.behavior.Stage;
 import tremor.core.behavior.SurfacePicker;
 import tremor.core.math.Vec3;
 import tremor.core.motion.Crawler;
 import tremor.core.motion.MotionParams;
+import tremor.core.path.Path;
 import tremor.network.TremorStatePayload;
 import tremor.sound.TremorSounds;
 
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.UUID;
@@ -40,13 +47,25 @@ import java.util.random.RandomGenerator;
  * the {@link Brain} and the answers to its questions ({@link BrainWorld} over the runtime's surface graph), the
  * ground ripple of a freeze, contact with players and leaving. One per entity, owned by its {@link TremorRuntime},
  * which carries out the brain's orders (routes, stopping). Transient: the anger, the stage, the switches and the
- * despawn clock are saved with the {@link TremorEntity}; the brain starts afresh after a load. Server thread only.
+ * despawn clock are saved with the {@link TremorEntity}; the brain and the seeking start afresh after a load. Server
+ * thread only.
  * <ul>
  * <li><b>Anger</b>: a heard vibration adds {@code perceived * angerPerLoudness} plus its bonus ({@link #heard});
  * every tick the anger decays, faster once nothing was heard for a while ({@link AngerMeter#tick}; the time since the
  * entity's saved {@code lastHeard}, so a load does not reset it). Every stage change is marked by a sound (SPEC 13,
  * {@link StageTransition}) and sent to the players at once. The {@code behavior} config is read every tick; when it
  * changes the meter (keeping anger and stage) and the brain are built anew.</li>
+ * <li><b>Seeking</b> (SPEC 8 AWAKENING; {@link Seeking}): at the top of the anger the entity seeks a player: its brain
+ * goes for the last heard sound as when HUNTING (with the AWAKENING speed and bump height), searching only
+ * {@code awakening.searchRadius} around it; with nothing to go for it roams as far from every player who can be taken
+ * as when DORMANT, on ways that pass none of them within reach ({@link #keepAway}; the route the body plans for such a
+ * leg is tested too, {@link #wayClear}), so a player who gets quietly away from the noise is not found by chance. The
+ * anger stays at the top (no decay), and the Awakening starts once its bump has reached a player
+ * ({@link AwakeningManager} checks that after each tick and takes it, {@link #absorb}). If that has not happened
+ * {@code awakening.seekSeconds} after it entered AWAKENING (or a command set AWAKENING again), it calms down to
+ * HUNTING at {@link Seeking#calmAnger} (the stage change sighs), and the anger decays from there. Not saved: an
+ * entity loaded in AWAKENING was seeking (one an Awakening had taken goes deep at load,
+ * {@link TremorManager#onLevelLoad}), and it is HUNTING at the calm-down anger at once.</li>
  * <li><b>Brain</b> ({@link #think}): fed with the sounds heard since the last tick, ticked once per server tick
  * before the move, with the stage after this tick's anger; its decisions go through {@link BrainOrders} to the body.
  * Not while the brain is switched off ({@code /tremor ai off}) or the entity leaves. A {@code /tremor goto}
@@ -66,7 +85,7 @@ import java.util.random.RandomGenerator;
  * <li><b>Awakening</b> (SPEC 9; {@link #absorb}): taken by an Awakening, the entity is the whole area rather than a
  * bump: its brain is suspended, the anger stays at the top, the bump sinks, it strikes nobody, does not leave by
  * itself and hears nothing ({@code awakening}). Until it is removed: every Awakening ends with that
- * ({@link tremor.awakening.AwakeningManager}).</li>
+ * ({@link tremor.awakening.AwakeningManager}). That it was taken is saved with it ({@link TremorEntity#absorbed}).</li>
  * </ul>
  */
 final class TremorMind {
@@ -84,6 +103,19 @@ final class TremorMind {
     static final int WANDER_ATTEMPTS = 48;
     /** Candidates tried for a search target: each a column scan. */
     static final int SEARCH_ATTEMPTS = 24;
+    /**
+     * While the entity seeks, the way of a roam leg passes no player who can be taken nearer than
+     * {@code awakening.reachDistance} plus this horizontally ({@link #keepAway}): the bump's route through the node
+     * centres is smoothed, and it is tested at points up to {@value KeepAway#STEP} blocks apart...
+     */
+    static final double PASS_MARGIN = 2;
+    /** ...where it is at most {@link AwakeningRules#REACH_HEIGHT} plus this above or below the player's feet. */
+    static final double PASS_MARGIN_HEIGHT = 1;
+    /**
+     * An Awakening that starts this many ticks or fewer after the entity made the sound of rising to AWAKENING makes
+     * none of its own ({@link #awakenSounded}): the two would sound as one doubled.
+     */
+    static final int AWAKEN_SOUND_TICKS = 20;
     /** A leaving entity is removed once its bump is lower than this (blocks)... */
     static final double SUNK = 0.02;
     /** ...or this many ticks after it started leaving, whatever its bump does. */
@@ -106,6 +138,8 @@ final class TremorMind {
     private final Map<UUID, Long> strikes = new HashMap<>();
     /** The ground ripple of a freeze. */
     private final RippleTimer ripple = new RippleTimer();
+    /** The seeking of the AWAKENING stage; its clock is ticked only while no Awakening has taken the entity. */
+    private final Seeking seeking = new Seeking();
 
     private BehaviorParams params;
     private AngerMeter meter;
@@ -113,18 +147,26 @@ final class TremorMind {
     /** A vibration was heard since the last tick (eventful for the despawn clock). */
     private boolean heardSinceTick;
     private int leavingTicks;
-    /** Taken by an Awakening ({@link #absorb}). Not saved: an entity loaded in AWAKENING goes deep at once. */
-    private boolean absorbed;
+    /** Game time the entity last made the sound of rising to AWAKENING ({@link #settle}), or Long.MIN_VALUE. */
+    private long awakenSoundAt = Long.MIN_VALUE;
 
     TremorMind(TremorRuntime runtime, TremorEntity entity) {
         this.runtime = runtime;
         this.level = runtime.level();
         this.entity = entity;
         this.params = configParams();
-        this.meter = new AngerMeter(params, entity.anger(), entity.stage());
+        if (entity.stage() == Stage.AWAKENING && !entity.absorbed()) {
+            // Loaded while seeking (a new entity is DORMANT): the seeking is not saved, it calms down at once.
+            this.meter = new AngerMeter(params, Seeking.calmAnger(params), Stage.HUNTING);
+            Tremor.LOGGER.info(String.format(Locale.ROOT, "Tremor #%d in %s was saved seeking a player in AWAKENING: "
+                    + "it hunts on at anger %.0f", entity.instance(), level.dimension().location(), meter.anger()));
+        } else {
+            this.meter = new AngerMeter(params, entity.anger(), entity.stage());
+        }
         // A loaded entity takes the stage the meter reconciles quietly: nothing changed for the players.
         entity.setAnger((float) meter.anger());
         entity.setStage(meter.stage());
+        seeking.stage(meter.stage());
         this.brain = newBrain();
     }
 
@@ -137,14 +179,14 @@ final class TremorMind {
      * off). Nothing while the entity leaves.
      *
      * @return what the entity makes of it, for the hearing debug view: {@code ignores it} (DORMANT, too quiet),
-     * {@code investigates}, {@code freezes}, {@code hunts}, or why nothing follows ({@code ai off},
-     * {@code goto under way}, {@code leaving}, {@code awakening})
+     * {@code investigates}, {@code freezes}, {@code hunts}, {@code seeks} (AWAKENING), or why nothing follows
+     * ({@code ai off}, {@code goto under way}, {@code leaving}, {@code awakening})
      */
     String heard(Vec3 source, double perceived, double anger) {
         if (entity.leaving()) {
             return "leaving";
         }
-        if (absorbed) {
+        if (entity.absorbed()) {
             return "awakening";
         }
         heardSinceTick = true;
@@ -159,13 +201,15 @@ final class TremorMind {
         return switch (meter.stage()) {
             case DORMANT -> perceived >= params.dormantReactLoudness() ? "investigates" : "ignores it";
             case ALERT -> "freezes";
-            case HUNTING, AWAKENING -> "hunts";
+            case HUNTING -> "hunts";
+            case AWAKENING -> "seeks";
         };
     }
 
     /**
-     * The first part of a tick, before the move: the config is taken in, the anger decays, and the brain decides
-     * with what it heard since the last tick; the body carries out the order.
+     * The first part of a tick, before the move: the config is taken in, the anger decays (in AWAKENING the seeking
+     * runs instead, and once it has run out the entity calms down), and the brain decides with what it heard since the
+     * last tick; the body carries out the order.
      */
     void think(long now) {
         BehaviorParams current = configParams();
@@ -177,11 +221,18 @@ final class TremorMind {
             brain = newBrain();
             orders.clear();
         }
-        if (entity.leaving() || absorbed) {
+        if (entity.leaving() || entity.absorbed()) {
             return; // its anger no longer matters, or it stays at the top
         }
         Stage before = entity.stage();
-        meter.tick(TremorRuntime.TICK_SECONDS, secondsSinceHeard(now));
+        if (meter.stage() == Stage.AWAKENING) {
+            seeking.stage(Stage.AWAKENING); // running since the entity got there (settle)
+            if (seeking.tick(TremorRuntime.TICK_SECONDS, TremorConfig.COMMON.awakening.seekSeconds.get())) {
+                calmDown();
+            }
+        } else {
+            meter.tick(TremorRuntime.TICK_SECONDS, secondsSinceHeard(now));
+        }
         settle(before);
         if (!entity.aiEnabled()) {
             return;
@@ -194,7 +245,8 @@ final class TremorMind {
                 perceived -> runtime.mayRetarget(entity, now, perceived));
         switch (order.type()) {
             case GO -> runtime.brainGo(entity, order.point(),
-                    order.sound() ? TremorEntity.TargetKind.SOUND : TremorEntity.TargetKind.ROAM, order.perceived());
+                    order.sound() ? TremorEntity.TargetKind.SOUND : TremorEntity.TargetKind.ROAM, order.perceived(),
+                    order.wander());
             case FREEZE -> {
                 runtime.freeze(entity, order.point());
                 ripple.freeze(now, entity.crawler().diving());
@@ -211,7 +263,7 @@ final class TremorMind {
     MotionParams motion() {
         MotionParams base = entity.params().motionParams();
         Stage stage = meter.stage();
-        double amplitude = entity.leaving() || absorbed ? 0
+        double amplitude = entity.leaving() || entity.absorbed() ? 0
                 : base.amplitude() * TremorConfig.COMMON.amplitudeFactor(stage);
         return new MotionParams(base.maxSpeed() * TremorConfig.COMMON.speedFactor(stage), base.acceleration(),
                 base.normalSmoothingSeconds(), amplitude, base.amplitudeSmoothingSeconds());
@@ -225,7 +277,7 @@ final class TremorMind {
     boolean afterMove(long now) {
         boolean heard = heardSinceTick;
         heardSinceTick = false;
-        if (absorbed) {
+        if (entity.absorbed()) {
             return false; // the Awakening removes it
         }
         if (entity.leaving()) {
@@ -257,7 +309,7 @@ final class TremorMind {
      * @return true once the entity is gone: the runtime removes it
      */
     boolean pausedTick() {
-        if (!entity.natural() || absorbed) {
+        if (!entity.natural() || entity.absorbed()) {
             return false;
         }
         if (entity.leaving()) {
@@ -280,18 +332,26 @@ final class TremorMind {
         return ripple.age(now);
     }
 
-    /** Debug ({@code /tremor anger}): sets the anger and the stage it implies; a stage change is marked as usual. */
+    /**
+     * Debug ({@code /tremor anger}): sets the anger and the stage it implies; a stage change is marked as usual. At the
+     * top (AWAKENING) the seeking starts afresh.
+     */
     void setAnger(double anger) {
         Stage before = entity.stage();
         meter.set(anger);
         settle(before);
+        seekAfresh();
     }
 
-    /** Debug ({@code /tremor stage}): jumps to the stage at its threshold anger; the change is marked as usual. */
+    /**
+     * Debug ({@code /tremor stage}): jumps to the stage at its threshold anger; the change is marked as usual.
+     * AWAKENING starts the seeking afresh.
+     */
     void forceStage(Stage stage) {
         Stage before = entity.stage();
         meter.forceStage(stage);
         settle(before);
+        seekAfresh();
     }
 
     /** {@code /tremor ai on|off}: switched back on, the brain starts afresh (it heard nothing meanwhile). */
@@ -314,27 +374,51 @@ final class TremorMind {
      * suspended, the bump sinks, and the entity neither strikes nor leaves by itself. A leaving entity stops leaving.
      */
     void absorb() {
-        absorbed = true;
+        entity.setAbsorbed(true);
         orders.clear();
         entity.setLeaving(false);
-        forceStage(Stage.AWAKENING);
+        Stage before = entity.stage();
+        meter.forceStage(Stage.AWAKENING);
+        settle(before);
     }
 
     /** Whether an Awakening took the entity ({@link #absorb}). */
     boolean absorbed() {
-        return absorbed;
+        return entity.absorbed();
     }
 
-    /** What the behaviour is doing, e.g. {@code hunting: searching, 12 s left}. */
+    /**
+     * Whether the entity made the sound of rising to AWAKENING (SPEC 13) at most {@value #AWAKEN_SOUND_TICKS} ticks
+     * before game time {@code now} (by itself, by a command, or as an Awakening took it): an Awakening that starts now
+     * makes no sound of its own.
+     */
+    boolean awakenSounded(long now) {
+        return awakenSoundAt != Long.MIN_VALUE && now >= awakenSoundAt && now - awakenSoundAt <= AWAKEN_SOUND_TICKS;
+    }
+
+    /**
+     * Whether a route the body has planned for a wander leg of the brain keeps away from the players
+     * ({@link KeepAway#passesClear(Path)} with {@link #keepAway}): while the entity seeks, it passes none who can be
+     * taken within reach; in any other stage every route does. One that does not is given up.
+     */
+    boolean wayClear(Path path) {
+        return meter.stage() != Stage.AWAKENING || keepAway(0).passesClear(path);
+    }
+
+    /**
+     * What the behaviour is doing, e.g. {@code hunting: searching, 12 s left}; while seeking (AWAKENING) also how long
+     * until it calms down and the sound it goes for, e.g. {@code awakening: going for the sound; seeking a player
+     * (reach 8 blocks), calms down in 23 s; the sound at (12.50, 64.50, -3.50)}.
+     */
     String describe() {
-        if (absorbed) {
+        if (entity.absorbed()) {
             return "awakening: it is the whole area, not a bump";
         }
         if (entity.leaving()) {
             return "leaving";
         }
         if (!entity.aiEnabled()) {
-            return "ai off";
+            return "ai off" + seekingState();
         }
         String state = brain.describe();
         if (orders.waiting()) {
@@ -342,7 +426,40 @@ final class TremorMind {
         } else if (entity.targetKind() == TremorEntity.TargetKind.MANUAL) {
             state += " (suspended by a goto)";
         }
-        return state;
+        return state + seekingState();
+    }
+
+    /** The seeking for {@link #describe}, starting with "; ", or nothing while the entity does not seek. */
+    private String seekingState() {
+        if (!seeking.running()) {
+            return "";
+        }
+        TremorConfig.Awakening config = TremorConfig.COMMON.awakening;
+        Vec3 sound = brain.lastHeard();
+        return String.format(Locale.ROOT, "; seeking a player (reach %.0f blocks), calms down in %.0f s; %s",
+                config.reachDistance.get(), Math.ceil(seeking.secondsLeft(config.seekSeconds.get())),
+                sound == null ? "no sound heard yet" : String.format(Locale.ROOT, "the sound at (%.2f, %.2f, %.2f)",
+                        sound.x(), sound.y(), sound.z()));
+    }
+
+    // ---- seeking ----
+
+    /** A command set the anger to the top again: the seeking starts afresh (it does for a new AWAKENING anyway). */
+    private void seekAfresh() {
+        if (meter.stage() == Stage.AWAKENING && !entity.absorbed()) {
+            seeking.restart();
+        }
+    }
+
+    /**
+     * The seeking has run out (SPEC 8: "Не нашла никого за ~30–40 с — успокаивается до HUNTING"): the anger drops to
+     * {@link Seeking#calmAnger}, inside HUNTING; the caller settles the stage change (the ground sighs).
+     */
+    private void calmDown() {
+        meter.set(Seeking.calmAnger(params));
+        Tremor.LOGGER.info(String.format(Locale.ROOT, "Tremor #%d in %s reached nobody within %d s in AWAKENING: it "
+                        + "calms down to %s at anger %.0f", entity.instance(), level.dimension().location(),
+                TremorConfig.COMMON.awakening.seekSeconds.get(), meter.stage().name(), meter.anger()));
     }
 
     // ---- anger ----
@@ -353,10 +470,14 @@ final class TremorMind {
         settle(before);
     }
 
-    /** Writes the meter to the entity; a stage change is marked by a sound (SPEC 8, 13) and sent to the players. */
+    /**
+     * Writes the meter to the entity; a stage change is marked by a sound (SPEC 8, 13) and sent to the players.
+     * Entering AWAKENING starts the seeking, leaving it stops it.
+     */
     private void settle(Stage before) {
         entity.setAnger((float) meter.anger());
         Stage stage = meter.stage();
+        seeking.stage(stage);
         if (stage == before) {
             return;
         }
@@ -368,7 +489,10 @@ final class TremorMind {
                 play(TremorSounds.CRACK, skin(), volume, 1);
                 play(TremorSounds.RUMBLE, skin(), volume, LOW_PITCH);
             }
-            case AWAKEN -> play(TremorSounds.AWAKEN, skin(), volume, 1);
+            case AWAKEN -> {
+                play(TremorSounds.AWAKEN, skin(), volume, 1);
+                awakenSoundAt = level.getGameTime();
+            }
             case SIGH -> play(TremorSounds.SIGH, skin(), volume, 1);
             case NONE -> {
             }
@@ -503,11 +627,34 @@ final class TremorMind {
 
     // ---- world ----
 
+    /**
+     * The players a wander leg keeps away from (SPEC 5.6, 8; {@link KeepAway#of}): while the entity seeks
+     * (AWAKENING), every player who can be taken ({@link AwakeningManager#takeable}; one who cannot, in creative mode
+     * for one, takes none of that care away from the others), the leg ending {@code minDistance} from each and its way
+     * passing none of them within reach ({@code awakening.reachDistance} plus {@value #PASS_MARGIN} horizontally,
+     * {@link AwakeningRules#REACH_HEIGHT} plus {@value #PASS_MARGIN_HEIGHT} in height); in another stage every player
+     * who is not a spectator, only its end {@code minDistance} away (nobody for 0).
+     */
+    private KeepAway keepAway(double minDistance) {
+        Stage stage = meter.stage();
+        if (stage != Stage.AWAKENING && minDistance == 0) {
+            return KeepAway.NONE;
+        }
+        List<KeepAway.Player> players = new ArrayList<>();
+        for (ServerPlayer player : level.players()) {
+            players.add(new KeepAway.Player(vec(player.position()), AwakeningManager.takeable(player),
+                    player.isSpectator()));
+        }
+        return KeepAway.of(stage, minDistance, players, TremorConfig.COMMON.awakening.reachDistance.get() + PASS_MARGIN,
+                AwakeningRules.REACH_HEIGHT + PASS_MARGIN_HEIGHT);
+    }
+
     /** The brain's questions, answered over the runtime's surface graph ({@link SurfacePicker}). */
     private final class World implements BrainWorld {
         /**
-         * A wander leg {@code wanderMinRadius}..{@code wanderMaxRadius} away, preferably seen by the nearest player
-         * (not a spectator) within {@value #VIEWER_RANGE} blocks; without one, any.
+         * A wander leg {@code wanderMinRadius}..{@code wanderMaxRadius} away, keeping away from the players
+         * ({@link #keepAway}), preferably seen by the nearest player (not a spectator) within {@value #VIEWER_RANGE}
+         * blocks; without one, any.
          */
         @Override
         public Vec3 wanderTarget(Vec3 from, double minDistanceToPlayer, RandomGenerator random) {
@@ -515,7 +662,7 @@ final class TremorMind {
             double min = config.wanderMinRadius.get();
             double max = Math.max(min, config.wanderMaxRadius.get());
             return SurfacePicker.wanderTarget(runtime.graph(), from, min, max, WANDER_VERTICAL_RANGE, viewerEye(from),
-                    minDistanceToPlayer, random, WANDER_ATTEMPTS);
+                    keepAway(minDistanceToPlayer), random, WANDER_ATTEMPTS);
         }
 
         @Override

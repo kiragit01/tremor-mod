@@ -3,7 +3,14 @@
 # Arena: a 3-block-thick stone platform of 161 x 161 blocks high in the sky (y 198..200), so that the entity has
 # nowhere else to wander and is always in view; a one-block perch above it that the entity cannot reach.
 # The player stands at the centre (300.5, 201, 300.5) and looks south (+z).
-# Run: gradlew runClientAutotest -Ptremor_autotest_script=stage3-aggression.txt
+# Since stage 4 the top of the anger (AWAKENING) seeks a player, and an Awakening starts once the bump has reached
+# one who can be taken: the strikes of part 4 top the anger out right next to the player. Parts 4 and 5 are therefore
+# played in adventure mode, which an Awakening never takes (SPEC 9) while the entity hears, strikes and throws the
+# player as in survival; the entity then seeks for awakening.seekSeconds (35 s) and calms down to HUNTING before the
+# silence brings it down further. Earlier runs may have left an Awakening's crater in the platform and its rubble and
+# caches under it (repaired below) and the pause of natural spawns after an Awakening (lifted below by the config:
+# part 6 needs natural spawns).
+# Run: tools/gradle-locked.sh runClientAutotest -Ptremor_autotest_script=stage3-aggression.txt
 
 waitchunks
 # Built in spectator mode (no fall while the platform does not exist yet), played in survival
@@ -12,7 +19,10 @@ cmd difficulty normal
 cmd time set noon
 cmd gamerule doDaylightCycle false
 cmd gamerule doMobSpawning false
+cmd effect clear @s
 cmd effect give @s minecraft:night_vision infinite 0 true
+cmd tremor awaken stop
+cmd tremor restore
 cmd tremor despawn
 cmd kill @e[type=!player]
 cmd tp @s 300.5 201.0 300.5 0 8
@@ -22,6 +32,10 @@ cmd fill 220 198 220 380 198 380 minecraft:stone
 cmd fill 220 199 220 380 199 380 minecraft:stone
 cmd fill 220 200 220 380 200 380 minecraft:stone
 cmd fill 300 210 290 300 210 290 minecraft:stone
+# Under the platform around the perch and the centre: what the crater of an earlier run left hanging there; on it,
+# whatever other scripts built around the centre
+cmd fill 284 178 274 316 197 316 minecraft:air
+cmd fill 270 201 270 329 207 329 minecraft:air
 # Again, in case the far chunks were not loaded yet the first time ("That position is not loaded")
 wait 40
 cmd fill 220 198 220 380 198 380 minecraft:stone
@@ -34,6 +48,8 @@ waitchunks
 hud off
 cmd tremor debug hearing on
 cmd effect give @s minecraft:instant_health 1 4 true
+# No pause of natural spawns after an Awakening of an earlier run (part 6 needs them)
+config awakening.cooldownSeconds 0
 
 # ---- 1. DORMANT: lazy, low and slow; wanders 16-32 blocks, keeps 24 blocks from the player, prefers being seen ----
 log --- 1. dormant: lazy wandering in view
@@ -117,7 +133,9 @@ cmd tremor info
 screenshot 37_creeping
 
 # ---- 4. HUNTING: sprinting makes it hunt; it comes fast and high, contact hurts and throws the player ----
-log --- 4. sprinting until it hunts; it comes for the player
+# In adventure mode (see the top): the strikes may top the anger out next to the player, and no Awakening may start.
+log --- 4. sprinting until it hunts; it comes for the player (adventure mode: no Awakening)
+cmd gamemode adventure
 cmd data get entity @s Health
 cmd tp @s 300.5 201.0 290.5 0 8
 wait 5
@@ -148,10 +166,14 @@ cmd data get entity @s Health
 cmd tremor info
 
 # ---- 5. Silence calms it down: the player waits on the perch, out of its reach ----
+# Topped out in part 4, it first seeks for 35 s (stage awakening) and calms down to HUNTING at anger 80; from there
+# the anger decays as in stage 3 (stages hunting, alert, dormant).
 log --- 5. silence on the perch: anger decays, stages fall
 cmd tp @s 300.5 211.0 290.5 0 40
 cmd effect give @s minecraft:instant_health 1 4 true
 wait 200
+cmd tremor info
+wait 400
 cmd tremor info
 wait 400
 cmd tremor info
@@ -167,6 +189,7 @@ cmd tremor despawn
 
 # ---- 6. Natural spawn: spawn checks every second, certain to succeed ----
 log --- 6. natural spawn far from the player
+cmd gamemode survival
 cmd tp @s 300.5 201.0 300.5 0 4
 wait 20
 config spawn.protectionRadius 0

@@ -1,0 +1,14 @@
+# Stage 4d REACH (SPEC 8): part 2 of the relog check (run stage4d-reach-relog-1.txt first): the entity that was
+# saved seeking in AWAKENING is HUNTING at the calm-down anger (80) after the load, and its anger decays from there;
+# no Awakening starts.
+# Run: tools/gradle-locked.sh runClientAutotest -Ptremor_autotest_script=stage4d-reach-relog-2.txt
+
+waitchunks
+cmd tremor info
+wait 200
+cmd tremor info
+hud off
+screenshot 30_after_relog
+hud on
+cmd tremor despawn
+quit

@@ -54,6 +54,7 @@ public final class TremorEntity {
     private Heard lastHeard;
     private boolean aiEnabled = true;
     private boolean leaving;
+    private boolean absorbed;
     private final DespawnClock despawnClock;
 
     /**
@@ -163,6 +164,19 @@ public final class TremorEntity {
         this.leaving = leaving;
     }
 
+    /**
+     * Taken by an Awakening (SPEC 9): the entity is the whole area rather than a bump until it is removed, which every
+     * Awakening ends with. Saved, so that one loaded in AWAKENING can be told from one that was seeking a player then
+     * ({@link TremorManager#onLevelLoad}).
+     */
+    public boolean absorbed() {
+        return absorbed;
+    }
+
+    public void setAbsorbed(boolean absorbed) {
+        this.absorbed = absorbed;
+    }
+
     /** How long no player was near and nothing happened (SPEC 11); only used for a {@link #natural()} entity. */
     public DespawnClock despawnClock() {
         return despawnClock;
@@ -194,6 +208,7 @@ public final class TremorEntity {
         tag.put("params", params.save());
         tag.putBoolean("ai", aiEnabled);
         tag.putBoolean("leaving", leaving);
+        tag.putBoolean("absorbed", absorbed);
         tag.putDouble("despawnFar", despawnClock.farSeconds());
         tag.putDouble("despawnQuiet", despawnClock.quietSeconds());
         return tag;
@@ -215,6 +230,8 @@ public final class TremorEntity {
         // Saves before stage 3 have no switch: the stage behaviour is on.
         entity.aiEnabled = !tag.contains("ai", Tag.TAG_BYTE) || tag.getBoolean("ai");
         entity.leaving = tag.getBoolean("leaving");
+        // Saves before stage 4d have no flag: one in AWAKENING then counts as seeking (TremorManager.onLevelLoad).
+        entity.absorbed = tag.getBoolean("absorbed");
         entity.setAnger(Float.isFinite(tag.getFloat("anger")) ? tag.getFloat("anger") : 0);
         entity.stage = parseStage(tag.getString("stage"));
         if (tag.contains("target", Tag.TAG_LONG)) {

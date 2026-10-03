@@ -11,13 +11,15 @@ import tremor.core.math.Vec3;
  * <pre>
  * breath · near(|p - player|, breathRadius) · heave(p, t)        the walls and the floor around the player heave
  *                                                               out of step ("пространство ходит ходуном")
- * + near(|p - player|, ringRadius) · Σ Ripple.height(ring, |p - origin|, age)
- *                                                               a ring from the node on every beat
+ * + near(|p - player|, ringRadius) · (1 + crestBoost · crestShare(|p - player|))
+ *       · Σ Ripple.height(ring, |p - origin|, age)              a ring from the node on every beat, its crest
+ *                                                               swelling as it passes the player
  * </pre>
- * ({@link HollowShape#near}, {@link HollowShape#heave}). Distances are measured in 3D, so the rings climb the walls
- * and run along the ceilings as well, each voxel moving along its own normal. Every term is already scaled for the
- * moment of the frame (how far the hollow has closed, the settling after the end). Pure math, immutable,
- * allocation-free per query.
+ * ({@link HollowShape#near}, {@link HollowShape#heave}, {@link HollowShape#crestShare}). Distances are measured in 3D,
+ * so the rings climb the walls and run along the ceilings as well, each voxel moving along its own normal: in the fog
+ * of the hollow the player sees a wave come from one side, swell around and under them, and run on. Every term is
+ * already scaled for the moment of the frame (how far the hollow has closed, the settling after the end). Pure math,
+ * immutable, allocation-free per query.
  * <p>
  * As a {@link GroundField} it is scanned in a cylinder around an anchor near the player (which follows the player,
  * {@link HollowParams#follow}) wide enough for the rings around the player wherever the player is within the follow
@@ -83,7 +85,7 @@ public final class HollowField implements GroundField {
             double tail = front - p.waves() * p.wavelength();
             frontSq[i] = front * front;
             tailSq[i] = tail > 0 ? tail * tail : -1;
-            max += p.amplitude() * (1 - ring.ageSeconds() / p.duration());
+            max += p.amplitude() * (1 - ring.ageSeconds() / p.duration()) * (1 + params.crestBoost());
         }
         this.maxHeight = max;
     }
@@ -114,27 +116,33 @@ public final class HollowField implements GroundField {
                     AwakeningField.Ring ring = rings.get(i);
                     sum += Ripple.height(ring.params(), Math.sqrt(r2), ring.ageSeconds());
                 }
-                h += share * sum;
+                if (sum != 0) {
+                    h += share * (1 + params.crestBoost() * HollowShape.crestShare(params, distance)) * sum;
+                }
             }
         }
         return h;
     }
 
-    /** Upper bound of {@code |at(p)|} anywhere: the heave and every running ring at full height. */
+    /**
+     * Upper bound of {@code |at(p)|} anywhere: the heave and every running ring at full height, its crest swollen by
+     * all of {@link HollowParams#crestBoost}.
+     */
     @Override
     public double maxHeight() {
         return maxHeight;
     }
 
     /**
-     * The highest heave and ring of a closed hollow, as far as they reach around the player now: the ground the
-     * player is about to walk into is baked ahead.
+     * The highest heave and ring of a closed hollow (the ring with its crest swollen as it is near the player), as far
+     * as they reach around the player now: the ground the player is about to walk into is baked ahead.
      */
     @Override
     public double ahead(double x, double y, double z) {
         double distance = distance(x, y, z);
         return params.breathEnd() * HollowShape.near(params.breathRadius(), params.breathFade(), distance)
-                + params.ringEnd() * HollowShape.near(params.ringRadius(), params.ringFade(), distance);
+                + params.ringEnd() * (1 + params.crestBoost() * HollowShape.crestShare(params, distance))
+                * HollowShape.near(params.ringRadius(), params.ringFade(), distance);
     }
 
     /** The anchor. */

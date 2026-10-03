@@ -144,8 +144,10 @@ public final class DebugParticles {
             return;
         }
         HearingParams params = TremorConfig.COMMON.hearingParams();
-        double resistance = Hearing.averageResistance(new LevelVoxelView(level), vibration.source(),
-                perception.listener(), params.sampleStep(), params.minConductivity());
+        LevelVoxelView view = new LevelVoxelView(level);
+        // As the entity heard it: the leaves a rustling source rustles in conduct at its footing.
+        double resistance = Hearing.averageResistance(view, vibration.source(), perception.listener(),
+                params.sampleStep(), params.minConductivity(), vibration.foliage(view), vibration.footing());
         float size = (float) Math.min(DustParticleOptions.MAX_SCALE, 0.5 + 0.15 * vibration.loudness());
         DustParticleOptions dot = perception.heard() ? dust(0.2f, 1f, 0.2f, size) : dust(1f, 0.15f, 0.15f, size);
         StringBuilder text = new StringBuilder(String.format(Locale.ROOT,

@@ -10,9 +10,10 @@ import java.util.function.IntFunction;
 
 /**
  * Rules of the Awakening's real-world part (SPEC 9 phase 1) that do not need the game, unit-tested directly: the zone
- * and the escape from it, who is taken, when the Darkness comes and which Darkness is the Awakening's to take away, how
- * strong the ring of a step is, when a rooted player has strayed and whether it may drop, how the end of the event in
- * the hollow ends the Awakening, when the hill of a victory rises and how hard the ground pulls in a defeat.
+ * and the escape from it, when the seeking entity has reached a player and who is taken, when the Darkness comes and
+ * which Darkness is the Awakening's to take away, how strong the ring of a step is, when a rooted player has strayed
+ * and whether it may drop, how the end of the event in the hollow ends the Awakening, when the hill of a victory rises
+ * and how hard the ground pulls in a defeat.
  * <p>
  * The zone is a vertical cylinder around the centre (SPEC 9: "сфера/цилиндр"): only the horizontal distance counts,
  * so climbing a tower or digging down does not get the player out, walking away does.
@@ -51,14 +52,23 @@ public final class AwakeningRules {
     }
 
     /**
-     * A player who might be taken by an Awakening that starts by itself (SPEC 8 AWAKENING).
+     * How far (blocks) above or below a player's feet the bump may be and still have reached the player
+     * ({@link #reaches}): the floor under the feet is half a block below them, the ceiling of a tall cave room (or the
+     * top of a pillar the player stands next to) about 5 above; a bump in the ground over a deep tunnel, or at the
+     * foot of a tower, has not reached the player. The comment of {@code awakening.reachDistance} states it.
+     */
+    public static final double REACH_HEIGHT = 5;
+
+    /**
+     * A player who might be taken by an Awakening that starts by itself (SPEC 8 AWAKENING): one in the level of the
+     * entity.
      *
      * @param id       the player
-     * @param distance from the entity (blocks)
+     * @param feet     where the player stands
      * @param eligible whether the player can be taken at all: alive, in survival mode (not adventure: the level in
      *                 the hollow cannot be won without breaking blocks), in no event of the hollow already
      */
-    public record Candidate(UUID id, double distance, boolean eligible) {
+    public record Candidate(UUID id, Vec3 feet, boolean eligible) {
     }
 
     private AwakeningRules() {
@@ -80,23 +90,37 @@ public final class AwakeningRules {
     }
 
     /**
-     * The player an Awakening that starts by itself takes: the one the entity heard last, if that player is eligible
-     * and within {@code maxDistance} (the hearing distance) of the entity; else the nearest eligible player within
-     * it (the first of equally near ones). Null if there is none: the entity then keeps hunting.
+     * Whether the bump of an entity seeking in AWAKENING (its centre, {@code bump}) has reached a player standing at
+     * {@code feet} (SPEC 8: "добралась до игрока"): horizontally within {@code reachDistance} ({@code
+     * awakening.reachDistance}; the edge itself counts), like the zone, and at most {@link #REACH_HEIGHT} above or
+     * below the feet.
+     */
+    public static boolean reaches(Vec3 bump, Vec3 feet, double reachDistance) {
+        return horizontalDistance(bump, feet) <= reachDistance && Math.abs(bump.y() - feet.y()) <= REACH_HEIGHT;
+    }
+
+    /**
+     * The player an Awakening that starts by itself takes, once the seeking entity has reached somebody
+     * ({@link #reaches}): of the eligible players it has reached, the one it heard last, else the nearest
+     * (horizontally; the first of equally near ones). Null if it has reached nobody eligible: the entity seeks on.
      *
      * @param lastHeard the player whose vibration the entity heard last, or null
+     * @param bump      the centre of the entity's bump
      */
-    public static UUID chooseTarget(UUID lastHeard, List<Candidate> candidates, double maxDistance) {
+    public static UUID chooseTarget(UUID lastHeard, Vec3 bump, List<Candidate> candidates, double reachDistance) {
         Candidate nearest = null;
+        double best = Double.POSITIVE_INFINITY;
         for (Candidate candidate : candidates) {
-            if (!candidate.eligible() || !(candidate.distance() <= maxDistance)) {
+            if (!candidate.eligible() || !reaches(bump, candidate.feet(), reachDistance)) {
                 continue;
             }
             if (candidate.id().equals(lastHeard)) {
                 return candidate.id();
             }
-            if (nearest == null || candidate.distance() < nearest.distance()) {
+            double distance = horizontalDistance(bump, candidate.feet());
+            if (nearest == null || distance < best) {
                 nearest = candidate;
+                best = distance;
             }
         }
         return nearest == null ? null : nearest.id();

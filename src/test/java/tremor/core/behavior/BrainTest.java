@@ -40,10 +40,11 @@ class BrainTest {
 
     /**
      * SPEC anger numbers; react to DORMANT sounds from 0.35, freeze 1 s, lose interest after 4 s, search radius 8 for
-     * 5 s, the given mean wander pause, keep 24 blocks from the player while DORMANT.
+     * 5 s, the given mean wander pause, keep 24 blocks from the players while DORMANT (and AWAKENING), search radius 3
+     * while AWAKENING.
      */
     private static BehaviorParams params(double wanderPause) {
-        return new BehaviorParams(25, 60, 100, 3, 0.5, 20, 3, 0.35, 1.0, 4.0, 8, 5.0, wanderPause, 24);
+        return new BehaviorParams(25, 60, 100, 3, 0.5, 20, 3, 0.35, 1.0, 4.0, 8, 5.0, wanderPause, 24, 3);
     }
 
     /** Scripted world: answers from queues (a null entry or an empty queue = nothing found), records questions. */
@@ -479,13 +480,36 @@ class BrainTest {
     @Test
     void awakeningBehavesLikeHunting() {
         brain = new Brain(params(100), 1);
-        world.search(P1);
+        world.search(P1, P2);
         brain.hear(S1, 0.3);
         assertGo(tick(AWAKENING, true), S1, "hunt");
         assertEquals("awakening: going for the sound", brain.describe());
         here = S1;
         assertGo(tick(AWAKENING, true), P1, "search");
         assertStay(tick(HUNTING, false), "search"); // AWAKENING <-> HUNTING changes nothing
+        here = P1;
+        assertGo(tick(HUNTING, true), P2, "search");
+        // Seeking searches only seekSearchRadius around the sound (a player quietly farther is not found by chance).
+        assertEquals(List.of(3.0, 8.0), world.searchRadius);
+        assertEquals(List.of(S1, S1), world.searchCenter);
+    }
+
+    @Test
+    void seekingWithoutASoundWandersAsFarFromThePlayerAsDormant() {
+        // SPEC 8: a player who keeps quiet at the peak is not found by chance.
+        brain = new Brain(params(0), 1);
+        world.wander(A).search(P1).wander(W1);
+        assertGo(tick(AWAKENING, true), A, "wander"); // nothing heard yet
+        here = A;
+        brain.hear(S1, 0.3);
+        assertGo(tick(AWAKENING, true), S1, "hunt");
+        here = S1;
+        assertGo(tick(AWAKENING, true), P1, "search");
+        assertStays(18, AWAKENING, false, "search");
+        assertGo(tick(AWAKENING, false), W1, "wander"); // 5.0 = huntSearchSeconds after the sound
+        assertEquals(List.of(24.0, 24.0), world.wanderMinDistance);
+        assertEquals(List.of(3.0), world.searchRadius);
+        assertEquals("awakening: wandering", brain.describe());
     }
 
     // ---------------------------------------------------------------- stage changes

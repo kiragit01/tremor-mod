@@ -1,0 +1,50 @@
+# Stage 4d, CRATER (SPEC 9 "Поражение", "Выход из игры"): leaving the game while the crater of a defeat is dug. Part 1
+# enters the hollow at 460 201 700, calls the defeat (/tremor hollow outcome defeat), lets its crater be dug for a
+# while (slowed down) and quits in the middle of it: the server stops and the crater stays as far as it got. Part 2
+# (stage4d-crater-relog-2.txt, run right after) must find the player back at the swallow point, let down onto the
+# layer dug so far: on the ground, unhurt, not in the air over the pit.
+# Site R: a block of ground in the sky, x 436..484, z 676..724, y 170..200, away from the other sites.
+# Run: tools/gradle-locked.sh runClientAutotest -Ptremor_autotest_script=stage4d-crater-relog-1.txt
+
+waitchunks
+cmd gamemode spectator
+cmd time set noon
+cmd gamerule doDaylightCycle false
+cmd gamerule doMobSpawning false
+cmd tremor despawn
+cmd kill @e[type=!player]
+cmd effect clear @s
+cmd effect give @s minecraft:night_vision infinite 0 true
+cmd tp @s 460.5 210.0 650.5 0 20
+wait 40
+waitchunks
+# The block (a fill takes 32768 blocks at most); it also repairs the crater of an earlier run
+cmd fill 436 170 676 484 182 724 minecraft:stone
+cmd fill 436 183 676 484 195 724 minecraft:stone
+cmd fill 436 196 676 484 199 724 minecraft:dirt
+cmd fill 436 200 676 484 200 724 minecraft:grass_block
+cmd fill 436 201 676 484 213 724 minecraft:air
+cmd kill @e[type=item]
+config awakening.craterBlocksPerTick 40
+cmd tp @s 460.5 201.0 700.5 0 10
+wait 20
+waitchunks
+cmd gamemode survival
+cmd clear @s
+cmd effect clear @s
+cmd effect give @s minecraft:night_vision infinite 0 true
+cmd effect give @s minecraft:instant_health 1 4 true
+cmd effect give @s minecraft:saturation 1 20 true
+cmd give @s minecraft:diamond 3
+cmd tremor hollow enter
+wait 160
+waitchunks
+cmd data get entity @s Dimension
+cmd tremor hollow status
+cmd data get entity @s Health
+cmd tremor hollow outcome defeat
+wait 100
+# The crater is being dug (a layer some way down), and the player is still in the hollow
+cmd tremor info
+cmd data get entity @s Dimension
+quit

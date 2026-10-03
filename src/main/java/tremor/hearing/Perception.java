@@ -15,7 +15,8 @@ import tremor.core.math.Vec3;
  * @param stageBefore the stage before
  * @param stage       the stage afterwards
  * @param reaction    what the entity makes of it (see {@code TremorMind.heard}: {@code ignores it},
- *                    {@code investigates}, {@code freezes}, {@code hunts}, {@code ai off}...); null if not heard
+ *                    {@code investigates}, {@code freezes}, {@code hunts}, {@code seeks}, {@code ai off}...); null if
+ *                    not heard
  */
 public record Perception(Vec3 listener, double distance, double perceived, boolean heard, double angerAdded,
                          double anger, Stage stageBefore, Stage stage, String reaction) {

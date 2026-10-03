@@ -12,16 +12,19 @@ import tremor.config.TremorConfig;
 import tremor.core.math.Vec3;
 import tremor.world.LevelVoxelView;
 import tremor.world.LevelVoxelView.ConductivityClass;
+import tremor.world.TremorTags;
 
 /**
  * Where a vibration enters the ground and how well it gets in (SPEC 7.2, "insulation under the feet").
  *
- * @param point   centre of the voxel the vibration enters through
- * @param footing conductivity of that voxel, the water factor, or 0
- * @param note    for the debug view when the source is not on the ground ({@code climbing}, {@code airborne},
- *                {@code in water}...), or null
+ * @param point    centre of the voxel the vibration enters through
+ * @param footing  conductivity of that voxel (the rustling factor on leaves), the water factor, or 0
+ * @param note     for the debug view when the source is not on the ground ({@code climbing}, {@code airborne},
+ *                 {@code in water}...) or on rustling leaves ({@code rustling}), or null
+ * @param rustling the source rustles in the leaves it stands on ({@link #rustles}): they do not damp it on its way
+ *                 ({@link Vibration#foliage})
  */
-record Contact(Vec3 point, double footing, String note) {
+record Contact(Vec3 point, double footing, String note, boolean rustling) {
     /** How far below the feet the ground is looked for when the entity's supporting block is not known. */
     private static final int GROUND_DEPTH = 2;
     /**
@@ -30,20 +33,24 @@ record Contact(Vec3 point, double footing, String note) {
      */
     private static final double CLIMB_REACH = 3;
 
+    /** A contact through something that does not rustle. */
+    Contact(Vec3 point, double footing, String note) {
+        this(point, footing, note, false);
+    }
+
     /**
      * Contact of an entity. On the ground (always for a landing, and for a minecart on rails): the block its collision
      * rests on ({@code mainSupportingBlockPos}: a carpet or snow layer rather than the block under it) if known, else
      * the first block with a collision shape from its feet down ({@value #GROUND_DEPTH} blocks: a carpet at the feet,
      * the ground below, the block under a rail), else the block below its feet; the footing is the conductivity of
-     * that block. Off the ground: climbing a ladder, vine or scaffolding, or wading in powder snow (vanilla posts
-     * {@code step} there with the entity in the air), see {@link #ofClimbable}; else the water factor in water or in a
-     * boat, else 0 (in the air).
+     * that block, or {@code rustlingFactor} on a rustling one ({@link #onGround}). Off the ground: climbing a ladder,
+     * vine or scaffolding, or wading in powder snow (vanilla posts {@code step} there with the entity in the air), see
+     * {@link #ofClimbable}; else the water factor in water or in a boat, else 0 (in the air).
      */
     static Contact ofEntity(LevelVoxelView view, Entity entity, boolean landing) {
         BlockPos feet = entity.blockPosition();
         if (landing || entity.onGround() || entity.isOnRails()) {
-            BlockPos ground = entity.mainSupportingBlockPos.orElseGet(() -> groundBelow(view, feet));
-            return new Contact(center(ground), view.conductivity(ground.getX(), ground.getY(), ground.getZ()), null);
+            return onGround(view, entity.mainSupportingBlockPos.orElseGet(() -> groundBelow(view, feet)));
         }
         if (entity instanceof LivingEntity living) {
             Contact climbing = ofClimbable(view, living);
@@ -125,6 +132,28 @@ record Contact(Vec3 point, double footing, String note) {
         float here = view.conductivity(voxel.getX(), voxel.getY(), voxel.getZ());
         float under = view.conductivity(below.getX(), below.getY(), below.getZ());
         return under > here ? new Contact(center(below), under, null) : new Contact(center(voxel), here, null);
+    }
+
+    /**
+     * Whether the block at the position rustles: of {@code #tremor:rustling} (leaves); false where the view has no
+     * block (not loaded, out of the world).
+     */
+    static boolean rustles(LevelVoxelView view, int x, int y, int z) {
+        BlockState state = view.stateAt(x, y, z);
+        return state != null && state.is(TremorTags.RUSTLING);
+    }
+
+    /**
+     * Contact through the block a source stands or lands on: its conductivity, except that a block of
+     * {@code #tremor:rustling} (leaves) rustles, louder than stone ({@link SoundRules#footing}, note
+     * {@code rustling}); the leaves it rustles in do not damp it on its way, leaves farther on still conduct as their
+     * class ({@link Vibration#foliage}).
+     */
+    private static Contact onGround(LevelVoxelView view, BlockPos ground) {
+        float conductivity = view.conductivity(ground.getX(), ground.getY(), ground.getZ());
+        boolean rustling = rustles(view, ground.getX(), ground.getY(), ground.getZ());
+        return new Contact(center(ground), SoundRules.footing(conductivity, rustling,
+                TremorConfig.COMMON.rustlingFactor.getAsDouble()), rustling ? "rustling" : null, rustling);
     }
 
     private static boolean isPowderSnow(LevelVoxelView view, BlockPos pos) {

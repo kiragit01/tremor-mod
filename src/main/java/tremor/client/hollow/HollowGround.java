@@ -9,7 +9,6 @@ import tremor.core.shape.AwakeningField;
 import tremor.core.shape.HollowField;
 import tremor.core.shape.HollowParams;
 import tremor.core.shape.HollowShape;
-import tremor.core.shape.Ripple;
 import tremor.core.shape.RippleParams;
 import tremor.network.TremorHollowStatePayload;
 
@@ -23,17 +22,25 @@ import java.util.List;
  *     <li>the walls and the floor within {@link HollowParams#breathRadius} of the player heave out of step
  *     ("пространство ходит ходуном"), higher as the hollow closes ({@link HollowShape#breathAmplitude});</li>
  *     <li>on every beat of the node ({@link HollowPulse}) a ring runs out from it over the surfaces, drawn within
- *     {@link HollowParams#ringRadius} of the player, higher as the hollow closes ({@link HollowShape#nodeRing}); the
- *     rings of a node that is gone run out from where it was;</li>
+ *     {@link HollowParams#ringRadius} of the player, higher as the hollow closes ({@link HollowShape#nodeRing}) and
+ *     where it passes the player ({@link HollowShape#crestShare}); the rings of a node that is gone run out from where
+ *     it was. Only the rings that can reach around the player this frame are handed on
+ *     ({@link HollowShape#ringNear}): a ring runs for many seconds, most of them far from the player;</li>
  *     <li>once the client no longer hears of the hollow while still in its level (the player is on the way out), all
  *     of it settles over {@link HollowParams#releaseSeconds} instead of snapping flat.</li>
  * </ul>
- * The region the renderer scans for the ground is centred on the player and follows the player once the player is
- * {@link HollowParams#follow} blocks from its centre. Everything runs on the level's game time. Render thread only.
+ * All of it only as far around the player as the black fog lets the player see ({@link HollowFog#reach},
+ * {@link HollowParams#withReach}). The region the renderer scans for the ground is centred on the player and follows
+ * the player once the player is {@link HollowParams#follow} blocks from its centre. Everything runs on the level's game
+ * time. Render thread only.
  */
 public final class HollowGround {
-    private static final HollowParams PARAMS = HollowParams.defaults();
+    private static final HollowParams DEFAULTS = HollowParams.defaults();
     private static final double TICKS_PER_SECOND = SharedConstants.TICKS_PER_SECOND;
+
+    /** {@link #DEFAULTS} for the reach of the fog, kept while the configured fog stays. */
+    private static HollowParams params = DEFAULTS;
+    private static double paramsReach = Double.NaN;
 
     /** The hollow as of the last frame it was known, kept to let its ground settle; null if none. */
     private static TremorHollowStatePayload last;
@@ -59,6 +66,7 @@ public final class HollowGround {
             return null;
         }
         TremorHollowStatePayload state = ClientHollow.state();
+        HollowParams params = params();
         double release = 1;
         List<Long> beats;
         if (state != null) {
@@ -81,7 +89,7 @@ public final class HollowGround {
             if (Double.isNaN(releaseStart)) {
                 releaseStart = gameTime;
             }
-            release = HollowShape.release(PARAMS, (gameTime - releaseStart) / TICKS_PER_SECOND);
+            release = HollowShape.release(params, (gameTime - releaseStart) / TICKS_PER_SECOND);
             if (release <= 0) {
                 reset();
                 return null;
@@ -91,23 +99,34 @@ public final class HollowGround {
         }
         net.minecraft.world.phys.Vec3 p = player.getPosition(partialTick);
         Vec3 position = new Vec3(p.x, p.y, p.z);
-        if (anchor == null || anchor.distanceSquared(position) > PARAMS.follow() * PARAMS.follow()) {
+        if (anchor == null || anchor.distanceSquared(position) > params.follow() * params.follow()) {
             anchor = position;
         }
         double closeness = ClientHollow.closeness(state);
         List<AwakeningField.Ring> rings = new ArrayList<>(beats.size());
         if (node != null) {
-            RippleParams ring = HollowShape.nodeRing(PARAMS, closeness);
+            RippleParams ring = HollowShape.nodeRing(params, closeness);
             ring = ring.withAmplitude(ring.amplitude() * release);
+            double distance = node.distance(position);
             for (long beat : beats) {
                 double age = (gameTime - beat) / TICKS_PER_SECOND;
-                if (Ripple.active(ring, age)) {
+                if (HollowShape.ringNear(ring, age, distance, params.ringRadius())) {
                     rings.add(new AwakeningField.Ring(node, age, ring));
                 }
             }
         }
-        return new HollowField(PARAMS, position, anchor,
-                HollowShape.breathAmplitude(PARAMS, closeness) * release, gameTime / TICKS_PER_SECOND, rings);
+        return new HollowField(params, position, anchor,
+                HollowShape.breathAmplitude(params, closeness) * release, gameTime / TICKS_PER_SECOND, rings);
+    }
+
+    /** The ground's params for the reach of the configured fog ({@link HollowFog#reach}). */
+    private static HollowParams params() {
+        double reach = HollowFog.reach();
+        if (reach != paramsReach) {
+            paramsReach = reach;
+            params = DEFAULTS.withReach(reach);
+        }
+        return params;
     }
 
     /** Forgets everything, e.g. when the level changes. */

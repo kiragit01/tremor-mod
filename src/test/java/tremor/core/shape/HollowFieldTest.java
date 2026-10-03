@@ -68,9 +68,12 @@ class HollowFieldTest {
         for (int i = 0; i < 4000; i++) {
             double x = PLAYER.x() + random.nextGaussian() * 12, y = PLAYER.y() + random.nextGaussian() * 6;
             double z = PLAYER.z() + random.nextGaussian() * 12;
-            double share = HollowShape.near(P.ringRadius(), P.ringFade(), distance(PLAYER, x, y, z));
+            double toPlayer = distance(PLAYER, x, y, z);
+            double share = HollowShape.near(P.ringRadius(), P.ringFade(), toPlayer);
+            double swell = 1 + P.crestBoost() * HollowShape.crestShare(P, toPlayer);
             double r = distance(NODE, x, y, z);
-            double expected = share * (Ripple.height(P.ring(), r, age) + Ripple.height(P.ring(), r, age + 0.9));
+            double expected = share * swell
+                    * (Ripple.height(P.ring(), r, age) + Ripple.height(P.ring(), r, age + 0.9));
             assertEquals(expected, f.at(x, y, z), 1e-12);
             assertEquals(share, f.ringShare(x, y, z), 1e-12);
             raised |= f.at(x, y, z) > BumpShape.RENDER_THRESHOLD;
@@ -81,9 +84,30 @@ class HollowFieldTest {
         assertEquals(0, f.at(NODE.x(), NODE.y(), NODE.z() + P.ring().speed() * age - 1));
         assertEquals(0, f.ringShare(PLAYER.x() + P.ringRadius(), PLAYER.y(), PLAYER.z()));
         assertEquals(1, f.ringShare(PLAYER.x(), PLAYER.y(), PLAYER.z()));
-        // The bound counts every running ring at its height, and none that has run out.
-        double bound = 2 * P.ring().amplitude() - P.ring().amplitude() * (2 * age + 0.9) / P.ring().duration();
+        // The bound counts every running ring at its height, swollen, and none that has run out.
+        double bound = (1 + P.crestBoost())
+                * (2 * P.ring().amplitude() - P.ring().amplitude() * (2 * age + 0.9) / P.ring().duration());
         assertEquals(bound, f.maxHeight(), 1e-12);
+    }
+
+    @Test
+    void aRingSwellsAsItRunsUnderThePlayer() {
+        RippleParams ring = P.ring();
+        double d = distance(NODE, PLAYER.x(), PLAYER.y(), PLAYER.z());
+        // The leading crest runs right through the player.
+        double age = (d + ring.wavelength() / 4) / ring.speed();
+        HollowField f = field(0, List.of(new AwakeningField.Ring(NODE, age, ring)));
+        double crest = ring.amplitude() * (1 - age / ring.duration());
+        assertEquals(crest * (1 + P.crestBoost()), f.at(PLAYER.x(), PLAYER.y(), PLAYER.z()), 1e-9);
+        // The same crest 5 blocks to the side, beyond the swell but well within sight: its plain height.
+        Vec3 way = PLAYER.sub(NODE).normalize();
+        Vec3 side = NODE.add(way.scale(d).add(way.anyPerpendicular().scale(5)).normalize().scale(d));
+        assertTrue(distance(PLAYER, side.x(), side.y(), side.z()) > P.crestRadius());
+        assertEquals(crest, f.at(side.x(), side.y(), side.z()), 1e-9);
+        // A ring from across the copy (35 blocks) is still drawn well above the threshold under the player.
+        double far = (35 + ring.wavelength() / 4) / ring.speed();
+        double under = ring.amplitude() * (1 - far / ring.duration()) * (1 + P.crestBoost());
+        assertTrue(under > 6 * BumpShape.RENDER_THRESHOLD, "under the player: " + under);
     }
 
     @Test
@@ -102,12 +126,23 @@ class HollowFieldTest {
     @Test
     void aheadIsTheHighestTheGroundNearThePlayerGets() {
         HollowField f = field(0.1, List.of());
-        assertEquals(P.breathEnd() + P.ringEnd(), f.ahead(PLAYER.x(), PLAYER.y(), PLAYER.z()), 1e-12);
+        assertEquals(P.breathEnd() + P.ringEnd() * (1 + P.crestBoost()), f.ahead(PLAYER.x(), PLAYER.y(), PLAYER.z()),
+                1e-12);
         assertEquals(0, f.ahead(PLAYER.x() + P.ringRadius() + 1, PLAYER.y(), PLAYER.z()));
-        // Where the heaving has faded out the rings still show in full.
-        double between = P.breathRadius();
-        assertTrue(P.ringRadius() - P.ringFade() >= between);
-        assertEquals(P.ringEnd(), f.ahead(PLAYER.x(), PLAYER.y() + between, PLAYER.z()), 1e-12);
-        assertFalse(f.ahead(PLAYER.x(), PLAYER.y() + between, PLAYER.z()) < BumpShape.RENDER_THRESHOLD);
+        // Beyond the swell of the crest, both show in full as far as the player sees in the fog (5.5 blocks).
+        double beyond = P.crestRadius();
+        assertTrue(P.ringRadius() - P.ringFade() >= beyond && P.breathRadius() - P.breathFade() >= beyond);
+        assertEquals(P.breathEnd() + P.ringEnd(), f.ahead(PLAYER.x(), PLAYER.y() + beyond, PLAYER.z()), 1e-12);
+        assertFalse(f.ahead(PLAYER.x(), PLAYER.y() + 5.5, PLAYER.z()) < BumpShape.RENDER_THRESHOLD);
+        // A closed hollow's ring never rises above what was baked ahead for it.
+        RippleParams closed = HollowShape.nodeRing(P, 1);
+        double age = (distance(NODE, PLAYER.x(), PLAYER.y(), PLAYER.z()) + closed.wavelength() / 4) / closed.speed();
+        HollowField g = field(0, List.of(new AwakeningField.Ring(NODE, age, closed)));
+        Random random = new Random(11);
+        for (int i = 0; i < 2000; i++) {
+            double x = PLAYER.x() + random.nextGaussian() * 5, y = PLAYER.y() + random.nextGaussian() * 3;
+            double z = PLAYER.z() + random.nextGaussian() * 5;
+            assertTrue(g.at(x, y, z) <= g.ahead(x, y, z) + 1e-12);
+        }
     }
 }

@@ -1,0 +1,37 @@
+# Stage 4d, CRATER: part 2 of the relog check (run stage4d-crater-relog-1.txt first): the player who quit while the
+# crater of the defeat was dug is back in the overworld at the swallow point (460.5 _ 700.5), let down onto the layer
+# dug so far (well below 201), on the ground with full health and no fall, keeping everything; no event is left and no
+# crater is being dug (the server stop left it as far as it got).
+# Run: tools/gradle-locked.sh runClientAutotest -Ptremor_autotest_script=stage4d-crater-relog-2.txt
+
+waitchunks
+wait 40
+cmd data get entity @s Dimension
+cmd data get entity @s Pos
+cmd data get entity @s Health
+cmd data get entity @s FallDistance
+cmd data get entity @s OnGround
+cmd tremor hollow status
+cmd tremor info
+# Ground right under the feet (air there: this test fails)
+cmd execute at @s if block ~ ~-1 ~ minecraft:air
+cmd clear @s minecraft:diamond 0
+wait 60
+cmd data get entity @s Pos
+cmd data get entity @s Health
+cmd data get entity @s OnGround
+hud off
+view back
+wait 10
+screenshot 30_back_in_the_pit
+view first
+cmd gamemode spectator
+cmd tp @s 460.5 236.0 700.5 0 90
+wait 40
+waitchunks
+screenshot 31_partial_crater_above
+cmd tp @s 478.5 205.0 700.5 90 30
+wait 20
+screenshot 32_partial_crater_side
+hud on
+quit

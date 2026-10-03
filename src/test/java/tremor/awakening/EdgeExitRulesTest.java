@@ -164,4 +164,57 @@ class EdgeExitRulesTest {
         World pillar = new World().set(31, 64, 0, FLOOR);
         assertEquals(spot(31, 65, 0), EdgeExitRules.inColumn(pillar, 31, 64, 0, WITHIN));
     }
+
+    @Test
+    void neverInTheFootprintOfTheCrater() {
+        World world = new World();
+        EdgeExitRules.Avoid crater = new EdgeExitRules.Avoid(0, 0, 19);
+        // Reached at the edge (31 out): the place itself, outside the footprint.
+        assertEquals(spot(31, 64, 0), EdgeExitRules.choose(world, 31, 64, 0, WITHIN, SWALLOW_POINT, crater));
+        // Reached at its rim: the spots inside are left out.
+        EdgeExitRules.Spot rim = EdgeExitRules.choose(world, 18, 64, 2, WITHIN, SWALLOW_POINT, crater);
+        assertTrue(rim != null && !crater.contains(rim.x(), rim.z()), String.valueOf(rim));
+        // Fallen out of the bottom of the copy near the swallow point: out just beyond the footprint, that way.
+        for (int[] at : new int[][]{{0, 0}, {5, 0}, {-3, 4}, {0, -10}}) {
+            EdgeExitRules.Spot out = EdgeExitRules.choose(world, at[0], 64, at[1], WITHIN, SWALLOW_POINT, crater);
+            assertTrue(out != null && !crater.contains(out.x(), out.z()), at[0] + " " + at[1] + ": " + out);
+            assertTrue(Math.hypot(out.x(), out.z()) <= 19 + EdgeExitRules.AROUND + 2, "far: " + out);
+        }
+        EdgeExitRules.Spot west = EdgeExitRules.choose(world, -3, 64, 0, WITHIN, SWALLOW_POINT, crater);
+        assertTrue(west != null && west.x() < -18, "not the way it was reached: " + west);
+        // Water all along that side: round the footprint to a dry spot.
+        World lake = new World().fill(20, GROUND, -40, 40, GROUND, 40, WATER);
+        EdgeExitRules.Spot dry = EdgeExitRules.choose(lake, 25, 64, 0, WITHIN, SWALLOW_POINT, crater);
+        assertTrue(dry != null && !crater.contains(dry.x(), dry.z()) && dry.x() < 20, String.valueOf(dry));
+        // Nothing avoided: as before.
+        assertEquals(spot(5, 64, 0), EdgeExitRules.choose(world, 5, 64, 0, WITHIN, SWALLOW_POINT, null));
+        assertTrue(crater.contains(19, 0) && !crater.contains(19, 1) && !crater.contains(20, 0));
+    }
+
+    @Test
+    void aClosedOffSwallowPointCostsLittle() {
+        // The swallow point in a closed hut, the crater avoided: no spot anywhere around has a way, and the choice
+        // finds that out by the flood of the hut, without searching the open land outside from every spot tried.
+        World hut = new World().fill(-3, 64, -3, 3, 68, 3, FLOOR).fill(-2, 64, -2, 2, 67, 2, OPEN);
+        int[] looks = {0};
+        EdgeExitRules.Cells counted = (x, y, z) -> {
+            looks[0]++;
+            return hut.at(x, y, z);
+        };
+        EdgeExitRules.Avoid crater = new EdgeExitRules.Avoid(0, 0, 19);
+        assertNull(EdgeExitRules.choose(counted, 31, 64, 0, WITHIN, SWALLOW_POINT, crater));
+        // Only the columns tried for spots (each of the ring's directions, two heights) and the hut: no search.
+        assertTrue(looks[0] < 20_000, "looked at " + looks[0] + " blocks");
+        // Open from the swallow point: the same spots as a search from each of them would find.
+        World open = new World().fill(-3, 64, -3, 3, 68, 3, FLOOR).fill(-2, 64, -2, 2, 67, 2, OPEN)
+                .set(3, 64, 0, OPEN).set(3, 65, 0, OPEN);
+        EdgeExitRules.Spot out = EdgeExitRules.choose(open, 31, 64, 0, WITHIN, SWALLOW_POINT, crater);
+        assertEquals(spot(31, 64, 0), out);
+        assertTrue(EdgeExitRules.connected(open, out, SWALLOW_POINT, WITHIN, EdgeExitRules.MAX_VISITS));
+        // A spot in a closed vault while the swallow point is open: its own search ends at once, the next spot is out.
+        World vault = new World().fill(27, 64, -4, 35, 68, 4, FLOOR).fill(28, 64, -3, 34, 67, 3, OPEN);
+        EdgeExitRules.Spot beside = EdgeExitRules.choose(vault, 31, 64, 0, WITHIN, SWALLOW_POINT, crater);
+        assertTrue(beside != null && (beside.x() < 27 || beside.x() > 35 || Math.abs(beside.z()) > 4),
+                String.valueOf(beside));
+    }
 }

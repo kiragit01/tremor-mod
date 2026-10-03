@@ -18,7 +18,8 @@ import java.util.function.DoublePredicate;
  * tick the cooldown allows it, unless a later decision replaces or cancels it first. While it waits, the body counts
  * as busy for the brain (the route of that GO is "being planned").</li>
  * <li><b>Any other GO</b> (wander and search legs): a {@link TremorEntity.TargetKind#ROAM} target, ordered at once;
- * it drops a pending sound GO.</li>
+ * it drops a pending sound GO. A wander leg (reason {@code wander}) is marked as one: its route must keep away from
+ * the players ({@link TremorMind#wayClear}).</li>
  * <li><b>FREEZE</b>: ordered when the freeze starts and whenever its facing changes (a new sound during the freeze);
  * the brain repeats it on every tick of the freeze, and those repetitions order nothing. It drops a pending sound
  * GO.</li>
@@ -31,6 +32,8 @@ import java.util.function.DoublePredicate;
 final class BrainOrders {
     /** {@link Decision#reason()}s of a GO toward a heard sound. */
     private static final Set<String> SOUND_REASONS = Set.of("hunt", "creep", "investigate");
+    /** {@link Decision#reason()} of a GO on a wander leg. */
+    private static final String WANDER_REASON = "wander";
 
     /** What the body is ordered to do. */
     enum Type {
@@ -48,10 +51,11 @@ final class BrainOrders {
      * @param type      what to do
      * @param point     GO: the destination; FREEZE: what to face; null for NONE
      * @param sound     GO: toward a heard sound (a sound target), else a wander or search leg
+     * @param wander    GO: a wander leg (not a search leg, nor a sound)
      * @param perceived GO toward a sound: how loud the brain heard it (for the retarget cooldown); 0 otherwise
      */
-    record Order(Type type, Vec3 point, boolean sound, double perceived) {
-        static final Order NONE = new Order(Type.NONE, null, false, 0);
+    record Order(Type type, Vec3 point, boolean sound, boolean wander, double perceived) {
+        static final Order NONE = new Order(Type.NONE, null, false, false, 0);
     }
 
     /** A sound GO held back by the retarget cooldown, or null. */
@@ -79,15 +83,15 @@ final class BrainOrders {
                 freezeFacing = null;
                 if (!SOUND_REASONS.contains(decision.reason())) {
                     pending = null;
-                    return new Order(Type.GO, decision.target(), false, 0);
+                    return new Order(Type.GO, decision.target(), false, WANDER_REASON.equals(decision.reason()), 0);
                 }
-                pending = new Order(Type.GO, decision.target(), true, loudness);
+                pending = new Order(Type.GO, decision.target(), true, false, loudness);
             }
             case FREEZE -> {
                 pending = null;
                 boolean fresh = !decision.facing().equals(freezeFacing);
                 freezeFacing = decision.facing();
-                return fresh ? new Order(Type.FREEZE, freezeFacing, false, 0) : Order.NONE;
+                return fresh ? new Order(Type.FREEZE, freezeFacing, false, false, 0) : Order.NONE;
             }
             case STAY -> freezeFacing = null;
         }

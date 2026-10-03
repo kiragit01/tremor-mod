@@ -54,6 +54,7 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
+import java.util.WeakHashMap;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.function.Consumer;
@@ -76,11 +77,11 @@ import java.util.function.IntUnaryOperator;
  *   ({@link HollowLevels#tick}); what of the player's flies or falls out of the copy (items, arrows, experience) is
  *   given back at the drop site at once, in any phase;</li>
  *   <li>LEAVING and RETURNING: the same in reverse, back to the origin (or another exit), next to it if somebody built
- *   over it meanwhile ({@link StandSpots});</li>
+ *   over it meanwhile ({@link StandSpots}), down onto what is under it if the ground there is gone (a crater);</li>
  *   <li>CLEARING: what is the player's in the slot (the blocks the player placed, items, experience, pets) is given
- *   back at the exit, or where the player was swallowed if the player died (the bottom of the sinkhole after a
- *   defeat, {@link #setDeathDrops}); then the slot (the copy's chunk columns and a margin, full height) is emptied
- *   the same way, and the event is gone and the slot free for the next one.</li>
+ *   back at the exit, or where the player was swallowed if the player died (the bottom of the crater after a
+ *   defeat, its items in the caches there, {@link #setDeathDrops}); then the slot (the copy's chunk columns and a
+ *   margin, full height) is emptied the same way, and the event is gone and the slot free for the next one.</li>
  * </ol>
  * Safety (SPEC 9: after leaving the game or a crash inside the hollow the player is back at the origin on the next
  * login; others cannot follow): a player who dies in the hollow, leaves it by other means or logs out ends the event,
@@ -106,12 +107,18 @@ public final class HollowManager {
     private static final int RETRY_TICKS = 100;
     /** Key of the way back out ({@link Origin}) in the persistent data of a player inside the hollow. */
     private static final String WAY_BACK = Tremor.MODID + ":hollow_way_back";
+    /** A player put out over a drop is let down this many blocks at most (deeper than the deepest crater). */
+    private static final int MAX_DROP = 64;
+    /** A block at most this far under the feet holds a player standing on it (blocks). */
+    private static final double GROUND_GAP = 0.05;
 
     private static State state;
     /** The entity this class is moving at this moment ({@link #isMoving}), or null. */
     private static Entity moving;
     /** Told about every event that ends ({@link #addEndListener}). */
     private static final List<EndListener> END_LISTENERS = new CopyOnWriteArrayList<>();
+    /** The keepers of what players leave after a death in their events ({@link #setDeathDrops}); gone with them. */
+    private static final Map<HollowEvent, DeathKeeper> DEATH_KEEPERS = new WeakHashMap<>();
 
     private HollowManager() {
     }
@@ -255,15 +262,40 @@ public final class HollowManager {
     }
 
     /**
-     * From now on whatever of the player of {@code event} is left after a death in the event goes to {@code at} (SPEC
-     * 9: the bottom of the sinkhole after a defeat) instead of the place the player was swallowed: the death drops and
-     * what is left in the slot ({@link HollowEvent#deathDrops}). Saved with the event.
+     * Keeps what a player leaves after a death in an event somewhere else than lying at {@link HollowEvent#deathDrops}
+     * (SPEC 9: in the caches on the bottom of the crater after a defeat): set with {@link #setDeathDrops}.
      */
-    public static void setDeathDrops(HollowEvent event, Origin at) {
+    @FunctionalInterface
+    public interface DeathKeeper {
+        /**
+         * Takes {@code stacks} (copies, the keeper's from now on); false if it has no place for any of them: they lie at
+         * {@link HollowEvent#deathDrops} then, as items.
+         */
+        boolean keep(List<ItemStack> stacks);
+    }
+
+    /**
+     * From now on whatever of the player of {@code event} is left after a death in the event goes to {@code at} (SPEC
+     * 9: the bottom of the crater after a defeat) instead of the place the player was swallowed: the death drops and
+     * what is left in the slot ({@link HollowEvent#deathDrops}), the experience included; saved with the event. If
+     * {@code keeper} is not null, it keeps the items instead ({@link #deathKeeper}: the drops are its listener's, what is
+     * left in the slot is given to it here); not saved: after a restart they lie at {@code at}.
+     */
+    public static void setDeathDrops(HollowEvent event, Origin at, DeathKeeper keeper) {
         event.setDeathDrops(at);
+        if (keeper != null) {
+            DEATH_KEEPERS.put(event, keeper);
+        } else {
+            DEATH_KEEPERS.remove(event);
+        }
         if (state != null && state.data != null) {
             state.data.setDirty();
         }
+    }
+
+    /** What keeps the items a player leaves after a death in {@code event} ({@link #setDeathDrops}), or null. */
+    public static DeathKeeper deathKeeper(HollowEvent event) {
+        return DEATH_KEEPERS.get(event);
     }
 
     /**
@@ -360,9 +392,9 @@ public final class HollowManager {
     /**
      * Where things of {@code player}, who is in the hollow, go instead of staying there (death drops, what is left in
      * the crafting grid at a logout, a pet): where the player comes back out, or, for a player who died in an event,
-     * the place the player was swallowed (SPEC 9: the things lie there), the bottom of the sinkhole after a defeat
-     * ({@link HollowEvent#deathDrops}); its chunk is loaded so nothing put there is lost. Null if the player is not in
-     * the hollow or nothing is known.
+     * the place the player was swallowed (SPEC 9: the things lie there), the bottom of the crater after a defeat
+     * ({@link HollowEvent#deathDrops}; its items may be kept elsewhere, {@link #deathKeeper}); its chunk is loaded so
+     * nothing put there is lost. Null if the player is not in the hollow or nothing is known.
      */
     static DropSite dropSite(ServerPlayer player) {
         State s = HollowDimension.is(player.level()) ? state(player.server) : null;
@@ -469,7 +501,10 @@ public final class HollowManager {
 
     /**
      * Where the player is put at {@code pos} of {@code level}: there if the player fits (crawling at least) with no
-     * lava or fire, else at the first such place close by ({@link StandSpots}), else there all the same.
+     * lava or fire, else at the first such place close by ({@link StandSpots}), else there all the same. A place with
+     * nothing to hold the player (a crater dug under the swallow point meanwhile, SPEC 9) is let down onto what is
+     * under it ({@link #landing}), so nobody is put out in mid-air; one over a drop into lava or fire, or deeper than
+     * {@value #MAX_DROP} blocks, is no place.
      */
     private static Vec3 standSpot(ServerLevel level, ServerPlayer player, Vec3 pos) {
         EntityDimensions size = player.getDimensions(Pose.SWIMMING);
@@ -478,10 +513,39 @@ public final class HollowManager {
             level.getChunkAt(BlockPos.containing(at));
             AABB box = size.makeBoundingBox(at);
             if (level.noCollision(player, box) && level.getBlockStatesIfLoaded(box).noneMatch(HollowManager::burns)) {
-                return at;
+                Vec3 landed = landing(level, player, size, at);
+                if (landed != null) {
+                    return landed;
+                }
             }
         }
         return pos;
+    }
+
+    /**
+     * Where a player put at {@code at} (who fits there) comes to rest without a fall: there if something holds the
+     * player ({@link #held}), else the first such place straight below (or the place within the block above it where
+     * the player lands, a fall of less than a block); null for a drop into lava or fire, or deeper than
+     * {@value #MAX_DROP} blocks.
+     */
+    private static Vec3 landing(ServerLevel level, ServerPlayer player, EntityDimensions size, Vec3 at) {
+        for (int drop = 0; drop <= MAX_DROP; drop++) {
+            Vec3 here = at.subtract(0, drop, 0);
+            AABB box = size.makeBoundingBox(here);
+            if (level.getBlockStatesIfLoaded(box).anyMatch(HollowManager::burns)) {
+                return null;
+            }
+            if (held(level, player, box) || !level.noCollision(player, box.expandTowards(0, -1, 0))) {
+                return here;
+            }
+        }
+        return null;
+    }
+
+    /** Whether something holds a player in {@code box}: a block right under the feet, a fluid, a ladder or a vine. */
+    private static boolean held(ServerLevel level, ServerPlayer player, AABB box) {
+        return !level.noCollision(player, box.expandTowards(0, -GROUND_GAP, 0)) || level.getBlockStatesIfLoaded(box)
+                .anyMatch(state -> !state.getFluidState().isEmpty() || state.is(BlockTags.CLIMBABLE));
     }
 
     private static boolean burns(BlockState state) {
@@ -690,8 +754,9 @@ public final class HollowManager {
                     event.offsetX(), event.offsetZ(), event.copyStats))) {
                 return;
             }
-            // The level inside the copy (stage 4c): the cave, the node and the way to it, before the player is in.
-            if (!HollowLevels.prepare(hollow, event)) {
+            // The level inside the copy (stage 4c): the cave, the node and the way to it, before the player is in,
+            // within what this tick's budget has left.
+            if (!HollowLevels.prepare(hollow, event, budget)) {
                 return;
             }
             if (now - event.phaseStartTick < fadeTicks()) {
@@ -809,8 +874,8 @@ public final class HollowManager {
          * player's is lost), at the drop site ({@link HollowEvent#dropOrigin}): the blocks the player placed that are
          * still there ({@link #takePlaced}), and every item, arrow that can be picked up and content of a container
          * entity (copies never drop anything, so all of them are the player's), merged into full stacks that do not
-         * despawn (the player may be offline, or dead and far away); experience orbs and owned creatures are moved
-         * there as they are. Every other entity is removed.
+         * despawn (the player may be offline, or dead and far away), or to the {@link #deathKeeper} of a player who
+         * died; experience orbs and owned creatures are moved there as they are. Every other entity is removed.
          */
         private void collect(HollowEvent event, HollowBox slot) {
             List<ItemStack> parcel = new ArrayList<>();
@@ -840,6 +905,13 @@ public final class HollowManager {
             DropSite site = site(event.dropOrigin());
             for (Entity entity : moved) {
                 send(entity, site);
+            }
+            // The things of a player who died go to what keeps them, if anything does (a crater's caches).
+            DeathKeeper keeper = event.end() == HollowEvent.End.DIED ? DEATH_KEEPERS.get(event) : null;
+            if (keeper != null && !parcel.isEmpty() && keeper.keep(parcel)) {
+                Tremor.LOGGER.info("Hollow: {} gave {} stacks to the keeper of the things of the dead", event,
+                        parcel.size());
+                parcel.clear();
             }
             Vec3 at = site.position();
             for (ItemStack stack : parcel) {
@@ -1086,9 +1158,10 @@ public final class HollowManager {
         }
 
         /**
-         * Moves the player to {@code to}, or next to it if it is blocked ({@link #standSpot}); false if the player did
-         * not get there (its dimension is gone, or another mod stopped the move). The player's ender pearls still
-         * flying in the hollow are removed first: one landing later would pull the player back in.
+         * Moves the player to {@code to}, or next to it if it is blocked, or down onto what is under it if nothing holds
+         * the player there ({@link #standSpot}); false if the player did not get there (its dimension is gone, or
+         * another mod stopped the move). The player's ender pearls still flying in the hollow are removed first: one
+         * landing later would pull the player back in.
          */
         private boolean moveOut(ServerPlayer player, Origin to) {
             ServerLevel level = server.getLevel(to.dimension());

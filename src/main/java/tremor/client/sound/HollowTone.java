@@ -4,23 +4,35 @@ package tremor.client.sound;
  * Loudness and timing of what a player hears inside the hollow (SPEC 9 phase 2), as plain functions;
  * {@link HollowSounds} and {@link WorldSilence} play it. No game classes.
  * <ul>
- *     <li>The node's heartbeat comes from the node: louder the nearer the player is to it ({@link #beatFalloff}) and
- *     the further the hollow has closed ({@code closeness}, 0..1); its pace is the server's.</li>
+ *     <li>The node's heartbeat comes from the node (SPEC 9: "его ищут по сердцебиению (объёмный звук, громче
+ *     ближе)"): it is found by ear in the dark, so it is heard from anywhere in the copy, never quieter than a floor
+ *     ({@link #FAR_SHARE}), and grows plainly louder the nearer the player comes ({@link #beatFalloff}) and the further
+ *     the hollow has closed ({@code closeness}, 0..1); its pace is the server's.</li>
+ *     <li>As the ring of a beat runs under the player, the ground gives a faint, deeper thump ({@link #thumpVolume}).
+ *     </li>
  *     <li>The pull of the soft ground ({@code sink}, 0 free .. 1 fully pulled in) muffles everything else
  *     ({@link #muffle}) and squelches under the player, more often and louder the deeper it has the player.</li>
  * </ul>
  */
 final class HollowTone {
     /** Share of the configured heartbeat volume while the hollow has not started to close; all of it once closed. */
-    static final double QUIETEST_BEAT = 0.45;
+    static final double QUIETEST_BEAT = 0.6;
     /** Pitch added to the heartbeat once the hollow has closed, linearly from 0. */
     static final double BEAT_PITCH_RISE = 0.1;
     /** Within this distance of the node (blocks) the heartbeat is at its loudest... */
     static final double NEAR_NODE = 4;
-    /** ...and from this distance on at its quietest, {@link #FAR_SHARE} of that. */
-    static final double FAR_NODE = 48;
-    /** Share of its loudness the heartbeat keeps far from the node: it is heard all over the hollow. */
+    /**
+     * ...beyond, its loudness falls as {@code (NEAR_NODE / distance)^FALLOFF_POWER}: by half (6 dB) every time the
+     * distance grows fourfold, so that each step closer is heard, near and far alike...
+     */
+    static final double FALLOFF_POWER = 0.5;
+    /**
+     * ...but not below this share of it (reached some 44 blocks out): the heartbeat is heard all over the hollow, from
+     * the far side of the copy too.
+     */
     static final double FAR_SHARE = 0.3;
+    /** Share of the configured heartbeat volume the thump of a ring at its full height passing under the player has. */
+    static final double THUMP_SHARE = 0.3;
     /** Share of their loudness the other sounds lose when the player is fully pulled in. */
     static final double MUFFLE_DEPTH = 0.75;
     /** Sink below which the ground does not squelch. */
@@ -39,7 +51,8 @@ final class HollowTone {
 
     /**
      * Volume of a heartbeat of the node {@code distance} blocks away: {@code base}, times a share rising linearly from
-     * {@link #QUIETEST_BEAT} with the closeness, times {@link #beatFalloff}, times {@code muffle}.
+     * {@link #QUIETEST_BEAT} with the closeness, times {@link #beatFalloff}, times {@code muffle}. At least
+     * {@code base·QUIETEST_BEAT·FAR_SHARE·muffle} however far off: about a fifth of the configured volume.
      */
     static double beatVolume(double base, double closeness, double distance, double muffle) {
         return base * lerp(QUIETEST_BEAT, 1, share(closeness)) * beatFalloff(distance) * share(muffle);
@@ -47,12 +60,24 @@ final class HollowTone {
 
     /**
      * Share of its loudness the heartbeat keeps {@code distance} blocks from the node: 1 within {@link #NEAR_NODE},
-     * smoothly down to {@link #FAR_SHARE} at {@link #FAR_NODE} and beyond. Unlike the engine's attenuation, which
-     * dies out at a fixed distance, it never falls silent within the hollow, and it tells near from far.
+     * then {@code (NEAR_NODE / distance)^FALLOFF_POWER} (about 0.63 at 10 blocks, 0.45 at 20, 0.34 at 35), and never
+     * less than {@link #FAR_SHARE}. Unlike the engine's attenuation, which dies out at a fixed distance, it never falls
+     * silent within the hollow, and it tells near from far all the way in. 1 for a NaN distance.
      */
     static double beatFalloff(double distance) {
-        double s = share((FAR_NODE - distance) / (FAR_NODE - NEAR_NODE));
-        return lerp(FAR_SHARE, 1, s * s * (3 - 2 * s));
+        if (!(distance > NEAR_NODE)) {
+            return 1;
+        }
+        return Math.max(FAR_SHARE, Math.pow(NEAR_NODE / distance, FALLOFF_POWER));
+    }
+
+    /**
+     * Volume of the thump of a ring passing under the player: {@code base} (the heartbeat's) times
+     * {@link #THUMP_SHARE}, times the ring's {@code strength} (its height now as a share of a fresh ring's at the start
+     * of the closing, clamped to 0..1), times {@code muffle}: faint, below the heartbeat near the node.
+     */
+    static double thumpVolume(double base, double strength, double muffle) {
+        return base * THUMP_SHARE * share(strength) * share(muffle);
     }
 
     /** Pitch of a heartbeat: 1, plus up to {@link #BEAT_PITCH_RISE} as the hollow closes. */

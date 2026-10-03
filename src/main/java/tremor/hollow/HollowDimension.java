@@ -11,8 +11,9 @@ import tremor.Tremor;
 /**
  * The dimension {@code tremor:hollow} (SPEC 9), defined by the datapack files {@code data/tremor/dimension/hollow.json}
  * (an empty void: flat with no layers, the biome {@code the_void}, no features or structures) and
- * {@code data/tremor/dimension_type/hollow.json} (the overworld's build height, a sky frozen at dusk with a little
- * ambient light, beds and respawn anchors not working, no raids).
+ * {@code data/tremor/dimension_type/hollow.json} (the overworld's build height, a time frozen at dusk with a little
+ * ambient light, beds and respawn anchors not working, no raids, and the client effects {@code tremor:hollow}: no sky,
+ * clouds or rain, {@code tremor.client.hollow.HollowSky}).
  */
 public final class HollowDimension {
     public static final ResourceKey<Level> KEY =
