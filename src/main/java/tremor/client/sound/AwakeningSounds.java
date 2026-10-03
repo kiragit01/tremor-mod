@@ -13,6 +13,7 @@ import tremor.config.TremorConfig;
 import tremor.core.math.Vec3;
 import tremor.network.TremorAwakeningPayload;
 import tremor.network.TremorAwakeningPayload.Phase;
+import tremor.network.TremorHollowStatePayload;
 import tremor.sound.TremorSounds;
 
 /**
@@ -28,7 +29,9 @@ import tremor.sound.TremorSounds;
  * listener; their subtitles show no direction, {@link ListenerSubtitles}), only the awakening comes from the hill. It
  * ends when the phase becomes {@link Phase#HOLLOW HOLLOW} or the event ends (the hum dies away within about a second),
  * when the player leaves the zone, and at once when the client level changes: a swallowed target is moved into the
- * hollow, whose sound is that of SPEC 9 phase 2. Main thread only.
+ * hollow, whose sound is that of SPEC 9 phase 2 ({@link HollowSounds}, played from here in place of all this while the
+ * player is in a hollow). After a victory in the hollow, the ground rumbles once where the hill rises and the player
+ * comes out ({@link Phase#EMERGING EMERGING}), for everybody near. Main thread only.
  */
 public final class AwakeningSounds {
     /** Category of all these sounds: the entity's, like its other sounds. */
@@ -41,17 +44,26 @@ public final class AwakeningSounds {
      */
     private static final int AWAKEN_LATE_TICKS = 40;
     private static final float AWAKEN_VOLUME = 1.0F;
+    /** A player who only learns of an emerging this many ticks after it started no longer hears its rumble. */
+    private static final int EMERGE_LATE_TICKS = 40;
+    /** Volume of the rumble of the emerging hill: heard up to twice the attenuation distance of its sound. */
+    private static final float EMERGE_VOLUME = 2.0F;
 
     private static ClientLevel owner;
     /** Ticks to the next heartbeat; counts down only while the player hears the Awakening. */
     private static int beatCountdown = FIRST_BEAT_TICKS;
     /** Id of the Awakening whose awakening sound was played, null if none. */
     private static Integer awakened;
+    /** Id of the Awakening whose emerging rumble was played, null if none. */
+    private static Integer rumbled;
 
     private AwakeningSounds() {
     }
 
-    /** Beats the heart, keeps the hum going, and sounds the awakening when the swallowing starts. */
+    /**
+     * Beats the heart, keeps the hum going, and sounds the awakening when the swallowing starts; in the hollow, its
+     * sounds instead ({@link HollowSounds#tick}); the rumble of an emerging hill when it starts.
+     */
     public static void onClientTick(ClientTickEvent.Post event) {
         Minecraft mc = Minecraft.getInstance();
         ListenerSubtitles.register(mc);
@@ -59,10 +71,18 @@ public final class AwakeningSounds {
             owner = mc.level;
             reset();
         }
+        TremorHollowStatePayload hollow = HollowSounds.heard(mc);
+        if (hollow != null) {
+            HollowSounds.tick(mc, hollow);
+            beatCountdown = Math.max(beatCountdown, FIRST_BEAT_TICKS);
+            return;
+        }
+        HollowSounds.idle();
+        emerge(mc);
         TremorAwakeningPayload state = heard(mc);
         double tension = state == null ? 0 : AwakeningTone.tension(state.phase() == Phase.SWALLOWING,
                 ClientAwakening.progress(mc.level.getGameTime()));
-        HumSound.update(mc, state != null, tension);
+        HumSound.update(mc, state != null, tension, 1);
         if (state == null) {
             // The first beat after coming (back) into the zone takes a moment; going in and out at the edge every
             // tick does not beat faster than inside.
@@ -124,8 +144,26 @@ public final class AwakeningSounds {
                 focus.x(), focus.y(), focus.z(), false));
     }
 
+    /**
+     * The ground rumbles once where the hill a victor comes out of rises ({@link Phase#EMERGING EMERGING}), for every
+     * player who learns of it as it starts, wherever they are: from the hill, fading out with the distance.
+     */
+    private static void emerge(Minecraft mc) {
+        TremorAwakeningPayload state = mc.level == null ? null : ClientAwakening.state();
+        if (state == null || state.phase() != Phase.EMERGING || rumbled != null && rumbled == state.id()
+                || mc.isPaused() || mc.level.getGameTime() - state.phaseStart() > EMERGE_LATE_TICKS) {
+            return;
+        }
+        rumbled = state.id();
+        Vec3 focus = state.focus();
+        mc.getSoundManager().play(new SimpleSoundInstance(TremorSounds.RUMBLE.get().getLocation(), SOURCE,
+                EMERGE_VOLUME, 1, SoundInstance.createUnseededRandom(), false, 0, SoundInstance.Attenuation.LINEAR,
+                focus.x(), focus.y(), focus.z(), false));
+    }
+
     private static void reset() {
         beatCountdown = FIRST_BEAT_TICKS;
         awakened = null;
+        rumbled = null;
     }
 }

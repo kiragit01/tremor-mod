@@ -29,11 +29,18 @@ public final class TremorSounds {
     public static final DeferredHolder<SoundEvent, SoundEvent> PULSE = register("entity.tremor.pulse");
     /** The awakening begins (stage 4). */
     public static final DeferredHolder<SoundEvent, SoundEvent> AWAKEN = register("entity.tremor.awaken");
+    /** The ground lets the player go: the node is destroyed, an Awakening won (SPEC 9 "Победа"). */
+    public static final DeferredHolder<SoundEvent, SoundEvent> RELEASE = register("entity.tremor.release");
     /**
      * Low hum of the ground around a player in the zone of an awakening, played as a loop (SPEC 9: "остаётся низкий
      * гул"); so a loopable sound, unlike the short {@link #RUMBLE}.
      */
     public static final DeferredHolder<SoundEvent, SoundEvent> HUM = register("entity.tremor.hum");
+    /**
+     * The soft ground of the hollow pulling a player in (SPEC 9: "Затягивание"): a slow squelch and creak, played
+     * again and again while the player sinks.
+     */
+    public static final DeferredHolder<SoundEvent, SoundEvent> PULL = register("entity.tremor.pull");
 
     private TremorSounds() {
     }

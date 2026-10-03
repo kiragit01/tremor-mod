@@ -59,6 +59,8 @@ import java.util.UUID;
  *   player.</li>
  *   <li>{@code hollow <enter|leave|status>} and {@code restore}: the hollow, see {@link HollowCommands}.</li>
  *   <li>{@code awaken [player]} and {@code awaken stop}: the Awakening, see {@link AwakeningCommands}.</li>
+ *   <li>{@code hollow outcome <victory|edge|defeat>}: ends the level inside the hollow for the player, see
+ *   {@link AwakeningCommands}.</li>
  * </ul>
  */
 public final class TremorCommands {
@@ -113,6 +115,8 @@ public final class TremorCommands {
                 .then(debug())
                 .then(HollowCommands.hollow())
                 .then(HollowCommands.restore())
+                // Merged into the hollow branch above: hollow outcome <victory|edge|defeat>.
+                .then(AwakeningCommands.hollowOutcome())
                 .then(AwakeningCommands.awaken()));
     }
 

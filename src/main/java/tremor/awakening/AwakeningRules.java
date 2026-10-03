@@ -1,6 +1,7 @@
 package tremor.awakening;
 
 import tremor.core.math.Vec3;
+import tremor.hollow.HollowOutcome;
 
 import java.util.List;
 import java.util.UUID;
@@ -9,7 +10,8 @@ import java.util.function.IntFunction;
 /**
  * Rules of the Awakening's real-world part (SPEC 9 phase 1) that do not need the game, unit-tested directly: the zone
  * and the escape from it, who is taken, when the Darkness comes and which Darkness is the Awakening's to take away, how
- * strong the ring of a step is, when a rooted player has strayed and whether it may drop.
+ * strong the ring of a step is, when a rooted player has strayed and whether it may drop, and how the end of the event
+ * in the hollow ends the Awakening.
  * <p>
  * The zone is a vertical cylinder around the centre (SPEC 9: "сфера/цилиндр"): only the horizontal distance counts,
  * so climbing a tower or digging down does not get the player out, walking away does.
@@ -142,6 +144,26 @@ public final class AwakeningRules {
     public static boolean strayed(Vec3 anchor, Vec3 position, double tolerance, boolean mayDrop) {
         double dy = position.y() - anchor.y();
         return horizontalDistance(anchor, position) > tolerance || dy > tolerance || !mayDrop && dy < -tolerance;
+    }
+
+    /**
+     * How an Awakening ends when the event in the hollow of its target ends (SPEC 9 "Исходы"): as the outcome the
+     * level in there came to, if any (a victory, an escape through the edge, a defeat), whatever ended the event
+     * afterwards (the target may have logged out on the way out); without one, {@link Awakening.End#HOLLOW_OVER} once
+     * the target was in the hollow, else {@link Awakening.End#CANCELLED} (the swallowing failed before the move).
+     *
+     * @param outcome  the outcome of the event, or null
+     * @param inHollow whether the Awakening had seen its target moved into the hollow (its phase was HOLLOW)
+     */
+    static Awakening.End afterHollow(HollowOutcome outcome, boolean inHollow) {
+        if (outcome == null) {
+            return inHollow ? Awakening.End.HOLLOW_OVER : Awakening.End.CANCELLED;
+        }
+        return switch (outcome) {
+            case VICTORY -> Awakening.End.VICTORY;
+            case EDGE_ESCAPE -> Awakening.End.EDGE_ESCAPED;
+            case DEFEAT -> Awakening.End.DEFEAT;
+        };
     }
 
     /**

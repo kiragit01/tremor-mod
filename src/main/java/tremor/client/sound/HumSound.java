@@ -10,15 +10,16 @@ import tremor.config.TremorConfig;
 import tremor.sound.TremorSounds;
 
 /**
- * The low hum of the ground around a player in the zone of an Awakening (SPEC 9 phase 1: "остаётся низкий гул"): a
- * loop of {@link TremorSounds#HUM}, relative to the listener, swelling and rising a little in pitch with the tension of
- * the build-up ({@link AwakeningTone#humVolume}, {@link AwakeningTone#humPitch}) and eased so that it never jumps. At
- * most one plays.
+ * The low hum of the ground around a player in the zone of an Awakening (SPEC 9 phase 1: "остаётся низкий гул") and
+ * inside the hollow (phase 2): a loop of {@link TremorSounds#HUM}, relative to the listener, swelling and rising a
+ * little in pitch with the tension of the build-up, or with how far the hollow has closed
+ * ({@link AwakeningTone#humVolume}, {@link AwakeningTone#humPitch}), muffled while the ground of the hollow pulls the
+ * player in, and eased so that it never jumps. At most one plays.
  * <p>
  * {@link AwakeningSounds} sets what it should sound like every client tick ({@link #update}) and starts one when the
- * player hears the Awakening and none plays. It dies away by itself once the player no longer hears it (out of the
- * zone, the event over or in the hollow); it stops at once when the client level changes (the sound engine stops all
- * sounds then anyway), on logout, and when the player mutes hostile sounds. A sound that did not get to play is
+ * player hears the Awakening (or is in the hollow) and none plays. It dies away by itself once the player no longer
+ * hears it (out of the zone, the event over); it stops at once when the client level changes (the sound engine stops
+ * all sounds then anyway), on logout, and when the player mutes hostile sounds. A sound that did not get to play is
  * retried after a while, not every tick.
  */
 final class HumSound extends AbstractTickableSoundInstance {
@@ -57,12 +58,13 @@ final class HumSound extends AbstractTickableSoundInstance {
     }
 
     /**
-     * Sets what the hum should sound like: {@code heard} whether the player hears the Awakening now, {@code tension}
-     * its tension. Forgets a hum that has stopped, stops one that is muted or left behind in another level, and
-     * starts one when the player hears the Awakening and none plays.
+     * Sets what the hum should sound like: {@code heard} whether the player hears the Awakening (or the hollow) now,
+     * {@code tension} its tension, {@code gain} a share of its volume (the muffling of the hollow; 1 for none).
+     * Forgets a hum that has stopped, stops one that is muted or left behind in another level, and starts one when the
+     * player hears it and none plays.
      */
-    static void update(Minecraft mc, boolean heard, double tension) {
-        targetVolume = heard ? AwakeningTone.humVolume(TremorConfig.CLIENT.humVolume.get(), tension) : 0;
+    static void update(Minecraft mc, boolean heard, double tension, double gain) {
+        targetVolume = heard ? AwakeningTone.humVolume(TremorConfig.CLIENT.humVolume.get(), tension) * gain : 0;
         if (heard) {
             targetPitch = AwakeningTone.humPitch(tension);
         }

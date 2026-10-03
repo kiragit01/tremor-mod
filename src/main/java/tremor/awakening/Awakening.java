@@ -46,8 +46,13 @@ import java.util.UUID;
  *   target who dies, logs out or leaves the dimension meanwhile ends it ({@link End#CANCELLED}; the copy stops). If
  *   the hollow refuses (no free slot...), it ends ({@link End#CANCELLED}).</li>
  *   <li>HOLLOW: the target is in the hollow, released and out of the Darkness; for everyone else the ground is smooth,
- *   as if nobody had been there. It ends with the target's event in the hollow, whatever ended that
- *   ({@link End#HOLLOW_OVER}; stage 4c plays the level in there and tells the outcomes apart).</li>
+ *   as if nobody had been there. The level in there ends in an outcome ({@link Outcomes}). An escape through the edge
+ *   ends it when the target's event in the hollow ends ({@link End#EDGE_ESCAPED}), a defeat once the sinkhole is
+ *   there and the target dead or on the way out ({@link End#DEFEAT}). Without an outcome it ends with the target's
+ *   event in the hollow, whatever ended that ({@link End#HOLLOW_OVER}).</li>
+ *   <li>EMERGING ({@code awakening.emergeTicks}), after a victory ({@link #emerge}): at the swallow point (the focus)
+ *   a hill rises, the target comes out of it (put there after the fade out of the hollow) and it settles; then it ends
+ *   ({@link End#VICTORY}), whatever the target's event in the hollow does meanwhile.</li>
  * </ol>
  * Sync: every player of the level within {@value #SYNC_MARGIN} blocks of the zone (horizontally) gets the state
  * ({@link TremorAwakeningPayload}) once, players coming that near (also by joining or changing dimension) on the next
@@ -58,8 +63,14 @@ final class Awakening {
     enum End {
         /** The target got out of the zone during the buildup (SPEC 9 "Побег"). */
         ESCAPED,
-        /** The target's event in the hollow is over (in 4b for any reason; 4c tells victory, escape, defeat apart). */
+        /** The target's event in the hollow is over without an outcome (logged out, died, {@code /tremor restore}). */
         HOLLOW_OVER,
+        /** The target destroyed the node and came out of the hill (SPEC 9 "Победа"). */
+        VICTORY,
+        /** The target got out through the edge of the hollow before it closed (SPEC 9 "Побег"). */
+        EDGE_ESCAPED,
+        /** The soft ground pulled the target in: a sinkhole at the swallow point (SPEC 9 "Поражение"). */
+        DEFEAT,
         /**
          * Called off: the target died, logged out or left the dimension before getting into the hollow, the hollow
          * refused or failed before the move, {@code /tremor awaken stop}, the server stopped.
@@ -160,7 +171,8 @@ final class Awakening {
 
     /** Whether the target is (or should be) in the hollow: moved into the copy, or past that. */
     boolean swallowed() {
-        return phase == Phase.HOLLOW || hollowEvent != null && hollowEvent.phase().inHollow();
+        return phase == Phase.HOLLOW || phase == Phase.EMERGING
+                || hollowEvent != null && hollowEvent.phase().inHollow();
     }
 
     /** Whether the entity is held by the root now: the rooted target, or the vehicle it is kept on. */
@@ -199,12 +211,35 @@ final class Awakening {
             case BUILDUP -> buildup(now);
             case SWALLOWING -> swallowing(now);
             case HOLLOW -> {
-                // Ends with the target's event in the hollow (AwakeningManager.onHollowEnded).
+                // Ends by an outcome (Outcomes) or with the target's event in the hollow (onHollowEnded).
+            }
+            case EMERGING -> {
+                if (clock.over(now)) {
+                    AwakeningManager.end(this, End.VICTORY, targetName + " came out of the ground at "
+                            + text(focus));
+                }
             }
         }
         if (!over) {
             sync(false);
         }
+    }
+
+    /**
+     * The target destroyed the node (SPEC 9 "Победа", {@link Outcomes#victory}): EMERGING begins, the hill rises at
+     * {@code at} (the swallow point), where the target is put after the fade out of the hollow. The target is let go
+     * and out of the Darkness, if still held (the victory came the tick it was moved in).
+     */
+    void emerge(Vec3 at, long now) {
+        ServerPlayer player = player();
+        if (player != null) {
+            root.release(player);
+            undarken(player);
+        }
+        focus = at;
+        setPhase(Phase.EMERGING, now, TremorConfig.COMMON.awakening.emergeTicks.get());
+        Tremor.LOGGER.info("Awakening #{}: {} destroyed the node, the hill at {} lets them out in {} s", id,
+                targetName, text(focus), phaseSeconds());
     }
 
     /**
@@ -283,8 +318,11 @@ final class Awakening {
                     seconds(clock.remaining(now)))
                     : String.format(Locale.ROOT, "swallowed at %s, the hollow is %s", text(focus),
                     hollowEvent.phase().id()));
-            case HOLLOW -> text.append(String.format(Locale.ROOT, "in the hollow for %.1f s (its event: %s)",
-                    seconds(clock.elapsed(now)), hollowEvent.phase().id()));
+            case HOLLOW -> text.append(String.format(Locale.ROOT, "in the hollow for %.1f s (its event: %s%s)",
+                    seconds(clock.elapsed(now)), hollowEvent.phase().id(),
+                    hollowEvent.outcome() == null ? "" : ", " + hollowEvent.outcome().id()));
+            case EMERGING -> text.append(String.format(Locale.ROOT, "won: coming out of the hill at %s, %.1f s left",
+                    text(focus), seconds(clock.remaining(now))));
         }
         ServerPlayer player = player();
         String where = player == null ? "offline" : player.level() != level ? "in " + player.level().dimension()

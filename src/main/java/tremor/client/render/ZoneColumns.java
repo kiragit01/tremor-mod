@@ -6,8 +6,8 @@ import tremor.core.deform.SurfacePoint;
 import tremor.core.deform.ZoneScan;
 import tremor.core.math.Vec3;
 import tremor.core.math.VoxelPos;
-import tremor.core.shape.AwakeningField;
 import tremor.core.shape.BumpShape;
+import tremor.core.shape.GroundField;
 import tremor.core.voxel.VoxelCache;
 
 import java.util.ArrayList;
@@ -17,11 +17,15 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * The ground of an Awakening zone (SPEC 9: "вся поверхность в зоне") for {@link DeformationRenderer}: every surface
- * voxel of the zone and as far around it as a step ring runs ({@link AwakeningField#reach}), found by a
- * {@link ZoneScan} spread over frames and kept, so a frame only evaluates the heights. The columns are grouped in
- * cells of 8³ blocks that are culled against the view frustum together (the zone is all around the camera, most of
- * it out of view) and visited nearest to the camera first.
+ * The ground of an Awakening zone (SPEC 9: "вся поверхность в зоне") or of the hollow around the player for
+ * {@link DeformationRenderer}: every surface voxel of the cylinder the {@link GroundField} names (for an Awakening the
+ * zone and as far around it as a step ring runs), found by a {@link ZoneScan} spread over frames and kept, so a frame
+ * only evaluates the heights. The columns are grouped in cells of 8³ blocks that are culled against the view frustum
+ * together (the zone is all around the camera, most of it out of view) and visited nearest to the camera first.
+ * <p>
+ * A cylinder that follows the player ({@link GroundField#scanFollows}, the hollow) is scanned again around its new
+ * centre when that moves (once a running scan is complete), and the ground of the old one is drawn until the new scan
+ * is complete; any other new cylinder is new ground, of which nothing is drawn until its first scan is complete.
  * <p>
  * The client gets no block change events. A zone is scanned again when the renderer sees the surface of its drawn
  * ground change ({@link #requestRescan}), when chunks of its terrain arrive that the client did not have before (a scan
@@ -62,7 +66,7 @@ final class ZoneColumns {
         int minX = Integer.MAX_VALUE, minY = Integer.MAX_VALUE, minZ = Integer.MAX_VALUE;
         int maxX = Integer.MIN_VALUE, maxY = Integer.MIN_VALUE, maxZ = Integer.MIN_VALUE;
         double distanceSq;
-        /** Whether every column the breathing will raise has been baked ({@link #prebake}). */
+        /** Whether every column the ground is going to raise has been baked ({@link #prebake}). */
         boolean baked;
 
         void add(Column col) {
@@ -103,9 +107,12 @@ final class ZoneColumns {
     private final ChunkCoverage.Loaded chunks;
     /** Cells of the last complete scan, nearest to the camera first after {@link #update}. */
     private final List<Cell> cells = new ArrayList<>();
-    /** The zone the cells and the scan belong to; null if none. */
+    /** The cylinder the cells and the scan belong to; null if none. */
     private Vec3 zoneCenter;
     private double zoneReach;
+    private int zoneHeight;
+    /** Whether that cylinder follows the player ({@link GroundField#scanFollows}). */
+    private boolean zoneFollows;
     /** Scan in progress, null if none. */
     private ZoneScan scan;
     /** Terrain box the scans of this zone read, for dropping it from the cache. */
@@ -128,24 +135,34 @@ final class ZoneColumns {
 
     /**
      * Brings the ground up to date for this frame of {@code ground}: a new zone is scanned from scratch (nothing of it
-     * is drawn until its scan is complete), a known one again when due; a running scan advances within the frame's
-     * time. The voxel cache's source must be bound to the level for this frame.
+     * is drawn until its scan is complete), one that followed the player to a new centre is scanned around it (the old
+     * ground is drawn meanwhile), a known one again when due; a running scan advances within the frame's time. The
+     * voxel cache's source must be bound to the level for this frame.
      *
      * @return whether there is ground to draw (a complete scan)
      */
-    boolean update(AwakeningField ground, long tick, double camX, double camY, double camZ) {
-        if (!ground.center().equals(zoneCenter) || ground.reach() != zoneReach) {
+    boolean update(GroundField ground, long tick, double camX, double camY, double camZ) {
+        boolean moved = !ground.scanCenter().equals(zoneCenter) || ground.scanRadius() != zoneReach
+                || ground.scanHeight() != zoneHeight || ground.scanFollows() != zoneFollows;
+        if (moved && zoneCenter != null && zoneFollows && ground.scanFollows()) {
+            // Followed the player: once a running scan is complete (so that one always completes, however fast the
+            // player goes), drop the terrain of the old cylinder and scan the new one; its ground is drawn meanwhile.
+            if (scan == null) {
+                voxels.invalidateBox(boxMinX, boxMinY, boxMinZ, boxMaxX, boxMaxY, boxMaxZ);
+                adopt(ground);
+                startScan(tick);
+            }
+        } else if (moved) {
             release();
-            zoneCenter = ground.center();
-            zoneReach = ground.reach();
-            startScan(ground, tick);
+            adopt(ground);
+            startScan(tick);
         } else {
             if (tick < coverageTick || tick - coverageTick >= COVERAGE_INTERVAL) {
                 lookAtCoverage(tick);
             }
             if (scan == null && (tick < scanTick || tick - scanTick >= RESCAN_INTERVAL
                     || rescanRequested && tick - scanTick >= MIN_RESCAN_INTERVAL)) {
-                startScan(ground, tick);
+                startScan(tick);
             }
         }
         if (scan != null) {
@@ -175,7 +192,7 @@ final class ZoneColumns {
      * {@code frame} already holds for this {@code stamp} (the bump's) gets the height added, others are set and
      * appended.
      */
-    void evaluate(AwakeningField ground, Frustum frustum, int stamp, List<Column> frame) {
+    void evaluate(GroundField ground, Frustum frustum, int stamp, List<Column> frame) {
         double margin = ground.maxHeight() + 1; // the copies move up to maxHeight; a plant rides one block out
         for (int c = 0, nc = cells.size(); c < nc; c++) {
             Cell cell = cells.get(c);
@@ -200,11 +217,12 @@ final class ZoneColumns {
     }
 
     /**
-     * Picks up to {@code slots} unbaked columns the breathing is going to raise, nearest cells first, whether in view or
-     * not, into {@code out}, for baking right away: the zone gets baked ahead in the frames before it first rises,
-     * and the ground behind the camera is ready when it turns, instead of rising patch by patch as it is baked.
+     * Picks up to {@code slots} unbaked columns the ground is going to raise ({@link GroundField#ahead}), nearest cells
+     * first, whether in view or not, into {@code out}, for baking right away: the zone gets baked ahead in the frames
+     * before it first rises, and the ground behind the camera is ready when it turns, instead of rising patch by
+     * patch as it is baked.
      */
-    void prebake(AwakeningField ground, int slots, List<Column> out) {
+    void prebake(GroundField ground, int slots, List<Column> out) {
         for (int c = 0, nc = cells.size(); c < nc && slots > 0; c++) {
             Cell cell = cells.get(c);
             if (cell.baked) {
@@ -213,7 +231,7 @@ final class ZoneColumns {
             boolean all = true;
             for (int i = 0, n = cell.columns.size(); i < n; i++) {
                 Column col = cell.columns.get(i);
-                if (col.baked || ground.peakBreath(col.cx, col.cy, col.cz) < BumpShape.RENDER_THRESHOLD) {
+                if (col.baked || ground.ahead(col.cx, col.cy, col.cz) < BumpShape.RENDER_THRESHOLD) {
                     continue;
                 }
                 if (slots == 0) {
@@ -228,8 +246,9 @@ final class ZoneColumns {
     }
 
     /**
-     * Collects into {@code out} the columns on the front of a step ring: centres within {@link RippleDust#HALF_WIDTH}
-     * of the sphere of radius {@code front} around {@code origin} (the rings run in 3D, {@link AwakeningField}).
+     * Collects into {@code out} the columns on the front of a ring (a step's, the node's): centres within
+     * {@link RippleDust#HALF_WIDTH} of the sphere of radius {@code front} around {@code origin} (the rings run in 3D,
+     * {@link GroundField#rings}).
      */
     void front(Vec3 origin, double front, List<Column> out) {
         double ox = origin.x(), oy = origin.y(), oz = origin.z();
@@ -244,6 +263,28 @@ final class ZoneColumns {
                 Column col = columns.get(i);
                 double dx = col.cx - ox, dy = col.cy - oy, dz = col.cz - oz;
                 if (RippleDust.onFront(Math.sqrt(dx * dx + dy * dy + dz * dz), front)) {
+                    out.add(col);
+                }
+            }
+        }
+    }
+
+    /**
+     * Collects into {@code out} the columns whose centres lie within {@code radius} of {@code origin} (a mound rising
+     * or settling there, {@link GroundField#heaves}).
+     */
+    void within(Vec3 origin, double radius, List<Column> out) {
+        double ox = origin.x(), oy = origin.y(), oz = origin.z(), radiusSq = radius * radius;
+        for (int c = 0, nc = cells.size(); c < nc; c++) {
+            Cell cell = cells.get(c);
+            if (cell.nearSq(ox, oy, oz) > radiusSq) {
+                continue;
+            }
+            List<Column> columns = cell.columns;
+            for (int i = 0, n = columns.size(); i < n; i++) {
+                Column col = columns.get(i);
+                double dx = col.cx - ox, dy = col.cy - oy, dz = col.cz - oz;
+                if (dx * dx + dy * dy + dz * dz <= radiusSq) {
                     out.add(col);
                 }
             }
@@ -277,9 +318,16 @@ final class ZoneColumns {
         coverage = null;
     }
 
-    private void startScan(AwakeningField ground, long tick) {
-        int reach = ground.params().verticalReach();
-        scan = new ZoneScan(voxels, ground.center(), ground.reach(), reach, reach);
+    /** Takes the cylinder of {@code ground} as the one the next scan covers. */
+    private void adopt(GroundField ground) {
+        zoneCenter = ground.scanCenter();
+        zoneReach = ground.scanRadius();
+        zoneHeight = ground.scanHeight();
+        zoneFollows = ground.scanFollows();
+    }
+
+    private void startScan(long tick) {
+        scan = new ZoneScan(voxels, zoneCenter, zoneReach, zoneHeight, zoneHeight);
         boxMinX = scan.minX() - READ_MARGIN;
         boxMinY = scan.minY() - READ_MARGIN;
         boxMinZ = scan.minZ() - READ_MARGIN;

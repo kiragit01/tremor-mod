@@ -23,6 +23,7 @@ import tremor.debug.DebugParticles;
 import tremor.entity.TremorEntity;
 import tremor.entity.TremorManager;
 import tremor.entity.TremorRuntime;
+import tremor.hollow.level.HollowLevels;
 import tremor.world.LevelVoxelView;
 
 import java.util.List;
@@ -33,8 +34,10 @@ import java.util.Locale;
  * levels only) and falls ({@link LivingFallEvent}); registered on the game bus by {@link tremor.Tremor}. Each becomes a
  * {@link Vibration} for the entity of the level ({@link TremorRuntime#hear}) and for the level's Awakening, with the
  * player behind it ({@link AwakeningManager#vibration}: who was heard last, the ring waves of steps in its zone, SPEC
- * 9). Nothing is computed for a source that is beyond the hearing distance of the level's entity (or there is none)
- * and not in the zone of a running Awakening. Server thread only.
+ * 9), and in the hollow for the level played there ({@link HollowLevels#vibration}: noise that speeds up the closing,
+ * lures that pause it). Nothing is computed for a source that is beyond the hearing distance of the level's entity (or
+ * there is none), not in the zone of a running Awakening and not in the hollow while a level plays there. Server
+ * thread only.
  * <p>
  * Loudness: the {@code hearing.loudness} config list per game event (events not listed are ignored), then by source
  * ({@code context.sourceEntity()}):
@@ -87,7 +90,7 @@ public final class VibrationListener {
             return;
         }
         TremorRuntime runtime = TremorManager.runtime(level);
-        if (!hasEntity(runtime) && !AwakeningManager.listens(level)) {
+        if (!hasEntity(runtime) && !AwakeningManager.listens(level) && !HollowLevels.listens(level)) {
             return;
         }
         GameEvent.Context context = event.getContext();
@@ -187,7 +190,7 @@ public final class VibrationListener {
             return;
         }
         TremorRuntime runtime = TremorManager.runtime(level);
-        if (!hasEntity(runtime) && !AwakeningManager.listens(level)) {
+        if (!hasEntity(runtime) && !AwakeningManager.listens(level) && !HollowLevels.listens(level)) {
             return;
         }
         if (LAST_FALL.isMarked(entity.getRootVehicle().getId(), level.getGameTime())) {
@@ -246,7 +249,8 @@ public final class VibrationListener {
 
     /**
      * The vibration goes to the level's entity, if there is one, then to the level's Awakening with the player behind
-     * it ({@link #playerBehind}).
+     * it ({@link #playerBehind}), and in the hollow to the level of the hollow there ({@link HollowLevels#vibration}:
+     * the player's noise, or a lure).
      *
      * @param cause what made it, or null
      */
@@ -256,6 +260,7 @@ public final class VibrationListener {
             DebugParticles.hearing(level, vibration, perception);
         }
         AwakeningManager.vibration(level, vibration, playerBehind(cause), perception);
+        HollowLevels.vibration(level, vibration, playerBehind(cause));
     }
 
     private static boolean hasEntity(TremorRuntime runtime) {
@@ -264,8 +269,9 @@ public final class VibrationListener {
 
     /**
      * Whether a source at {@code pos} concerns anybody: the level's entity, if the source is within its hearing
-     * distance (plus a margin), or the level's Awakening, if the source lies in its zone
-     * ({@link AwakeningManager#listens(ServerLevel, double, double)}).
+     * distance (plus a margin), the level's Awakening, if the source lies in its zone
+     * ({@link AwakeningManager#listens(ServerLevel, double, double)}), or a level of the hollow playing there
+     * ({@link HollowLevels#listens}: the whole hollow listens).
      */
     private static boolean wanted(ServerLevel level, TremorRuntime runtime, net.minecraft.world.phys.Vec3 pos) {
         TremorEntity entity = runtime == null ? null : runtime.entity();
@@ -276,7 +282,7 @@ public final class VibrationListener {
                 return true;
             }
         }
-        return AwakeningManager.listens(level, pos.x, pos.z);
+        return AwakeningManager.listens(level, pos.x, pos.z) || HollowLevels.listens(level);
     }
 
     /**

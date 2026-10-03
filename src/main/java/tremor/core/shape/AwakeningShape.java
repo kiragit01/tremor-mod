@@ -17,9 +17,14 @@ import java.util.Objects;
  *     <li><b>step rings</b> ("каждый шаг игрока порождает кольцевую волну"): a {@link Ripple} per step, as high as the
  *     step is strong ({@link #stepRipple}).</li>
  * </ul>
- * When the Awakening ends in the real world everything settles together ({@link #release}). Pure math, thread-safe.
+ * When the Awakening ends in the real world everything settles together ({@link #release}). After a victory in the
+ * hollow the same hill rises at the swallow point once more and the player comes out of it ({@link #emergeHill}).
+ * Pure math, thread-safe.
  */
 public final class AwakeningShape {
+    /** Share of the emerging (SPEC 9 "Победа") the hill takes to rise; it settles over the rest. */
+    public static final double EMERGE_RISE = 0.2;
+
     private AwakeningShape() {
     }
 
@@ -93,6 +98,38 @@ public final class AwakeningShape {
     public static double hillPeak(AwakeningParams p, double progress) {
         double t = progress > 0 ? Math.min(progress, 1) : 0;
         return p.hillHeight() * t * t;
+    }
+
+    /**
+     * Peak of the hill a victor comes out of (SPEC 9 "Победа": "на месте поглощения в реальном мире вырастает холм,
+     * игрок выходит из него, холм медленно оседает") {@code progress} (0..1, clamped; NaN counts as 0) into the
+     * emerging: over the first {@link #EMERGE_RISE} it shoots up to {@link AwakeningParams#hillHeight}, fast at first
+     * and slowing to the top ({@code 1 - (1 - s)²}), then it settles slowly back to the ground's own place
+     * ({@code 1 - smoothstep}), gone at the end. Smooth throughout: it neither jumps nor jerks at the top.
+     */
+    public static double emergeHill(AwakeningParams p, double progress) {
+        double t = progress > 0 ? Math.min(progress, 1) : 0;
+        if (t < EMERGE_RISE) {
+            double s = 1 - t / EMERGE_RISE;
+            return p.hillHeight() * (1 - s * s);
+        }
+        return p.hillHeight() * (1 - smoothstep((t - EMERGE_RISE) / (1 - EMERGE_RISE)));
+    }
+
+    /**
+     * How fast the peak of {@link #emergeHill} moves at {@code progress}, in heights per whole phase (divide by the
+     * phase's length for blocks per second): positive while it rises, negative while it settles, 0 at the top, before
+     * the start and from the end on.
+     */
+    public static double emergeHillRate(AwakeningParams p, double progress) {
+        if (!(progress > 0) || progress >= 1) {
+            return 0;
+        }
+        if (progress < EMERGE_RISE) {
+            return p.hillHeight() * 2 * (1 - progress / EMERGE_RISE) / EMERGE_RISE;
+        }
+        double s = (progress - EMERGE_RISE) / (1 - EMERGE_RISE);
+        return -p.hillHeight() * 6 * s * (1 - s) / (1 - EMERGE_RISE);
     }
 
     /** Height of a hill with the given {@code peak} at squared distance {@code distanceSq} from where it rises. */

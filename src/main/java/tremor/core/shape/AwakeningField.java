@@ -6,8 +6,8 @@ import java.util.Objects;
 import tremor.core.math.Vec3;
 
 /**
- * One frame of the ground of an Awakening zone in the real world (SPEC 9, phase 1): the displacement along the
- * surface normal at a point, the sum of
+ * One frame of the ground of an Awakening zone in the real world (SPEC 9, phase 1, and the hill a victor comes out of
+ * after the hollow): the displacement along the surface normal at a point, the sum of
  * <pre>
  * breath · zoneFade(p) · swell(p)            the zone breathes, fading out at its edge (AwakeningShape#zoneFade), in
  *                                            broad uneven swells (AwakeningShape#swell) so that flat ground heaves
@@ -18,8 +18,12 @@ import tremor.core.math.Vec3;
  * a cave the hill closes the passage from all sides and a ring climbs the walls once it reaches them, each voxel
  * moving along its own normal. Every term is already scaled for the moment of the frame (phase progress, strength of
  * the step, release after the end). Pure math, immutable, allocation-free per query.
+ * <p>
+ * As a {@link GroundField} it is scanned as the zone plus the reach of the step rings around its centre, and
+ * nothing of it follows anybody; the rings show in full wherever they run; a hill that rises or settles
+ * ({@code hillSpeed}) shakes dust off its flanks.
  */
-public final class AwakeningField {
+public final class AwakeningField implements GroundField {
     /** A ring running out from a step, as it is drawn this frame. */
     public record Ring(Vec3 origin, double ageSeconds, RippleParams params) {
         public Ring {
@@ -35,6 +39,8 @@ public final class AwakeningField {
     private final double peakBreath;
     private final Vec3 focus;
     private final double hill;
+    /** The hill as a {@link GroundField.Heave} while it rises or settles, else none. */
+    private final List<Heave> heaves;
     /** Beyond this squared distance from the focus the hill is below a thousandth of its peak and is left out. */
     private final double hillCutSq;
     private final List<Ring> rings;
@@ -58,6 +64,18 @@ public final class AwakeningField {
      */
     public AwakeningField(AwakeningParams params, Vec3 center, double radius, double breath, double peakBreath,
                           Vec3 focus, double hill, List<Ring> rings) {
+        this(params, center, radius, breath, peakBreath, focus, hill, 0, rings);
+    }
+
+    /**
+     * The same, with a hill that rises or settles.
+     *
+     * @param hillSpeed how fast the peak of the hill moves this frame, blocks per second (above 0 rising, below 0
+     *                  settling): its flanks shake dust off ({@link #heaves}); must be finite
+     * @throws IllegalArgumentException if a height or the radius is negative or not finite, or the speed not finite
+     */
+    public AwakeningField(AwakeningParams params, Vec3 center, double radius, double breath, double peakBreath,
+                          Vec3 focus, double hill, double hillSpeed, List<Ring> rings) {
         this.params = Objects.requireNonNull(params, "params");
         this.center = Objects.requireNonNull(center, "center");
         this.focus = Objects.requireNonNull(focus, "focus");
@@ -69,6 +87,10 @@ public final class AwakeningField {
         this.breath = breath;
         this.peakBreath = peakBreath;
         this.hill = hill;
+        if (!Double.isFinite(hillSpeed)) {
+            throw new IllegalArgumentException("hillSpeed must be finite: " + hillSpeed);
+        }
+        this.heaves = hillSpeed == 0 ? List.of() : List.of(new Heave(focus, params.hillSigma(), hillSpeed));
         double cut = params.hillSigma() * Math.sqrt(Math.log(1000));
         this.hillCutSq = cut * cut;
         this.rings = List.copyOf(rings);
@@ -100,6 +122,7 @@ public final class AwakeningField {
     }
 
     /** Displacement along the surface normal at the point. */
+    @Override
     public double at(double x, double y, double z) {
         double h = 0;
         if (breath > 0) {
@@ -127,8 +150,15 @@ public final class AwakeningField {
     }
 
     /** Upper bound of {@code |at(p)|} anywhere: the breath, the hill and every running ring at full height. */
+    @Override
     public double maxHeight() {
         return maxHeight;
+    }
+
+    /** {@link #peakBreath}: the breathing grows over the build-up, the rest comes and goes too fast to bake ahead. */
+    @Override
+    public double ahead(double x, double y, double z) {
+        return peakBreath(x, y, z);
     }
 
     /**
@@ -162,8 +192,48 @@ public final class AwakeningField {
     }
 
     /** The step rings of this frame, as given. */
+    @Override
     public List<Ring> rings() {
         return rings;
+    }
+
+    /** The zone's centre. */
+    @Override
+    public Vec3 scanCenter() {
+        return center;
+    }
+
+    /** {@link #reach}. */
+    @Override
+    public double scanRadius() {
+        return reach();
+    }
+
+    /** {@link AwakeningParams#verticalReach}. */
+    @Override
+    public int scanHeight() {
+        return params.verticalReach();
+    }
+
+    /** The zone stays where it started. */
+    @Override
+    public boolean scanFollows() {
+        return false;
+    }
+
+    /** The rings run at their full height everywhere. */
+    @Override
+    public double ringShare(double x, double y, double z) {
+        return 1;
+    }
+
+    /**
+     * The hill while it rises or settles ({@code hillSpeed != 0}), as far out as it stands at {@code 1/e} of its peak
+     * ({@link AwakeningParams#hillSigma}); none otherwise.
+     */
+    @Override
+    public List<Heave> heaves() {
+        return heaves;
     }
 
     private static void requireNonNegative(String name, double value) {

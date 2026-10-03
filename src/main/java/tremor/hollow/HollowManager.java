@@ -42,6 +42,7 @@ import net.neoforged.neoforge.event.tick.ServerTickEvent;
 import net.neoforged.neoforge.network.PacketDistributor;
 import tremor.Tremor;
 import tremor.config.TremorConfig;
+import tremor.hollow.level.HollowLevels;
 import tremor.network.TremorBlackoutPayload;
 
 import java.util.ArrayList;
@@ -65,16 +66,19 @@ import java.util.function.IntUnaryOperator;
  *   <li>COPYING: the screen fades to black; the slot's chunks load (a ticket keeps them loaded until the event is
  *   over), the slot is emptied (normally it is: this only removes what a crash may have left there) and the terrain
  *   is copied into it, with a closing shell around, a piece at a time within {@code hollow.budgetMillis} per tick
- *   ({@link TerrainCopier}); once the light engine is through and the fade is over, the player is moved to the same
- *   place and rotation in the copy;</li>
+ *   ({@link TerrainCopier}); once the light engine is through, the level inside is prepared (the cave, the node and
+ *   the way to it, {@link HollowLevels#prepare}) and the fade is over, the player is moved to the same place and
+ *   rotation in the copy;</li>
  *   <li>ENTERING: the screen stays black until the client has the terrain around the player for
  *   {@code hollow.settleTicks} ticks, then fades in;</li>
- *   <li>INSIDE: until {@link #leave} (stage 4c plays the level here);</li>
+ *   <li>INSIDE: until {@link #leave}; the level is played every tick the player is alive in it
+ *   ({@link HollowLevels#tick});</li>
  *   <li>LEAVING and RETURNING: the same in reverse, back to the origin (or another exit), next to it if somebody built
  *   over it meanwhile ({@link StandSpots});</li>
  *   <li>CLEARING: what is the player's in the slot (the blocks the player placed, items, experience, pets) is given
- *   back at the exit, or where the player was swallowed if the player died; then the slot (the copy's chunk columns
- *   and a margin, full height) is emptied the same way, and the event is gone and the slot free for the next one.</li>
+ *   back at the exit, or where the player was swallowed if the player died (the bottom of the sinkhole after a
+ *   defeat, {@link #setDeathDrops}); then the slot (the copy's chunk columns and a margin, full height) is emptied
+ *   the same way, and the event is gone and the slot free for the next one.</li>
  * </ol>
  * Safety (SPEC 9: after leaving the game or a crash inside the hollow the player is back at the origin on the next
  * login; others cannot follow): a player who dies in the hollow, leaves it by other means or logs out ends the event,
@@ -221,6 +225,46 @@ public final class HollowManager {
     }
 
     /**
+     * Records how the level inside the hollow ended for {@code player} (SPEC 9 "Исходы"): from now on the event keeps
+     * that outcome ({@link HollowEvent#outcome}, saved), whatever ends it afterwards. Getting the player out is up to
+     * the caller ({@link #leave}); a defeat may kill the player in here instead. Once per event.
+     *
+     * @throws Refusal if the player is in no event, is not alive in the copy (the event entering or inside), or the
+     *                 outcome of the event is decided already
+     */
+    public static HollowEvent decide(ServerPlayer player, HollowOutcome outcome) throws Refusal {
+        State s = require(player.server);
+        String name = player.getGameProfile().getName();
+        HollowEvent event = s.data.active(player.getUUID());
+        if (event == null) {
+            throw new Refusal(name + " is in no hollow event");
+        }
+        if (event.outcome() != null) {
+            throw new Refusal("The event of " + name + " is decided already (" + event.outcome().id() + ")");
+        }
+        if (event.phase() != HollowEvent.Phase.ENTERING && event.phase() != HollowEvent.Phase.INSIDE
+                || !HollowDimension.is(player.level()) || !player.isAlive()) {
+            throw new Refusal(name + " is not inside the hollow (the event is " + event.phase().id() + ")");
+        }
+        event.setOutcome(outcome);
+        s.data.setDirty();
+        Tremor.LOGGER.info("Hollow: {} decided ({})", event, outcome.id());
+        return event;
+    }
+
+    /**
+     * From now on whatever of the player of {@code event} is left after a death in the event goes to {@code at} (SPEC
+     * 9: the bottom of the sinkhole after a defeat) instead of the place the player was swallowed: the death drops and
+     * what is left in the slot ({@link HollowEvent#deathDrops}). Saved with the event.
+     */
+    public static void setDeathDrops(HollowEvent event, Origin at) {
+        event.setDeathDrops(at);
+        if (state != null && state.data != null) {
+            state.data.setDirty();
+        }
+    }
+
+    /**
      * Ends every event at once (SPEC 14.1, {@code /tremor restore}): players inside are moved back to their exits
      * without a fade (offline ones on their next login), anybody else in the hollow on the next tick, and all slots
      * are cleared. Returns the number of events ended.
@@ -314,8 +358,9 @@ public final class HollowManager {
     /**
      * Where things of {@code player}, who is in the hollow, go instead of staying there (death drops, what is left in
      * the crafting grid at a logout, a pet): where the player comes back out, or, for a player who died in an event,
-     * the place the player was swallowed (SPEC 9: the things lie there); its chunk is loaded so nothing put there is
-     * lost. Null if the player is not in the hollow or nothing is known.
+     * the place the player was swallowed (SPEC 9: the things lie there), the bottom of the sinkhole after a defeat
+     * ({@link HollowEvent#deathDrops}); its chunk is loaded so nothing put there is lost. Null if the player is not in
+     * the hollow or nothing is known.
      */
     static DropSite dropSite(ServerPlayer player) {
         State s = HollowDimension.is(player.level()) ? state(player.server) : null;
@@ -324,7 +369,7 @@ public final class HollowManager {
         }
         HollowEvent event = s.data.active(player.getUUID());
         Origin to = event == null || !event.phase().inHollow() ? s.wayOut(player)
-                : player.isAlive() ? event.exit() : event.origin();
+                : player.isAlive() ? event.exit() : event.deathDrops();
         return to == null ? null : s.site(to);
     }
 
@@ -638,6 +683,10 @@ public final class HollowManager {
                     event.offsetX(), event.offsetZ(), event.copyStats))) {
                 return;
             }
+            // The level inside the copy (stage 4c): the cave, the node and the way to it, before the player is in.
+            if (!HollowLevels.prepare(hollow, event)) {
+                return;
+            }
             if (now - event.phaseStartTick < fadeTicks()) {
                 return;
             }
@@ -695,8 +744,8 @@ public final class HollowManager {
             ServerPlayer player = player(event);
             if (player == null) {
                 logout(event, now);
-            } else {
-                stillInside(event, player, now);
+            } else if (stillInside(event, player, now) && player.isAlive()) {
+                HollowLevels.tick(event, player);
             }
         }
 

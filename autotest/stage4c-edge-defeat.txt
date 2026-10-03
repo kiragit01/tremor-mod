@@ -1,0 +1,95 @@
+# Stage 4c (SPEC 9): escape through the edge of the hollow, then defeat. Part 1: swallowed at the platform centre, the
+# player runs to the edge of the copy before it closes and comes out at the matching real place. Part 2: swallowed
+# again, the player stands still: the soft ground pulls them in; they die ("поглотила земля") and a real sinkhole is
+# left at the swallow point with their items at its bottom. Part 3: the soft variant (no death).
+# Uses the sky platform of stage3-aggression.txt.
+# Run: gradlew runClientAutotest -Ptremor_autotest_script=stage4c-edge-defeat.txt
+
+waitchunks
+cmd gamemode spectator
+cmd time set noon
+cmd tremor despawn
+cmd kill @e[type=!player]
+cmd tp @s 300.5 201.0 300.5 270 10
+wait 40
+waitchunks
+# Repair the platform: earlier runs leave sinkholes in it
+cmd fill 220 198 220 380 198 380 minecraft:stone
+cmd fill 220 199 220 380 199 380 minecraft:stone
+cmd fill 220 200 220 380 200 380 minecraft:stone
+cmd fill 220 201 220 380 201 380 minecraft:air
+cmd kill @e[type=item]
+cmd tp @s 300.5 201.0 300.5 270 10
+cmd gamemode survival
+cmd effect clear @s
+cmd effect give @s minecraft:night_vision infinite 0 true
+cmd effect give @s minecraft:instant_health 1 4 true
+cmd clear @s
+hud off
+config awakening.buildupSeconds 3
+
+# ---- 1. Escape through the edge ----
+log --- 1. edge escape
+cmd tremor awaken
+wait 220
+waitchunks
+cmd data get entity @s Dimension
+cmd tremor hollow status
+cmd tp @s ~28 201.0 ~ 270 10
+wait 5
+hold forward 25
+wait 80
+waitchunks
+cmd data get entity @s Dimension
+cmd data get entity @s Pos
+cmd tremor info
+screenshot 10_after_edge_escape
+
+# ---- 2. Defeat: standing still, pulled in; a real sinkhole with the items at its bottom ----
+log --- 2. defeat
+cmd tp @s 300.5 201.0 300.5 270 10
+cmd give @s minecraft:diamond 7
+cmd give @s minecraft:iron_sword
+wait 20
+cmd tremor awaken
+wait 220
+waitchunks
+cmd data get entity @s Dimension
+wait 60
+cmd tremor hollow status
+screenshot 20_sinking_a
+wait 60
+cmd tremor hollow status
+screenshot 21_sinking_b
+wait 200
+cmd tremor info
+wait 60
+waitchunks
+cmd gamemode spectator
+cmd tp @s 300.5 208.0 300.5 0 90
+wait 40
+waitchunks
+screenshot 22_sinkhole_from_above
+cmd execute positioned 300.5 199 300.5 run data get entity @e[type=item,limit=1,sort=nearest,distance=..12] Item
+cmd tp @s 306.5 203.0 300.5 90 35
+wait 10
+screenshot 23_sinkhole_side
+
+# ---- 3. The soft variant: the player comes out alive at the bottom of the sinkhole ----
+log --- 3. defeat, soft variant
+config awakening.lethal false
+cmd tp @s 330.5 201.0 330.5 270 10
+cmd gamemode survival
+cmd effect give @s minecraft:instant_health 1 4 true
+wait 20
+cmd tremor awaken
+wait 220
+waitchunks
+wait 300
+cmd tremor info
+cmd data get entity @s Dimension
+cmd data get entity @s Pos
+cmd data get entity @s Health
+screenshot 30_soft_outcome
+hud on
+quit

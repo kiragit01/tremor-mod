@@ -25,6 +25,7 @@ import net.neoforged.neoforge.client.event.RenderLevelStageEvent;
 import net.neoforged.neoforge.client.model.data.ModelData;
 import tremor.client.ClientTremor;
 import tremor.client.awakening.AwakeningGround;
+import tremor.client.hollow.HollowGround;
 import tremor.config.TremorConfig;
 import tremor.core.VoxelView;
 import tremor.core.deform.SurfaceCollector;
@@ -35,6 +36,7 @@ import tremor.core.shape.AwakeningField;
 import tremor.core.shape.BumpFrame;
 import tremor.core.shape.BumpParams;
 import tremor.core.shape.BumpShape;
+import tremor.core.shape.GroundField;
 import tremor.core.shape.Ripple;
 import tremor.core.shape.RippleParams;
 import tremor.core.voxel.VoxelCache;
@@ -56,8 +58,10 @@ import java.util.SequencedMap;
  * interpolates it, and, while one runs, the ground ripple of an ALERT freeze (SPEC 8) around it ({@link HeightField}),
  * fading with the bump ({@link Ripple#visibility}). While an Awakening runs in the real world (SPEC 9, phase 1), the
  * ground of its whole zone moves too ({@link AwakeningGround}): it breathes, rings run out from steps, a hill rises
- * under the swallowed player; its height adds to the bump's where both cover a voxel, and is drawn without the entity
- * (sunk during the event) as well.
+ * under the swallowed player, and after a victory in the hollow the hill the player comes out of rises and settles;
+ * its height adds to the bump's where both cover a voxel, and is drawn without the entity (sunk during the event) as
+ * well. Inside the hollow (SPEC 9, phase 2) the walls and the floor around the player heave and the node's rings run
+ * over them ({@link HollowGround}), drawn the same way as the ground of a zone ({@link GroundField}).
  * <p>
  * The bump's voxels are re-collected only when the bump has moved or turned noticeably (or every few ticks), over a
  * client-side {@link VoxelCache} of the level, and only as far out as the height can reach the render threshold
@@ -72,8 +76,9 @@ import java.util.SequencedMap;
  * terrain passes so that they blend correctly (and survive Fabulous graphics, which clears its translucent target
  * before the translucent terrain).
  * <p>
- * Once per game tick a running ripple and every step ring also kick up a little dust of the ground along their fronts
- * ({@link #spawnDust}, {@link #spawnRingDust}), from the collected voxels.
+ * Once per game tick a running ripple and every ring also kick up a little dust of the ground along their fronts
+ * ({@link #spawnDust}, {@link #spawnRingDust}), from the collected voxels, and so does a rising or settling hill from
+ * its flanks ({@link #spawnHeaveDust}).
  */
 public final class DeformationRenderer {
     private static final List<RenderType> OPAQUE = List.of(RenderType.solid(), RenderType.cutoutMipped(), RenderType.cutout());
@@ -251,6 +256,7 @@ public final class DeformationRenderer {
         voxels.clear();
         zone.clear();
         AwakeningGround.reset();
+        HollowGround.reset();
         source.clear();
         boundLevel = null;
         collected = false;
@@ -320,7 +326,7 @@ public final class DeformationRenderer {
         camY = cam.y;
         camZ = cam.z;
         HeightField bump = bump(level, partialTick, tick);
-        AwakeningField ground = ground(level, (double) tick + partialTick, tick);
+        GroundField ground = ground(level, (double) tick + partialTick, partialTick, tick);
         if (bump == null && ground == null) {
             return false;
         }
@@ -349,7 +355,8 @@ public final class DeformationRenderer {
         bakePending(level, ground);
         boolean bumpRipple = bump != null && bump.ripple() != null;
         boolean rings = ground != null && !ground.rings().isEmpty();
-        if ((bumpRipple || rings) && tick != dustTick && TremorConfig.CLIENT.rippleDust.get()) {
+        boolean heaves = ground != null && !ground.heaves().isEmpty();
+        if ((bumpRipple || rings || heaves) && tick != dustTick && TremorConfig.CLIENT.rippleDust.get()) {
             // Once per game tick (per frame below 20 fps); none while the game time stands still, like the ripples.
             dustTick = tick;
             if (bumpRipple) {
@@ -357,6 +364,9 @@ public final class DeformationRenderer {
             }
             if (rings) {
                 spawnRingDust(level, ground);
+            }
+            if (heaves) {
+                spawnHeaveDust(level, ground);
             }
         }
         frameWarp = TremorConfig.CLIENT.style.get() == TremorConfig.Style.WARP;
@@ -425,13 +435,17 @@ public final class DeformationRenderer {
     }
 
     /**
-     * The ground of the Awakening this frame ({@link AwakeningGround}) with its zone scanned ({@link ZoneColumns});
-     * null if there is none, it is too far from the camera, or the first scan of its zone is not complete yet.
+     * The ground of the hollow around the player this frame ({@link HollowGround}), or else that of the Awakening
+     * ({@link AwakeningGround}), with its region scanned ({@link ZoneColumns}); null if there is none, it is too far
+     * from the camera, or the first scan of its region is not complete yet.
      *
      * @param gameTime the level's game time plus the partial tick
      */
-    private static AwakeningField ground(ClientLevel level, double gameTime, long tick) {
-        AwakeningField ground = AwakeningGround.frame(gameTime);
+    private static GroundField ground(ClientLevel level, double gameTime, float partialTick, long tick) {
+        GroundField ground = HollowGround.frame(gameTime, partialTick);
+        if (ground == null) {
+            ground = AwakeningGround.frame(gameTime);
+        }
         if (ground == null || !nearCamera(ground)) {
             zone.release();
             return null;
@@ -440,13 +454,13 @@ public final class DeformationRenderer {
         return zone.update(ground, tick, camX, camY, camZ) ? ground : null;
     }
 
-    /** Whether the zone's ground can lie within the deformation draw distance of the camera. */
-    private static boolean nearCamera(AwakeningField ground) {
+    /** Whether the ground's region can lie within the deformation draw distance of the camera. */
+    private static boolean nearCamera(GroundField ground) {
         double range = TremorConfig.CLIENT.renderDistance.get();
-        Vec3 c = ground.center();
-        double dx = c.x() - camX, dz = c.z() - camZ, across = range + ground.reach();
+        Vec3 c = ground.scanCenter();
+        double dx = c.x() - camX, dz = c.z() - camZ, across = range + ground.scanRadius();
         return dx * dx + dz * dz <= across * across
-                && Math.abs(c.y() - camY) <= range + ground.params().verticalReach();
+                && Math.abs(c.y() - camY) <= range + ground.scanHeight();
     }
 
     /**
@@ -502,7 +516,7 @@ public final class DeformationRenderer {
     }
 
     /** Warp style: the height at the 8 corners of the voxel, from the fields that cover it this frame. */
-    private static void warpCorners(Column col, HeightField bump, AwakeningField ground) {
+    private static void warpCorners(Column col, HeightField bump, GroundField ground) {
         for (int k = 0; k < 8; k++) {
             double x = col.x + (k & 1), y = col.y + (k >> 1 & 1), z = col.z + (k >> 2 & 1);
             double h = 0;
@@ -541,11 +555,13 @@ public final class DeformationRenderer {
     }
 
     /**
-     * The same dust along the fronts of the step rings of an Awakening (SPEC 9), {@link RippleDust#count} particles
-     * per ring on the zone's voxels on its front sphere ({@link ZoneColumns#front}). All the rings running at once kick
-     * up no more than one ripple at its densest ({@link RippleDust#MAX_PER_TICK}) between them.
+     * The same dust along the fronts of the step rings of an Awakening and of the node's rings in the hollow (SPEC 9),
+     * {@link RippleDust#count} particles per ring on the zone's voxels on its front sphere ({@link ZoneColumns#front}),
+     * but only on the part of the front where the ground shows its rings ({@link GroundField#ringShare}: around the
+     * player in the hollow) and only that part's share of them ({@link RippleDust#keep}). All the rings running at once
+     * kick up no more than one ripple at its densest ({@link RippleDust#MAX_PER_TICK}) between them.
      */
-    private static void spawnRingDust(ClientLevel level, AwakeningField ground) {
+    private static void spawnRingDust(ClientLevel level, GroundField ground) {
         double share = dustShare(), total = 0;
         for (AwakeningField.Ring ring : ground.rings()) {
             total += Math.min(RippleDust.rate(ring.params(), ring.ageSeconds()), RippleDust.MAX_PER_TICK);
@@ -557,6 +573,44 @@ public final class DeformationRenderer {
             int count = RippleDust.count(ring.params(), ring.ageSeconds(), share, level.random.nextDouble());
             if (count > 0) {
                 zone.front(ring.origin(), RippleDust.front(ring.params(), ring.ageSeconds()), dustFront);
+                kickUpDust(level, keepShown(level, ground, count));
+            }
+        }
+    }
+
+    /**
+     * Drops the columns of {@link #dustFront} where the ground shows little of its rings
+     * ({@link GroundField#ringShare} below {@link RippleDust#SHOWN_SHARE}) and returns the share of {@code count}
+     * that falls on the rest; {@code count} as it is if every column stays.
+     */
+    private static int keepShown(ClientLevel level, GroundField ground, int count) {
+        int total = dustFront.size(), kept = 0;
+        for (int i = 0; i < total; i++) {
+            Column col = dustFront.get(i);
+            if (ground.ringShare(col.cx, col.cy, col.cz) >= RippleDust.SHOWN_SHARE) {
+                dustFront.set(kept++, col);
+            }
+        }
+        if (kept == total) {
+            return count;
+        }
+        while (dustFront.size() > kept) {
+            dustFront.removeLast();
+        }
+        return RippleDust.keep(count, kept, total, level.random.nextDouble());
+    }
+
+    /**
+     * Dust shaken off a rising or settling hill (after a victory in the hollow, SPEC 9 "Победа"):
+     * {@link RippleDust#heaveCount} particles per tick on the zone's voxels within its radius
+     * ({@link ZoneColumns#within}), as many as a ripple at its densest at most.
+     */
+    private static void spawnHeaveDust(ClientLevel level, GroundField ground) {
+        double share = dustShare();
+        for (GroundField.Heave heave : ground.heaves()) {
+            int count = RippleDust.heaveCount(heave.speed(), heave.radius(), share, level.random.nextDouble());
+            if (count > 0) {
+                zone.within(heave.origin(), heave.radius(), dustFront);
                 kickUpDust(level, count);
             }
         }
@@ -721,10 +775,10 @@ public final class DeformationRenderer {
 
     /**
      * Bakes this frame's newly raised columns, the highest first and at most {@link #MAX_BAKES_PER_FRAME}; the rest
-     * are left unbaked (and undrawn) until a later frame. Bakes to spare go to the zone's ground that the breathing is
-     * going to raise ({@link ZoneColumns#prebake}), nearest first.
+     * are left unbaked (and undrawn) until a later frame. Bakes to spare go to the zone's ground that is going to rise
+     * ({@link ZoneColumns#prebake}), nearest first.
      */
-    private static void bakePending(ClientLevel level, AwakeningField ground) {
+    private static void bakePending(ClientLevel level, GroundField ground) {
         if (pending.size() > MAX_BAKES_PER_FRAME) {
             pending.sort(HIGHEST_FIRST);
             pending.subList(MAX_BAKES_PER_FRAME, pending.size()).clear();

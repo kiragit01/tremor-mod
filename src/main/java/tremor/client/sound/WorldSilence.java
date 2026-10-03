@@ -18,6 +18,7 @@ import net.neoforged.neoforge.client.event.sound.PlaySoundSourceEvent;
 import net.neoforged.neoforge.client.event.sound.PlayStreamingSourceEvent;
 import net.neoforged.neoforge.event.level.LevelEvent;
 import tremor.Tremor;
+import tremor.client.hollow.HollowSink;
 import tremor.config.TremorConfig;
 
 import java.lang.reflect.Field;
@@ -33,8 +34,11 @@ import java.util.Set;
  * приглушаются все звуки мира (мобы, погода, музыка), остаётся низкий гул и сердцебиение"). While the player hears the
  * Awakening ({@link AwakeningSounds#heard}), every sound of the world fades to the configured floor
  * ({@code sound.silenceFloor}) over {@link AwakeningTone#SILENCE_FADE_SECONDS}, and comes back as slowly once they no
- * longer do; {@link AwakeningTone#silenceGain} is the curve. The mod's own sounds (the hum and heartbeat that remain,
- * the entity's) and those of the menu ({@link SoundSource#MASTER}) are left alone. No sound is kept from playing.
+ * longer do; {@link AwakeningTone#silenceGain} is the curve. Inside the hollow (SPEC 9 phase 2, {@link HollowSounds})
+ * the world is at the floor from the start (the player comes from the silence of the build-up, and the move stopped
+ * every sound), and while the soft ground pulls the player in it is muffled further ({@link HollowTone#muffle}). The
+ * mod's own sounds (the hum and heartbeat that remain, the entity's) and those of the menu ({@link SoundSource#MASTER})
+ * are left alone. No sound is kept from playing.
  * <ul>
  *   <li><b>Sounds that do not tick</b> (nearly all: mobs, steps, blocks, weather, cave sounds, records, note blocks,
  *   music): a sound that starts while the silence is on starts at the volume the engine gave it times the gain of the
@@ -65,7 +69,7 @@ public final class WorldSilence {
     private static final String CHANNELS_FIELD = "instanceToChannel";
 
     private static ClientLevel owner;
-    /** Whether the local player hears an Awakening now, so the world is to be silent. */
+    /** Whether the local player hears an Awakening (or is in a hollow) now, so the world is to be silent. */
     private static boolean silenced;
     /** Depth of the silence, 0..1 ({@link AwakeningTone#silenceDepth}). */
     private static double depth;
@@ -107,19 +111,21 @@ public final class WorldSilence {
             owner = mc.level;
             reset();
         }
-        boolean heard = AwakeningSounds.heard(mc) != null;
+        boolean hollow = HollowSounds.heard(mc) != null;
+        boolean heard = hollow || AwakeningSounds.heard(mc) != null;
         double floor = heard || depth > 0 ? TremorConfig.CLIENT.silenceFloor.get() : 1;
         silenced = heard && floor < 1;
         if (!mc.isPaused()) {
-            depth = AwakeningTone.silenceDepth(depth, silenced, TICK_SECONDS);
+            depth = hollow && silenced ? 1 : AwakeningTone.silenceDepth(depth, silenced, TICK_SECONDS);
         }
-        gain = (float) AwakeningTone.silenceGain(depth, floor);
-        on = silenced || depth > 0;
+        double muffle = hollow ? HollowTone.muffle(HollowSink.now()) : 1;
+        gain = (float) (AwakeningTone.silenceGain(depth, floor) * muffle);
+        on = silenced || depth > 0 || gain < 1;
         if (on || channelsTurned || !adopted.isEmpty()) {
             Map<SoundInstance, ChannelAccess.ChannelHandle> channels = channels();
             if (channels != null) {
                 turnDown(channels);
-                channelsTurned = depth > 0;
+                channelsTurned = gain < 1;
                 adopted.removeIf(sound -> !channels.containsKey(sound));
                 if (on && !mc.isPaused()) {
                     adopt(mc.getSoundManager(), channels);

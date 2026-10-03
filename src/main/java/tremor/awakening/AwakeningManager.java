@@ -50,8 +50,9 @@ import java.util.UUID;
  *   now, not a bump. Every end makes it go deep ({@link TremorManager#goDeep}): removed, natural spawns of the
  *   dimension paused for {@code awakening.cooldownSeconds}. Awakenings are not saved: an entity loaded in AWAKENING goes deep at once
  *   ({@link TremorManager#onLevelLoad}).</li>
- *   <li><b>The hollow</b>: a swallowed target's Awakening ends with the target's event in the hollow
- *   ({@link #onHollowEnded}, registered with {@link HollowManager#addEndListener}).</li>
+ *   <li><b>The hollow</b>: a swallowed target's Awakening ends by the outcome of the level in there
+ *   ({@link Outcomes}: a victory makes it EMERGING first, a defeat ends it once carried out) or with the target's
+ *   event in the hollow ({@link #onHollowEnded}, registered with {@link HollowManager#addEndListener}).</li>
  *   <li><b>Players</b>: one who logs out, changes dimension or respawns has dropped the state on the client; it is
  *   sent again once the player is near. A target who logs out before being swallowed ends it at once (before the
  *   player is saved, without the Darkness); once swallowed, the hollow ends its event, and that ends it. A target who
@@ -239,17 +240,44 @@ public final class AwakeningManager {
     }
 
     /**
-     * The player part of an event of the hollow is over: an Awakening whose target it swallowed ends with it. Before
-     * the move into the copy that is a cancellation (the player died, logged out or left the dimension while it got
-     * dark, or the move failed), afterwards {@link Awakening.End#HOLLOW_OVER}.
+     * The player part of an event of the hollow is over: an Awakening whose target it swallowed ends with it
+     * ({@link AwakeningRules#afterHollow}), unless it is EMERGING after a victory (that ends by itself). An outcome
+     * decided in the hollow ends it as that (an escape through the edge, normally; also a defeat whose sinkhole was
+     * still being dug, the target having logged out meanwhile); else, before the move into the copy, it is a
+     * cancellation (the player died, logged out or left the dimension while it got dark, or the move failed), and
+     * afterwards {@link Awakening.End#HOLLOW_OVER}.
      */
     public static void onHollowEnded(HollowEvent event, HollowEvent.End why) {
-        for (LevelState state : List.copyOf(LEVELS.values())) {
-            Awakening awakening = state.awakening;
-            if (awakening != null && awakening.hollowEvent() == event) {
-                end(awakening, awakening.phase() == TremorAwakeningPayload.Phase.HOLLOW ? Awakening.End.HOLLOW_OVER
-                        : Awakening.End.CANCELLED, "the event in the hollow ended (" + why.id() + ")");
-            }
+        Awakening awakening = swallowedBy(event);
+        if (awakening != null && awakening.phase() != TremorAwakeningPayload.Phase.EMERGING) {
+            end(awakening, AwakeningRules.afterHollow(event.outcome(),
+                    awakening.phase() == TremorAwakeningPayload.Phase.HOLLOW), "the event in the hollow ended ("
+                    + why.id() + (event.outcome() == null ? "" : ", " + event.outcome().id()) + ")");
+        }
+    }
+
+    /**
+     * The target of the Awakening that swallowed the player of {@code event} destroyed the node ({@link Outcomes}):
+     * it goes EMERGING at the swallow point ({@link Awakening#emerge}). A no-op for an event no Awakening started
+     * ({@code /tremor hollow enter}).
+     */
+    static void victory(HollowEvent event) {
+        Awakening awakening = swallowedBy(event);
+        if (awakening != null) {
+            Vec3 at = new Vec3(event.origin().position().x, event.origin().position().y,
+                    event.origin().position().z);
+            awakening.emerge(at, awakening.level.getGameTime());
+        }
+    }
+
+    /**
+     * A defeat was carried out on the player of {@code event} ({@link Outcomes}): the Awakening that swallowed the
+     * player ends as {@link Awakening.End#DEFEAT}; a no-op if there is none (any more).
+     */
+    static void defeated(HollowEvent event, String detail) {
+        Awakening awakening = swallowedBy(event);
+        if (awakening != null) {
+            end(awakening, Awakening.End.DEFEAT, detail);
         }
     }
 
@@ -423,6 +451,16 @@ public final class AwakeningManager {
     private static Awakening running(ServerLevel level) {
         LevelState state = state(level, false);
         return state == null ? null : state.awakening;
+    }
+
+    /** The running Awakening that swallowed the player of {@code event} (the event is its), in any level, or null. */
+    private static Awakening swallowedBy(HollowEvent event) {
+        for (LevelState state : LEVELS.values()) {
+            if (state.awakening != null && state.awakening.hollowEvent() == event) {
+                return state.awakening;
+            }
+        }
+        return null;
     }
 
     /** The running Awakening whose target the player is, in any level, or null. */

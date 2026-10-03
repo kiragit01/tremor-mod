@@ -1,0 +1,60 @@
+# Stage 4c (SPEC 9): victory. The player is swallowed in a 1x2 tunnel: the hollow widens a cave around them, places
+# the node at the end of a dug way, the player breaks it (held attack with a pickaxe) and comes out of a hill at the
+# swallow point. Uses the sky platform of stage3-aggression.txt (a stone block with the tunnel is built on it).
+# Run: gradlew runClientAutotest -Ptremor_autotest_script=stage4c-victory.txt
+
+waitchunks
+cmd gamemode spectator
+cmd time set noon
+cmd tremor despawn
+cmd kill @e[type=!player]
+cmd tp @s 255.5 212.0 255.5 0 20
+wait 40
+waitchunks
+# A block of stone on the platform with a closed 1x2 tunnel through it
+cmd fill 240 201 240 270 215 270 minecraft:stone
+cmd fill 245 209 255 265 210 255 minecraft:air
+cmd tp @s 255.5 209.0 255.5 90 10
+cmd gamemode survival
+cmd effect clear @s
+cmd effect give @s minecraft:night_vision infinite 0 true
+cmd effect give @s minecraft:instant_health 1 4 true
+cmd clear @s
+cmd give @s minecraft:iron_pickaxe
+wait 20
+hud off
+screenshot 10_tunnel_real
+
+log --- swallowed in the tunnel
+config awakening.buildupSeconds 3
+cmd tremor awaken
+wait 220
+waitchunks
+cmd data get entity @s Dimension
+cmd tremor hollow status
+screenshot 20_hollow_widened
+look 270 10
+wait 5
+screenshot 21_hollow_widened_back
+
+log --- to the node, break it
+cmd tremor hollow tonode
+wait 10
+screenshot 30_node
+hold attack 120
+wait 10
+cmd tremor info
+view back
+wait 10
+screenshot 40_emerging_a
+wait 20
+screenshot 41_emerging_b
+wait 30
+screenshot 42_emerging_c
+view first
+wait 60
+cmd data get entity @s Dimension
+cmd data get entity @s Pos
+cmd tremor info
+hud on
+quit

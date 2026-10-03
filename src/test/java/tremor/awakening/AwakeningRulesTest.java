@@ -10,8 +10,11 @@ import static tremor.awakening.AwakeningRules.Cell.UNSAFE;
 
 import org.junit.jupiter.api.Test;
 import tremor.core.math.Vec3;
+import tremor.hollow.HollowOutcome;
 
+import java.util.EnumSet;
 import java.util.List;
+import java.util.Set;
 import java.util.UUID;
 import java.util.function.IntFunction;
 
@@ -230,5 +233,33 @@ class AwakeningRulesTest {
         assertFalse(AwakeningRules.ownDarkness(-1, end, 1050));
         // Long after the one given ended.
         assertFalse(AwakeningRules.ownDarkness(40, end, 2000));
+    }
+
+    // ---- end after the hollow ----
+
+    @Test
+    void anOutcomeEndsTheAwakeningAsItself() {
+        assertEquals(Awakening.End.VICTORY, AwakeningRules.afterHollow(HollowOutcome.VICTORY, true));
+        assertEquals(Awakening.End.EDGE_ESCAPED, AwakeningRules.afterHollow(HollowOutcome.EDGE_ESCAPE, true));
+        assertEquals(Awakening.End.DEFEAT, AwakeningRules.afterHollow(HollowOutcome.DEFEAT, true));
+        // Decided while the Awakening had not yet seen the move into the copy (the same tick).
+        assertEquals(Awakening.End.DEFEAT, AwakeningRules.afterHollow(HollowOutcome.DEFEAT, false));
+    }
+
+    @Test
+    void withoutAnOutcomeTheHollowIsOverOrTheSwallowingFailed() {
+        assertEquals(Awakening.End.HOLLOW_OVER, AwakeningRules.afterHollow(null, true));
+        assertEquals(Awakening.End.CANCELLED, AwakeningRules.afterHollow(null, false));
+    }
+
+    @Test
+    void everyOutcomeHasItsOwnEnd() {
+        Set<Awakening.End> ends = EnumSet.noneOf(Awakening.End.class);
+        for (HollowOutcome outcome : HollowOutcome.values()) {
+            ends.add(AwakeningRules.afterHollow(outcome, true));
+        }
+        assertEquals(HollowOutcome.values().length, ends.size());
+        assertFalse(ends.contains(Awakening.End.HOLLOW_OVER));
+        assertFalse(ends.contains(Awakening.End.CANCELLED));
     }
 }

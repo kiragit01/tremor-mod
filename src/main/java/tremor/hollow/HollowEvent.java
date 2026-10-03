@@ -26,9 +26,10 @@ import java.util.concurrent.CompletableFuture;
  * by a whole number of chunks horizontally ({@link #offsetX()}, {@link #offsetZ()}; y is the same), so a position in
  * the copy and the real one differ only by that offset.
  * <p>
- * The identity, the origin, the slot, the box, the phase, the exit, why it ended and the blocks the player placed are
- * saved ({@link HollowSavedData}); the progress of the running phase is not: an event loaded after a restart only has
- * its slot cleared, the player's blocks given back first ({@link HollowManager}).
+ * The identity, the origin, the slot, the box, the phase, the exit, why it ended, its outcome, where the things of the
+ * player go after a death and the blocks the player placed are saved ({@link HollowSavedData}); the progress of the
+ * running phase is not: an event loaded after a restart only has its slot cleared, the player's blocks given back
+ * first ({@link HollowManager}).
  */
 public final class HollowEvent {
 
@@ -99,6 +100,10 @@ public final class HollowEvent {
     private Phase phase;
     private End end;
     private Origin exit;
+    /** How the level ended for the player, once decided ({@link HollowManager#decide}); null before. */
+    private HollowOutcome outcome;
+    /** Where the things of the player go if the player dies in the event ({@link #deathDrops}); null: the origin. */
+    private Origin deathDrops;
     /**
      * The blocks the player placed in the slot (SPEC 12: the player's own, not copies), by position in the hollow
      * ({@link BlockPos#asLong}), with the block placed there.
@@ -158,12 +163,33 @@ public final class HollowEvent {
         this.exit = exit;
     }
 
+    /** How the level inside the hollow ended for the player (SPEC 9 "Исходы"), once decided; null before. */
+    public HollowOutcome outcome() {
+        return outcome;
+    }
+
+    void setOutcome(HollowOutcome outcome) {
+        this.outcome = outcome;
+    }
+
     /**
-     * Where the player's things left in the slot go when the event is over: to the exit, back with the player, or to
-     * the place the player was swallowed if the player died (SPEC 9: the things lie there).
+     * Where the things of the player go if the player dies in the event: the bottom of the sinkhole after a defeat
+     * ({@link HollowManager#setDeathDrops}), else the place the player was swallowed (SPEC 9: the things lie there).
+     */
+    public Origin deathDrops() {
+        return deathDrops != null ? deathDrops : origin;
+    }
+
+    void setDeathDrops(Origin deathDrops) {
+        this.deathDrops = deathDrops;
+    }
+
+    /**
+     * Where the player's things left in the slot go when the event is over: to the exit, back with the player, or
+     * where the things of a player who died go ({@link #deathDrops}) if the player died.
      */
     Origin dropOrigin() {
-        return end == End.DIED ? origin : exit();
+        return end == End.DIED ? deathDrops() : exit();
     }
 
     /** Index of the slot ({@link SlotLayout}), on the layout around the world border's middle at the start. */
@@ -303,6 +329,12 @@ public final class HollowEvent {
         if (end != null) {
             tag.putString("end", end.name());
         }
+        if (outcome != null) {
+            tag.putString("outcome", outcome.name());
+        }
+        if (deathDrops != null) {
+            tag.put("deathDrops", deathDrops.save());
+        }
         if (!placed.isEmpty()) {
             long[] positions = new long[placed.size()];
             ListTag blocks = new ListTag();
@@ -334,6 +366,14 @@ public final class HollowEvent {
             if (end.name().equals(tag.getString("end"))) {
                 event.end = end;
             }
+        }
+        for (HollowOutcome outcome : HollowOutcome.values()) {
+            if (outcome.name().equals(tag.getString("outcome"))) {
+                event.outcome = outcome;
+            }
+        }
+        if (tag.contains("deathDrops", Tag.TAG_COMPOUND)) {
+            event.deathDrops = Origin.load(tag.getCompound("deathDrops"));
         }
         long[] positions = tag.getLongArray("placed");
         ListTag blocks = tag.getList("placedBlocks", Tag.TAG_STRING);

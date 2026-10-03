@@ -21,6 +21,7 @@ public final class TremorClient {
         container.registerExtensionPoint(IConfigScreenFactory.class, ConfigurationScreen::new);
 
         modBus.addListener(DeformationRenderer::onModelBakingCompleted);
+        modBus.addListener(tremor.client.hollow.SinkOverlay::onRegisterGuiLayers);
 
         IEventBus game = NeoForge.EVENT_BUS;
         game.addListener(DeformationRenderer::onRenderLevelStage);
@@ -39,6 +40,9 @@ public final class TremorClient {
         game.addListener(tremor.client.hollow.ClientHollow::onLoggingOut);
         // Lowest priority: the root's part is taken out of the view after other mods changed it.
         game.addListener(EventPriority.LOWEST, tremor.client.awakening.ClientRoot::onComputeFovModifier);
+        // The node's pulse and the pull of the ground first: the sounds of the hollow follow them in the same tick.
+        game.addListener(tremor.client.hollow.HollowPulse::onClientTick);
+        game.addListener(tremor.client.hollow.HollowSink::onClientTick);
         game.addListener(tremor.client.sound.AwakeningSounds::onClientTick);
         game.addListener(tremor.client.sound.AwakeningSounds::onLoggingOut);
         game.addListener(tremor.client.sound.WorldSilence::onClientTick);

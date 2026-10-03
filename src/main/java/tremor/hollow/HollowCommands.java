@@ -10,6 +10,7 @@ import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.phys.Vec3;
 import tremor.config.TremorConfig;
+import tremor.hollow.level.HollowLevels;
 
 import java.util.List;
 import java.util.Locale;
@@ -21,7 +22,8 @@ import java.util.Locale;
  *   move in);</li>
  *   <li>{@code hollow leave}: moves the executing player back out (an event still copying just stops);</li>
  *   <li>{@code hollow status}: the events, their phases, what the copying and clearing cost, the blocks their
- *   players placed, and who is in the hollow;</li>
+ *   players placed, the level inside (the node, the closing, the noise, the sinking: {@link HollowLevels#describe}),
+ *   and who is in the hollow;</li>
  *   <li>{@code restore}: ends every event at once, players back to their exits, all slots cleared.</li>
  * </ul>
  */
@@ -29,12 +31,13 @@ public final class HollowCommands {
     private HollowCommands() {
     }
 
-    /** {@code /tremor hollow <enter|leave|status>} */
+    /** {@code /tremor hollow <enter|leave|status|tonode>} */
     public static LiteralArgumentBuilder<CommandSourceStack> hollow() {
         return Commands.literal("hollow")
                 .then(Commands.literal("enter").executes(HollowCommands::enter))
                 .then(Commands.literal("leave").executes(HollowCommands::leave))
-                .then(Commands.literal("status").executes(HollowCommands::status));
+                .then(Commands.literal("status").executes(HollowCommands::status))
+                .then(Commands.literal("tonode").executes(HollowCommands::toNode));
     }
 
     /** {@code /tremor restore} */
@@ -55,6 +58,55 @@ public final class HollowCommands {
         ctx.getSource().sendSuccess(() -> Component.literal(String.format(Locale.ROOT,
                 "Into the hollow: copying %d x %d x %d blocks into slot %d", box.sizeX(), box.sizeY(), box.sizeZ(),
                 event.slot())), true);
+        return 1;
+    }
+
+    /**
+     * Debug and autotests: moves the player inside the hollow to a free standing spot next to the node of their level,
+     * facing it, so that the node can be broken at once.
+     */
+    private static int toNode(CommandContext<CommandSourceStack> ctx) throws CommandSyntaxException {
+        ServerPlayer player = ctx.getSource().getPlayerOrException();
+        HollowEvent event = HollowManager.event(player);
+        net.minecraft.core.BlockPos node = event == null ? null : HollowLevels.node(event);
+        if (node == null || !HollowDimension.is(player.serverLevel())) {
+            ctx.getSource().sendFailure(Component.literal("No node: you are not in a hollow with one"));
+            return 0;
+        }
+        net.minecraft.server.level.ServerLevel level = player.serverLevel();
+        net.minecraft.core.BlockPos best = null;
+        double bestScore = Double.MAX_VALUE;
+        for (int dy = -2; dy <= 2; dy++) {
+            for (int dx = -3; dx <= 3; dx++) {
+                for (int dz = -3; dz <= 3; dz++) {
+                    net.minecraft.core.BlockPos at = node.offset(dx, dy, dz);
+                    if (at.equals(node) || !level.getBlockState(at).getCollisionShape(level, at).isEmpty()
+                            || !level.getBlockState(at.above()).getCollisionShape(level, at.above()).isEmpty()
+                            || !level.getBlockState(at.below()).isFaceSturdy(level, at.below(),
+                            net.minecraft.core.Direction.UP)) {
+                        continue;
+                    }
+                    double score = Math.abs(Math.sqrt(dx * dx + dz * dz) - 1.5) + Math.abs(dy) * 0.5;
+                    if (score < bestScore) {
+                        bestScore = score;
+                        best = at;
+                    }
+                }
+            }
+        }
+        if (best == null) {
+            ctx.getSource().sendFailure(Component.literal("No free spot next to the node at " + node.toShortString()));
+            return 0;
+        }
+        double x = best.getX() + 0.5, y = best.getY(), z = best.getZ() + 0.5;
+        double dx = node.getX() + 0.5 - x, dy = node.getY() + 0.5 - (y + player.getEyeHeight()),
+                dz = node.getZ() + 0.5 - z;
+        float yaw = (float) Math.toDegrees(Math.atan2(-dx, dz));
+        float pitch = (float) Math.toDegrees(-Math.atan2(dy, Math.sqrt(dx * dx + dz * dz)));
+        player.teleportTo(level, x, y, z, yaw, pitch);
+        net.minecraft.core.BlockPos to = best;
+        ctx.getSource().sendSuccess(() -> Component.literal("Next to the node at " + node.toShortString()
+                + ", standing at " + to.toShortString()), true);
         return 1;
     }
 
@@ -103,6 +155,10 @@ public final class HollowCommands {
                     event.placed().size()));
             appendJob(text, "copy", event.copyStats, event.phase() == HollowEvent.Phase.COPYING ? event.cursor : null);
             appendJob(text, "clear", event.clearStats, event.phase() == HollowEvent.Phase.CLEARING ? event.cursor : null);
+            String level = HollowLevels.describe(event);
+            if (level != null) {
+                text.append("\n  ").append(level.replace("\n", "\n  "));
+            }
         }
         for (ServerPlayer player : inside) {
             text.append(String.format(Locale.ROOT, "\nIn the hollow: %s at %s%s", player.getGameProfile().getName(),

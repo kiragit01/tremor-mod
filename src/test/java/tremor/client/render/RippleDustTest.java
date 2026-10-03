@@ -142,6 +142,40 @@ class RippleDustTest {
         }
     }
 
+    @Test
+    void onlyThePartOfAFrontThatIsShownKicksUpItsShareOfTheDust() {
+        assertEquals(7, RippleDust.keep(7, 40, 40, 0.99), "all of it");
+        assertEquals(7, RippleDust.keep(7, 50, 40, 0.5));
+        assertEquals(0, RippleDust.keep(7, 0, 40, 0.99), "none of it");
+        assertEquals(7, RippleDust.keep(7, 0, 0, 0.5), "no front: nothing to drop (and nothing to spawn on)");
+        double sum = 0;
+        int steps = 1000;
+        for (int i = 0; i < steps; i++) {
+            int n = RippleDust.keep(7, 10, 40, (i + 0.5) / steps);
+            assertTrue(n == 1 || n == 2, "rounded down or up: " + n);
+            sum += n;
+        }
+        assertEquals(7 * 10 / 40.0, sum / steps, 1e-3, "right on average");
+    }
+
+    @Test
+    void aMovingHillShakesOffDustAsFastAsItMoves() {
+        double radius = 2.5;
+        assertEquals(0, RippleDust.heaveCount(0, radius, 1, 0.999));
+        assertEquals(0, RippleDust.heaveCount(Double.NaN, radius, 1, 0.999));
+        assertEquals(RippleDust.heaveRate(1.5, radius), RippleDust.heaveRate(-1.5, radius), 1e-12, "up or down");
+        assertEquals(RippleDust.HEAVE_DENSITY * 2 * Math.PI * radius * radius, RippleDust.heaveRate(2, radius), 1e-12);
+        assertTrue(RippleDust.heaveRate(4, radius) > RippleDust.heaveRate(1, radius));
+        assertEquals(RippleDust.MAX_PER_TICK, RippleDust.heaveCount(100, radius, 1, 0), "capped");
+        assertEquals(0, RippleDust.heaveCount(3, radius, 0, 0.999), "none at minimal particles");
+        double sum = 0;
+        int steps = 1000;
+        for (int i = 0; i < steps; i++) {
+            sum += RippleDust.heaveCount(0.5, radius, 0.5, (i + 0.5) / steps);
+        }
+        assertEquals(RippleDust.heaveRate(0.5, radius) * 0.5, sum / steps, 1e-2, "right on average");
+    }
+
     /** Mean count over evenly spread random numbers. */
     private static double average(RippleParams ripple, double age, double share) {
         int steps = 1000;

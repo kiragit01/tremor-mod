@@ -423,6 +423,9 @@ final class AutoTestRunner {
             }
             pressKeys(h.keys);
             LocalPlayer player = mc.player;
+            if (player != null && h.keys.contains(Script.HoldKey.ATTACK)) {
+                mine(player);
+            }
             if (player != null && !h.keys.contains(Script.HoldKey.SPRINT)) {
                 suppressDoubleTapSprint(player);
                 if (player.isSprinting()) {
@@ -735,6 +738,15 @@ final class AutoTestRunner {
             case HUD -> mc.options.hideGui = step.number() == 0;
             case VIEW -> mc.options.setCameraType(net.minecraft.client.CameraType.values()[(int) step.number()]);
             case LOOK -> look(player, step.yaw(), step.pitch());
+            case LOOKAT -> {
+                String[] xyz = step.text().split(" ");
+                double dx = Double.parseDouble(xyz[0]) - player.getX();
+                double dy = Double.parseDouble(xyz[1]) - player.getEyeY();
+                double dz = Double.parseDouble(xyz[2]) - player.getZ();
+                float yaw = (float) Math.toDegrees(Math.atan2(-dx, dz));
+                float pitch = (float) Math.toDegrees(-Math.atan2(dy, Math.sqrt(dx * dx + dz * dz)));
+                look(player, yaw, pitch);
+            }
             case HOLD -> {
                 hold = new Hold(step, player.position());
                 pressKeys(step.keys());
@@ -903,6 +915,21 @@ final class AutoTestRunner {
         }
     }
 
+    /**
+     * One tick of a held left button on the block under the crosshair, as {@code Minecraft.continueAttack} does: that
+     * one only mines while the window holds the mouse, which an unattended test window usually does not.
+     */
+    private void mine(LocalPlayer player) {
+        if (mc.gameMode != null && mc.level != null && mc.screen == null
+                && mc.hitResult instanceof net.minecraft.world.phys.BlockHitResult hit
+                && hit.getType() == net.minecraft.world.phys.HitResult.Type.BLOCK
+                && !mc.level.getBlockState(hit.getBlockPos()).isAir()
+                && mc.gameMode.continueDestroyBlock(hit.getBlockPos(), hit.getDirection())) {
+            mc.particleEngine.crack(hit.getBlockPos(), hit.getDirection());
+            player.swing(net.minecraft.world.InteractionHand.MAIN_HAND);
+        }
+    }
+
     private KeyMapping mapping(Script.HoldKey key) {
         Options options = mc.options;
         return switch (key) {
@@ -913,6 +940,7 @@ final class AutoTestRunner {
             case JUMP -> options.keyJump;
             case SNEAK -> options.keyShift;
             case SPRINT -> options.keySprint;
+            case ATTACK -> options.keyAttack;
         };
     }
 

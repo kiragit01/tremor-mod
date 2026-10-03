@@ -453,6 +453,7 @@ public final class TremorConfig {
         public final ModConfigSpec.IntValue fadeTicks;
         public final ModConfigSpec.IntValue settleTicks;
         public final ModConfigSpec.IntValue maxEvents;
+        public final HollowLevel level;
 
         Hollow(ModConfigSpec.Builder b) {
             b.comment("The hollow: a copy of the terrain around a swallowed player in the dimension tremor:hollow,",
@@ -475,19 +476,111 @@ public final class TremorConfig {
                     .translation(KEY + "hollow.settleTicks").defineInRange("settleTicks", 10, 0, 200);
             maxEvents = b.comment("Events in the hollow at the same time (one player each)")
                     .translation(KEY + "hollow.maxEvents").defineInRange("maxEvents", 8, 1, 64);
+            level = new HollowLevel(b);
             b.pop();
         }
     }
 
     /**
-     * The Awakening (SPEC 9 phase 1), section {@code awakening} of COMMON; read by
-     * {@link tremor.awakening.AwakeningManager}.
+     * The level inside the hollow (SPEC 9, phase 2: the widened cave, the node, the closing, the moving walls, the soft
+     * ground), section {@code hollow.level} of COMMON; read by {@link tremor.hollow.level.HollowLevels}.
+     */
+    public static final class HollowLevel {
+        public final ModConfigSpec.DoubleValue budgetMillis;
+        public final ModConfigSpec.IntValue widenBelow;
+        public final ModConfigSpec.IntValue nodeMinDistance;
+        public final ModConfigSpec.IntValue nodeMaxDistance;
+        public final ModConfigSpec.IntValue graceSeconds;
+        public final ModConfigSpec.DoubleValue closeSpeed;
+        public final ModConfigSpec.DoubleValue noiseFactor;
+        public final ModConfigSpec.DoubleValue noiseSeconds;
+        public final ModConfigSpec.DoubleValue minRadius;
+        public final ModConfigSpec.DoubleValue lurePauseSeconds;
+        public final ModConfigSpec.DoubleValue lureCooldownSeconds;
+        public final ModConfigSpec.DoubleValue lureMinDistance;
+        public final ModConfigSpec.IntValue fillsPerTick;
+        public final ModConfigSpec.DoubleValue wallShiftSeconds;
+        public final ModConfigSpec.IntValue wallShifts;
+        public final ModConfigSpec.DoubleValue stillSeconds;
+        public final ModConfigSpec.DoubleValue sinkSeconds;
+        public final ModConfigSpec.DoubleValue recoverSeconds;
+        public final ModConfigSpec.IntValue beatSlowTicks;
+        public final ModConfigSpec.IntValue beatFastTicks;
+
+        HollowLevel(ModConfigSpec.Builder b) {
+            b.comment("The level inside the hollow (SPEC 9): the node to destroy, the edges closing in, walls that",
+                            "move, ground that pulls in a player who stands still")
+                    .translation(KEY + "hollow.level").push("level");
+            budgetMillis = b.comment("Server time per tick for the level of one player (milliseconds); the closing",
+                            "gets what the rest leaves of it")
+                    .translation(KEY + "hollow.level.budgetMillis").defineInRange("budgetMillis", 2.0, 0.2, 20.0);
+            widenBelow = b.comment("A place with fewer open blocks than this connected to the player within 8 blocks",
+                            "(a 1x2 tunnel, a small room) is widened into a cave before the player arrives (0 = never)")
+                    .translation(KEY + "hollow.level.widenBelow").defineInRange("widenBelow", 100, 0, 2000);
+            nodeMinDistance = b.comment("The node lies at least this many steps from the player (along the way there)")
+                    .translation(KEY + "hollow.level.nodeMinDistance").defineInRange("nodeMinDistance", 14, 2, 64);
+            nodeMaxDistance = b.comment("...and at most this many; a tunnel is dug to it if no such place is open")
+                    .translation(KEY + "hollow.level.nodeMaxDistance").defineInRange("nodeMaxDistance", 24, 2, 64);
+            graceSeconds = b.comment("The edges start closing in this long after the player arrives (seconds)")
+                    .translation(KEY + "hollow.level.graceSeconds").defineInRange("graceSeconds", 10, 0, 600);
+            closeSpeed = b.comment("How fast the edges close in while the player is silent (blocks per second)")
+                    .translation(KEY + "hollow.level.closeSpeed").defineInRange("closeSpeed", 0.08, 0.0, 10.0);
+            noiseFactor = b.comment("Extra closing speed per unit of noise: blocks per second for each loudness per",
+                            "second the ground gets from the player (walking on stone makes about 6, sprinting",
+                            "about 16, sneaking nothing)")
+                    .translation(KEY + "hollow.level.noiseFactor").defineInRange("noiseFactor", 0.02, 0.0, 10.0);
+            noiseSeconds = b.comment("The noise of the player fades away over this time (seconds)")
+                    .translation(KEY + "hollow.level.noiseSeconds").defineInRange("noiseSeconds", 3.0, 0.1, 60.0);
+            minRadius = b.comment("The edges stop closing at this distance from where the player arrived (blocks);",
+                            "the way to the node always stays open")
+                    .translation(KEY + "hollow.level.minRadius").defineInRange("minRadius", 6.0, 2.0, 96.0);
+            lurePauseSeconds = b.comment("A lure (a thrown item or projectile landing in the hollow away from the",
+                            "player) stops the closing for this long (seconds)")
+                    .translation(KEY + "hollow.level.lurePauseSeconds")
+                    .defineInRange("lurePauseSeconds", 4.0, 0.0, 60.0);
+            lureCooldownSeconds = b.comment("A lure within this long after the last one does nothing (seconds)")
+                    .translation(KEY + "hollow.level.lureCooldownSeconds")
+                    .defineInRange("lureCooldownSeconds", 8.0, 0.0, 600.0);
+            lureMinDistance = b.comment("A landing closer to the player than this is no lure (blocks)")
+                    .translation(KEY + "hollow.level.lureMinDistance")
+                    .defineInRange("lureMinDistance", 4.0, 0.0, 64.0);
+            fillsPerTick = b.comment("Blocks the closing fills per tick at most")
+                    .translation(KEY + "hollow.level.fillsPerTick").defineInRange("fillsPerTick", 96, 1, 4096);
+            wallShiftSeconds = b.comment("Walls 5 to 14 blocks from the player bulge and recede this often (seconds)")
+                    .translation(KEY + "hollow.level.wallShiftSeconds")
+                    .defineInRange("wallShiftSeconds", 2.0, 0.1, 60.0);
+            wallShifts = b.comment("...this many blocks each time (0 = the walls stand still)")
+                    .translation(KEY + "hollow.level.wallShifts").defineInRange("wallShifts", 3, 0, 64);
+            stillSeconds = b.comment("A player who stays within a quarter of a block for this long is standing still,",
+                            "and the ground under the player starts to soften (seconds)")
+                    .translation(KEY + "hollow.level.stillSeconds").defineInRange("stillSeconds", 3.0, 0.5, 60.0);
+            sinkSeconds = b.comment("How long the softening takes to pull a player who keeps standing on it in over",
+                            "the eyes: the defeat (seconds)")
+                    .translation(KEY + "hollow.level.sinkSeconds").defineInRange("sinkSeconds", 10.0, 1.0, 120.0);
+            recoverSeconds = b.comment("Soft ground sets again this long after the player got off it (seconds)")
+                    .translation(KEY + "hollow.level.recoverSeconds")
+                    .defineInRange("recoverSeconds", 4.0, 0.5, 120.0);
+            beatSlowTicks = b.comment("Ticks between two beats of the node when the player arrives")
+                    .translation(KEY + "hollow.level.beatSlowTicks").defineInRange("beatSlowTicks", 30, 4, 200);
+            beatFastTicks = b.comment("Ticks between two beats of the node once the hollow has closed")
+                    .translation(KEY + "hollow.level.beatFastTicks").defineInRange("beatFastTicks", 12, 4, 200);
+            b.pop();
+        }
+    }
+
+    /**
+     * The Awakening (SPEC 9 phase 1 and the outcomes), section {@code awakening} of COMMON; read by
+     * {@link tremor.awakening.AwakeningManager} and {@link tremor.awakening.Outcomes}.
      */
     public static final class Awakening {
         public final ModConfigSpec.DoubleValue radius;
         public final ModConfigSpec.IntValue buildupSeconds;
         public final ModConfigSpec.IntValue swallowTicks;
         public final ModConfigSpec.IntValue cooldownSeconds;
+        public final ModConfigSpec.IntValue emergeTicks;
+        public final ModConfigSpec.IntValue sinkholeRadius;
+        public final ModConfigSpec.IntValue sinkholeDepth;
+        public final ModConfigSpec.BooleanValue lethal;
 
         Awakening(ModConfigSpec.Builder b) {
             b.comment("The Awakening (SPEC 9): at the top of its anger the entity becomes the whole area around a",
@@ -505,6 +598,18 @@ public final class TremorConfig {
                             "dimension for this long (seconds)")
                     .translation(KEY + "awakening.cooldownSeconds")
                     .defineInRange("cooldownSeconds", 3600, 0, 604800);
+            emergeTicks = b.comment("After a victory: how long the hill at the swallow point rises, lets the player",
+                            "out and settles again (ticks)")
+                    .translation(KEY + "awakening.emergeTicks").defineInRange("emergeTicks", 80, 1, 600);
+            sinkholeRadius = b.comment("After a defeat a real sinkhole opens where the player was swallowed: its",
+                            "radius (blocks; 0 = no sinkhole). It never takes blocks with a block entity, blocks of",
+                            "#tremor:protected, unbreakable blocks or the spawn protection, nor lets a fluid in")
+                    .translation(KEY + "awakening.sinkholeRadius").defineInRange("sinkholeRadius", 4, 0, 8);
+            sinkholeDepth = b.comment("Depth of the sinkhole at its middle (blocks)")
+                    .translation(KEY + "awakening.sinkholeDepth").defineInRange("sinkholeDepth", 6, 1, 12);
+            lethal = b.comment("A defeat kills the player, whose things land on the bottom of the sinkhole; false:",
+                            "the player comes out there alive, keeping everything, but badly weakened")
+                    .translation(KEY + "awakening.lethal").define("lethal", true);
             b.pop();
         }
     }
@@ -538,6 +643,7 @@ public final class TremorConfig {
         public final ModConfigSpec.DoubleValue silenceFloor;
         public final ModConfigSpec.DoubleValue heartbeatVolume;
         public final ModConfigSpec.DoubleValue humVolume;
+        public final ModConfigSpec.DoubleValue pullVolume;
 
         Client(ModConfigSpec.Builder b) {
             b.comment("Rendering quality of the ground deformation").translation(KEY + "render").push("render");
@@ -582,11 +688,16 @@ public final class TremorConfig {
                             "and the mod's own sounds stay, and so may sound loops of other mods")
                     .translation(KEY + "sound.silenceFloor").defineInRange("silenceFloor", 0.05, 0.0, 1.0);
             heartbeatVolume = b.comment("Volume of the heartbeat heard inside the zone of an Awakening; it starts at",
-                            "40% of this and quickens and grows to all of it as the zone closes (0 = off)")
+                            "40% of this and quickens and grows to all of it as the zone closes (0 = off). In the",
+                            "hollow the heartbeat comes from the node: louder near it and as the hollow closes")
                     .translation(KEY + "sound.heartbeatVolume").defineInRange("heartbeatVolume", 0.8, 0.0, 1.0);
-            humVolume = b.comment("Volume of the low hum of the ground inside the zone of an Awakening; it starts at",
-                            "35% of this and swells to all of it as the zone closes (0 = off)")
+            humVolume = b.comment("Volume of the low hum of the ground inside the zone of an Awakening and in the",
+                            "hollow; it starts at 35% of this and swells to all of it as the zone (the hollow) closes",
+                            "(0 = off)")
                     .translation(KEY + "sound.humVolume").defineInRange("humVolume", 0.7, 0.0, 1.0);
+            pullVolume = b.comment("Volume of the squelch of the soft ground of the hollow pulling you in; it starts",
+                            "at 40% of this and grows to all of it the deeper you sink (0 = off)")
+                    .translation(KEY + "sound.pullVolume").defineInRange("pullVolume", 0.8, 0.0, 1.0);
             b.pop();
         }
     }

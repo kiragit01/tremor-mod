@@ -17,6 +17,9 @@ import net.neoforged.neoforge.event.level.PistonEvent;
 import net.neoforged.neoforge.event.server.ServerStoppingEvent;
 import org.slf4j.Logger;
 import tremor.awakening.AwakeningManager;
+import tremor.awakening.Outcomes;
+import tremor.awakening.Sinkholes;
+import tremor.block.TremorBlocks;
 import tremor.command.TremorCommands;
 import tremor.config.TremorConfig;
 import tremor.debug.DebugParticles;
@@ -24,6 +27,7 @@ import tremor.entity.TremorManager;
 import tremor.hearing.VibrationListener;
 import tremor.hollow.HollowManager;
 import tremor.hollow.HollowRules;
+import tremor.hollow.level.HollowLevels;
 import tremor.network.TremorNetwork;
 import tremor.sound.TremorSounds;
 import tremor.spawn.NaturalSpawner;
@@ -40,6 +44,7 @@ public final class Tremor {
 
         modBus.addListener(TremorNetwork::register);
         TremorSounds.register(modBus);
+        TremorBlocks.register(modBus);
 
         IEventBus game = NeoForge.EVENT_BUS;
         game.addListener(TremorCommands::register);
@@ -71,6 +76,8 @@ public final class Tremor {
         game.addListener(HollowManager::onServerTick);
         game.addListener(HollowManager::onPlayerLoggedOut);
         game.addListener(HollowManager::onServerStopped);
+        // The level inside the hollow (SPEC 9, stage 4c); HollowManager prepares and ticks it.
+        game.addListener(HollowLevels::onServerStopped);
         game.addListener(HollowRules::onRightClickBlock);
         game.addListener(HollowRules::onRightClickItem);
         game.addListener(HollowRules::onToolModification);
@@ -109,6 +116,12 @@ public final class Tremor {
         game.addListener(EventPriority.HIGHEST, LivingFallEvent.class, AwakeningManager::onLivingFall);
         // High priority: the entities go deep before TremorManager drops its runtimes.
         game.addListener(EventPriority.HIGH, ServerStoppingEvent.class, AwakeningManager::onServerStopping);
+        // The sinkholes of defeats (SPEC 9 "Поражение"), dug over a few ticks.
+        game.addListener(Sinkholes::onServerTick);
+        game.addListener(Sinkholes::onServerStopped);
+        // A player who survived a defeat is weakened once out of the hollow.
+        HollowManager.addEndListener(Outcomes::onHollowEnded);
         HollowManager.addEndListener(AwakeningManager::onHollowEnded);
+        HollowManager.addEndListener(HollowLevels::onHollowEnded);
     }
 }

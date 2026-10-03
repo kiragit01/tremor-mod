@@ -30,8 +30,10 @@ import java.util.stream.Collectors;
  * view &lt;first|back|front&gt;     camera: first person, third person from behind or from the front (F5)
  * look &lt;yaw&gt; &lt;pitch&gt;          set the camera rotation, pitch in [-90, 90]
  * hold &lt;keys&gt; &lt;ticks&gt;          hold movement keys for that many client ticks (at least 1), then release them; keys
- *                              are forward back left right jump sneak sprint joined with '+', e.g. forward+sprint
- *                              (vanilla rules: sprint only works together with forward and not while sneaking)
+ *                              are forward back left right jump sneak sprint attack joined with '+', e.g.
+ *                              forward+sprint (vanilla rules: sprint only works together with forward and not while
+ *                              sneaking); attack keeps mining the block under the crosshair like a held left button
+ * lookat &lt;x&gt; &lt;y&gt; &lt;z&gt;           turn the camera toward a point (from the player's eyes)
  * release                      release all movement keys now and stop sprinting
  * graphics &lt;fast|fancy|fabulous&gt;  switch the graphics mode (rebuilds the level renderer, follow with waitchunks)
  * fps &lt;limit&gt;                  frame rate limit: a multiple of 10 in 10..260, 260 = unlimited (vanilla's option only
@@ -71,13 +73,13 @@ record Script(Path path, List<Step> steps) {
     static final int FPS_UNLIMITED = 260;
 
     enum Kind {
-        WAIT, WAITCHUNKS, CMD, HUD, VIEW, LOOK, HOLD, RELEASE, GRAPHICS, FPS, BENCH, SCREENSHOT, LOG, CONFIG, WAITFOR, QUIT,
+        WAIT, WAITCHUNKS, CMD, HUD, VIEW, LOOK, LOOKAT, HOLD, RELEASE, GRAPHICS, FPS, BENCH, SCREENSHOT, LOG, CONFIG, WAITFOR, QUIT,
         INVALID
     }
 
     /** Movement keys for {@code hold}, named in scripts by their lower-case names. */
     enum HoldKey {
-        FORWARD, BACK, LEFT, RIGHT, JUMP, SNEAK, SPRINT;
+        FORWARD, BACK, LEFT, RIGHT, JUMP, SNEAK, SPRINT, ATTACK;
 
         final String id = name().toLowerCase(Locale.ROOT);
 
@@ -258,6 +260,13 @@ record Script(Path path, List<Step> steps) {
                     }
                     yield new Step(line, source, Kind.LOOK, "", 0, yaw, pitch, Set.of(), "");
                 }
+                case "lookat" -> {
+                    expectArgs(args, 3, 3, "lookat <x> <y> <z>");
+                    for (String a : args) {
+                        parseDouble(a);
+                    }
+                    yield Step.of(line, source, Kind.LOOKAT, String.join(" ", args), 0);
+                }
                 case "hold" -> {
                     expectArgs(args, 2, 2, "hold <keys> <ticks>");
                     Set<HoldKey> keys = HoldKey.parseAll(args[0]);
@@ -421,6 +430,18 @@ record Script(Path path, List<Step> steps) {
             return parser.apply(raw);
         } catch (NumberFormatException e) {
             throw new IllegalArgumentException("not " + what + ": '" + raw + "'");
+        }
+    }
+
+    private static double parseDouble(String raw) {
+        try {
+            double value = Double.parseDouble(raw);
+            if (!Double.isFinite(value)) {
+                throw new NumberFormatException();
+            }
+            return value;
+        } catch (NumberFormatException e) {
+            throw new IllegalArgumentException("not a number: " + raw);
         }
     }
 
