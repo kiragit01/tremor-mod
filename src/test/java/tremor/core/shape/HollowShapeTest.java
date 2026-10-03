@@ -45,15 +45,30 @@ class HollowShapeTest {
     }
 
     @Test
-    void closenessIsTheShareTheHollowHasClosed() {
-        assertEquals(0, HollowShape.closeness(32, 32));
-        assertEquals(0.25, HollowShape.closeness(32, 24), 1e-12);
-        assertEquals(1, HollowShape.closeness(32, 0));
-        assertEquals(0, HollowShape.closeness(32, 40), "not below 0");
-        assertEquals(1, HollowShape.closeness(32, -3), "not above 1");
-        assertEquals(0, HollowShape.closeness(0, 0), "no box");
-        assertEquals(0, HollowShape.closeness(Double.NaN, 3));
-        assertEquals(0, HollowShape.closeness(32, Double.NaN));
+    void closenessIsTheShareOfTheWayFromTheEdgeToTheMinimum() {
+        // The defaults: the closing runs from the edge at 31 down to 6.
+        assertEquals(0, HollowShape.closeness(31, 6, 31));
+        assertEquals(0.5, HollowShape.closeness(31, 6, 18.5), 1e-12);
+        assertEquals(1, HollowShape.closeness(31, 6, 6), "closed as far as it goes: all of it");
+        assertEquals(0, HollowShape.closeness(31, 6, 40), "not below 0");
+        assertEquals(1, HollowShape.closeness(31, 6, 3), "not above 1");
+        // A small hollow still spans the whole range.
+        assertEquals(0, HollowShape.closeness(7, 6, 7));
+        assertEquals(0.5, HollowShape.closeness(7, 6, 6.5), 1e-12);
+        assertEquals(1, HollowShape.closeness(7, 6, 6));
+        // Nothing to close: as the server's schedule, closed from the start.
+        assertEquals(1, HollowShape.closeness(7, 7, 7));
+        assertEquals(1, HollowShape.closeness(7, 12, 7));
+        assertEquals(0, HollowShape.closeness(Double.NaN, 6, 3));
+        assertEquals(0, HollowShape.closeness(31, Double.NaN, 3));
+        assertEquals(0, HollowShape.closeness(31, 6, Double.NaN));
+    }
+
+    @Test
+    void theEffectsReachTheirClosedValuesOnceClosedAsFarAsItGoes() {
+        double closed = HollowShape.closeness(31, 6, 6);
+        assertEquals(P.breathEnd(), HollowShape.breathAmplitude(P, closed), 1e-12);
+        assertEquals(P.ringEnd(), HollowShape.nodeRing(P, closed).amplitude(), 1e-12);
     }
 
     @Test

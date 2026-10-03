@@ -30,10 +30,10 @@ import java.util.concurrent.CompletableFuture;
  * <p>
  * <b>Before the player arrives</b> ({@link #prepare}, while the screen is still dark; a step per tick, then the
  * light engine is waited for): a tight place around the player is widened into a cave ({@link Widening}); the node is
- * placed {@code nodeMinDistance}..{@code nodeMaxDistance} steps away, in the open or at the end of a dug tunnel, and
- * the way to it is kept ({@link WayPlanner}). Both work on a snapshot of the copy around the player and stay inside the
- * copy, {@value #MARGIN} blocks from its sides, top and bottom and a quarter of its radius (4 blocks at least) from its
- * round edge.
+ * placed {@code nodeMinDistance}..{@code nodeMaxDistance} steps away, in the open (never under water) or at the end of
+ * a dug tunnel, and the way to it is kept ({@link WayPlanner}). Both work on a snapshot of the copy around the player
+ * and stay inside the copy, {@value #MARGIN} blocks from its sides, top and bottom and a quarter of its radius (4
+ * blocks at least) from its round edge; what they carve is sealed from the fluids, lava and fire around it.
  * <p>
  * <b>While the player is inside</b> ({@link #tick}, within {@code hollow.level.budgetMillis}):
  * <ul>
@@ -42,13 +42,15 @@ import java.util.concurrent.CompletableFuture;
  *   <li>the moving walls ({@link WallShifter});</li>
  *   <li>the soft ground ({@link Mire}): a player who stands still sinks; pulled in over the eyes is the defeat
  *   ({@link Outcomes#defeat});</li>
- *   <li>the edge: a player who gets within a block of the edge of the copy is out ({@link Outcomes#edgeEscape});</li>
+ *   <li>the edge: a player who gets within a block of the round edge of the copy, over its top (flying, on a pillar)
+ *   or under its bottom (dug through) is out ({@link Outcomes#edgeEscape}, which finds the place to come out at);</li>
  *   <li>the node: breaking it is the victory ({@link #nodeBroken}, {@link Outcomes#victory}); a node gone otherwise
  *   comes back;</li>
  *   <li>the player gets the state of the hollow ({@link TremorHollowStatePayload}) every {@value #SYNC_TICKS} ticks
  *   and on changes.</li>
  * </ul>
- * Once an outcome is called (or the event has one, {@link HollowEvent#outcome}) everything stands still.
+ * Once an outcome is called (or the event has one, {@link HollowEvent#outcome}) everything stands still. A level that
+ * fails ({@link #fail}) stands still too, and {@link HollowLevels} brings its player back.
  */
 final class EventLevel {
     /** Stays this far inside the sides, top and bottom of the copy (blocks). */
@@ -57,9 +59,12 @@ final class EventLevel {
     private static final int SNAPSHOT_HEIGHT = 12;
     /** How far around the player open space counts for the widening (blocks). */
     private static final int WIDEN_RADIUS = 8;
-    /** The widened cave: radius and height (some 7 blocks across). */
-    private static final double CAVE_RADIUS = 3.5;
-    private static final double CAVE_HEIGHT = 4;
+    /**
+     * The widened cave: radius and height under its middle (some 10 blocks across, 5 high, give or take the wobble of
+     * {@link Widening}: some 250 open blocks, well over {@code widenBelow}).
+     */
+    private static final double CAVE_RADIUS = 5;
+    private static final double CAVE_HEIGHT = 5;
     /** How far the closing front wanders in and out (blocks). */
     private static final double FRONT_WOBBLE = 1.5;
     /** Standing within this distance of where the player stopped is standing still (blocks, SPEC 9). */
@@ -101,7 +106,7 @@ final class EventLevel {
     private int openAround;
     private boolean widened;
     private int dug;
-    private int floors;
+    private int filled;
     private BlockPos node;
     private boolean nodeBroken;
     /** The open cells of the way to the node: never filled, never moved into. */
@@ -163,7 +168,7 @@ final class EventLevel {
         return stage == Stage.READY;
     }
 
-    /** Something went wrong: the event goes on without the level. */
+    /** Something went wrong: the level stands still for good (its player is brought back by {@link HollowLevels}). */
     void fail(RuntimeException e) {
         failure = e.toString();
         stage = Stage.READY;
@@ -184,7 +189,7 @@ final class EventLevel {
         if (Widening.needed(openAround, threshold)) {
             Widening.Cave cave = Widening.cave(grid, region, start.getX(), start.getY(), start.getZ(), CAVE_RADIUS,
                     CAVE_HEIGHT, seed);
-            change(cave.carve(), cave.floor());
+            change(cave.carve(), cave.fill());
             cave.applyTo(grid);
             widened = true;
         }
@@ -196,7 +201,7 @@ final class EventLevel {
         int min = config.nodeMinDistance.get();
         WayPlanner.Plan plan = WayPlanner.plan(grid, region, start.getX(), start.getY(), start.getZ(), min,
                 Math.max(min, config.nodeMaxDistance.get()), seed + 1);
-        change(plan.carve(), plan.floor());
+        change(plan.carve(), plan.fill());
         BlockPos at = BlockPos.of(plan.node());
         // Only if the planning had nowhere to go at all would it be the player's own cell: then there is no node.
         if (!at.equals(start) && !at.equals(start.above())) {
@@ -238,12 +243,15 @@ final class EventLevel {
         Tremor.LOGGER.info("Hollow level: {} ready in {} ms: {} ({} open blocks around the player{}); node {}, {} "
                         + "steps away {}, way of {} blocks", event, String.format(Locale.ROOT, "%.1f", prepareMillis),
                 widened ? "widened" : "not widened", openAround,
-                widened ? ", " + dug + " dug, " + floors + " of floor" : "", node == null ? "none" : text(node),
+                widened ? ", " + dug + " dug, " + filled + " filled" : "", node == null ? "none" : text(node),
                 wayLength, tunnel ? "through a dug tunnel" : "in the open", way.size());
     }
 
-    /** Empties the cells {@code carve} (air) and fills the cells {@code floor} with what is around them. */
-    private void change(Set<Long> carve, Set<Long> floor) {
+    /**
+     * Empties the cells {@code carve} (air) and fills the cells {@code fill} (floors, sealed fluids) with what is
+     * around them.
+     */
+    private void change(Set<Long> carve, Set<Long> fill) {
         BlockPos.MutableBlockPos pos = new BlockPos.MutableBlockPos();
         for (long cell : carve) {
             pos.set(cell);
@@ -253,15 +261,20 @@ final class EventLevel {
                 dug++;
             }
         }
-        for (long cell : floor) {
+        for (long cell : fill) {
             pos.set(cell);
             hollow.setBlock(pos, Materials.floor(hollow, pos), Materials.FLAGS);
             changedChunks.add(ChunkPos.asLong(pos));
-            floors++;
+            filled++;
         }
     }
 
     // ---- while the player is inside ----
+
+    /** Whether the level failed ({@link #fail}). */
+    boolean failed() {
+        return failure != null;
+    }
 
     /** Whether the level plays: ready, the player inside, no outcome yet. */
     boolean running() {
@@ -279,8 +292,9 @@ final class EventLevel {
         ticks++;
         schedule.tick();
         Vec3 at = player.position();
-        if (Math.hypot(at.x - centreX, at.z - centreZ) >= boxRadius - 1) {
-            decided(player, "got to the edge");
+        String out = out(at);
+        if (out != null) {
+            decided(player, out);
             Outcomes.edgeEscape(player, new tremor.core.math.Vec3(at.x, at.y, at.z));
             return;
         }
@@ -375,7 +389,7 @@ final class EventLevel {
     /** For {@code /tremor hollow status}. */
     String describe() {
         if (failure != null) {
-            return "level: failed (" + failure + "), the event goes on without it";
+            return "level: failed (" + failure + "), the player is brought back";
         }
         if (stage != Stage.READY) {
             return "level: preparing (" + stage.name().toLowerCase(Locale.ROOT) + ")";
@@ -384,7 +398,7 @@ final class EventLevel {
                 "level #%d: node %s%s, %d steps away %s, way of %d blocks; %s (%d open blocks around)", id,
                 node == null ? "none" : text(node), nodeBroken ? " (destroyed)" : "", wayLength,
                 tunnel ? "through a dug tunnel" : "in the open", way.size(),
-                widened ? "widened: " + dug + " dug, " + floors + " of floor" : "not widened", openAround));
+                widened ? "widened: " + dug + " dug, " + filled + " filled" : "not widened", openAround));
         String closing = schedule.graceLeft() > 0
                 ? String.format(Locale.ROOT, "grace %.1f s", schedule.graceLeft() / 20.0)
                 : schedule.pauseLeft() > 0 ? String.format(Locale.ROOT, "lured, %.1f s", schedule.pauseLeft() / 20.0)
@@ -404,6 +418,21 @@ final class EventLevel {
     }
 
     // ---- internals ----
+
+    /**
+     * How the player at {@code at} (feet) is out of the copy, or null if not: within a block of its round edge, with
+     * the feet over its top layer (flying, on a pillar), or under the shell below it (dug through). The copy's bottom
+     * is closed ({@code TerrainCopier}), so nobody falls out of it.
+     */
+    private String out(Vec3 at) {
+        if (Math.hypot(at.x - centreX, at.z - centreZ) >= boxRadius - 1) {
+            return "got to the edge";
+        }
+        if (at.y >= box.maxY() + 1) {
+            return "got out over the top";
+        }
+        return at.y < box.minY() - 1 ? "got out under the bottom" : null;
+    }
 
     /** An outcome is about to be called: the level stops, and the player gets its last state. */
     private void decided(ServerPlayer player, String what) {

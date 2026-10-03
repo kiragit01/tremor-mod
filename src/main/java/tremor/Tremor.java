@@ -17,6 +17,7 @@ import net.neoforged.neoforge.event.level.PistonEvent;
 import net.neoforged.neoforge.event.server.ServerStoppingEvent;
 import org.slf4j.Logger;
 import tremor.awakening.AwakeningManager;
+import tremor.awakening.EdgeExits;
 import tremor.awakening.Outcomes;
 import tremor.awakening.Sinkholes;
 import tremor.block.TremorBlocks;
@@ -119,6 +120,9 @@ public final class Tremor {
         // The sinkholes of defeats (SPEC 9 "Поражение"), dug over a few ticks.
         game.addListener(Sinkholes::onServerTick);
         game.addListener(Sinkholes::onServerStopped);
+        // Where escapes through the edge come out (SPEC 9 "Побег"), once the real chunks there are loaded.
+        game.addListener(EdgeExits::onServerTick);
+        game.addListener(EdgeExits::onServerStopped);
         // A player who survived a defeat is weakened once out of the hollow.
         HollowManager.addEndListener(Outcomes::onHollowEnded);
         HollowManager.addEndListener(AwakeningManager::onHollowEnded);

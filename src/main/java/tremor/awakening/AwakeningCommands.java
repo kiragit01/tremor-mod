@@ -8,12 +8,12 @@ import net.minecraft.commands.Commands;
 import net.minecraft.commands.arguments.EntityArgument;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.level.GameType;
 import tremor.config.TremorConfig;
 import tremor.core.math.Vec3;
 import tremor.hollow.HollowEvent;
 import tremor.hollow.HollowManager;
 import tremor.hollow.HollowOutcome;
-import tremor.hollow.Origin;
 
 import java.util.Locale;
 
@@ -21,11 +21,13 @@ import java.util.Locale;
  * The Awakening's debug commands under {@code /tremor} (SPEC 14.1), added by {@link tremor.command.TremorCommands}:
  * <ul>
  *   <li>{@code awaken [player]}: starts an Awakening for the player (default: the executing one) where the player
- *   stands, with or without an entity in the dimension ({@link AwakeningManager#start(ServerPlayer)});</li>
+ *   stands, with or without an entity in the dimension ({@link AwakeningManager#start(ServerPlayer)}); also for a
+ *   player in adventure mode, whom a natural one never takes (the feedback says the node cannot be broken then);</li>
  *   <li>{@code awaken stop}: calls off the Awakening of the dimension, or the one the executing player is the target
  *   of; a swallowed target comes back out of the hollow ({@link AwakeningManager#stop});</li>
  *   <li>{@code hollow outcome <victory|edge|defeat>}: ends the level inside the hollow for the executing player, who
- *   must be alive in the copy, as the level would ({@link Outcomes}); {@code edge} gets out where the player stands.
+ *   must be alive in the copy, as the level would ({@link Outcomes}); {@code edge} gets out where the player stands
+ *   (at a safe spot near the matching place of the real world, else at the swallow point).
  *   It joins the {@code hollow} branch of {@link tremor.hollow.HollowCommands} (brigadier merges the two).</li>
  * </ul>
  * {@code /tremor info} shows the running one.
@@ -63,9 +65,10 @@ public final class AwakeningCommands {
                     yield "Victory: " + name + " comes out of the ground at " + text(event.origin().position());
                 }
                 case EDGE_ESCAPE -> {
-                    Origin exit = Outcomes.escape(player, new Vec3(player.getX(), player.getY(), player.getZ()));
-                    yield "Escape through the edge: " + name + " comes out at " + text(exit.position()) + " in "
-                            + exit.dimension().location();
+                    net.minecraft.world.phys.Vec3 reached = Outcomes.escape(player, new Vec3(player.getX(),
+                            player.getY(), player.getZ()));
+                    yield "Escape through the edge: " + name + " comes out at a safe spot near " + text(reached)
+                            + " (else at the swallow point)";
                 }
                 case DEFEAT -> {
                     HollowEvent event = Outcomes.lose(player);
@@ -92,10 +95,13 @@ public final class AwakeningCommands {
             ctx.getSource().sendFailure(Component.literal(refusal.getMessage()));
             return 0;
         }
+        boolean adventure = target.gameMode.getGameModeForPlayer() == GameType.ADVENTURE;
         ctx.getSource().sendSuccess(() -> Component.literal(String.format(Locale.ROOT,
-                "Awakening #%d for %s: a zone of %.0f blocks around %.1f %.1f %.1f, %.0f s to get out",
+                "Awakening #%d for %s: a zone of %.0f blocks around %.1f %.1f %.1f, %.0f s to get out%s",
                 awakening.id, awakening.targetName, awakening.radius, awakening.center.x(), awakening.center.y(),
-                awakening.center.z(), awakening.phaseSeconds())), true);
+                awakening.center.z(), awakening.phaseSeconds(), adventure ? ". Note: " + awakening.targetName
+                        + " is in adventure mode, so in the hollow the node cannot be broken nor the ground dug: only "
+                        + "the edge is a way out (a natural Awakening never takes such a player)" : "")), true);
         return awakening.id;
     }
 

@@ -28,7 +28,9 @@ import java.util.Set;
  *   <li>{@link tremor.block.HeartNodeBlock}: {@link #nodeBroken};</li>
  *   <li>{@code /tremor hollow status}: {@link #describe}.</li>
  * </ul>
- * A level that fails (an exception) is logged and left out; its event goes on without it. Server thread only.
+ * A level that fails (an exception) is logged and stands still, and its player is brought back to where the player
+ * was swallowed, with no outcome ({@link HollowManager#leave}; an event still copying is called off), rather than left
+ * in a copy without a node, a closing or a way out. Server thread only.
  */
 public final class HollowLevels {
     /** The vibrations ({@link Vibration#event}) that can be lures (SPEC 7.4): a thrown item, a projectile landing. */
@@ -42,16 +44,18 @@ public final class HollowLevels {
 
     /**
      * Prepares the level of {@code event}, a step per call (the copy and its light are done, the player is not in yet):
-     * true once it is ready, or if it failed.
+     * true once it is ready. If it fails, the event is called off (false; true only if that is refused, and the player
+     * is brought back from inside then).
      */
     public static boolean prepare(ServerLevel hollow, HollowEvent event) {
         EventLevel level = LEVELS.computeIfAbsent(event, e -> new EventLevel(hollow, e, nextId++));
         try {
             return level.prepare();
         } catch (RuntimeException e) {
-            Tremor.LOGGER.error("Hollow level: preparing {} failed, it goes on without the level", event, e);
+            Tremor.LOGGER.error("Hollow level: preparing {} failed, the event is called off", event, e);
             level.fail(e);
-            return true;
+            ServerPlayer player = hollow.getServer().getPlayerList().getPlayer(event.player());
+            return player == null || !bringBack(event, player);
         }
     }
 
@@ -61,11 +65,29 @@ public final class HollowLevels {
         if (level == null) {
             return;
         }
+        if (!level.failed()) {
+            try {
+                level.tick(player);
+                return;
+            } catch (RuntimeException e) {
+                Tremor.LOGGER.error("Hollow level: {} failed, the player is brought back", event, e);
+                level.fail(e);
+            }
+        }
+        bringBack(event, player);
+    }
+
+    /**
+     * The level of {@code event} failed: its player goes back to where the player was swallowed, with no outcome (an
+     * event still copying is called off). False if that was refused.
+     */
+    private static boolean bringBack(HollowEvent event, ServerPlayer player) {
         try {
-            level.tick(player);
-        } catch (RuntimeException e) {
-            Tremor.LOGGER.error("Hollow level: {} failed, it goes on without the level", event, e);
-            level.fail(e);
+            HollowManager.leave(player, null);
+            return true;
+        } catch (HollowManager.Refusal refusal) {
+            Tremor.LOGGER.warn("Hollow level: could not bring {} back: {}", event, refusal.getMessage());
+            return false;
         }
     }
 

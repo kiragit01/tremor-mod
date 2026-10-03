@@ -4,6 +4,7 @@ import net.minecraft.resources.ResourceKey;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.level.GameType;
 import net.minecraft.world.level.Level;
 import net.neoforged.neoforge.event.entity.living.LivingDeathEvent;
 import net.neoforged.neoforge.event.entity.living.LivingFallEvent;
@@ -39,20 +40,23 @@ import java.util.UUID;
  * <ul>
  *   <li><b>Start by itself</b> (SPEC 8 AWAKENING): once the level's entity is in AWAKENING (and not leaving) with no
  *   Awakening running, it takes a player ({@link AwakeningRules#chooseTarget}): the one it heard last
- *   ({@link #vibration}), if alive in survival or adventure mode, in no event of the hollow and within the hearing
- *   distance of it; else the nearest such player. With nobody to take, nothing starts: the entity hunts on (its
- *   AWAKENING behaves as HUNTING) and it is tried again every tick.</li>
+ *   ({@link #vibration}), if alive in survival mode (not adventure: the level in the hollow cannot be won without
+ *   breaking blocks), in no event of the hollow and within the hearing distance of it; else the nearest such player.
+ *   With nobody to take, nothing starts: the entity hunts on (its AWAKENING behaves as HUNTING) and it is tried again
+ *   every tick.</li>
  *   <li><b>By command</b> ({@link #start(ServerPlayer)}, {@code /tremor awaken [player]}, SPEC 14.1): for any living
- *   player who is not a spectator, with or without an entity; {@code /tremor awaken stop} ({@link #stop}) calls it
- *   off and gets a swallowed target out of the hollow again.</li>
+ *   player who is not a spectator (also in adventure mode), with or without an entity; {@code /tremor awaken stop}
+ *   ({@link #stop}) calls it off and gets a swallowed target out of the hollow again (a defeat decided there takes
+ *   nobody then, {@link Outcomes}).</li>
  *   <li><b>The entity</b>: while an Awakening runs in its level, the level's entity (also one spawned meanwhile, by a
  *   command: natural spawns wait, {@link #runs}) is taken by it ({@link TremorRuntime#absorb}): it is the whole area
  *   now, not a bump. Every end makes it go deep ({@link TremorManager#goDeep}): removed, natural spawns of the
  *   dimension paused for {@code awakening.cooldownSeconds}. Awakenings are not saved: an entity loaded in AWAKENING goes deep at once
  *   ({@link TremorManager#onLevelLoad}).</li>
  *   <li><b>The hollow</b>: a swallowed target's Awakening ends by the outcome of the level in there
- *   ({@link Outcomes}: a victory makes it EMERGING first, a defeat ends it once carried out) or with the target's
- *   event in the hollow ({@link #onHollowEnded}, registered with {@link HollowManager#addEndListener}).</li>
+ *   ({@link Outcomes}: a victory makes it EMERGING first, once the hill is due, {@link Awakening#won}; a defeat ends it
+ *   once carried out) or with the target's event in the hollow ({@link #onHollowEnded}, registered with
+ *   {@link HollowManager#addEndListener}).</li>
  *   <li><b>Players</b>: one who logs out, changes dimension or respawns has dropped the state on the client; it is
  *   sent again once the player is near. A target who logs out before being swallowed ends it at once (before the
  *   player is saved, without the Darkness); once swallowed, the hollow ends its event, and that ends it. A target who
@@ -241,15 +245,19 @@ public final class AwakeningManager {
 
     /**
      * The player part of an event of the hollow is over: an Awakening whose target it swallowed ends with it
-     * ({@link AwakeningRules#afterHollow}), unless it is EMERGING after a victory (that ends by itself). An outcome
-     * decided in the hollow ends it as that (an escape through the edge, normally; also a defeat whose sinkhole was
-     * still being dug, the target having logged out meanwhile); else, before the move into the copy, it is a
-     * cancellation (the player died, logged out or left the dimension while it got dark, or the move failed), and
-     * afterwards {@link Awakening.End#HOLLOW_OVER}.
+     * ({@link AwakeningRules#afterHollow}), unless it is EMERGING after a victory (that ends by itself; one whose hill
+     * is not due yet goes EMERGING now if the victor came out the normal way). An outcome decided in the hollow ends it
+     * as that (an escape through the edge, normally; also a defeat whose sinkhole was still being dug, the target
+     * having logged out meanwhile); else, before the move into the copy, it is a cancellation (the player died, logged
+     * out or left the dimension while it got dark, or the move failed), and afterwards
+     * {@link Awakening.End#HOLLOW_OVER}.
      */
     public static void onHollowEnded(HollowEvent event, HollowEvent.End why) {
         Awakening awakening = swallowedBy(event);
-        if (awakening != null && awakening.phase() != TremorAwakeningPayload.Phase.EMERGING) {
+        if (awakening != null && awakening.victoryPending() && why == HollowEvent.End.LEFT
+                && awakening.phase() == TremorAwakeningPayload.Phase.HOLLOW) {
+            awakening.emerge(awakening.level.getGameTime());
+        } else if (awakening != null && awakening.phase() != TremorAwakeningPayload.Phase.EMERGING) {
             end(awakening, AwakeningRules.afterHollow(event.outcome(),
                     awakening.phase() == TremorAwakeningPayload.Phase.HOLLOW), "the event in the hollow ended ("
                     + why.id() + (event.outcome() == null ? "" : ", " + event.outcome().id()) + ")");
@@ -258,15 +266,15 @@ public final class AwakeningManager {
 
     /**
      * The target of the Awakening that swallowed the player of {@code event} destroyed the node ({@link Outcomes}):
-     * it goes EMERGING at the swallow point ({@link Awakening#emerge}). A no-op for an event no Awakening started
-     * ({@code /tremor hollow enter}).
+     * it goes EMERGING at the swallow point once the hill is due ({@link Awakening#won}). A no-op for an event no
+     * Awakening started ({@code /tremor hollow enter}).
      */
     static void victory(HollowEvent event) {
         Awakening awakening = swallowedBy(event);
         if (awakening != null) {
             Vec3 at = new Vec3(event.origin().position().x, event.origin().position().y,
                     event.origin().position().z);
-            awakening.emerge(at, awakening.level.getGameTime());
+            awakening.won(at, awakening.level.getGameTime());
         }
     }
 
@@ -419,14 +427,18 @@ public final class AwakeningManager {
         } else if (state.loggedWaiting != entity.instance()) {
             state.loggedWaiting = entity.instance();
             Tremor.LOGGER.info(String.format(Locale.ROOT, "Tremor #%d in %s is in AWAKENING but has nobody to take "
-                            + "(no living player in survival or adventure within %.0f blocks): it hunts until somebody "
-                            + "comes", entity.instance(), level.dimension().location(), hearing));
+                            + "(no living player in survival mode within %.0f blocks): it hunts until somebody comes",
+                    entity.instance(), level.dimension().location(), hearing));
         }
     }
 
-    /** Whether an Awakening starting by itself may take the player: alive, survival or adventure, not in the hollow. */
+    /**
+     * Whether an Awakening starting by itself may take the player: alive, in survival mode, not in the hollow. Not in
+     * adventure mode: there the node cannot be broken nor the ground dug, so the level in the hollow cannot be won.
+     */
     private static boolean takeable(ServerPlayer player) {
-        return player.isAlive() && player.gameMode.isSurvival() && HollowManager.event(player) == null;
+        return player.isAlive() && player.gameMode.getGameModeForPlayer() == GameType.SURVIVAL
+                && HollowManager.event(player) == null;
     }
 
     /**

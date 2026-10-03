@@ -46,16 +46,18 @@ class WayPlannerTest {
         open(grid, -30, 0, -30, 30, 5, 30);
         WayPlanner.Plan plan = WayPlanner.plan(grid, ANYWHERE, 0, 0, 0, 14, 24, 1);
         assertFalse(plan.tunnel());
-        assertTrue(plan.carve().isEmpty() && plan.floor().isEmpty());
+        assertTrue(plan.carve().isEmpty() && plan.fill().isEmpty());
         assertTrue(plan.length() >= 14 && plan.length() <= 24, "length " + plan.length());
         int x = CellKey.x(plan.node());
         int z = CellKey.z(plan.node());
         assertEquals(0, CellKey.y(plan.node()), "on the floor");
         assertEquals(plan.length(), Math.abs(x) + Math.abs(z), "a block aside per step on flat ground");
-        // The way: feet and head from the start to the cell before the node, all open, the node not on it.
+        // The way: feet and head from the start to the cell before the node, and the cell above the node, all open;
+        // the node not on it.
         assertTrue(plan.way().contains(CellKey.of(0, 0, 0)) && plan.way().contains(CellKey.of(0, 1, 0)));
-        assertEquals(2 * plan.length(), plan.way().size());
+        assertEquals(2 * plan.length() + 1, plan.way().size());
         assertFalse(plan.way().contains(plan.node()));
+        assertTrue(plan.way().contains(CellKey.above(plan.node(), 1)));
         for (long cell : plan.way()) {
             assertTrue(grid.open(CellKey.x(cell), CellKey.y(cell), CellKey.z(cell)));
         }
@@ -107,7 +109,7 @@ class WayPlannerTest {
         for (long cell : plan.way()) {
             assertTrue(grid.open(CellKey.x(cell), CellKey.y(cell), CellKey.z(cell)));
         }
-        for (long cell : plan.floor()) {
+        for (long cell : plan.fill()) {
             assertFalse(grid.open(CellKey.x(cell), CellKey.y(cell), CellKey.z(cell)));
         }
     }
@@ -124,7 +126,7 @@ class WayPlannerTest {
         for (long cell : plan.carve()) {
             assertTrue(small.allows(CellKey.x(cell), CellKey.y(cell), CellKey.z(cell)));
         }
-        for (long cell : plan.floor()) {
+        for (long cell : plan.fill()) {
             assertTrue(small.allows(CellKey.x(cell), CellKey.y(cell), CellKey.z(cell)));
         }
         plan.applyTo(grid);
@@ -158,5 +160,129 @@ class WayPlannerTest {
         assertEquals(first.node(), second.node());
         assertEquals(first.carve(), second.carve());
         assertEquals(first.way(), second.way());
+    }
+
+    @Test
+    void aNodeReachedByADropKeepsItsApproachOpen() {
+        VoxelGrid grid = rock();
+        // A corridor along x, and a pit three deep at its end: the only cell 14 steps away is the bottom of the pit.
+        open(grid, 0, 0, 0, 13, 1, 0);
+        open(grid, 14, -3, 0, 14, 1, 0);
+        WayPlanner.Plan plan = WayPlanner.plan(grid, ANYWHERE, 0, 0, 0, 14, 14, 1);
+        assertFalse(plan.tunnel());
+        assertEquals(CellKey.of(14, -3, 0), plan.node());
+        // The column above the node, down which the player drops onto it, is on the way: nothing buries it.
+        for (int y = -2; y <= 1; y++) {
+            assertTrue(plan.way().contains(CellKey.of(14, y, 0)), "column at " + y);
+        }
+        assertFalse(plan.way().contains(plan.node()));
+    }
+
+    @Test
+    void theNodeIsNeverUnderWater() {
+        for (long seed = 0; seed < 40; seed++) {
+            VoxelGrid grid = rock();
+            open(grid, -30, 0, -30, 30, 5, 30);
+            // A lake two deep over the half x > 2: the walk swims through it, the node is not put into it.
+            for (int z = -30; z <= 30; z++) {
+                for (int x = 3; x <= 30; x++) {
+                    for (int y = 0; y <= 1; y++) {
+                        grid.set(x, y, z, VoxelGrid.OPEN | VoxelGrid.LIQUID);
+                    }
+                }
+            }
+            WayPlanner.Plan plan = WayPlanner.plan(grid, ANYWHERE, 0, 0, 0, 14, 24, seed);
+            int x = CellKey.x(plan.node());
+            int y = CellKey.y(plan.node());
+            int z = CellKey.z(plan.node());
+            assertTrue(grid.dry(x, y, z) && grid.dry(x, y + 1, z), "node in the water at " + x + " " + z);
+            // ...nor next to the end of the way in it: the player breaks it standing dry.
+            boolean dryNeighbour = false;
+            int[][] sides = {{1, 0}, {-1, 0}, {0, 1}, {0, -1}};
+            for (int[] side : sides) {
+                long next = CellKey.of(x + side[0], y, z + side[1]);
+                dryNeighbour |= plan.way().contains(next) && grid.dry(x + side[0], y, z + side[1]);
+            }
+            assertTrue(dryNeighbour, "seed " + seed);
+        }
+    }
+
+    @Test
+    void theWalkNeverDropsThroughLava() {
+        VoxelGrid grid = rock();
+        open(grid, 0, 0, 0, 2, 2, 0);
+        open(grid, 3, -3, 0, 3, 2, 0);
+        assertEquals(3, WayPlanner.distances(grid, 0, 0, 0, 50).distance(3, -3, 0));
+        grid.set(3, -1, 0, VoxelGrid.OPEN | VoxelGrid.LIQUID | VoxelGrid.HAZARD);
+        assertEquals(-1, WayPlanner.distances(grid, 0, 0, 0, 50).distance(3, -3, 0), "through the lava");
+    }
+
+    @Test
+    void theWalkDoesNotJumpOntoAFence() {
+        VoxelGrid grid = rock();
+        open(grid, 0, 0, 0, 2, 2, 0);
+        open(grid, 3, 1, 0, 6, 3, 0);
+        // A plain block at x = 3 is a step up...
+        assertEquals(3, WayPlanner.distances(grid, 0, 0, 0, 50).distance(3, 1, 0));
+        // ...a fence there is too high to jump onto.
+        grid.set(3, 0, 0, VoxelGrid.TALL);
+        assertEquals(-1, WayPlanner.distances(grid, 0, 0, 0, 50).distance(3, 1, 0));
+    }
+
+    @Test
+    void theNodeIsNeverOnTheBottomRowOfTheGrid() {
+        // Ground falling away from the start down to the bottom of the grid and beyond: what is under the bottom row
+        // is not known, so nobody stands there.
+        VoxelGrid grid = new VoxelGrid(-30, -6, -30, 30, 6, 30);
+        open(grid, -30, -6, -30, 30, 6, 30);
+        for (int z = -30; z <= 30; z++) {
+            for (int x = -30; x <= 30; x++) {
+                int floor = Math.max(-7, 1 - (Math.abs(x) + Math.abs(z)) * 3 / 2);
+                for (int y = -6; y < floor; y++) {
+                    grid.set(x, y, z, 0);
+                }
+            }
+        }
+        WayPlanner.Walk walk = WayPlanner.distances(grid, 0, 1, 0, 50);
+        int sizeX = 61;
+        int sizeZ = 61;
+        boolean deep = false;
+        for (int i = 0; i < walk.reached(); i++) {
+            int y = grid.minY() + walk.order()[i] / sizeX / sizeZ;
+            assertTrue(y > grid.minY(), "stands on the bottom row");
+            deep |= y == grid.minY() + 1;
+        }
+        assertTrue(deep, "the walk goes down as far as it may");
+        WayPlanner.Plan plan = WayPlanner.plan(grid, ANYWHERE, 0, 1, 0, 4, 10, 3);
+        assertTrue(CellKey.y(plan.node()) > grid.minY());
+    }
+
+    @Test
+    void aTunnelIsSealedFromLavaAndWater() {
+        for (long seed = 0; seed < 20; seed++) {
+            VoxelGrid grid = rock();
+            // Lava two blocks over the player's feet and two under, water over the upper lava.
+            for (int z = -30; z <= 30; z++) {
+                for (int x = -30; x <= 30; x++) {
+                    grid.set(x, 2, z, VoxelGrid.OPEN | VoxelGrid.LIQUID | VoxelGrid.HAZARD);
+                    grid.set(x, 3, z, VoxelGrid.OPEN | VoxelGrid.LIQUID);
+                    grid.set(x, -2, z, VoxelGrid.OPEN | VoxelGrid.LIQUID | VoxelGrid.HAZARD);
+                }
+            }
+            open(grid, 0, 0, 0, 0, 1, 0);
+            WayPlanner.Plan plan = WayPlanner.plan(grid, ANYWHERE, 0, 0, 0, 14, 24, seed);
+            assertTrue(plan.tunnel());
+            plan.applyTo(grid);
+            int[][] faces = {{1, 0, 0}, {-1, 0, 0}, {0, 1, 0}, {0, -1, 0}, {0, 0, 1}, {0, 0, -1}};
+            for (long cell : plan.carve()) {
+                for (int[] face : faces) {
+                    int flags = grid.flags(CellKey.x(cell) + face[0], CellKey.y(cell) + face[1],
+                            CellKey.z(cell) + face[2]);
+                    assertEquals(0, flags & (VoxelGrid.LIQUID | VoxelGrid.HAZARD), "a leak next to "
+                            + CellKey.x(cell) + " " + CellKey.y(cell) + " " + CellKey.z(cell) + ", seed " + seed);
+                }
+            }
+            assertTrue(stepsToNode(grid, plan.node()) >= 0);
+        }
     }
 }

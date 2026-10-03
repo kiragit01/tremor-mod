@@ -24,8 +24,11 @@ import tremor.hollow.Origin;
 import tremor.network.TremorBlackoutPayload;
 import tremor.sound.TremorSounds;
 
+import java.util.Collections;
 import java.util.Locale;
+import java.util.Set;
 import java.util.UUID;
+import java.util.WeakHashMap;
 
 /**
  * How an Awakening ends for a player in the hollow (SPEC 9 "Исходы"). Called by the level inside the hollow when the
@@ -38,30 +41,37 @@ import java.util.UUID;
  *   <li>{@link #victory}: the player fades out of the hollow to the swallow point (next to it if it is taken,
  *   {@link HollowManager#leave}); the ground lets go (the RELEASE sound, in the hollow and at the swallow point) and
  *   the Awakening goes EMERGING there: the hill rises, the player comes out of it, it settles, and the Awakening ends
- *   ({@link Awakening#emerge}).</li>
- *   <li>{@link #edgeEscape}: the player fades out to the matching place of the real world (next to it if it is taken);
- *   the Awakening ends when the event does.</li>
+ *   ({@link Awakening#won}).</li>
+ *   <li>{@link #edgeEscape}: the screen goes black, and the player fades out to a safe standing spot near the matching
+ *   place of the real world with a way to the swallow point there ({@link EdgeExits}, once the real chunks are loaded),
+ *   else to the swallow point (next to it if it is taken); the Awakening ends when the event does.</li>
  *   <li>{@link #defeat}: the screen goes black at once (the player is in the ground). A sinkhole opens in the real
  *   world at the swallow point ({@link Sinkholes}; none if {@code awakening.sinkholeRadius} is 0); once it is there,
  *   whatever the player leaves after a death goes to its bottom ({@link HollowManager#setDeathDrops}). Then, if
- *   {@code awakening.lethal}, the ground kills the player (the damage type {@code tremor:tremor}: "поглотила земля"),
- *   and the death drops (items, experience) land on the bottom. A player it does not kill (the soft variant, a
- *   totem of undying, creative mode) fades out of the hollow onto the bottom, keeping everything, and once there
- *   ({@link #onHollowEnded}) has 1 health and is blind, dizzy, weak and slow for {@value #WEAKENED_TICKS} ticks.
- *   Either way the Awakening ends then. A player who logs out while the sinkhole is dug (or on the way out) keeps
- *   everything and is not weakened (the logout ends the event, and the Awakening as a defeat); the sinkhole is dug
- *   all the same.</li>
+ *   {@code awakening.lethal}, the ground kills the player (the damage type {@code tremor:swallowed}: "поглотила
+ *   земля"; armour, enchantments, effects and absorption do not stop it, nor is the armour worn down by it; a totem of
+ *   undying still saves the player, and creative mode), and the death drops (items, experience) land on the bottom. A
+ *   player it does not kill (the soft variant, a totem, creative mode) fades out of the hollow onto the bottom, keeping
+ *   everything, and once there ({@link #onHollowEnded}) has 1 health and is blind, dizzy, weak and slow for
+ *   {@value #WEAKENED_TICKS} ticks. Either way the Awakening ends then. A player who logs out while the sinkhole is dug
+ *   (or on the way out) keeps everything and is not weakened (the logout ends the event, and the Awakening as a
+ *   defeat); the sinkhole is dug all the same. A defeat called off before it took the player (its event ended by
+ *   {@code /tremor restore}, the player brought out by {@code /tremor awaken stop} or {@code /tremor hollow leave})
+ *   takes nobody: no sinkhole is dug (or none further), and the player is neither killed nor weakened.</li>
  * </ul>
- * While a decided event is still inside (the fade, the digging), the level reads {@link HollowEvent#outcome} and stops.
+ * While a decided event is still inside (the fade, the digging, the search for the exit), the level reads
+ * {@link HollowEvent#outcome} and stops.
  */
 public final class Outcomes {
-    /** The damage type of the ground ({@code data/tremor/damage_type/tremor.json}). */
-    private static final ResourceKey<DamageType> GROUND = ResourceKey.create(Registries.DAMAGE_TYPE,
-            ResourceLocation.fromNamespaceAndPath(Tremor.MODID, "tremor"));
+    /** The damage type of the ground's pull ({@code data/tremor/damage_type/swallowed.json}). */
+    private static final ResourceKey<DamageType> SWALLOWED = ResourceKey.create(Registries.DAMAGE_TYPE,
+            ResourceLocation.fromNamespaceAndPath(Tremor.MODID, "swallowed"));
     /** How long a player who survives a defeat stays weakened (ticks). */
     static final int WEAKENED_TICKS = 600;
     /** Amplifier of the weakness and the slowness then (level II). */
     private static final int WEAKENED_AMPLIFIER = 1;
+    /** Events whose defeat sent the player out onto the bottom alive (weakened once there). */
+    private static final Set<HollowEvent> TAKEN_OUT = Collections.newSetFromMap(new WeakHashMap<>());
 
     private Outcomes() {
     }
@@ -80,7 +90,7 @@ public final class Outcomes {
 
     /**
      * Escape through the edge of the hollow before it closed (SPEC 9 "Побег"): the player comes out at the matching
-     * place of the real world.
+     * place of the real world, or the nearest safe one.
      *
      * @param hollowPos where the player reached the edge, in the hollow's coordinates
      */
@@ -126,14 +136,29 @@ public final class Outcomes {
         return event;
     }
 
-    /** {@link #edgeEscape}; returns where the player comes out. */
-    static Origin escape(ServerPlayer player, Vec3 hollowPos) throws HollowManager.Refusal {
+    /**
+     * {@link #edgeEscape}; returns the place reached, mapped into the real world. The exit is a safe spot near it, or
+     * the swallow point ({@link EdgeExits}); the player is sent out once it is found, if still inside then.
+     */
+    static net.minecraft.world.phys.Vec3 escape(ServerPlayer player, Vec3 hollowPos) throws HollowManager.Refusal {
         HollowEvent event = HollowManager.decide(player, HollowOutcome.EDGE_ESCAPE);
-        Origin exit = new Origin(event.origin().dimension(), event.toReal(new net.minecraft.world.phys.Vec3(
-                hollowPos.x(), hollowPos.y(), hollowPos.z())), player.getYRot(), player.getXRot());
-        HollowManager.leave(player, exit);
-        Tremor.LOGGER.info("Outcome: {} got out through the edge, out at {}", name(player), text(exit.position()));
-        return exit;
+        net.minecraft.world.phys.Vec3 reached = event.toReal(new net.minecraft.world.phys.Vec3(hollowPos.x(),
+                hollowPos.y(), hollowPos.z()));
+        Tremor.LOGGER.info("Outcome: {} got to the edge, at {} of the real world", name(player), text(reached));
+        ServerLevel real = player.server.getLevel(event.origin().dimension());
+        if (real == null) {
+            HollowManager.leave(player, null);
+            return reached;
+        }
+        PacketDistributor.sendToPlayer(player, new TremorBlackoutPayload(true,
+                TremorConfig.COMMON.hollow.fadeTicks.get()));
+        MinecraftServer server = player.server;
+        UUID id = player.getUUID();
+        float yRot = player.getYRot();
+        float xRot = player.getXRot();
+        EdgeExits.find(real, event, reached, exit -> getOut(server, id, event, exit == null ? null
+                : new Origin(event.origin().dimension(), exit, yRot, xRot)));
+        return reached;
     }
 
     /** {@link #defeat}; returns the event. */
@@ -148,7 +173,8 @@ public final class Outcomes {
         if (real == null || TremorConfig.COMMON.awakening.sinkholeRadius.get() == 0) {
             takeIn(server, id, event, null);
         } else {
-            Sinkholes.dig(real, event.origin().blockPos(), bottom -> takeIn(server, id, event, bottom));
+            Sinkholes.dig(real, event.origin().blockPos(), () -> stillWanted(event),
+                    bottom -> takeIn(server, id, event, bottom));
         }
         return event;
     }
@@ -157,9 +183,11 @@ public final class Outcomes {
      * The player part of an event of the hollow is over (registered with {@link HollowManager#addEndListener}): a
      * player who survived a defeat and has just come out on the bottom of the sinkhole the normal way is weakened now,
      * in the real world (in the hollow, on the way out, 1 health would not last against what is still going on there).
+     * A player brought out otherwise (a command called the defeat off) is not.
      */
     public static void onHollowEnded(HollowEvent event, HollowEvent.End why) {
-        if (event.outcome() != HollowOutcome.DEFEAT || why != HollowEvent.End.LEFT) {
+        boolean takenOut = TAKEN_OUT.remove(event);
+        if (event.outcome() != HollowOutcome.DEFEAT || why != HollowEvent.End.LEFT || !takenOut) {
             return;
         }
         MinecraftServer server = ServerLifecycleHooks.getCurrentServer();
@@ -170,9 +198,47 @@ public final class Outcomes {
     }
 
     /**
+     * The exit of an escape through the edge is found ({@code exit}: null for the swallow point): the player goes out
+     * there, if still inside the copy, alive, with the same event.
+     */
+    private static void getOut(MinecraftServer server, UUID id, HollowEvent event, Origin exit) {
+        ServerPlayer player = server.getPlayerList().getPlayer(id);
+        if (player == null || HollowManager.event(player) != event || !inside(event) || !player.isAlive()) {
+            // Logged out, died, restored or brought out otherwise meanwhile: that ended (or ends) it.
+            Tremor.LOGGER.info("Outcome: {} is gone before getting out through the edge", event.playerName());
+            return;
+        }
+        try {
+            HollowManager.leave(player, exit);
+        } catch (HollowManager.Refusal refusal) {
+            Tremor.LOGGER.warn("Outcome: could not get {} out through the edge: {}", name(player),
+                    refusal.getMessage());
+            return;
+        }
+        Tremor.LOGGER.info("Outcome: {} got out through the edge, out at {}", name(player), exit == null
+                ? "the swallow point " + text(event.origin().position()) : text(exit.position()));
+    }
+
+    /**
+     * Whether the sinkhole of a defeat is still wanted: the player is still in the copy (the event entering or
+     * inside), or left the event in a way that does not call the defeat off (a logout, a death, a server stop). Not once
+     * the player is on the way out or out by a command ({@code /tremor awaken stop}, {@code /tremor hollow leave},
+     * {@code /tremor restore}), nor after an error.
+     */
+    private static boolean stillWanted(HollowEvent event) {
+        if (inside(event)) {
+            return true;
+        }
+        HollowEvent.End end = event.end();
+        return event.phase() == HollowEvent.Phase.CLEARING && (end == HollowEvent.End.LOGGED_OUT
+                || end == HollowEvent.End.DIED || end == HollowEvent.End.SERVER_STOPPED);
+    }
+
+    /**
      * The sinkhole of a defeat is there ({@code bottom}: its bottom, null without one): whatever the player leaves
-     * after a death goes there from now on, and the defeat takes the player if still in the copy: dead, or on the way
-     * out to the bottom (weakened once there, {@link #onHollowEnded}). Then the Awakening ends.
+     * after a death goes there from now on, and the defeat takes the player if still in the copy (the event entering
+     * or inside, not on its way out): dead, or on the way out to the bottom (weakened once there,
+     * {@link #onHollowEnded}). Then the Awakening ends.
      */
     private static void takeIn(MinecraftServer server, UUID id, HollowEvent event,
                                net.minecraft.world.phys.Vec3 bottom) {
@@ -180,14 +246,17 @@ public final class Outcomes {
                 event.origin().yRot(), event.origin().xRot());
         HollowManager.setDeathDrops(event, site);
         ServerPlayer player = server.getPlayerList().getPlayer(id);
-        if (player == null || HollowManager.event(player) != event || !HollowDimension.is(player.level())) {
-            // Logged out (or got out otherwise) meanwhile: that ended the event, and with it the Awakening.
+        if (player == null || HollowManager.event(player) != event || !inside(event)
+                || !HollowDimension.is(player.level())) {
+            // Logged out, brought out by a command or got out otherwise meanwhile: that ended (or ends) the event,
+            // and with it the Awakening.
             Tremor.LOGGER.info("Outcome: {} is gone before the defeat took them", event.playerName());
             return;
         }
         if (player.isAlive() && TremorConfig.COMMON.awakening.lethal.get()) {
             player.hurt(new DamageSource(server.registryAccess().registryOrThrow(Registries.DAMAGE_TYPE)
-                    .getHolderOrThrow(GROUND)), Float.MAX_VALUE);
+                    .getHolderOrThrow(SWALLOWED)), AwakeningRules.pullDamage(player.getHealth(),
+                    player.getAbsorptionAmount()));
         }
         if (player.isDeadOrDying()) {
             // The death drops went to the bottom (HollowRules); the event ends when the player respawns.
@@ -197,11 +266,17 @@ public final class Outcomes {
         try {
             HollowManager.leave(player, new Origin(site.dimension(), site.position(), player.getYRot(),
                     player.getXRot()));
+            TAKEN_OUT.add(event);
         } catch (HollowManager.Refusal refusal) {
             Tremor.LOGGER.warn("Outcome: could not get {} out to the sinkhole: {}", name(player),
                     refusal.getMessage());
         }
         AwakeningManager.defeated(event, name(player) + " survived, out to the bottom of the sinkhole");
+    }
+
+    /** Whether the event's player is (still) in the copy, not on the way out: entering or inside. */
+    private static boolean inside(HollowEvent event) {
+        return event.phase() == HollowEvent.Phase.ENTERING || event.phase() == HollowEvent.Phase.INSIDE;
     }
 
     /** The soft side of a defeat: 1 health, blind, dizzy, weak and slow for a while. */

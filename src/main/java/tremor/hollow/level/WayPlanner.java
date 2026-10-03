@@ -10,15 +10,19 @@ import java.util.Set;
  * узлу всегда ведёт проход"). Plain Java, on a {@link VoxelGrid}.
  * <p>
  * The walk from the player ({@link #distances}) goes over the cells a player can stand in, a block aside at a time:
- * on the level, a block up (with room to jump), or down a drop of up to {@value #MAX_DROP} blocks. If some cell the
- * region allows is between {@code minLength} and {@code maxLength} steps away, the node goes into one of them, at
- * random: in the open space the player can reach. Otherwise a tunnel is carved from the farthest cell reached: a worm
- * two blocks wide and three high that winds by noise and goes up and down a block now and then, ending in a small
- * chamber with the node, the whole way about {@code minLength}..{@code maxLength} steps long. A worm that would leave
- * the region turns aside; one that cannot ends early, and the node is closer.
+ * on the level, a block up (with room to jump), or down a drop of up to {@value #MAX_DROP} blocks, never through lava
+ * or fire (water is swum through). If some cell the region allows is between {@code minLength} and {@code maxLength}
+ * steps away and the player gets to it dry ({@link #dryApproach}: no node under water, where breaking it is slow and
+ * the air runs out), the node goes into one of them, at random: in the open space the player can reach. Otherwise a
+ * tunnel is carved from the farthest cell reached: a worm two blocks wide and three high that winds by noise and goes
+ * up and down a block now and then, ending in a small chamber with the node, the whole way about
+ * {@code minLength}..{@code maxLength} steps long. A worm that would leave the region turns aside; one that cannot
+ * ends early, and the node is closer. What is carved is sealed: a fluid, lava or fire next to it is filled
+ * ({@link VoxelGrid#leaksAround}), so nothing flows into the tunnel and nothing burns in its walls or roof.
  * <p>
  * The way ({@link Plan#way}) is every open cell the player passes through on it: the feet and head cells of the walk,
- * the room for a jump up and the column of a drop, and the whole tunnel and chamber. Nothing may ever fill it.
+ * the room for a jump up and the column of a drop, the approach of the node (the cell above it, and the column of the
+ * drop into it), and the whole tunnel and chamber. Nothing may ever fill it.
  */
 public final class WayPlanner {
     /** Longest drop the walk takes. */
@@ -47,18 +51,19 @@ public final class WayPlanner {
 
     /**
      * What to change and keep: the node's cell, the cells to empty ({@code carve}, the tunnel and chamber) and to fill
-     * ({@code floor}, under them), and the way to keep open (which holds {@code carve}).
+     * ({@code fill}: the floor under them, and the fluids, lava and fire next to them), and the way to keep open (which
+     * holds {@code carve}).
      *
      * @param length steps from the player to the node
      * @param tunnel whether the way had to be carved
      */
-    public record Plan(long node, Set<Long> carve, Set<Long> floor, Set<Long> way, int length, boolean tunnel) {
+    public record Plan(long node, Set<Long> carve, Set<Long> fill, Set<Long> way, int length, boolean tunnel) {
         /** Writes the plan into the grid: the node is solid. */
         public void applyTo(VoxelGrid grid) {
             for (long cell : carve) {
                 grid.carve(cell);
             }
-            for (long cell : floor) {
+            for (long cell : fill) {
                 grid.fill(cell);
             }
             grid.fill(node);
@@ -86,7 +91,7 @@ public final class WayPlanner {
         for (int i = 0; i < walk.reached(); i++) {
             int cell = walk.order()[i];
             int d = walk.distance()[cell];
-            if (d < minLength || d > maxLength || !allowed(grid, region, cell)) {
+            if (d < minLength || d > maxLength || !allowed(grid, region, cell) || !dryApproach(walk, cell)) {
                 continue;
             }
             // Reservoir sampling: every candidate equally likely.
@@ -97,9 +102,12 @@ public final class WayPlanner {
         }
         Set<Long> way = new HashSet<>();
         if (chosen >= 0) {
-            addPath(walk, walk.parent()[chosen], way);
-            return new Plan(key(grid, chosen), new HashSet<>(), new HashSet<>(), way,
-                    walk.distance()[chosen], false);
+            // The path into the node's cell: the approach (the cell above the node, the column of a drop into it) is
+            // part of the way, so the closing never buries the node.
+            long node = key(grid, chosen);
+            addPath(walk, chosen, way);
+            way.remove(node);
+            return new Plan(node, new HashSet<>(), new HashSet<>(), way, walk.distance()[chosen], false);
         }
         int from = walk.order()[0];
         for (int i = walk.reached() - 1; i > 0; i--) {
@@ -159,19 +167,20 @@ public final class WayPlanner {
 
     /**
      * Where a player standing at {@code x, y, z} ends up after a block aside to {@code nx, nz}: the same height, a block
-     * up (with the room to jump above the head), or down a drop; {@link Integer#MIN_VALUE} if there is no way.
+     * up (with the room to jump above the head), or down a drop; {@link Integer#MIN_VALUE} if there is no way. Nothing
+     * on the way hurts (a drop through lava, a jump into fire).
      */
     static int landing(VoxelGrid grid, int x, int y, int z, int nx, int nz) {
         if (grid.standable(nx, y, nz)) {
             return y;
         }
-        if (grid.standable(nx, y + 1, nz) && grid.open(x, y + 2, z)) {
+        if (grid.standable(nx, y + 1, nz) && grid.passable(x, y + 2, z)) {
             return y + 1;
         }
-        if (!grid.open(nx, y, nz) || !grid.open(nx, y + 1, nz)) {
+        if (!grid.passable(nx, y, nz) || !grid.passable(nx, y + 1, nz)) {
             return Integer.MIN_VALUE;
         }
-        for (int ly = y - 1; ly >= y - MAX_DROP && grid.open(nx, ly, nz); ly--) {
+        for (int ly = y - 1; ly >= y - MAX_DROP && grid.passable(nx, ly, nz); ly--) {
             if (grid.standable(nx, ly, nz)) {
                 return ly;
             }
@@ -216,7 +225,8 @@ public final class WayPlanner {
                 int mx = Math.abs(ddx) >= Math.abs(ddz) ? Integer.signum(ddx) : 0;
                 int mz = mx == 0 ? Integer.signum(ddz) : 0;
                 int ny = sinceLevel >= LEVEL_STEPS && wantY != cy ? cy + Integer.signum(wantY - cy) : cy;
-                if (!fits(grid, carvable, cx + mx, ny, cz + mz, mx, mz)) {
+                if (ny > cy && !carves(grid, carvable, cx, cy + 2, cz)
+                        || !fits(grid, carvable, cx + mx, ny, cz + mz, mx, mz)) {
                     ny = cy;
                 }
                 if (!fits(grid, carvable, cx + mx, ny, cz + mz, mx, mz)) {
@@ -267,19 +277,26 @@ public final class WayPlanner {
             needsCarving(grid, cell, carve);
         }
         carve.remove(node);
-        Set<Long> floor = new HashSet<>();
+        Set<Long> fill = new HashSet<>();
         for (long cell : way) {
-            addFloor(grid, region, way, cell, floor);
+            addFloor(grid, region, way, cell, fill);
         }
-        addFloor(grid, region, way, node, floor);
-        return new Plan(node, carve, floor, way, length, true);
+        addFloor(grid, region, way, node, fill);
+        Set<Long> keep = new HashSet<>(way);
+        keep.add(node);
+        fill.addAll(grid.leaksAround(carve, keep));
+        return new Plan(node, carve, fill, way, length, true);
     }
 
-    /** Whether the tunnel's section at {@code x, y, z}, going {@code mx, mz}, lies in the grid and the region. */
+    /**
+     * Whether the tunnel's section at {@code x, y, z}, going {@code mx, mz}, lies in the grid and the region: its
+     * cells inside the grid with their neighbours ({@link VoxelGrid#interior}), the floor below at least in it.
+     */
     private static boolean fits(VoxelGrid grid, VoxelGrid.Region region, int x, int y, int z, int mx, int mz) {
         for (int h = -1; h <= 2; h++) {
             // The floor below too: it may have to be filled.
-            if (!inside(grid, region, x, y + h, z) || !inside(grid, region, x - mz, y + h, z + mx)) {
+            if (h < 0 ? !inside(grid, region, x, y + h, z) || !inside(grid, region, x - mz, y + h, z + mx)
+                    : !carves(grid, region, x, y + h, z) || !carves(grid, region, x - mz, y + h, z + mx)) {
                 return false;
             }
         }
@@ -303,7 +320,7 @@ public final class WayPlanner {
             for (int dz = -reach; dz <= reach; dz++) {
                 for (int dx = -reach; dx <= reach; dx++) {
                     if ((dx * dx + dz * dz) / (CHAMBER_RADIUS * CHAMBER_RADIUS) + up * up <= 1
-                            && inside(grid, region, x + dx, y + dy, z + dz)
+                            && carves(grid, region, x + dx, y + dy, z + dz)
                             && inside(grid, region, x + dx, y + dy - 1, z + dz)) {
                         chamber.add(CellKey.of(x + dx, y + dy, z + dz));
                     }
@@ -313,13 +330,14 @@ public final class WayPlanner {
         return chamber;
     }
 
+    /** Adds the cell to {@code carve} unless it is plain open already (air, not a fluid or fire). */
     private static void needsCarving(VoxelGrid grid, long cell, Set<Long> carve) {
         if (grid.flags(CellKey.x(cell), CellKey.y(cell), CellKey.z(cell)) != VoxelGrid.OPEN) {
             carve.add(cell);
         }
     }
 
-    /** The cell under {@code cell} is filled if it is not on the way and is open or hurts. */
+    /** The cell under {@code cell} is filled if it is not on the way and is open, hurts or is too tall to stand on. */
     private static void addFloor(VoxelGrid grid, VoxelGrid.Region region, Set<Long> way, long cell,
                                  Set<Long> floor) {
         int x = CellKey.x(cell);
@@ -359,6 +377,37 @@ public final class WayPlanner {
         }
     }
 
+    /**
+     * Whether the player gets to the node in {@code cell} dry: its cell and the one above, the column above it that the
+     * walk dropped down into it, and the cell the walk came from with the one above it (where the player stands to
+     * break the node) hold no fluid.
+     */
+    private static boolean dryApproach(Walk walk, int cell) {
+        VoxelGrid grid = walk.grid();
+        long at = key(grid, cell);
+        int x = CellKey.x(at);
+        int y = CellKey.y(at);
+        int z = CellKey.z(at);
+        int top = y + 1;
+        int from = walk.parent()[cell];
+        if (from >= 0) {
+            long before = key(grid, from);
+            int fx = CellKey.x(before);
+            int fy = CellKey.y(before);
+            int fz = CellKey.z(before);
+            if (!grid.dry(fx, fy, fz) || !grid.dry(fx, fy + 1, fz)) {
+                return false;
+            }
+            top = Math.max(top, fy + 1);
+        }
+        for (int h = y; h <= top; h++) {
+            if (!grid.dry(x, h, z)) {
+                return false;
+            }
+        }
+        return true;
+    }
+
     private static boolean allowed(VoxelGrid grid, VoxelGrid.Region region, int cell) {
         long key = key(grid, cell);
         int x = CellKey.x(key);
@@ -369,6 +418,11 @@ public final class WayPlanner {
 
     private static boolean inside(VoxelGrid grid, VoxelGrid.Region region, int x, int y, int z) {
         return grid.contains(x, y, z) && region.allows(x, y, z);
+    }
+
+    /** Whether the cell may be carved: the region allows it, and its neighbours are known (sealing needs them). */
+    private static boolean carves(VoxelGrid grid, VoxelGrid.Region region, int x, int y, int z) {
+        return grid.interior(x, y, z) && region.allows(x, y, z);
     }
 
     private static long key(VoxelGrid grid, int cell) {

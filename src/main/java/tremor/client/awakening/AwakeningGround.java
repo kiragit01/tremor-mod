@@ -23,10 +23,12 @@ import java.util.List;
  *     <li>HOLLOW: nothing; for everyone left behind the ground is smooth at once, as if nobody had been there;</li>
  *     <li>EMERGING (after a victory in the hollow, SPEC 9 "Победа"): the hill rises at the focus once more, quickly,
  *     with a ring bursting out from under it, and settles slowly over the phase ({@link AwakeningShape#emergeHill}),
- *     shaking dust off its flanks: the player comes out of it;</li>
- *     <li>over in the real world (escape, victory, or cancelled): the ground of the last frame settles over
- *     {@link AwakeningParams#releaseSeconds} ({@link AwakeningShape#release}) as the entity goes deep, instead of
- *     snapping flat.</li>
+ *     shaking dust off its flanks: the player comes out of it. It runs on this client's clock ({@link ClientEmerge}):
+ *     for the victor it rises only once their screen has come back after the move out of the hollow, and it runs to
+ *     its end also after the server has ended the phase;</li>
+ *     <li>over in the real world in the build-up or the swallowing (escape, or cancelled): the ground of the last
+ *     frame settles over {@link AwakeningParams#releaseSeconds} ({@link AwakeningShape#release}) as the entity goes
+ *     deep, instead of snapping flat. An emerging hill settles by itself.</li>
  * </ul>
  * The breathing keeps its rhythm across the phases: its clock runs from the start of the first phase this client saw
  * of the event (the build-up, unless it came near or joined later). Everything runs on the level's game time, like
@@ -37,6 +39,9 @@ public final class AwakeningGround {
     private static final double TICKS_PER_SECOND = SharedConstants.TICKS_PER_SECOND;
     /** Strength of the ring that bursts out from under the emerging hill: a heavy landing's. */
     static final double EMERGE_RING_STRENGTH = 3;
+    /** Ticks the ring bursting out from under the emerging hill runs ({@link Ripple#active}), rounded up. */
+    static final int EMERGE_RING_TICKS = (int) Math.ceil(AwakeningShape.stepRipple(PARAMS, EMERGE_RING_STRENGTH)
+            .duration() * TICKS_PER_SECOND) + 1;
 
     /** Event whose breathing clock runs, and the game time it started at. */
     private static int clockEvent;
@@ -56,6 +61,14 @@ public final class AwakeningGround {
      * if it does not move.
      */
     public static AwakeningField frame(double gameTime) {
+        TremorAwakeningPayload emerging = ClientEmerge.state();
+        if (emerging != null) {
+            // On this client's clock, to its end; it settles by itself, so nothing is kept to settle after it.
+            last = null;
+            lastRipples = List.of();
+            releaseStart = Double.NaN;
+            return emerging(emerging, gameTime);
+        }
         TremorAwakeningPayload state = ClientAwakening.state();
         double release = 1;
         List<ClientAwakening.StepRipple> ripples;
@@ -65,17 +78,15 @@ public final class AwakeningGround {
                 clockEvent = state.id();
                 breathStart = state.phaseStart();
             }
-            if (state.phase() != Phase.BUILDUP && state.phase() != Phase.SWALLOWING
-                    && state.phase() != Phase.EMERGING) {
-                last = null; // in the hollow: smooth at once, nothing settles
+            if (state.phase() != Phase.BUILDUP && state.phase() != Phase.SWALLOWING) {
+                // In the hollow: smooth at once, nothing settles. An emerging over on this client: it has settled.
+                last = null;
                 lastRipples = List.of();
                 return null;
             }
             last = state;
             releaseStart = Double.NaN;
-            // Steps ring out only in the zone's own phases; the hill a victor comes out of has a ring of its own.
-            ripples = state.phase() == Phase.EMERGING ? List.of()
-                    : ClientAwakening.ripples((long) Math.floor(gameTime));
+            ripples = ClientAwakening.ripples((long) Math.floor(gameTime));
             lastRipples = ripples;
         } else {
             if (last == null) {
@@ -105,9 +116,6 @@ public final class AwakeningGround {
 
     private static AwakeningField field(TremorAwakeningPayload state, List<ClientAwakening.StepRipple> ripples,
                                         double gameTime, double release) {
-        if (state.phase() == Phase.EMERGING) {
-            return emerging(state, gameTime, release);
-        }
         boolean swallowing = state.phase() == Phase.SWALLOWING;
         double progress = phaseProgress(state, gameTime);
         double amplitude = swallowing ? PARAMS.breathEnd() : AwakeningShape.breathAmplitude(PARAMS, progress);
@@ -128,20 +136,25 @@ public final class AwakeningGround {
     }
 
     /**
-     * The hill a victor comes out of, {@link AwakeningShape#emergeHill} of the phase's progress at the focus, with a
-     * ring of strength {@link #EMERGE_RING_STRENGTH} bursting out from under it as it starts to rise. Only the ground
-     * around the focus moves, so only that is scanned: a zone of radius 0 there, which the ring's reach widens
-     * ({@link AwakeningField#reach}). No breathing. Flat for an open-ended phase.
+     * The hill a victor comes out of, {@link AwakeningShape#emergeHill} of the share of its phase that has passed on
+     * this client ({@link ClientEmerge#progress}) at the focus, with a ring of strength {@link #EMERGE_RING_STRENGTH}
+     * bursting out from under it as it starts to rise. Only the ground around the focus moves, so only that is
+     * scanned: a zone of radius 0 there, which the ring's reach widens ({@link AwakeningField#reach}). No breathing.
+     * Null while it waits for the victor's screen; flat for an open-ended phase.
      */
-    private static AwakeningField emerging(TremorAwakeningPayload state, double gameTime, double release) {
-        double progress = phaseProgress(state, gameTime);
+    private static AwakeningField emerging(TremorAwakeningPayload state, double gameTime) {
+        double start = ClientEmerge.start();
+        if (Double.isNaN(start)) {
+            return null;
+        }
+        double progress = ClientEmerge.progress(gameTime);
         double seconds = state.phaseTicks() / TICKS_PER_SECOND;
-        double hill = AwakeningShape.emergeHill(PARAMS, progress) * release;
-        double speed = seconds > 0 ? AwakeningShape.emergeHillRate(PARAMS, progress) / seconds * release : 0;
+        double hill = AwakeningShape.emergeHill(PARAMS, progress);
+        double speed = seconds > 0 ? AwakeningShape.emergeHillRate(PARAMS, progress) / seconds : 0;
         RippleParams burst = AwakeningShape.stepRipple(PARAMS, EMERGE_RING_STRENGTH);
-        double age = (gameTime - state.phaseStart()) / TICKS_PER_SECOND;
+        double age = (gameTime - start) / TICKS_PER_SECOND;
         List<AwakeningField.Ring> rings = Ripple.active(burst, age)
-                ? List.of(new AwakeningField.Ring(state.focus(), age, burst.withAmplitude(burst.amplitude() * release)))
+                ? List.of(new AwakeningField.Ring(state.focus(), age, burst))
                 : List.of();
         return new AwakeningField(PARAMS, state.focus(), 0, 0, 0, state.focus(), hill, speed, rings);
     }

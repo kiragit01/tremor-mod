@@ -17,15 +17,15 @@ import java.util.ArrayDeque;
  * come ({@link ClosingOrder}) is filled from the bottom up, each open cell with a copy of a solid neighbour, the one
  * towards the edge first ({@link Materials#material}), so the walls seem to grow inwards. Never filled: the way to the
  * node and the node ({@link EventLevel#keepsOpen}), the player's own blocks, and the cells near the player
- * ({@value #NEAR} blocks aside, from {@value #NEAR} below the feet to {@value #NEAR} above the head); a column with
- * such a cell, or with a cell that had nothing to grow from yet, is gone over again {@value #RETRY_TICKS} ticks later.
- * Every {@value #RESCAN_TICKS} ticks the closed columns around the player are gone over again too, so what the player
- * digs into the closed part fills up behind the player. The work is amortized: a number of cells per tick, and the
- * time left of the tick's budget.
+ * ({@value #NEAR} blocks aside, from {@value #NEAR} below the feet to {@value #NEAR} above the head: a small bubble,
+ * so standing in the closing band keeps no corridor open); a column with such a cell, or with a cell that had nothing
+ * to grow from yet, is gone over again {@value #RETRY_TICKS} ticks later. Every {@value #RESCAN_TICKS} ticks the
+ * closed columns around the player are gone over again too, so what the player digs into the closed part fills up
+ * behind the player. The work is amortized: a number of cells per tick, and the time left of the tick's budget.
  */
 final class Closer {
     /** How close to the player nothing is filled (blocks). */
-    static final double NEAR = 3;
+    static final double NEAR = 2;
     private static final int RESCAN_TICKS = 20;
     private static final int RESCAN_RADIUS = 8;
     private static final int RETRY_TICKS = 30;

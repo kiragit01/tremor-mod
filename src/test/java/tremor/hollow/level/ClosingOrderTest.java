@@ -18,21 +18,35 @@ class ClosingOrderTest {
     }
 
     @Test
-    void columnsAtOrBeyondTheEdgeAreLeftOut() {
+    void theRingAtTheEdgeClosesAsSoonAsTheClosingStarts() {
         ClosingOrder order = order(0);
-        int inside = 0;
-        for (int z = -10; z <= 10; z++) {
-            for (int x = -10; x <= 10; x++) {
-                if (distance(x, z) < 9) {
-                    inside++;
+        assertEquals(21 * 21, order.size(), "every column of the box");
+        // Nothing at the start radius (the edge): the grace.
+        assertEquals(0, order.advance(9));
+        assertFalse(order.closed(9, 0, 9));
+        // Just under it the ring at and beyond the edge, corners included, is due: farthest first.
+        int due = order.advance(8.99);
+        for (int i = 0; i < order.size(); i++) {
+            assertEquals(i < due, distance(order.x(i), order.z(i)) >= 8.99, "column " + i);
+        }
+        assertTrue(order.closed(9, 0, 8.99), "on the edge");
+        assertTrue(order.closed(10, 10, 8.99), "a corner");
+        assertFalse(order.closed(50, 0, -1), "outside");
+        assertEquals(order.size(), order.advance(-1));
+    }
+
+    @Test
+    void noColumnClosesBeforeTheRadiusLeavesTheEdge() {
+        for (long seed = 0; seed < 20; seed++) {
+            // The wobble would put some columns inside the edge beyond it.
+            ClosingOrder order = new ClosingOrder(-10, -10, 10, 10, 0.5, 0.5, 9, 1.5, seed);
+            assertEquals(0, order.advance(9), "seed " + seed);
+            for (int z = -10; z <= 10; z++) {
+                for (int x = -10; x <= 10; x++) {
+                    assertFalse(order.closed(x, z, 9));
                 }
             }
         }
-        assertEquals(inside, order.size());
-        assertEquals(order.size(), order.advance(-1));
-        assertFalse(order.closed(9, 0, -1), "on the edge");
-        assertFalse(order.closed(10, 10, -1), "a corner");
-        assertFalse(order.closed(50, 0, -1), "outside");
     }
 
     @Test

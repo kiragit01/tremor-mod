@@ -19,6 +19,7 @@ import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.ExperienceOrb;
 import net.minecraft.world.entity.OwnableEntity;
 import net.minecraft.world.entity.Pose;
+import net.minecraft.world.entity.TraceableEntity;
 import net.minecraft.world.entity.item.ItemEntity;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.entity.projectile.AbstractArrow;
@@ -72,7 +73,8 @@ import java.util.function.IntUnaryOperator;
  *   <li>ENTERING: the screen stays black until the client has the terrain around the player for
  *   {@code hollow.settleTicks} ticks, then fades in;</li>
  *   <li>INSIDE: until {@link #leave}; the level is played every tick the player is alive in it
- *   ({@link HollowLevels#tick});</li>
+ *   ({@link HollowLevels#tick}); what of the player's flies or falls out of the copy (items, arrows, experience) is
+ *   given back at the drop site at once, in any phase;</li>
  *   <li>LEAVING and RETURNING: the same in reverse, back to the origin (or another exit), next to it if somebody built
  *   over it meanwhile ({@link StandSpots});</li>
  *   <li>CLEARING: what is the player's in the slot (the blocks the player placed, items, experience, pets) is given
@@ -587,6 +589,11 @@ public final class HollowManager {
                     }
                 }
             }
+            try {
+                bringBackStrays();
+            } catch (RuntimeException e) {
+                Tremor.LOGGER.error("Hollow: bringing back what left a copy failed", e);
+            }
         }
 
         private void step(HollowEvent event, long now) {
@@ -880,6 +887,67 @@ public final class HollowManager {
             }
             event.clearPlaced();
             data.setDirty();
+        }
+
+        /**
+         * Brings back at once what of a player's leaves a copy (SPEC 12: nothing of the player's is lost there): an
+         * item, an arrow or trident that can be picked up (one that cannot is removed), or experience that flies out
+         * over a side of the copy or gets under its bottom ({@link Strays#left}) would fall through the empty hollow
+         * and be gone. It goes to the drop site of its event ({@link HollowEvent#dropOrigin}, or where the things of a
+         * player who died there go): the event whose area it is over, else its owner's latest, else the nearest one.
+         */
+        private void bringBackStrays() {
+            if (data.events().isEmpty()) {
+                return;
+            }
+            List<Entity> loose = new ArrayList<>();
+            for (Entity entity : hollow.getAllEntities()) {
+                if (entity instanceof ItemEntity || entity instanceof ExperienceOrb || entity instanceof AbstractArrow) {
+                    loose.add(entity);
+                }
+            }
+            for (Entity entity : loose) {
+                HollowEvent event = entity.isRemoved() || isMoving(entity) ? null : strayOf(entity);
+                if (event == null || !Strays.left(event.hollowBox(), entity.getX(), entity.getY(), entity.getZ())) {
+                    continue;
+                }
+                DropSite site = site(event.died ? event.deathDrops() : event.dropOrigin());
+                if (entity instanceof ExperienceOrb) {
+                    send(entity, site);
+                } else {
+                    ItemStack stack = entity instanceof ItemEntity item ? item.getItem().copy()
+                            : ((AbstractArrow) entity).pickup == AbstractArrow.Pickup.ALLOWED
+                            ? ((AbstractArrow) entity).getPickupItemStackOrigin().copy() : ItemStack.EMPTY;
+                    entity.discard();
+                    if (!stack.isEmpty()) {
+                        Vec3 at = site.position();
+                        ItemEntity item = new ItemEntity(site.level(), at.x, at.y, at.z, stack, 0, 0, 0);
+                        item.setUnlimitedLifetime();
+                        site.level().addFreshEntity(item);
+                    }
+                }
+                Tremor.LOGGER.debug("Hollow: {} left the copy of {}, brought back to {} {}", entity, event,
+                        site.level().dimension().location(), BlockPos.containing(site.position()).toShortString());
+            }
+        }
+
+        /** The event a loose entity of the hollow belongs to ({@link #bringBackStrays}), or null if there is none. */
+        private HollowEvent strayOf(Entity entity) {
+            HollowEvent event = eventAt(entity.blockPosition());
+            if (event == null && entity instanceof TraceableEntity traceable && traceable.getOwner() != null) {
+                event = data.latest(traceable.getOwner().getUUID());
+            }
+            double nearest = Double.MAX_VALUE;
+            for (HollowEvent other : event == null ? data.events() : List.<HollowEvent>of()) {
+                HollowBox box = other.hollowBox();
+                double distance = Math.hypot(entity.getX() - (box.minX() + box.maxX() + 1) / 2.0,
+                        entity.getZ() - (box.minZ() + box.maxZ() + 1) / 2.0);
+                if (distance < nearest) {
+                    nearest = distance;
+                    event = other;
+                }
+            }
+            return event;
         }
 
         /** Moves an entity of the player's (an experience orb, a pet) to the drop site as it is. */

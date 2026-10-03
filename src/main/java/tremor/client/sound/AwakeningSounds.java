@@ -9,6 +9,7 @@ import net.minecraft.sounds.SoundSource;
 import net.neoforged.neoforge.client.event.ClientPlayerNetworkEvent;
 import net.neoforged.neoforge.client.event.ClientTickEvent;
 import tremor.client.awakening.ClientAwakening;
+import tremor.client.awakening.ClientEmerge;
 import tremor.config.TremorConfig;
 import tremor.core.math.Vec3;
 import tremor.network.TremorAwakeningPayload;
@@ -31,7 +32,8 @@ import tremor.sound.TremorSounds;
  * when the player leaves the zone, and at once when the client level changes: a swallowed target is moved into the
  * hollow, whose sound is that of SPEC 9 phase 2 ({@link HollowSounds}, played from here in place of all this while the
  * player is in a hollow). After a victory in the hollow, the ground rumbles once where the hill rises and the player
- * comes out ({@link Phase#EMERGING EMERGING}), for everybody near. Main thread only.
+ * comes out ({@link Phase#EMERGING EMERGING}), for everybody near, as the hill starts to rise on their client (for the
+ * victor, once the screen has come back: {@link ClientEmerge}). Main thread only.
  */
 public final class AwakeningSounds {
     /** Category of all these sounds: the entity's, like its other sounds. */
@@ -44,7 +46,10 @@ public final class AwakeningSounds {
      */
     private static final int AWAKEN_LATE_TICKS = 40;
     private static final float AWAKEN_VOLUME = 1.0F;
-    /** A player who only learns of an emerging this many ticks after it started no longer hears its rumble. */
+    /**
+     * A player who only learns of an emerging this many ticks after its hill started to rise on their client no longer
+     * hears its rumble.
+     */
     private static final int EMERGE_LATE_TICKS = 40;
     /** Volume of the rumble of the emerging hill: heard up to twice the attenuation distance of its sound. */
     private static final float EMERGE_VOLUME = 2.0F;
@@ -61,8 +66,9 @@ public final class AwakeningSounds {
     }
 
     /**
-     * Beats the heart, keeps the hum going, and sounds the awakening when the swallowing starts; in the hollow, its
-     * sounds instead ({@link HollowSounds#tick}); the rumble of an emerging hill when it starts.
+     * Beats the heart, keeps the hum going, and sounds the awakening when the swallowing starts; in the hollow (and
+     * while being moved into it), its sounds instead ({@link HollowSounds#tick}, {@link HollowSounds#arrive}); the
+     * rumble of an emerging hill when it starts.
      */
     public static void onClientTick(ClientTickEvent.Post event) {
         Minecraft mc = Minecraft.getInstance();
@@ -72,8 +78,12 @@ public final class AwakeningSounds {
             reset();
         }
         TremorHollowStatePayload hollow = HollowSounds.heard(mc);
-        if (hollow != null) {
-            HollowSounds.tick(mc, hollow);
+        if (hollow != null || HollowSounds.arriving(mc)) {
+            if (hollow != null) {
+                HollowSounds.tick(mc, hollow);
+            } else {
+                HollowSounds.arrive(mc);
+            }
             beatCountdown = Math.max(beatCountdown, FIRST_BEAT_TICKS);
             return;
         }
@@ -145,13 +155,14 @@ public final class AwakeningSounds {
     }
 
     /**
-     * The ground rumbles once where the hill a victor comes out of rises ({@link Phase#EMERGING EMERGING}), for every
-     * player who learns of it as it starts, wherever they are: from the hill, fading out with the distance.
+     * The ground rumbles once where the hill a victor comes out of rises ({@link Phase#EMERGING EMERGING}) as it starts
+     * to rise on this client ({@link ClientEmerge}: for the victor, once their screen has come back), for every player
+     * who learns of it as it starts, wherever they are: from the hill, fading out with the distance.
      */
     private static void emerge(Minecraft mc) {
-        TremorAwakeningPayload state = mc.level == null ? null : ClientAwakening.state();
-        if (state == null || state.phase() != Phase.EMERGING || rumbled != null && rumbled == state.id()
-                || mc.isPaused() || mc.level.getGameTime() - state.phaseStart() > EMERGE_LATE_TICKS) {
+        TremorAwakeningPayload state = mc.level == null ? null : ClientEmerge.state();
+        if (state == null || ClientEmerge.waiting() || rumbled != null && rumbled == state.id() || mc.isPaused()
+                || mc.level.getGameTime() - ClientEmerge.start() > EMERGE_LATE_TICKS) {
             return;
         }
         rumbled = state.id();

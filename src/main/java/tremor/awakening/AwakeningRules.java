@@ -1,6 +1,7 @@
 package tremor.awakening;
 
 import tremor.core.math.Vec3;
+import tremor.core.shape.AwakeningShape;
 import tremor.hollow.HollowOutcome;
 
 import java.util.List;
@@ -10,8 +11,8 @@ import java.util.function.IntFunction;
 /**
  * Rules of the Awakening's real-world part (SPEC 9 phase 1) that do not need the game, unit-tested directly: the zone
  * and the escape from it, who is taken, when the Darkness comes and which Darkness is the Awakening's to take away, how
- * strong the ring of a step is, when a rooted player has strayed and whether it may drop, and how the end of the event
- * in the hollow ends the Awakening.
+ * strong the ring of a step is, when a rooted player has strayed and whether it may drop, how the end of the event in
+ * the hollow ends the Awakening, when the hill of a victory rises and how hard the ground pulls in a defeat.
  * <p>
  * The zone is a vertical cylinder around the centre (SPEC 9: "сфера/цилиндр"): only the horizontal distance counts,
  * so climbing a tower or digging down does not get the player out, walking away does.
@@ -54,8 +55,8 @@ public final class AwakeningRules {
      *
      * @param id       the player
      * @param distance from the entity (blocks)
-     * @param eligible whether the player can be taken at all: alive, in survival or adventure mode, in no event of
-     *                 the hollow already
+     * @param eligible whether the player can be taken at all: alive, in survival mode (not adventure: the level in
+     *                 the hollow cannot be won without breaking blocks), in no event of the hollow already
      */
     public record Candidate(UUID id, double distance, boolean eligible) {
     }
@@ -164,6 +165,25 @@ public final class AwakeningRules {
             case EDGE_ESCAPE -> Awakening.End.EDGE_ESCAPED;
             case DEFEAT -> Awakening.End.DEFEAT;
         };
+    }
+
+    /**
+     * Ticks from a victory until the hill the victor comes out of starts to rise ({@code awakening.emergeTicks} long,
+     * shooting up over its first {@link AwakeningShape#EMERGE_RISE}): so that it is at its highest when the victor is
+     * moved out of the hollow, {@code fadeTicks} ({@code hollow.fadeTicks}) after the victory. 0 if the rise takes that
+     * long or longer.
+     */
+    public static int emergeDelay(int fadeTicks, int emergeTicks) {
+        return Math.max(0, fadeTicks - (int) Math.round(AwakeningShape.EMERGE_RISE * emergeTicks));
+    }
+
+    /**
+     * Damage of the ground's pull in a defeat ({@code awakening.lethal}): what a player with {@code health} and
+     * {@code absorption} has, and one more. Its damage type ignores armour, enchantments and effects, so this kills;
+     * a finite amount, so that nothing that scales with the damage runs away with it.
+     */
+    public static float pullDamage(float health, float absorption) {
+        return Math.max(0, health) + Math.max(0, absorption) + 1;
     }
 
     /**

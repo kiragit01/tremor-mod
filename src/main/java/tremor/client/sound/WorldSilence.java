@@ -35,8 +35,9 @@ import java.util.Set;
  * Awakening ({@link AwakeningSounds#heard}), every sound of the world fades to the configured floor
  * ({@code sound.silenceFloor}) over {@link AwakeningTone#SILENCE_FADE_SECONDS}, and comes back as slowly once they no
  * longer do; {@link AwakeningTone#silenceGain} is the curve. Inside the hollow (SPEC 9 phase 2, {@link HollowSounds})
- * the world is at the floor from the start (the player comes from the silence of the build-up, and the move stopped
- * every sound), and while the soft ground pulls the player in it is muffled further ({@link HollowTone#muffle}). The
+ * the world is at the floor from the start, already during the dark move in ({@link HollowSounds#arriving}; the
+ * player comes from the silence of the build-up, and the move stopped every sound), and while the soft ground pulls
+ * the player in it is muffled further ({@link HollowTone#muffle}). The
  * mod's own sounds (the hum and heartbeat that remain, the entity's) and those of the menu ({@link SoundSource#MASTER})
  * are left alone. No sound is kept from playing.
  * <ul>
@@ -111,7 +112,7 @@ public final class WorldSilence {
             owner = mc.level;
             reset();
         }
-        boolean hollow = HollowSounds.heard(mc) != null;
+        boolean hollow = HollowSounds.heard(mc) != null || HollowSounds.arriving(mc);
         boolean heard = hollow || AwakeningSounds.heard(mc) != null;
         double floor = heard || depth > 0 ? TremorConfig.CLIENT.silenceFloor.get() : 1;
         silenced = heard && floor < 1;

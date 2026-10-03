@@ -90,6 +90,19 @@ public final class ClientBlackout {
         fade.clear();
     }
 
+    /** Opacity of the black over the screen as of the last frame, 0 (none) to 1 (fully black). */
+    public static double opacity() {
+        return fade.opacity();
+    }
+
+    /**
+     * Whether the black covers the screen at all as of the last frame, or a new level is loading under it (the move
+     * itself): the player does not see the world clearly yet.
+     */
+    public static boolean dark() {
+        return fade.opacity() > 0 || levelLoading(Minecraft.getInstance());
+    }
+
     private static void advance(Minecraft mc) {
         if (fade.update(System.nanoTime(), mc.isPaused(), levelLoading(mc))) {
             Tremor.LOGGER.warn("Hollow: the server left the screen black for {} s; lifting it",

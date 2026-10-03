@@ -92,11 +92,14 @@ final class Materials {
         return state != null ? state : stone(pos);
     }
 
-    /** Whether the ground at {@code pos} can soften into {@code tremor:mire}: a full block that can be broken. */
+    /**
+     * Whether the ground at {@code pos} can soften into {@code tremor:mire}: any block with a collision (a full block, a
+     * slab, a path, soul sand, a fence; unbreakable ones too, they are copies) but one with a block entity (a prop of
+     * the copy, which would lose it), the node and the mire itself.
+     */
     static boolean softenable(BlockGetter level, BlockPos pos, BlockState state) {
-        return !state.hasBlockEntity() && state.isCollisionShapeFullBlock(level, pos)
-                && state.getDestroySpeed(level, pos) >= 0 && !state.is(TremorBlocks.HEART_NODE)
-                && !state.is(TremorBlocks.MIRE);
+        return !state.hasBlockEntity() && !state.getCollisionShape(level, pos).isEmpty()
+                && !state.is(TremorBlocks.HEART_NODE) && !state.is(TremorBlocks.MIRE);
     }
 
     /**

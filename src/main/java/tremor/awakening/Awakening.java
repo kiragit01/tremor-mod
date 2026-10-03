@@ -49,10 +49,13 @@ import java.util.UUID;
  *   as if nobody had been there. The level in there ends in an outcome ({@link Outcomes}). An escape through the edge
  *   ends it when the target's event in the hollow ends ({@link End#EDGE_ESCAPED}), a defeat once the sinkhole is
  *   there and the target dead or on the way out ({@link End#DEFEAT}). Without an outcome it ends with the target's
- *   event in the hollow, whatever ended that ({@link End#HOLLOW_OVER}).</li>
+ *   event in the hollow, whatever ended that ({@link End#HOLLOW_OVER}). After a victory ({@link #won}) it stays until
+ *   the hill is due ({@link AwakeningRules#emergeDelay}: at its highest when the victor is moved out).</li>
  *   <li>EMERGING ({@code awakening.emergeTicks}), after a victory ({@link #emerge}): at the swallow point (the focus)
  *   a hill rises, the target comes out of it (put there after the fade out of the hollow) and it settles; then it ends
- *   ({@link End#VICTORY}), whatever the target's event in the hollow does meanwhile.</li>
+ *   ({@link End#VICTORY}), whatever the target's event in the hollow does meanwhile, but not before the target is out
+ *   of the hollow and has been sent the phase (so a long fade out of the hollow, or a slow client, does not miss
+ *   it), or is offline or away.</li>
  * </ol>
  * Sync: every player of the level within {@value #SYNC_MARGIN} blocks of the zone (horizontally) gets the state
  * ({@link TremorAwakeningPayload}) once, players coming that near (also by joining or changing dimension) on the next
@@ -94,6 +97,8 @@ final class Awakening {
     private static final String DARKNESS_MARK = Tremor.MODID + ":awakening_darkness";
     /** {@link #darknessEnd} while no Darkness is given. */
     private static final long NO_DARKNESS = Long.MIN_VALUE;
+    /** {@link #emergeAt} without a victory (or once EMERGING). */
+    private static final long NO_VICTORY = Long.MIN_VALUE;
     private static final double TICKS_PER_SECOND = 20;
 
     final int id;
@@ -121,6 +126,8 @@ final class Awakening {
     private long darknessEnd = NO_DARKNESS;
     /** The target died ({@link #targetDied}); it ends on the next tick. */
     private boolean died;
+    /** Game time the hill of a victory is due at ({@link #won}); {@link #NO_VICTORY} without a victory. */
+    private long emergeAt = NO_VICTORY;
     /** Players who have the state (sent since they entered the level). */
     private final Set<UUID> recipients = new HashSet<>();
     /** Ended ({@link #finish}). */
@@ -212,9 +219,12 @@ final class Awakening {
             case SWALLOWING -> swallowing(now);
             case HOLLOW -> {
                 // Ends by an outcome (Outcomes) or with the target's event in the hollow (onHollowEnded).
+                if (victoryPending() && now >= emergeAt) {
+                    emerge(now);
+                }
             }
             case EMERGING -> {
-                if (clock.over(now)) {
+                if (clock.over(now) && victorOut()) {
                     AwakeningManager.end(this, End.VICTORY, targetName + " came out of the ground at "
                             + text(focus));
                 }
@@ -226,20 +236,57 @@ final class Awakening {
     }
 
     /**
-     * The target destroyed the node (SPEC 9 "Победа", {@link Outcomes#victory}): EMERGING begins, the hill rises at
-     * {@code at} (the swallow point), where the target is put after the fade out of the hollow. The target is let go
-     * and out of the Darkness, if still held (the victory came the tick it was moved in).
+     * The target destroyed the node (SPEC 9 "Победа", {@link Outcomes#victory}): the hill rises at {@code at} (the
+     * swallow point), where the target is put after the fade out of the hollow, once it is due
+     * ({@link AwakeningRules#emergeDelay}; at once if it already is): EMERGING begins then ({@link #emerge}). The target
+     * is let go and out of the Darkness now, if still held (the victory came the tick it was moved in).
      */
-    void emerge(Vec3 at, long now) {
+    void won(Vec3 at, long now) {
+        if (phase != Phase.HOLLOW && phase != Phase.SWALLOWING) {
+            return;
+        }
         ServerPlayer player = player();
         if (player != null) {
             root.release(player);
             undarken(player);
         }
         focus = at;
+        emergeAt = now + AwakeningRules.emergeDelay(TremorConfig.COMMON.hollow.fadeTicks.get(),
+                TremorConfig.COMMON.awakening.emergeTicks.get());
+        Tremor.LOGGER.info("Awakening #{}: {} destroyed the node, the hill at {} rises in {} s", id, targetName,
+                text(focus), seconds(emergeAt - now));
+        if (now >= emergeAt) {
+            emerge(now);
+        }
+    }
+
+    /** Whether the target won ({@link #won}) and the hill is not up yet. */
+    boolean victoryPending() {
+        return emergeAt != NO_VICTORY;
+    }
+
+    /** EMERGING begins after a victory ({@link #won}): the hill rises at the focus now. */
+    void emerge(long now) {
+        emergeAt = NO_VICTORY;
         setPhase(Phase.EMERGING, now, TremorConfig.COMMON.awakening.emergeTicks.get());
-        Tremor.LOGGER.info("Awakening #{}: {} destroyed the node, the hill at {} lets them out in {} s", id,
-                targetName, text(focus), phaseSeconds());
+        Tremor.LOGGER.info("Awakening #{}: the hill at {} rises and lets {} out in {} s", id, text(focus), targetName,
+                phaseSeconds());
+    }
+
+    /**
+     * Whether the victor is done with the hill as far as the server goes: out of the hollow and sent the EMERGING
+     * phase (its client runs the hill to the end by itself), or offline, in another level or far away (the phase is
+     * not sent there).
+     */
+    private boolean victorOut() {
+        ServerPlayer player = player();
+        if (player == null) {
+            return true;
+        }
+        if (hollowEvent != null && hollowEvent.phase().inHollow()) {
+            return false;
+        }
+        return recipients.contains(target) || player.level() != level || !near(player, radius + SYNC_MARGIN);
     }
 
     /**
@@ -318,9 +365,11 @@ final class Awakening {
                     seconds(clock.remaining(now)))
                     : String.format(Locale.ROOT, "swallowed at %s, the hollow is %s", text(focus),
                     hollowEvent.phase().id()));
-            case HOLLOW -> text.append(String.format(Locale.ROOT, "in the hollow for %.1f s (its event: %s%s)",
+            case HOLLOW -> text.append(String.format(Locale.ROOT, "in the hollow for %.1f s (its event: %s%s)%s",
                     seconds(clock.elapsed(now)), hollowEvent.phase().id(),
-                    hollowEvent.outcome() == null ? "" : ", " + hollowEvent.outcome().id()));
+                    hollowEvent.outcome() == null ? "" : ", " + hollowEvent.outcome().id(), victoryPending()
+                            ? String.format(Locale.ROOT, "; won, the hill rises in %.1f s",
+                            seconds(Math.max(0, emergeAt - now))) : ""));
             case EMERGING -> text.append(String.format(Locale.ROOT, "won: coming out of the hill at %s, %.1f s left",
                     text(focus), seconds(clock.remaining(now))));
         }

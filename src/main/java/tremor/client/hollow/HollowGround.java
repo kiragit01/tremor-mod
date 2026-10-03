@@ -94,7 +94,7 @@ public final class HollowGround {
         if (anchor == null || anchor.distanceSquared(position) > PARAMS.follow() * PARAMS.follow()) {
             anchor = position;
         }
-        double closeness = HollowShape.closeness(state.boxRadius(), state.closeRadius());
+        double closeness = ClientHollow.closeness(state);
         List<AwakeningField.Ring> rings = new ArrayList<>(beats.size());
         if (node != null) {
             RippleParams ring = HollowShape.nodeRing(PARAMS, closeness);

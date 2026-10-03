@@ -2,11 +2,13 @@ package tremor.hollow.level;
 
 import it.unimi.dsi.fastutil.objects.Reference2IntOpenHashMap;
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.level.BlockGetter;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.chunk.LevelChunk;
 import net.minecraft.world.level.chunk.LevelChunkSection;
+import net.minecraft.world.phys.shapes.VoxelShape;
 
 /**
  * Takes the {@link VoxelGrid} snapshot of a box of the hollow the planning works on, straight from the chunk sections
@@ -20,7 +22,7 @@ final class GridReader {
     /** The grid of the box {@code min..max} (bounds inclusive) of {@code level}. */
     static VoxelGrid read(ServerLevel level, int minX, int minY, int minZ, int maxX, int maxY, int maxZ) {
         VoxelGrid grid = new VoxelGrid(minX, minY, minZ, maxX, maxY, maxZ);
-        // The flags depend on the state only (a collision shape is empty or not wherever the block is).
+        // The flags depend on the state only (a collision shape is empty or not, and as high, wherever the block is).
         Reference2IntOpenHashMap<BlockState> known = new Reference2IntOpenHashMap<>();
         known.defaultReturnValue(-1);
         BlockPos.MutableBlockPos pos = new BlockPos.MutableBlockPos();
@@ -56,11 +58,14 @@ final class GridReader {
     /** The {@link VoxelGrid} flags of {@code state} at {@code pos}. */
     static int flags(BlockGetter level, BlockPos pos, BlockState state) {
         int flags = 0;
-        if (state.getCollisionShape(level, pos).isEmpty()) {
+        VoxelShape shape = state.getCollisionShape(level, pos);
+        if (shape.isEmpty()) {
             flags |= VoxelGrid.OPEN;
-            if (!state.getFluidState().isEmpty()) {
-                flags |= VoxelGrid.LIQUID;
-            }
+        } else if (shape.max(Direction.Axis.Y) > 1) {
+            flags |= VoxelGrid.TALL;
+        }
+        if (!state.getFluidState().isEmpty()) {
+            flags |= VoxelGrid.LIQUID;
         }
         if (Materials.hazard(state)) {
             flags |= VoxelGrid.HAZARD;

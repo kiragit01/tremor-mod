@@ -26,15 +26,19 @@ public final class HollowShape {
     }
 
     /**
-     * How far the hollow has closed, 0..1: {@code 1 - closeRadius/boxRadius} clamped, 0 when it has not started to
-     * close (or the radii make no sense), 1 when it has closed down to nothing.
+     * How far the hollow has closed, 0..1: the share of the way from {@code startRadius} (where the closing starts,
+     * the edge) down to {@code minRadius} (where it stops) that the closing radius {@code closeRadius} has come,
+     * {@code (startRadius - closeRadius) / (startRadius - minRadius)} clamped: 0 before it has started to close, 1 once
+     * it has closed as far as it goes, like the server's schedule ({@code ClosingSchedule.closed}), which quickens the
+     * node's pulse by the same share. A minimum at or beyond the start leaves nothing to close: 1 (the schedule then
+     * beats at its fastest from the start). 0 for a NaN.
      */
-    public static double closeness(double boxRadius, double closeRadius) {
-        if (!(boxRadius > 0)) {
+    public static double closeness(double startRadius, double minRadius, double closeRadius) {
+        if (Double.isNaN(startRadius) || Double.isNaN(minRadius) || Double.isNaN(closeRadius)) {
             return 0;
         }
-        double share = 1 - closeRadius / boxRadius;
-        return share > 0 ? Math.min(share, 1) : 0;
+        double span = startRadius - Math.min(minRadius, startRadius);
+        return span > 0 ? share((startRadius - closeRadius) / span) : 1;
     }
 
     /**

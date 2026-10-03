@@ -101,6 +101,8 @@ import java.util.UUID;
  *   other mods' teleports are cancelled.</li>
  *   <li>A player who dies inside during an event drops everything, the crafting grid and the carried stack included,
  *   at the place the player comes back to; one who logs out inside keeps the crafting grid and the carried stack.</li>
+ *   <li>What the player throws, drops or shoots out of the copy (over its side, or under its bottom: the hollow
+ *   around is empty, it would fall through it) is given back at once at that place too ({@link HollowManager}).</li>
  * </ul>
  * Event handlers are registered by {@link tremor.Tremor}.
  */

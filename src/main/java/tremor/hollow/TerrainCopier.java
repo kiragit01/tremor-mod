@@ -23,6 +23,7 @@ import net.minecraft.world.level.biome.BiomeResolver;
 import net.minecraft.world.level.biome.Biomes;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.EntityBlock;
+import net.minecraft.world.level.block.FallingBlock;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.entity.BlockEntityType;
 import net.minecraft.world.level.block.state.BlockState;
@@ -59,11 +60,13 @@ import java.util.concurrent.CompletableFuture;
  * Nether or End and build portals there).
  * <p>
  * The copy is closed by a shell one block thick ({@link #shell}): caves cut by the edge of the box stay as dark as in
- * the real world. The real world is read only from chunks that are loaded; a part that is not is filled with stone.
+ * the real world, and its bottom is always solid, so nothing falls out of it into the empty hollow below. The real
+ * world is read only from chunks that are loaded; a part that is not is filled with stone (deepslate below y 0).
  */
 final class TerrainCopier {
     private static final BlockState AIR = Blocks.AIR.defaultBlockState();
-    private static final BlockState UNLOADED = Blocks.STONE.defaultBlockState();
+    private static final BlockState STONE = Blocks.STONE.defaultBlockState();
+    private static final BlockState DEEPSLATE = Blocks.DEEPSLATE.defaultBlockState();
     /** The heightmaps {@code LevelChunk.setBlockState} updates. */
     private static final Heightmap.Types[] HEIGHTMAPS = {Heightmap.Types.MOTION_BLOCKING,
             Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, Heightmap.Types.OCEAN_FLOOR, Heightmap.Types.WORLD_SURFACE};
@@ -101,7 +104,7 @@ final class TerrainCopier {
                     : (x, y, z, sampler) -> source.getNoiseBiome(x - QuartPos.fromBlock(dx), y, z - QuartPos.fromBlock(dz)));
         }
         if (source == null) {
-            write(hollow, target, piece, (x, y, z) -> UNLOADED, null, stats);
+            write(hollow, target, piece, (x, y, z) -> filler(y), null, stats);
             return;
         }
         // The offset is whole chunks: a position has the same place in its section in both levels.
@@ -109,7 +112,8 @@ final class TerrainCopier {
         BlockPos.MutableBlockPos real = new BlockPos.MutableBlockPos();
         write(hollow, target, piece, (x, y, z) -> {
             BlockState state = section.getBlockState(x & 15, y & 15, z & 15);
-            return box.contains(x, y, z) ? copyable(state) : shell(source, state, real.set(x - dx, y, z - dz));
+            return box.contains(x, y, z) ? copyable(state)
+                    : shell(source, state, real.set(x - dx, y, z - dz), y < box.minY());
         }, (chunk, pos, state) -> placeProp(hollow, chunk, pos, state, source, pos.offset(-dx, 0, -dz)), stats);
     }
 
@@ -257,18 +261,27 @@ final class TerrainCopier {
     }
 
     /**
-     * The state a block of the real world at {@code pos} gets in the shell, the layer just outside the copy. Above the
-     * real surface (the highest block that blocks motion or holds a fluid, leaves not counted) it is air, so the
-     * copy of the surface ends in the open. Below it the shell closes the copy: a full solid block stays as it is, and
-     * anything else (the air of a cave, water, a torch) becomes stone. Without it the light of the empty hollow
-     * around the copy would shine into every cave the edge of the box cuts, and water there would run out into the
-     * void.
+     * The state a block of the real world at {@code pos} gets in the shell, the layer just outside the copy. On the
+     * sides and the top, above the real surface (the highest block that blocks motion or holds a fluid, leaves not
+     * counted) it is air, so the copy of the surface ends in the open. Below it, and everywhere under the copy
+     * ({@code bottom}: whatever the real world has there, the air of a ravine or of a valley below a cliff included),
+     * the shell closes the copy: a full solid block stays as it is (under the copy, one that does not fall: it lies
+     * over nothing), and anything else (air, water, a torch) becomes stone, deepslate below y 0. Without it the light
+     * of the empty hollow around the copy would shine into every cave the edge of the box cuts, water there would run
+     * out into the void, and whoever stepped off a cliff in the copy would fall out of it.
      */
-    private static BlockState shell(LevelChunk source, BlockState state, BlockPos pos) {
-        if (pos.getY() > source.getHeight(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, pos.getX(), pos.getZ())) {
+    private static BlockState shell(LevelChunk source, BlockState state, BlockPos pos, boolean bottom) {
+        if (!bottom
+                && pos.getY() > source.getHeight(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, pos.getX(), pos.getZ())) {
             return AIR;
         }
-        return state.isSolidRender(source, pos) ? state : UNLOADED;
+        return state.isSolidRender(source, pos) && !(bottom && state.getBlock() instanceof FallingBlock) ? state
+                : filler(pos.getY());
+    }
+
+    /** What closes the copy where the real world gives nothing to close it with: stone, deepslate below y 0. */
+    private static BlockState filler(int y) {
+        return y < 0 ? DEEPSLATE : STONE;
     }
 
     /**

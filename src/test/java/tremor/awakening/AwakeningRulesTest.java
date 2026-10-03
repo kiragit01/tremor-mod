@@ -10,6 +10,7 @@ import static tremor.awakening.AwakeningRules.Cell.UNSAFE;
 
 import org.junit.jupiter.api.Test;
 import tremor.core.math.Vec3;
+import tremor.core.shape.AwakeningShape;
 import tremor.hollow.HollowOutcome;
 
 import java.util.EnumSet;
@@ -261,5 +262,31 @@ class AwakeningRulesTest {
         assertEquals(HollowOutcome.values().length, ends.size());
         assertFalse(ends.contains(Awakening.End.HOLLOW_OVER));
         assertFalse(ends.contains(Awakening.End.CANCELLED));
+    }
+
+    // ---- victory and defeat ----
+
+    @Test
+    void theHillOfAVictoryIsHighestWhenTheVictorComesOut() {
+        // Defaults: a fade of 20 ticks, a phase of 80 rising over its first 16: it starts 4 ticks after the victory.
+        int delay = AwakeningRules.emergeDelay(20, 80);
+        assertEquals(4, delay);
+        assertEquals(20, delay + Math.round(AwakeningShape.EMERGE_RISE * 80));
+        // A long fade: the hill waits for it.
+        assertEquals(200 - 16, AwakeningRules.emergeDelay(200, 80));
+        // A rise as long as the fade or longer: at once.
+        assertEquals(0, AwakeningRules.emergeDelay(20, 100));
+        assertEquals(0, AwakeningRules.emergeDelay(10, 600));
+        assertEquals(0, AwakeningRules.emergeDelay(0, 1));
+    }
+
+    @Test
+    void thePullTakesAllTheHealthAndAbsorption() {
+        assertEquals(21, AwakeningRules.pullDamage(20, 0));
+        assertEquals(37, AwakeningRules.pullDamage(20, 16));
+        assertEquals(1.5f, AwakeningRules.pullDamage(0.5f, 0));
+        // Never negative, always finite.
+        assertEquals(1, AwakeningRules.pullDamage(-3, -1));
+        assertTrue(Float.isFinite(AwakeningRules.pullDamage(1024, 2048)));
     }
 }
