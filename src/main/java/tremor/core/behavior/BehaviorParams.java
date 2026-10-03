@@ -21,18 +21,25 @@ package tremor.core.behavior;
  * @param wanderPauseSeconds       mean pause between two legs of wandering
  * @param minWanderDistance        DORMANT wander targets keep at least this far from the players (SPEC 5.6), and so
  *                                 do those of AWAKENING from the players who can be taken (a quiet player is not
- *                                 found by chance, SPEC 8; which players is the {@link BrainWorld}'s answer)
+ *                                 found by chance, SPEC 8; which players is the {@link BrainWorld}'s answer); ALERT and
+ *                                 HUNTING ones only with {@code wanderKeepAway}. In every stage a point the nearest
+ *                                 player sees is preferred only from at least this far
+ *                                 ({@link BrainWorld#wanderTarget}). Going for a sound and searching around it keep
+ *                                 away from nobody
  * @param seekSearchRadius         an entity seeking in AWAKENING searches only this far around the last sound
  *                                 (instead of {@code huntSearchRadius}), so that a player who gets quietly a little
  *                                 farther than this plus its reach ({@code awakening.reachDistance}) from the noise is
  *                                 out of reach of the search (a search point is the centre of a voxel, up to half a
  *                                 voxel diagonal past this; on open ground: a route around rock may bend farther out)
+ * @param wanderKeepAway           ALERT and HUNTING wander targets keep {@code minWanderDistance} from the players
+ *                                 too; without it (SPEC 5.6, the default) they are drawn at random and may end near a
+ *                                 player, as a warden roams
  */
 public record BehaviorParams(double alertAt, double huntAt, double awakenAt, double hysteresis, double decayPerSecond,
                              double quietAfterSeconds, double quietDecayFactor, double dormantReactLoudness,
                              double alertFreezeSeconds, double alertLoseInterestSeconds, double huntSearchRadius,
                              double huntSearchSeconds, double wanderPauseSeconds, double minWanderDistance,
-                             double seekSearchRadius) {
+                             double seekSearchRadius, boolean wanderKeepAway) {
     public BehaviorParams {
         if (!(0 < alertAt && alertAt < huntAt && huntAt < awakenAt) || !(hysteresis >= 0)
                 || !(hysteresis < alertAt) || !(decayPerSecond >= 0) || !(quietAfterSeconds >= 0)
@@ -44,6 +51,6 @@ public record BehaviorParams(double alertAt, double huntAt, double awakenAt, dou
     }
 
     public static BehaviorParams defaults() {
-        return new BehaviorParams(25, 60, 100, 3, 0.5, 20, 3, 0.35, 2.5, 12, 8, 20, 4, 24, 4);
+        return new BehaviorParams(25, 60, 100, 3, 0.5, 20, 3, 0.35, 2.5, 12, 8, 20, 4, 24, 4, false);
     }
 }

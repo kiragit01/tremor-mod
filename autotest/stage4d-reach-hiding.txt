@@ -2,13 +2,22 @@
 # while the entity seeks at the top of its anger is not found by chance. With nothing heard the seeking entity roams,
 # and its roam must keep away from the player (behavior.minWanderDistance, as DORMANT does, and its way passes the
 # player nowhere within awakening.reachDistance), so that no Awakening starts and after awakening.seekSeconds (35) it
-# calms down to HUNTING. 1. The player hides in a closed stone hut (roam targets out of the player's sight would
-# otherwise fall back to the point nearest to the player: the hut). 2. The player stands in the open 20 blocks from
+# calms down to HUNTING. 1. The player hides in a closed stone hut and sees none of the roam targets (until
+# 2026-10-03 the roam then fell back to the point nearest to the player, which kept the bump at the edge of the 24
+# blocks and, calmed down to HUNTING, led it to the hut). 2. The player stands in the open 20 blocks from
 # the entity. 3. The player sprints (heard: the anger tops out), then gets quietly 14 blocks away from the noise and
 # keeps still: the entity searches only awakening.searchRadius (4) around the last sound, so with its reach (8) it
 # does not find the player. Uses the sky platform of stage3-aggression.txt (repaired here). Each part ends with
 # "stage hunting" in /tremor info and "No Awakening here" from /tremor awaken stop (the server log has "reached
-# nobody within 35 s" for each).
+# nobody within 35 s" for each). The seeking roam of part 1 drifts away from the hut (53-75 blocks), so the wandering
+# after a calm-down is checked close by: 1b. A new entity 26 blocks south of the hut seeks for 2 s only
+# (awakening.seekSeconds), calms down to HUNTING and wanders on through ALERT and DORMANT for 60 s while the player
+# stays hidden, with behavior.wanderKeepAway on: every roam target ("Target ... (roam)") at least
+# behavior.minWanderDistance (24) from the player's feet (300.5, 201, 300.5), no strike (health 20); outside AWAKENING
+# the way of a leg is not checked (SPEC 5.6), so the bump between two ends may pass a little nearer. 1c. The same with
+# the switch off (the default, SPEC 5.6: ALERT and HUNTING wander at random, as a warden roams): the DORMANT targets
+# keep 24 away, the others may end near the hut, but none is drawn to it (a player who sees no candidate no longer
+# pulls the legs to himself). /tremor info every 2 s gives the position of the bump and its target.
 # Run: tools/gradle-locked.sh runClientAutotest -Ptremor_autotest_script=stage4d-reach-hiding.txt
 
 waitchunks
@@ -62,6 +71,164 @@ view back
 wait 5
 screenshot 10_hut_after_seeking
 view first
+
+# ---- 1b. wanderKeepAway on: the entity 26 blocks from the hut calms down at once, then 60 s ----
+log --- 1b. wanderKeepAway on: the entity 26 blocks south of the hut seeks 2 s, calms down, then 60 s in the hut
+cmd tremor awaken stop
+cmd tremor despawn
+config behavior.wanderKeepAway true
+config awakening.seekSeconds 2
+cmd tremor spawn 300 200 326
+wait 10
+cmd tremor anger 100
+wait 50
+cmd data get entity @s Pos
+cmd data get entity @s Health
+cmd tremor info
+wait 40
+cmd tremor info
+wait 40
+cmd tremor info
+wait 40
+cmd tremor info
+wait 40
+cmd tremor info
+wait 40
+cmd tremor info
+wait 40
+cmd tremor info
+wait 40
+cmd tremor info
+wait 40
+cmd tremor info
+wait 40
+cmd tremor info
+wait 40
+cmd tremor info
+wait 40
+cmd tremor info
+wait 40
+cmd tremor info
+wait 40
+cmd tremor info
+wait 40
+cmd tremor info
+wait 40
+cmd tremor info
+wait 40
+cmd tremor info
+wait 40
+cmd tremor info
+wait 40
+cmd tremor info
+wait 40
+cmd tremor info
+wait 40
+cmd tremor info
+wait 40
+cmd tremor info
+wait 40
+cmd tremor info
+wait 40
+cmd tremor info
+wait 40
+cmd tremor info
+wait 40
+cmd tremor info
+wait 40
+cmd tremor info
+wait 40
+cmd tremor info
+wait 40
+cmd tremor info
+wait 40
+cmd tremor info
+wait 40
+cmd tremor info
+cmd data get entity @s Health
+view back
+wait 5
+screenshot 11_hut_keepaway
+view first
+
+# ---- 1c. The same with wanderKeepAway off (the default) ----
+log --- 1c. wanderKeepAway off: the entity 26 blocks south of the hut seeks 2 s, calms down, then 60 s in the hut
+cmd tremor awaken stop
+cmd tremor despawn
+config behavior.wanderKeepAway false
+cmd tremor spawn 300 200 326
+wait 10
+cmd tremor anger 100
+wait 50
+cmd data get entity @s Pos
+cmd data get entity @s Health
+cmd tremor info
+wait 40
+cmd tremor info
+wait 40
+cmd tremor info
+wait 40
+cmd tremor info
+wait 40
+cmd tremor info
+wait 40
+cmd tremor info
+wait 40
+cmd tremor info
+wait 40
+cmd tremor info
+wait 40
+cmd tremor info
+wait 40
+cmd tremor info
+wait 40
+cmd tremor info
+wait 40
+cmd tremor info
+wait 40
+cmd tremor info
+wait 40
+cmd tremor info
+wait 40
+cmd tremor info
+wait 40
+cmd tremor info
+wait 40
+cmd tremor info
+wait 40
+cmd tremor info
+wait 40
+cmd tremor info
+wait 40
+cmd tremor info
+wait 40
+cmd tremor info
+wait 40
+cmd tremor info
+wait 40
+cmd tremor info
+wait 40
+cmd tremor info
+wait 40
+cmd tremor info
+wait 40
+cmd tremor info
+wait 40
+cmd tremor info
+wait 40
+cmd tremor info
+wait 40
+cmd tremor info
+wait 40
+cmd tremor info
+wait 40
+cmd tremor info
+cmd data get entity @s Health
+view back
+wait 5
+screenshot 12_hut_random
+view first
+config awakening.seekSeconds 35
 
 # ---- 2. In the open, the entity 20 blocks away ----
 log --- 2. quiet in the open, the entity 20 blocks away seeks for 35 s

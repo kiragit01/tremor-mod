@@ -18,11 +18,15 @@ import java.util.Objects;
  *     step is strong ({@link #stepRipple}).</li>
  * </ul>
  * When the Awakening ends in the real world everything settles together ({@link #release}). After a victory in the
- * hollow the same hill rises at the swallow point once more and the player comes out of it ({@link #emergeHill}).
+ * hollow the same hill rises at the swallow point once more ({@link #emergeRise}), as high as in the last frame of the
+ * swallowing, stands while the player is put into it, and settles to let the player out ({@link #emergeSettle}).
  * Pure math, thread-safe.
  */
 public final class AwakeningShape {
-    /** Share of the emerging (SPEC 9 "Победа") the hill takes to rise; it settles over the rest. */
+    /**
+     * Share of {@code awakening.emergeTicks} the hill of a victory (SPEC 9 "Победа") takes to rise; it settles over the
+     * rest. In between it stands for as long as it takes to put the player into it.
+     */
     public static final double EMERGE_RISE = 0.2;
 
     private AwakeningShape() {
@@ -102,34 +106,46 @@ public final class AwakeningShape {
 
     /**
      * Peak of the hill a victor comes out of (SPEC 9 "Победа": "на месте поглощения в реальном мире вырастает холм,
-     * игрок выходит из него, холм медленно оседает") {@code progress} (0..1, clamped; NaN counts as 0) into the
-     * emerging: over the first {@link #EMERGE_RISE} it shoots up to {@link AwakeningParams#hillHeight}, fast at first
-     * and slowing to the top ({@code 1 - (1 - s)²}), then it settles slowly back to the ground's own place
-     * ({@code 1 - smoothstep}), gone at the end. Smooth throughout: it neither jumps nor jerks at the top.
+     * игрок выходит из него, холм медленно оседает") {@code progress} (0..1, clamped; NaN counts as 0) into its rise at
+     * the swallow point: it shoots up to {@link AwakeningParams#hillHeight}, fast at first and slowing to the top
+     * ({@code 1 - (1 - s)²}). At the top it is the hill of the last frame of the swallowing ({@link #hillPeak} at 1):
+     * the same mound, as high; it stands there until it settles ({@link #emergeSettle}).
      */
-    public static double emergeHill(AwakeningParams p, double progress) {
-        double t = progress > 0 ? Math.min(progress, 1) : 0;
-        if (t < EMERGE_RISE) {
-            double s = 1 - t / EMERGE_RISE;
-            return p.hillHeight() * (1 - s * s);
-        }
-        return p.hillHeight() * (1 - smoothstep((t - EMERGE_RISE) / (1 - EMERGE_RISE)));
+    public static double emergeRise(AwakeningParams p, double progress) {
+        double s = 1 - (progress > 0 ? Math.min(progress, 1) : 0);
+        return p.hillHeight() * (1 - s * s);
     }
 
     /**
-     * How fast the peak of {@link #emergeHill} moves at {@code progress}, in heights per whole phase (divide by the
-     * phase's length for blocks per second): positive while it rises, negative while it settles, 0 at the top, before
-     * the start and from the end on.
+     * How fast the peak of {@link #emergeRise} moves at {@code progress}, in heights per whole rise (divide by the
+     * rise's length for blocks per second): positive while it rises, 0 before the start and from the top on.
      */
-    public static double emergeHillRate(AwakeningParams p, double progress) {
+    public static double emergeRiseRate(AwakeningParams p, double progress) {
         if (!(progress > 0) || progress >= 1) {
             return 0;
         }
-        if (progress < EMERGE_RISE) {
-            return p.hillHeight() * 2 * (1 - progress / EMERGE_RISE) / EMERGE_RISE;
+        return p.hillHeight() * 2 * (1 - progress);
+    }
+
+    /**
+     * Peak of the hill a victor comes out of {@code progress} (0..1, clamped; NaN counts as 0) into its settling: from
+     * the top ({@link AwakeningParams#hillHeight}) slowly back to the ground's own place ({@code 1 - smoothstep}), gone
+     * at the end. Flat at both ends: it starts to sink from the standing hill without a jerk, and the ground comes to
+     * rest softly. Over the eyes of a player standing in its middle for a little less than the first half.
+     */
+    public static double emergeSettle(AwakeningParams p, double progress) {
+        return p.hillHeight() * (1 - smoothstep(progress));
+    }
+
+    /**
+     * How fast the peak of {@link #emergeSettle} moves at {@code progress}, in heights per whole settling (divide by its
+     * length for blocks per second): negative while it settles, 0 before the start and from the end on.
+     */
+    public static double emergeSettleRate(AwakeningParams p, double progress) {
+        if (!(progress > 0) || progress >= 1) {
+            return 0;
         }
-        double s = (progress - EMERGE_RISE) / (1 - EMERGE_RISE);
-        return -p.hillHeight() * 6 * s * (1 - s) / (1 - EMERGE_RISE);
+        return -p.hillHeight() * 6 * progress * (1 - progress);
     }
 
     /** Height of a hill with the given {@code peak} at squared distance {@code distanceSq} from where it rises. */

@@ -127,15 +127,28 @@ class KeepAwayTest {
         assertTrue(KeepAway.of(Stage.AWAKENING, 24, List.of(players.get(0), players.get(2)), 10, 6).players()
                 .isEmpty());
 
-        // DORMANT: the end of the leg only, away from every player who is not a spectator.
-        KeepAway dormant = KeepAway.of(Stage.DORMANT, 24, players, 10, 6);
-        assertEquals(List.of(creative, survival), dormant.players());
-        assertEquals(0, dormant.passHorizontal(), "no rule for the way");
-        assertTrue(dormant.passesClear(floor(0.5, 0.5), floor(-60.5, 5.5)));
-        // ALERT and HUNTING wandering (minDistance 0) keeps away from nobody.
-        assertSame(KeepAway.NONE, KeepAway.of(Stage.HUNTING, 0, players, 10, 6));
-        assertSame(KeepAway.NONE, KeepAway.of(Stage.ALERT, 0, players, 10, 6));
         assertThrows(IllegalArgumentException.class, () -> KeepAway.of(Stage.DORMANT, -1, players, 10, 6));
+    }
+
+    @Test
+    void inEveryOtherStageTheEndKeepsAwayFromEveryPlayerWhoIsNoSpectator() {
+        // SPEC 5.6: DORMANT, and ALERT and HUNTING with behavior.wanderKeepAway (without it the brain passes 0 there).
+        Vec3 creative = new Vec3(10.5, 1, 0.5), survival = new Vec3(-29.5, 1, 0.5), spectator = new Vec3(-5.5, 1, 0.5);
+        List<KeepAway.Player> players = List.of(new KeepAway.Player(creative, false, false),
+                new KeepAway.Player(survival, true, false), new KeepAway.Player(spectator, false, true));
+        for (Stage stage : List.of(Stage.DORMANT, Stage.ALERT, Stage.HUNTING)) {
+            KeepAway away = KeepAway.of(stage, 24, players, 10, 6);
+            assertEquals(List.of(creative, survival), away.players(), stage.name());
+            assertEquals(24, away.minDistance(), stage.name());
+            assertFalse(away.endsClear(floor(14.5, 0.5)), stage + ": near the creative player");
+            assertFalse(away.endsClear(floor(-9.5, 0.5)), stage + ": 20 from the survival player");
+            assertTrue(away.endsClear(floor(-5.5, 30.5)), stage + ": 24 from both, on the spectator's column");
+            // Only the end: the way is no rule outside AWAKENING (SPEC 5.6).
+            assertEquals(0, away.passHorizontal(), stage.name());
+            assertTrue(away.passesClear(floor(0.5, 0.5), floor(-60.5, 5.5)), stage.name());
+            // A minDistance of 0 keeps away from nobody.
+            assertSame(KeepAway.NONE, KeepAway.of(stage, 0, players, 10, 6), stage.name());
+        }
     }
 
     @Test

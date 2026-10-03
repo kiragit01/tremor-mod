@@ -1,0 +1,230 @@
+# Stage 4d (SPEC 9): the root. A player being swallowed cannot run off the hill, whatever keys are held: the server
+# position (data get entity @s Pos) is compared with the swallow point (the focus /tremor info names) at the start of
+# the swallowing, during it and just before the move into the hollow; it must stay within the root's tolerance (0.3
+# blocks). (a) The player stands still at the end of the build-up and holds forward+sprint+jump, then left, then back,
+# from the start of the swallowing until the move. (b) The player runs and jumps (b1) or only runs (b2) across the
+# start of the swallowing (the keys held from before it starts). (c) The victor of the hollow is held the same way at
+# the swallow point while the hill they come out of is above their eyes, and can walk once it is below. (d) The
+# Awakening called off while the victor is held in the standing hill: the victor walks at once. Uses the sky
+# platform of stage3-aggression.txt (repaired here). The build-up is 3 s (60 ticks) and the swallowing 50 ticks, so
+# the swallowing starts 60 ticks after /tremor awaken; /tremor info right after the waits shows where it stands.
+# A logout and a death in the hill: stage4d-root-relog-1/2.
+# Run: gradlew runClientAutotest -Ptremor_autotest_script=stage4d-root.txt
+
+waitchunks
+cmd gamemode spectator
+cmd time set noon
+cmd tremor despawn
+cmd kill @e[type=!player]
+cmd tp @s 300.5 201.0 300.5 0 10
+wait 40
+waitchunks
+# Repair the platform: earlier runs leave craters in it
+cmd fill 220 198 220 380 198 380 minecraft:stone
+cmd fill 220 199 220 380 199 380 minecraft:stone
+cmd fill 220 200 220 380 200 380 minecraft:stone
+cmd fill 220 201 220 380 201 380 minecraft:air
+cmd fill 220 202 220 380 202 380 minecraft:air
+cmd kill @e[type=item]
+cmd gamemode survival
+cmd effect clear @s
+cmd effect give @s minecraft:night_vision infinite 0 true
+cmd effect give @s minecraft:instant_health 1 4 true
+cmd effect give @s minecraft:saturation 1 20 true
+cmd clear @s
+hud off
+config awakening.buildupSeconds 3
+config hollow.level.stillSeconds 60
+config hollow.level.graceSeconds 120
+
+# ---- (a) still at the end of the build-up, then every key through the swallowing ----
+log --- (a) standing still, then forward+sprint+jump, left, back from the start of the swallowing
+cmd tp @s 300.5 201.0 300.5 0 10
+wait 20
+cmd tremor awaken
+wait 50
+cmd tremor info
+wait 11
+cmd tremor info
+cmd data get entity @s Pos
+hold forward+sprint+jump 10
+cmd data get entity @s Pos
+hold forward+sprint+jump 10
+cmd data get entity @s Pos
+hold left+sprint+jump 10
+cmd data get entity @s Pos
+hold left+jump 10
+cmd data get entity @s Pos
+cmd tremor info
+hold back+jump 10
+cmd data get entity @s Pos
+hold back+right 10
+cmd data get entity @s Pos
+cmd data get entity @s Dimension
+hold forward+sprint+jump 10
+cmd data get entity @s Pos
+cmd data get entity @s Dimension
+hold forward+sprint+jump 10
+cmd data get entity @s Pos
+cmd data get entity @s Dimension
+hold forward+sprint+jump 10
+cmd data get entity @s Pos
+cmd data get entity @s Dimension
+hold forward+sprint+jump 10
+cmd data get entity @s Pos
+cmd data get entity @s Dimension
+wait 40
+waitchunks
+cmd data get entity @s Dimension
+cmd tremor hollow leave
+wait 100
+waitchunks
+cmd data get entity @s Dimension
+cmd data get entity @s Pos
+cmd tremor info
+
+# ---- (b1) sprint-jumping across the start of the swallowing ----
+log --- (b1) sprinting and jumping since before the swallowing starts
+cmd tp @s 300.5 201.0 300.5 0 10
+wait 20
+cmd tremor awaken
+wait 46
+cmd tremor info
+# Held from some 13 ticks before the swallowing starts to some 11 ticks after it
+hold forward+sprint+jump 24
+cmd tremor info
+cmd data get entity @s Pos
+hold forward+sprint+jump 10
+cmd data get entity @s Pos
+hold left+sprint+jump 10
+cmd data get entity @s Pos
+hold back+jump 10
+cmd data get entity @s Pos
+hold forward+sprint+jump 10
+cmd data get entity @s Pos
+cmd data get entity @s Dimension
+hold forward+sprint+jump 10
+cmd data get entity @s Pos
+cmd data get entity @s Dimension
+hold forward+sprint+jump 10
+cmd data get entity @s Pos
+cmd data get entity @s Dimension
+hold forward+sprint+jump 10
+cmd data get entity @s Pos
+cmd data get entity @s Dimension
+wait 40
+waitchunks
+cmd data get entity @s Dimension
+cmd tremor hollow leave
+wait 100
+waitchunks
+cmd data get entity @s Dimension
+cmd tremor info
+
+# ---- (b2) running (no jump) across the start of the swallowing ----
+log --- (b2) running since before the swallowing starts
+cmd tp @s 300.5 201.0 290.5 0 10
+wait 20
+cmd tremor awaken
+wait 46
+cmd tremor info
+# Held from some 13 ticks before the swallowing starts to some 11 ticks after it
+hold forward+sprint 24
+cmd tremor info
+cmd data get entity @s Pos
+hold forward+sprint 10
+cmd data get entity @s Pos
+hold right+sprint 10
+cmd data get entity @s Pos
+hold forward+sprint+jump 10
+cmd data get entity @s Pos
+hold forward+sprint 10
+cmd data get entity @s Pos
+cmd data get entity @s Dimension
+hold forward+sprint 10
+cmd data get entity @s Pos
+cmd data get entity @s Dimension
+hold forward+sprint 10
+cmd data get entity @s Pos
+cmd data get entity @s Dimension
+hold forward+sprint 10
+cmd data get entity @s Pos
+cmd data get entity @s Dimension
+wait 40
+waitchunks
+cmd data get entity @s Dimension
+cmd tremor hollow leave
+wait 100
+waitchunks
+cmd data get entity @s Dimension
+cmd tremor info
+
+# ---- (c) the victor is held while the hill is above the eyes, then walks ----
+log --- (c) the victor: held while the hill is above the eyes, free once it is below
+cmd tp @s 300.5 201.0 300.5 0 10
+wait 20
+cmd tremor awaken
+wait 160
+waitchunks
+cmd data get entity @s Dimension
+cmd tremor hollow outcome victory
+wait 22
+cmd tremor info
+cmd data get entity @s Dimension
+cmd data get entity @s Pos
+hold forward+sprint+jump 10
+cmd data get entity @s Pos
+cmd tremor info
+hold forward+sprint+jump 10
+cmd data get entity @s Pos
+cmd tremor info
+hold left+jump 10
+cmd data get entity @s Pos
+cmd tremor info
+hold forward+sprint+jump 10
+cmd data get entity @s Pos
+cmd tremor info
+hold back+jump 10
+cmd data get entity @s Pos
+cmd tremor info
+hold forward+sprint+jump 10
+cmd data get entity @s Pos
+cmd tremor info
+hold forward 10
+cmd data get entity @s Pos
+cmd tremor info
+hold forward 10
+cmd data get entity @s Pos
+cmd tremor info
+hold forward 10
+cmd data get entity @s Pos
+cmd tremor info
+hold forward 20
+cmd data get entity @s Pos
+cmd tremor info
+wait 60
+cmd tremor info
+
+# ---- (d) the Awakening called off while the victor is held in the standing hill ----
+log --- (d) called off while the victor is in the standing hill: let go at once, the hill settles by itself
+cmd tp @s 300.5 201.0 300.5 0 10
+wait 20
+cmd tremor awaken
+wait 160
+waitchunks
+cmd data get entity @s Dimension
+cmd tremor hollow outcome victory
+wait 26
+cmd tremor info
+cmd data get entity @s Pos
+hold forward 10
+cmd data get entity @s Pos
+cmd tremor awaken stop
+cmd tremor info
+hold forward 10
+cmd data get entity @s Pos
+wait 60
+cmd tremor info
+screenshot 90_called_off_settled
+hud on
+quit

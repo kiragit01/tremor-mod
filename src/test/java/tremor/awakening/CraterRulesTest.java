@@ -2,6 +2,7 @@ package tremor.awakening;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static tremor.awakening.CraterRules.Cell.AIR;
 import static tremor.awakening.CraterRules.Cell.FALLING;
@@ -23,12 +24,16 @@ class CraterRulesTest {
     /** Height the player stood at (the block the feet were in): the crater is dug from here down. */
     private static final int TOP = 64;
 
-    /** Flat ground: stone below {@link #TOP}, air from it up; single cells set on top of that. Records the works. */
+    /**
+     * Flat ground: stone below {@link #TOP}, air from it up; single cells set on top of that. Records the works, and
+     * keeps a clock of the time they take: a unit for each block looked at, ten for each block changed.
+     */
     private static final class World implements CraterRules.Cells, CraterRules.Works {
         final Map<String, CraterRules.Cell> cells = new HashMap<>();
         final List<String> carved = new ArrayList<>();
         final List<String> sealed = new ArrayList<>();
         final List<CraterRules.Column> bottomed = new ArrayList<>();
+        long clock;
 
         World set(int x, int y, int z, CraterRules.Cell cell) {
             cells.put(x + " " + y + " " + z, cell);
@@ -48,11 +53,13 @@ class CraterRulesTest {
 
         @Override
         public CraterRules.Cell at(int x, int y, int z) {
+            clock++;
             return cells.getOrDefault(x + " " + y + " " + z, y >= TOP ? AIR : SOLID);
         }
 
         @Override
         public void carve(int x, int y, int z) {
+            clock += 10;
             carved.add(x + " " + y + " " + z);
             set(x, y, z, AIR);
         }
@@ -63,12 +70,14 @@ class CraterRulesTest {
             assertEquals(1, Math.abs(x - fromX) + Math.abs(y - fromY) + Math.abs(z - fromZ), "not beside " + x + " " + y
                     + " " + z);
             assertEquals(AIR, at(fromX, fromY, fromZ), "the crater beside " + x + " " + y + " " + z);
+            clock += 10;
             sealed.add(x + " " + y + " " + z);
             set(x, y, z, SOLID);
         }
 
         @Override
         public void bottomed(CraterRules.Column column) {
+            clock += 10;
             bottomed.add(column);
         }
 
@@ -317,6 +326,105 @@ class CraterRulesTest {
     }
 
     @Test
+    void thePlanIsTheShapesColumnsAPlaceAtATime() {
+        // The columns of the shape under the swallow point (10, TOP, -3), in its order, each from the top the world
+        // gives it (a hill over part of it), planned one place of the shape's square per step.
+        for (long seed = 0; seed < 6; seed++) {
+            CraterShape shape = new CraterShape(6, 5, seed);
+            World world = new World().fill(8, 64, -5, 12, 66, -1, SOLID);
+            CraterRules.Plan plan = new CraterRules.Plan(shape, 10, TOP, -3);
+            int[] tops = {0};
+            int steps = 0;
+            while (plan.step((x, z) -> {
+                tops[0]++;
+                return CraterRules.carveTop(world, x, z, TOP, 8);
+            })) {
+                steps++;
+                assertTrue(tops[0] <= steps, "more than a column in a step");
+                assertEquals(steps, plan.looked());
+            }
+            assertTrue(plan.done());
+            int side = 2 * shape.reach() + 1;
+            assertEquals(side * side, steps);
+            assertEquals(side * side, plan.places());
+            List<CraterShape.Column> expected = shape.columns();
+            List<CraterRules.Column> columns = plan.dig().columns();
+            assertEquals(expected.size(), columns.size());
+            assertEquals(expected.size(), tops[0]);
+            for (int i = 0; i < expected.size(); i++) {
+                CraterShape.Column want = expected.get(i);
+                CraterRules.Column column = columns.get(i);
+                assertEquals(10 + want.dx(), column.x, "column " + i);
+                assertEquals(-3 + want.dz(), column.z, "column " + i);
+                assertEquals(TOP - want.depth(), column.bottom, "column " + i);
+                assertEquals(CraterRules.carveTop(world, column.x, column.z, TOP, 8), column.top, "column " + i);
+            }
+        }
+    }
+
+    @Test
+    void aDiggingStoppedByTheClockGoesOnWhereItStopped() {
+        // The same crater (a hill over it, a cave across it, water and a chest beside it) planned and dug at once, and
+        // over ticks of a small budget: the same blocks carved and filled in, in the same order; every tick but the
+        // last takes its budget and goes over it by less than its last step; the crater is closed after every tick.
+        CraterShape shape = new CraterShape(4, 6, 3);
+        World once = site();
+        CraterRules.Digging whole = new CraterRules.Digging(new CraterRules.Plan(shape, 0, TOP, 0));
+        long[] last = {0};
+        long[] largest = {0};
+        assertFalse(whole.run(once, tops(once), once, () -> {
+            largest[0] = Math.max(largest[0], once.clock - last[0]);
+            last[0] = once.clock;
+            return true;
+        }));
+        assertTrue(once.carved.size() > 100 && !once.sealed.isEmpty() && !once.bottomed.isEmpty(), "a crater");
+
+        World ticked = site();
+        CraterRules.Digging digging = new CraterRules.Digging(new CraterRules.Plan(shape, 0, TOP, 0));
+        long budget = 4 * largest[0];
+        int ticks = 0;
+        boolean going = true;
+        while (going) {
+            long start = ticked.clock;
+            going = digging.run(ticked, tops(ticked), ticked, () -> ticked.clock - start < budget);
+            long took = ticked.clock - start;
+            assertTrue(took < budget + largest[0], "tick " + ticks + " took " + took + " of " + budget);
+            if (going) {
+                assertTrue(took >= budget, "tick " + ticks + " stopped early: " + took + " of " + budget);
+            }
+            closed(ticked);
+            assertTrue(++ticks < 100000, "the digging does not end");
+        }
+        assertTrue(ticks > 10, "only " + ticks + " ticks");
+        assertEquals(once.carved, ticked.carved);
+        assertEquals(once.sealed, ticked.sealed);
+        assertEquals(places(once.bottomed), places(ticked.bottomed));
+        assertTrue(digging.dig().done());
+    }
+
+    @Test
+    void aTickWithoutTimeTakesNoStep() {
+        World world = site();
+        CraterRules.Digging digging = new CraterRules.Digging(new CraterRules.Plan(new CraterShape(4, 6, 3), 0, TOP,
+                0));
+        assertTrue(digging.run(world, tops(world), world, () -> false));
+        assertEquals(0, world.clock);
+        assertEquals(0, digging.plan().looked());
+        assertNull(digging.dig());
+        // One step a tick: the plan first, a place at a time, then the dig.
+        int[] allowed = {0};
+        int ticks = 0;
+        while (digging.run(world, tops(world), world, () -> allowed[0]++ == 0)) {
+            allowed[0] = 0;
+            ticks++;
+            assertTrue(digging.dig() != null || digging.plan().looked() == ticks, "tick " + ticks);
+            closed(world);
+        }
+        assertEquals(digging.plan().places(), digging.plan().looked());
+        assertTrue(digging.dig().done());
+    }
+
+    @Test
     void holdsAndOpenness() {
         World world = new World().set(0, 60, 0, FALLING).set(0, 59, 0, AIR).set(1, 60, 0, FALLING)
                 .set(2, 60, 0, KEEP).set(3, 60, 0, PLANT);
@@ -326,6 +434,30 @@ class CraterRulesTest {
         assertFalse(CraterRules.holds(world, 3, 60, 0));
         assertTrue(CraterRules.openFromTop(world, 4, 64, 0, TOP));
         assertFalse(CraterRules.openFromTop(world, 0, 59, 0, TOP));
+    }
+
+    /**
+     * Ground for a crater at (0, TOP, 0): a hill over the swallow point, a cave across, water in two pockets beside it,
+     * a chest on the ground.
+     */
+    private static World site() {
+        return new World().fill(-1, 64, -1, 1, 66, 1, SOLID)
+                .fill(-6, 59, 1, 6, 60, 2, AIR)
+                .set(3, 61, -2, FLUID).set(-2, 62, 3, FLUID)
+                .set(2, 63, 0, KEEP);
+    }
+
+    /** The tops of the columns in {@code world}: from the swallow point's height, 8 blocks up at most. */
+    private static CraterRules.Tops tops(World world) {
+        return (x, z) -> CraterRules.carveTop(world, x, z, TOP, 8);
+    }
+
+    private static List<String> places(List<CraterRules.Column> columns) {
+        List<String> places = new ArrayList<>();
+        for (CraterRules.Column column : columns) {
+            places.add(column.x + " " + column.z);
+        }
+        return places;
     }
 
     /** No fluid touches a carved block (one recorded as carved, and air now). */

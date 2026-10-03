@@ -85,6 +85,7 @@ public final class TremorConfig {
         public final ModConfigSpec.DoubleValue wanderMinRadius;
         public final ModConfigSpec.DoubleValue wanderMaxRadius;
         public final ModConfigSpec.DoubleValue minWanderDistance;
+        public final ModConfigSpec.BooleanValue wanderKeepAway;
         public final ModConfigSpec.DoubleValue transitionVolume;
         private final EnumMap<Stage, ModConfigSpec.DoubleValue> stageSpeedFactors = new EnumMap<>(Stage.class);
         private final EnumMap<Stage, ModConfigSpec.DoubleValue> stageAmplitudeFactors = new EnumMap<>(Stage.class);
@@ -263,12 +264,22 @@ public final class TremorConfig {
                     .translation(KEY + "behavior.wanderMinRadius").defineInRange("wanderMinRadius", 16.0, 1.0, 64.0);
             wanderMaxRadius = b.comment("...and at most this far (a smaller value than wanderMinRadius counts as it)")
                     .translation(KEY + "behavior.wanderMaxRadius").defineInRange("wanderMaxRadius", 32.0, 1.0, 64.0);
-            minWanderDistance = b.comment("A DORMANT entity wanders no closer than this to any player; nor does one",
-                            "seeking at the top of its anger (AWAKENING) with no sound to go for, to any player it",
-                            "could take (alive, in survival mode), and its way there passes none of them within",
-                            "awakening.reachDistance")
+            minWanderDistance = b.comment("A DORMANT entity wanders no closer than this to any player (not a",
+                            "spectator); nor does one seeking at the top of its anger (AWAKENING) with no sound to go",
+                            "for, to any player it could take (alive, in survival mode), and its way there passes none",
+                            "of them within awakening.reachDistance. ALERT and HUNTING wandering keeps this distance",
+                            "only with wanderKeepAway. In every stage a wander point counts as seen by the nearest",
+                            "player (and is preferred, so that the bump is seen) only this far or farther from the",
+                            "eye; a nearer one is not preferred and can only be picked at random among the others.",
+                            "Going for a sound and searching around it (huntSearchRadius, awakening.searchRadius) are",
+                            "not wandering")
                     .translation(KEY + "behavior.minWanderDistance")
                     .defineInRange("minWanderDistance", bp.minWanderDistance(), 0.0, 128.0);
+            wanderKeepAway = b.comment("ALERT and HUNTING wandering keeps minWanderDistance from every player (not a",
+                            "spectator) too. Off: those legs are random and may end next to a quiet player, as a",
+                            "warden roams (SPEC 5.6); none is drawn toward a player either way")
+                    .translation(KEY + "behavior.wanderKeepAway")
+                    .define("wanderKeepAway", bp.wanderKeepAway());
             transitionVolume = b.comment("Volume of the stage change sounds; heard up to 16 blocks times this away")
                     .translation(KEY + "behavior.transitionVolume")
                     .defineInRange("transitionVolume", 3.0, 0.0, 16.0);
@@ -350,7 +361,7 @@ public final class TremorConfig {
                     decayPerSecond.get(), quietAfterSeconds.get(), quietDecayFactor.get(), dormantReactLoudness.get(),
                     alertFreezeSeconds.get(), alertLoseInterestSeconds.get(), huntSearchRadius.get(),
                     huntSearchSeconds.get(), wanderPauseSeconds.get(), minWanderDistance.get(),
-                    awakening.searchRadius.get());
+                    awakening.searchRadius.get(), wanderKeepAway.get());
         }
 
         /** Factor on the crawling speed in {@code stage} (SPEC 5.5, 8). */
@@ -650,8 +661,9 @@ public final class TremorConfig {
                             "dimension for this long (seconds)")
                     .translation(KEY + "awakening.cooldownSeconds")
                     .defineInRange("cooldownSeconds", 3600, 0, 604800);
-            emergeTicks = b.comment("After a victory: how long the hill at the swallow point rises, lets the player",
-                            "out and settles again (ticks)")
+            emergeTicks = b.comment("After a victory: how long the hill at the swallow point rises (the first fifth)",
+                            "and settles again, letting the player out (the rest; ticks); in between it stands while",
+                            "the player is put into it and the screen comes back")
                     .translation(KEY + "awakening.emergeTicks").defineInRange("emergeTicks", 80, 1, 600);
             craterRadius = b.comment("After a defeat, and after an escape through the edge of the hollow, a real",
                             "crater opens where the player was swallowed: an irregular funnel with steep walls; its",

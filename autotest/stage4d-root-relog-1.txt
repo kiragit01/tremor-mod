@@ -1,0 +1,45 @@
+# Stage 4d (SPEC 9 "Победа"): leaving the game while held in the hill a victor comes out of. Part 1 wins on the sky
+# platform (/tremor hollow outcome victory) and quits some 27 ticks later: moved out of the hollow into the standing
+# hill, the screen still dark, rooted there. Part 2 (stage4d-root-relog-2.txt, run next) must find the player at the
+# swallow point, free to walk (the root is never saved), with no Awakening and no event of the hollow left; it then
+# checks a death in the hill. Uses the sky platform of stage3-aggression.txt (repaired here).
+# Run: gradlew runClientAutotest -Ptremor_autotest_script=stage4d-root-relog-1.txt
+
+waitchunks
+cmd gamemode spectator
+cmd time set noon
+cmd tremor despawn
+cmd kill @e[type=!player]
+cmd tp @s 300.5 201.0 300.5 0 10
+wait 40
+waitchunks
+cmd fill 220 198 220 380 198 380 minecraft:stone
+cmd fill 220 199 220 380 199 380 minecraft:stone
+cmd fill 220 200 220 380 200 380 minecraft:stone
+cmd fill 220 201 220 380 201 380 minecraft:air
+cmd fill 220 202 220 380 202 380 minecraft:air
+cmd kill @e[type=item]
+cmd gamemode survival
+cmd effect clear @s
+cmd effect give @s minecraft:night_vision infinite 0 true
+cmd effect give @s minecraft:instant_health 1 4 true
+cmd clear @s
+hud off
+config awakening.buildupSeconds 3
+config hollow.level.stillSeconds 60
+config hollow.level.graceSeconds 120
+
+log --- won, out in the standing hill in the dark, held; then quit
+cmd tp @s 300.5 201.0 300.5 0 10
+wait 20
+cmd tremor awaken
+wait 160
+waitchunks
+cmd data get entity @s Dimension
+cmd tremor hollow outcome victory
+wait 23
+cmd tremor info
+cmd data get entity @s Dimension
+cmd data get entity @s Pos
+cmd attribute @s minecraft:generic.movement_speed get
+quit

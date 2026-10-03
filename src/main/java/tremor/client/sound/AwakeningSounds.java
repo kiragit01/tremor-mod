@@ -33,7 +33,8 @@ import tremor.sound.TremorSounds;
  * hollow, whose sound is that of SPEC 9 phase 2 ({@link HollowSounds}, played from here in place of all this while the
  * player is in a hollow). After a victory in the hollow, the ground rumbles once where the hill rises and the player
  * comes out ({@link Phase#EMERGING EMERGING}), for everybody near, as the hill starts to rise on their client (for the
- * victor, once the screen has come back: {@link ClientEmerge}). Main thread only.
+ * victor, who is put into it in the dark, as it starts to settle once the screen has come back: {@link ClientEmerge}).
+ * Main thread only.
  */
 public final class AwakeningSounds {
     /** Category of all these sounds: the entity's, like its other sounds. */
@@ -47,7 +48,7 @@ public final class AwakeningSounds {
     private static final int AWAKEN_LATE_TICKS = 40;
     private static final float AWAKEN_VOLUME = 1.0F;
     /**
-     * A player who only learns of an emerging this many ticks after its hill started to rise on their client no longer
+     * A player who only learns of an emerging this many ticks after its hill started to move on their client no longer
      * hears its rumble.
      */
     private static final int EMERGE_LATE_TICKS = 40;
@@ -155,14 +156,17 @@ public final class AwakeningSounds {
     }
 
     /**
-     * The ground rumbles once where the hill a victor comes out of rises ({@link Phase#EMERGING EMERGING}) as it starts
-     * to rise on this client ({@link ClientEmerge}: for the victor, once their screen has come back), for every player
-     * who learns of it as it starts, wherever they are: from the hill, fading out with the distance.
+     * The ground rumbles once where the hill a victor comes out of stands ({@link Phase#EMERGING EMERGING}) as it
+     * starts to move on this client ({@link ClientEmerge#movesFrom}): as it rises, or, for the victor, who does not see
+     * it rise, as it starts to settle once their screen has come back; for every player who learns of it in time,
+     * wherever they are: from the hill, fading out with the distance.
      */
     private static void emerge(Minecraft mc) {
         TremorAwakeningPayload state = mc.level == null ? null : ClientEmerge.state();
-        if (state == null || ClientEmerge.waiting() || rumbled != null && rumbled == state.id() || mc.isPaused()
-                || mc.level.getGameTime() - ClientEmerge.start() > EMERGE_LATE_TICKS) {
+        double from = ClientEmerge.movesFrom();
+        long now = mc.level == null ? 0 : mc.level.getGameTime();
+        if (state == null || Double.isNaN(from) || now < from || rumbled != null && rumbled == state.id()
+                || mc.isPaused() || now - from > EMERGE_LATE_TICKS) {
             return;
         }
         rumbled = state.id();

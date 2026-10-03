@@ -4,6 +4,13 @@
 # as the one of stage4d-search-tunnel.txt (63 x 63 x 37 blocks), so that the network of ways (stage 4d: the node 40-60
 # steps away, under the ground, 20 blocks down at most) lies in rock, not in the air around a small block. The block
 # is taken away again at the end.
+# The way out mirrors the way in (SPEC 9 "Победа", 2026-10-03): the victor's view is shot looking ahead, down and up
+# in the last frames of the swallowing (the hill at its full height, as the screen starts to go dark) and again on
+# the way out: in the dark after the move, as the screen comes back (the victor inside the full hill, held), while
+# the hill sinks, and once it is down; the third-person shots show the hill around the victor. Then the same on open
+# ground (the platform), with /tremor hollow outcome victory for a victory at a known moment: the move comes 20 ticks
+# after it, the screen comes back some 12-15 ticks later over 20 ticks, the hill settles over 64 ticks from then and
+# lets the victor go some 29 ticks into that (the log names the moments).
 # Run: gradlew runClientAutotest -Ptremor_autotest_script=stage4c-victory.txt
 
 waitchunks
@@ -33,10 +40,17 @@ wait 20
 hud off
 screenshot 10_tunnel_real
 
-log --- swallowed in the tunnel
+log --- swallowed in the tunnel: the last frames of the swallowing, ahead, down and up
 config awakening.buildupSeconds 3
 cmd tremor awaken
-wait 220
+wait 110
+screenshot 11_swallow_end_ahead
+look 90 80
+screenshot 12_swallow_end_down
+look 90 -80
+screenshot 13_swallow_end_up
+look 90 10
+wait 104
 waitchunks
 cmd data get entity @s Dimension
 cmd tremor hollow status
@@ -45,22 +59,79 @@ look 270 10
 wait 5
 screenshot 21_hollow_widened_back
 
-log --- to the node, break it
+log --- to the node, break it; the way out of the hill in the tunnel
 cmd tremor hollow tonode
 wait 10
 screenshot 30_node
-hold attack 120
-wait 10
+hold attack 30
+# The node breaks some 16 ticks into the hold (the victory), so the hold ends 14 ticks after it; the timeline then
+# runs as on open ground below (the move at 20, the screen clear and the hill settling at about 51, the victor let go
+# at about 80).
+wait 4
 cmd tremor info
+screenshot 40_out_dark_ahead
+wait 8
+cmd tremor info
+cmd data get entity @s Pos
+screenshot 41_out_dark_ahead
+wait 12
+screenshot 42_clearing_ahead
+look 90 80
+screenshot 42_clearing_down
+look 90 -80
+screenshot 42_clearing_up
+look 90 10
+wait 2
+screenshot 43_clear_ahead
+look 90 80
+screenshot 43_clear_down
+look 90 -80
+screenshot 43_clear_up
+look 90 10
+cmd tremor info
+screenshot 44_sinking_ahead
+look 90 80
+screenshot 44_sinking_down
+look 90 -80
+screenshot 44_sinking_up
+look 90 10
+cmd tremor info
+wait 1
+screenshot 45_sinking_ahead
+look 90 80
+screenshot 45_sinking_down
+look 90 -80
+screenshot 45_sinking_up
+look 90 10
+cmd tremor info
+screenshot 46_eyes_ahead
+look 90 80
+screenshot 46_eyes_down
+look 90 -80
+screenshot 46_eyes_up
+look 90 10
 view back
-wait 10
-screenshot 40_emerging_a
-wait 20
-screenshot 41_emerging_b
-wait 30
-screenshot 42_emerging_c
+screenshot 46_eyes_third_person
 view first
-wait 60
+cmd tremor info
+cmd data get entity @s Pos
+wait 4
+screenshot 47_out_ahead
+look 90 80
+screenshot 47_out_down
+look 90 -80
+screenshot 47_out_up
+look 90 10
+view back
+screenshot 47_out_third_person
+view first
+cmd tremor info
+wait 25
+screenshot 48_settled_ahead
+view back
+screenshot 48_settled_third_person
+view first
+wait 20
 cmd data get entity @s Dimension
 cmd data get entity @s Pos
 cmd tremor info
@@ -73,5 +144,101 @@ cmd fill 224 198 224 286 200 286 minecraft:stone
 cmd fill 224 201 224 286 208 286 minecraft:air
 cmd fill 224 209 224 286 216 286 minecraft:air
 cmd fill 224 217 224 286 222 286 minecraft:air
+cmd kill @e[type=item]
+
+log --- open ground (the platform): the last frames of the swallowing, then a victory at a known moment
+cmd fill 290 198 290 330 200 330 minecraft:stone
+cmd fill 290 201 290 330 210 330 minecraft:air
+cmd tp @s 310.5 201.0 310.5 0 15
+cmd gamemode survival
+config hollow.level.stillSeconds 60
+config hollow.level.graceSeconds 120
+wait 20
+waitchunks
+cmd tremor awaken
+wait 110
+screenshot 51_swallow_end_ahead
+look 0 80
+screenshot 52_swallow_end_down
+look 0 -80
+screenshot 53_swallow_end_up
+look 0 15
+view back
+screenshot 54_swallow_end_third_person
+view first
+wait 104
+waitchunks
+cmd data get entity @s Dimension
+cmd tremor hollow outcome victory
+# In a single player game the move comes 20 ticks after the victory, the screen starts to come back some 11 ticks
+# later and is clear 20 ticks after that (51), when the hill starts to settle; it lets the victor go 29 ticks into
+# the settling (80) and is down at 115. A burst of three shots takes some 7 ticks.
+wait 25
+screenshot 60_dark_ahead
+cmd tremor info
+cmd data get entity @s Pos
+wait 13
+screenshot 61_clearing_ahead
+look 0 80
+screenshot 61_clearing_down
+look 0 -80
+screenshot 61_clearing_up
+look 0 15
+view back
+screenshot 61_clearing_third_person
+view first
+screenshot 62_clear_ahead
+look 0 80
+screenshot 62_clear_down
+look 0 -80
+screenshot 62_clear_up
+look 0 15
+cmd tremor info
+screenshot 63_sinking_ahead
+look 0 80
+screenshot 63_sinking_down
+look 0 -80
+screenshot 63_sinking_up
+look 0 15
+cmd tremor info
+wait 1
+screenshot 64_sinking_ahead
+look 0 80
+screenshot 64_sinking_down
+look 0 -80
+screenshot 64_sinking_up
+look 0 15
+cmd tremor info
+screenshot 65_eyes_ahead
+look 0 80
+screenshot 65_eyes_down
+look 0 -80
+screenshot 65_eyes_up
+look 0 15
+view back
+screenshot 65_eyes_third_person
+view first
+cmd tremor info
+cmd data get entity @s Pos
+wait 4
+screenshot 66_out_ahead
+look 0 80
+screenshot 66_out_down
+look 0 -80
+screenshot 66_out_up
+look 0 15
+view back
+screenshot 66_out_third_person
+view first
+cmd tremor info
+wait 25
+screenshot 67_settled_ahead
+view back
+screenshot 67_settled_third_person
+view first
+cmd tremor info
+cmd data get entity @s Pos
+wait 20
+cmd tremor info
 hud on
 quit

@@ -101,17 +101,22 @@ public final class SurfacePicker {
      * of its voxel is acceptable if it keeps away from the players of {@code keepAway}: it ends far enough from every
      * one ({@link KeepAway#endsClear}), and the straight way to it from {@code from} passes none of them too near
      * ({@link KeepAway#passesClear(Vec3, Vec3)}; the body's route may bend, so it is tested again once planned). With
-     * a viewer, the first acceptable candidate {@link #visible} from {@code viewerEye} wins; if none is visible, the
-     * acceptable one nearest to the eye (the first on a tie), so that the bump stays where the viewer may come to see
-     * it rather than in some unseen cave across the radius. Without a viewer ({@code viewerEye} null) the first
-     * acceptable candidate wins. Whether the target is reachable over the graph is not checked: the body's path search
+     * a viewer, the first acceptable candidate it sees wins: {@link #visible} from {@code viewerEye}, and at least
+     * {@code seenFrom} from that eye. Otherwise (no viewer, {@code viewerEye} null, or none seen so) the first
+     * acceptable candidate wins, whatever the viewer sees of it: a candidate nearer to the eye than {@code seenFrom}
+     * is not preferred for being in sight, it can only come first among the others at random. The viewer draws no leg
+     * toward itself: with nothing in its sight (a player hiding in a closed hut, say) or nothing but its own
+     * surroundings, the leg is as random as one nobody watches, not one that ends as near to that player as
+     * {@code keepAway} allows. Whether the target is reachable over the graph is not checked: the body's path search
      * finds out.
      *
+     * @param seenFrom a candidate nearer than this to {@code viewerEye} does not count as seen by the viewer (0: every
+     *                 visible one does); independent of {@code keepAway}, which rejects candidates outright
      * @return the centre of the chosen node's voxel ({@link VoxelPos#center}), or null if no candidate qualified
      * @throws IllegalArgumentException unless {@code 0 <= minRadius <= maxRadius}
      */
     public static Vec3 wanderTarget(SurfaceGraph graph, Vec3 from, double minRadius, double maxRadius,
-                                    int verticalRange, Vec3 viewerEye, KeepAway keepAway,
+                                    int verticalRange, Vec3 viewerEye, double seenFrom, KeepAway keepAway,
                                     RandomGenerator random, int attempts) {
         Objects.requireNonNull(graph, "graph");
         Objects.requireNonNull(from, "from");
@@ -122,7 +127,6 @@ public final class SurfacePicker {
         }
         int y0 = (int) Math.floor(from.y());
         Vec3 fallback = null;
-        double fallbackDistance = Double.POSITIVE_INFINITY;
         for (int i = 0; i < attempts; i++) {
             double angle = random.nextDouble() * 2 * Math.PI;
             double distance = minRadius + random.nextDouble() * (maxRadius - minRadius);
@@ -135,16 +139,11 @@ public final class SurfacePicker {
             if (!keepAway.endsClear(center) || !keepAway.passesClear(from, center)) {
                 continue;
             }
-            if (viewerEye == null) {
+            if (viewerEye == null || center.distance(viewerEye) >= seenFrom && visible(graph, viewerEye, node)) {
                 return center;
             }
-            double toViewer = center.distance(viewerEye);
-            if (visible(graph, viewerEye, node)) {
-                return center;
-            }
-            if (toViewer < fallbackDistance) {
+            if (fallback == null) {
                 fallback = center;
-                fallbackDistance = toViewer;
             }
         }
         return fallback;

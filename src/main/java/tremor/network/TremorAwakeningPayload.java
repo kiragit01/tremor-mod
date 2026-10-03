@@ -18,8 +18,10 @@ import java.util.UUID;
  * @param center      centre of the zone (the target's position when the event started)
  * @param radius      zone radius in blocks
  * @param phase       current phase
- * @param phaseStart  level game time the phase started at
- * @param phaseTicks  planned length of the phase in ticks (0 if open-ended)
+ * @param phaseStart  level game time the phase started at (SETTLING: the game time the hill starts to settle, which
+ *                    may lie a little ahead: it stands until then)
+ * @param phaseTicks  planned length of the phase in ticks (0 if open-ended; EMERGING: the length of the rise, after
+ *                    which the hill stands until SETTLING)
  * @param target      the player the event is about (who is swallowed)
  * @param focus       where the swallow hill rises (the target's position when SWALLOWING started); the centre otherwise
  */
@@ -35,10 +37,15 @@ public record TremorAwakeningPayload(int id, Vec3 center, float radius, Phase ph
         /** The target is in the hollow; for everyone else the ground is smooth as if nothing happened. */
         HOLLOW,
         /**
-         * After a victory (SPEC 9): at the focus (the swallow point) a hill rises, the player comes out of it, and it
-         * settles back over the phase.
+         * After a victory (SPEC 9): at the focus (the swallow point) a hill rises over {@code phaseTicks}, as high as
+         * at the end of the swallowing, and stands; the player is put into it while it stands. Lasts until SETTLING.
          */
         EMERGING,
+        /**
+         * The hill of EMERGING stands until {@code phaseStart} (the player's screen comes back meanwhile), then settles
+         * over {@code phaseTicks} and lets the player out.
+         */
+        SETTLING,
         /** Over (escape, victory, defeat or cancelled): drop it. */
         ENDED
     }

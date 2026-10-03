@@ -12,6 +12,8 @@ import net.neoforged.neoforge.network.PacketDistributor;
 import tremor.Tremor;
 import tremor.config.TremorConfig;
 import tremor.core.math.Vec3;
+import tremor.core.shape.AwakeningParams;
+import tremor.core.shape.AwakeningShape;
 import tremor.entity.TremorManager;
 import tremor.hearing.Vibration;
 import tremor.hearing.VibrationListener;
@@ -50,12 +52,19 @@ import java.util.UUID;
  *   ends it when the target's event in the hollow ends ({@link End#EDGE_ESCAPED}), a defeat once the crater is
  *   there and the target dead or on the way out ({@link End#DEFEAT}). Without an outcome it ends with the target's
  *   event in the hollow, whatever ended that ({@link End#HOLLOW_OVER}). After a victory ({@link #won}) it stays until
- *   the hill is due ({@link AwakeningRules#emergeDelay}: at its highest when the victor is moved out).</li>
- *   <li>EMERGING ({@code awakening.emergeTicks}), after a victory ({@link #emerge}): at the swallow point (the focus)
- *   a hill rises, the target comes out of it (put there after the fade out of the hollow) and it settles; then it ends
- *   ({@link End#VICTORY}), whatever the target's event in the hollow does meanwhile, but not before the target is out
- *   of the hollow and has been sent the phase (so a long fade out of the hollow, or a slow client, does not miss
- *   it), or is offline or away.</li>
+ *   the hill is due ({@link AwakeningRules#emergeDelay}: risen when the victor is moved out).</li>
+ *   <li>EMERGING, after a victory ({@link #emerge}; SPEC 9 "Победа", the way out mirrors the way in): at the swallow
+ *   point (the focus) a hill rises over {@link AwakeningRules#emergeRiseTicks} ({@code awakening.emergeTicks}), as high
+ *   as the one that swallowed the target, and stands. Everybody near sees it rise; the target, whose screen went dark
+ *   in the hollow, is put into it there, by the move out of the hollow, and rooted at once ({@link #victorArrived}),
+ *   so the target's screen comes back on the view it went dark on: the unreal blocks of the hill all around. It stands
+ *   until the target's event in the hollow ends ({@link #settle}).</li>
+ *   <li>SETTLING ({@link AwakeningRules#emergeSettleTicks}): the hill stands on until the target's screen has come
+ *   back ({@link AwakeningRules#settleStart}: at once if the target is gone, logged out or dead), then settles, shaking
+ *   off dust, and lets the target out: the root holds while the hill is over the target's eyes
+ *   ({@link AwakeningRules#overEyes}) and lets go then (also as soon as the target dies, logs out or leaves the
+ *   level). It ends ({@link End#VICTORY}) once the hill has settled, but not before the target has been sent the
+ *   phase (so a slow client does not miss it), or is offline or away.</li>
  * </ol>
  * Sync: every player of the level within {@value #SYNC_MARGIN} blocks of the zone (horizontally) gets the state
  * ({@link TremorAwakeningPayload}) once, players coming that near (also by joining or changing dimension) on the next
@@ -100,6 +109,8 @@ final class Awakening {
     /** {@link #emergeAt} without a victory (or once EMERGING). */
     private static final long NO_VICTORY = Long.MIN_VALUE;
     private static final double TICKS_PER_SECOND = 20;
+    /** The shape of the hills, as the clients draw them. */
+    private static final AwakeningParams SHAPE = AwakeningParams.defaults();
 
     final int id;
     final ServerLevel level;
@@ -128,6 +139,13 @@ final class Awakening {
     private boolean died;
     /** Game time the hill of a victory is due at ({@link #won}); {@link #NO_VICTORY} without a victory. */
     private long emergeAt = NO_VICTORY;
+    /**
+     * The target moved out of the hollow into the hill of a victory and rooted there ({@link #victorArrived}), until
+     * let go; null otherwise.
+     */
+    private ServerPlayer victor;
+    /** The victor has been rooted in the hill ({@link #victorArrived}): never again in this Awakening. */
+    private boolean victorRooted;
     /** Players who have the state (sent since they entered the level). */
     private final Set<UUID> recipients = new HashSet<>();
     /** Ended ({@link #finish}). */
@@ -178,7 +196,7 @@ final class Awakening {
 
     /** Whether the target is (or should be) in the hollow: moved into the copy, or past that. */
     boolean swallowed() {
-        return phase == Phase.HOLLOW || phase == Phase.EMERGING
+        return phase == Phase.HOLLOW || phase == Phase.EMERGING || phase == Phase.SETTLING
                 || hollowEvent != null && hollowEvent.phase().inHollow();
     }
 
@@ -224,7 +242,10 @@ final class Awakening {
                     emerge(now);
                 }
             }
-            case EMERGING -> {
+            // Settles once the target's event in the hollow ends (onHollowEnded).
+            case EMERGING -> holdVictor(now);
+            case SETTLING -> {
+                holdVictor(now);
                 if (clock.over(now) && victorOut()) {
                     AwakeningManager.end(this, End.VICTORY, targetName + " came out of the ground at "
                             + text(focus));
@@ -239,16 +260,17 @@ final class Awakening {
     /**
      * The target destroyed the node (SPEC 9 "Победа", {@link Outcomes#victory}): the hill rises at {@code at} (the
      * swallow point), where the target is put after the fade out of the hollow, once it is due
-     * ({@link AwakeningRules#emergeDelay}; at once if it already is): EMERGING begins then ({@link #emerge}). The target
-     * is let go and out of the Darkness now, if still held (the victory came the tick it was moved in).
+     * ({@link AwakeningRules#emergeDelay}: so that it has risen by then; at once if it already is): EMERGING begins then
+     * ({@link #emerge}). The target is let go and out of the Darkness now, if still held (the victory came the tick it
+     * was moved in).
      */
     void won(Vec3 at, long now) {
         if (phase != Phase.HOLLOW && phase != Phase.SWALLOWING) {
             return;
         }
+        root.release();
         ServerPlayer player = player();
         if (player != null) {
-            root.release(player);
             undarken(player);
         }
         focus = at;
@@ -266,16 +288,86 @@ final class Awakening {
         return emergeAt != NO_VICTORY;
     }
 
-    /** EMERGING begins after a victory ({@link #won}): the hill rises at the focus now. */
+    /**
+     * EMERGING begins after a victory ({@link #won}): the hill rises at the focus now, over
+     * {@link AwakeningRules#emergeRiseTicks}, and stands until it settles ({@link #settle}).
+     */
     void emerge(long now) {
         emergeAt = NO_VICTORY;
-        setPhase(Phase.EMERGING, now, TremorConfig.COMMON.awakening.emergeTicks.get());
-        Tremor.LOGGER.info("Awakening #{}: the hill at {} rises and lets {} out in {} s", id, text(focus), targetName,
-                phaseSeconds());
+        setPhase(Phase.EMERGING, now, AwakeningRules.emergeRiseTicks(TremorConfig.COMMON.awakening.emergeTicks.get()));
+        Tremor.LOGGER.info("Awakening #{}: the hill at {} rises for {} to come out of", id, text(focus), targetName);
     }
 
     /**
-     * Whether the victor is done with the hill as far as the server goes: out of the hollow and sent the EMERGING
+     * The target's event in the hollow is over while the hill of EMERGING stands ({@link AwakeningManager}): SETTLING
+     * begins. The hill settles once the target sees again ({@code screenComingBack}: the target came out the normal
+     * way, and the screen comes back over {@code hollow.fadeTicks} from now), or at once if the target is gone (logged
+     * out, died, brought out by a command), but not before it has risen ({@link AwakeningRules#settleStart}). The
+     * clients learn of it now, the target's together with its screen coming back: until then the hill stands on.
+     */
+    void settle(long now, boolean screenComingBack) {
+        if (phase != Phase.EMERGING) {
+            return;
+        }
+        long start = AwakeningRules.settleStart(now, clock.start() + clock.ticks(),
+                TremorConfig.COMMON.hollow.fadeTicks.get(), screenComingBack);
+        int ticks = AwakeningRules.emergeSettleTicks(TremorConfig.COMMON.awakening.emergeTicks.get());
+        setPhase(Phase.SETTLING, start, ticks);
+        Tremor.LOGGER.info(String.format(Locale.ROOT, "Awakening #%d: the hill at %s settles in %.1f s, over %.1f s%s",
+                id, text(focus), seconds(start - now), seconds(ticks), screenComingBack ? ""
+                        : " (" + targetName + " did not come out the normal way)"));
+    }
+
+    /**
+     * The target has just been moved into this level ({@link AwakeningManager#onPlayerChangedDimension}): coming out
+     * of the hollow after a victory, it is in the hill at the swallow point, its screen still dark, and is rooted
+     * there now, before its client can move it. Only before the hill settles, and only the first time.
+     */
+    void victorArrived(ServerPlayer player) {
+        if (victorRooted || root.rooted() || player.level() != level || !player.isAlive()
+                || !(phase == Phase.EMERGING || phase == Phase.HOLLOW && victoryPending())) {
+            return;
+        }
+        victor = player;
+        victorRooted = true;
+        root.start(player);
+        Tremor.LOGGER.info("Awakening #{}: {} is in the hill at {}, held", id, targetName,
+                text(vec(player.position())));
+    }
+
+    /**
+     * Once a tick while the hill of a victory is up: holds the rooted victor, or lets the victor go once the settling
+     * hill is no longer over the victor's eyes ({@link AwakeningRules#overEyes}), or once the victor is gone (dead,
+     * logged out or respawned, in another level).
+     */
+    private void holdVictor(long now) {
+        if (victor == null) {
+            return;
+        }
+        String gone = !victor.isAlive() ? "died" : victor != player() || victor.hasDisconnected() ? "logged out"
+                : victor.level() != level ? "left the dimension" : null;
+        if (gone != null) {
+            root.release();
+            victor = null;
+            Tremor.LOGGER.info("Awakening #{}: {} {} in the hill, let go", id, targetName, gone);
+            return;
+        }
+        if (phase == Phase.SETTLING && now >= clock.start()) {
+            double peak = AwakeningShape.emergeSettle(SHAPE, (double) clock.elapsed(now) / clock.ticks());
+            if (!AwakeningRules.overEyes(focus, vec(victor.position()), peak, SHAPE.hillSigma(),
+                    victor.getEyeHeight())) {
+                root.release();
+                victor = null;
+                Tremor.LOGGER.info(String.format(Locale.ROOT, "Awakening #%d: the hill is below the eyes of %s "
+                        + "%.1f s into its settling, let go", id, targetName, seconds(clock.elapsed(now))));
+                return;
+            }
+        }
+        root.hold(victor);
+    }
+
+    /**
+     * Whether the victor is done with the hill as far as the server goes: out of the hollow and sent the SETTLING
      * phase (its client runs the hill to the end by itself), or offline, in another level or far away (the phase is
      * not sent there).
      */
@@ -330,9 +422,10 @@ final class Awakening {
     void finish(End why, String detail) {
         over = true;
         long now = level.getGameTime();
+        root.release();
+        victor = null;
         ServerPlayer player = player();
         if (player != null) {
-            root.release(player);
             undarken(player);
         }
         TremorAwakeningPayload ended = new TremorAwakeningPayload(id, center, (float) radius, Phase.ENDED, now, 0,
@@ -371,8 +464,16 @@ final class Awakening {
                     hollowEvent.outcome() == null ? "" : ", " + hollowEvent.outcome().id(), victoryPending()
                             ? String.format(Locale.ROOT, "; won, the hill rises in %.1f s",
                             seconds(Math.max(0, emergeAt - now))) : ""));
-            case EMERGING -> text.append(String.format(Locale.ROOT, "won: coming out of the hill at %s, %.1f s left",
-                    text(focus), seconds(clock.remaining(now))));
+            case EMERGING -> text.append(clock.over(now)
+                    ? String.format(Locale.ROOT, "won: the hill at %s stands until %s comes out of the hollow",
+                    text(focus), targetName)
+                    : String.format(Locale.ROOT, "won: the hill at %s rises, %.1f s left", text(focus),
+                    seconds(clock.remaining(now))));
+            case SETTLING -> text.append(now < clock.start()
+                    ? String.format(Locale.ROOT, "won: the hill at %s stands, settles in %.1f s", text(focus),
+                    seconds(clock.start() - now))
+                    : String.format(Locale.ROOT, "won: the hill at %s settles, %.1f s left", text(focus),
+                    seconds(clock.remaining(now))));
         }
         ServerPlayer player = player();
         String where = player == null ? "offline" : player.level() != level ? "in " + player.level().dimension()
@@ -417,8 +518,8 @@ final class Awakening {
         ServerPlayer player = player();
         if (hollowEvent != null && hollowEvent.phase().inHollow()) {
             // Moved into the copy.
+            root.release();
             if (player != null) {
-                root.release(player);
                 undarken(player);
             }
             setPhase(Phase.HOLLOW, now, 0);
@@ -443,9 +544,10 @@ final class Awakening {
         }
     }
 
-    private void setPhase(Phase phase, long now, int ticks) {
+    /** Goes into {@code phase}, starting at game time {@code start} (now, or a little ahead for SETTLING). */
+    private void setPhase(Phase phase, long start, int ticks) {
         this.phase = phase;
-        clock = new PhaseClock(now, ticks);
+        clock = new PhaseClock(start, ticks);
         sync(true);
     }
 

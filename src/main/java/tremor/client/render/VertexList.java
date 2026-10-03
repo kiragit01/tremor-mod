@@ -2,6 +2,7 @@ package tremor.client.render;
 
 import com.mojang.blaze3d.vertex.VertexConsumer;
 import net.minecraft.client.renderer.texture.OverlayTexture;
+import net.minecraft.core.Direction;
 
 import java.util.Arrays;
 
@@ -12,6 +13,8 @@ import java.util.Arrays;
 final class VertexList implements VertexConsumer {
     /** x, y, z, u, v, nx, ny, nz as floats + color, light as raw int bits. */
     static final int STRIDE = 10;
+    /** How far (blocks) a face turned inside out ({@link #emitInside}) lies inside the face of the voxel. */
+    static final float INSET_HALF = 0.002f;
 
     private float[] data = new float[STRIDE * 24];
     private int size; // in vertices
@@ -40,6 +43,40 @@ final class VertexList implements VertexConsumer {
                     d[o + 3], d[o + 4], OverlayTexture.NO_OVERLAY, Float.floatToRawIntBits(d[o + 9]),
                     d[o + 5], d[o + 6], d[o + 7]);
         }
+    }
+
+    /**
+     * Emits every quad turned inside out, translated by {@code (dx, dy, dz)}: its corners in the opposite order and
+     * its normal reversed, so that it faces into the voxel and is seen from inside it (a camera inside a raised copy);
+     * pulled {@value #INSET_HALF} towards the middle of the voxel, so that it lies in front of the faces of whatever
+     * touches the voxel there, and lit as a face turned the other way would be: its colour (which carries the
+     * shading of its own direction) times {@code shade[direction]}, by the {@link Direction} ordinal of the face's
+     * outward normal. Quads only (4 vertices each, as the chunk layers are).
+     */
+    void emitInside(VertexConsumer out, float dx, float dy, float dz, float[] shade) {
+        float[] d = data;
+        float pull = 2 * INSET_HALF;
+        for (int q = 0; q + 4 <= size; q += 4) {
+            int first = q * STRIDE;
+            float factor = shade[Direction.getNearest(d[first + 5], d[first + 6], d[first + 7]).ordinal()];
+            for (int j = 3; j >= 0; j--) {
+                int o = (q + j) * STRIDE;
+                float x = d[o] + (0.5f - d[o]) * pull;
+                float y = d[o + 1] + (0.5f - d[o + 1]) * pull;
+                float z = d[o + 2] + (0.5f - d[o + 2]) * pull;
+                out.addVertex(x + dx, y + dy, z + dz, scale(Float.floatToRawIntBits(d[o + 8]), factor), d[o + 3],
+                        d[o + 4], OverlayTexture.NO_OVERLAY, Float.floatToRawIntBits(d[o + 9]), -d[o + 5], -d[o + 6],
+                        -d[o + 7]);
+            }
+        }
+    }
+
+    /** An ARGB colour with red, green and blue times {@code factor} (clamped), alpha kept. */
+    private static int scale(int argb, float factor) {
+        int r = Math.min(255, Math.round((argb >> 16 & 0xFF) * factor));
+        int g = Math.min(255, Math.round((argb >> 8 & 0xFF) * factor));
+        int b = Math.min(255, Math.round((argb & 0xFF) * factor));
+        return argb & 0xFF000000 | r << 16 | g << 8 | b;
     }
 
     /** Emits vertex {@code i} at an explicit position (used by the warp style). */

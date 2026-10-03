@@ -13,7 +13,7 @@ import java.util.function.IntFunction;
  * and the escape from it, when the seeking entity has reached a player and who is taken, when the Darkness comes and
  * which Darkness is the Awakening's to take away, how strong the ring of a step is, when a rooted player has strayed
  * and whether it may drop, how the end of the event in the hollow ends the Awakening, when the hill of a victory rises
- * and how hard the ground pulls in a defeat.
+ * and settles and when it lets the victor go, and how hard the ground pulls in a defeat.
  * <p>
  * The zone is a vertical cylinder around the centre (SPEC 9: "сфера/цилиндр"): only the horizontal distance counts,
  * so climbing a tower or digging down does not get the player out, walking away does.
@@ -192,13 +192,48 @@ public final class AwakeningRules {
     }
 
     /**
-     * Ticks from a victory until the hill the victor comes out of starts to rise ({@code awakening.emergeTicks} long,
-     * shooting up over its first {@link AwakeningShape#EMERGE_RISE}): so that it is at its highest when the victor is
-     * moved out of the hollow, {@code fadeTicks} ({@code hollow.fadeTicks}) after the victory. 0 if the rise takes that
-     * long or longer.
+     * Ticks the hill of a victory takes to rise: the first {@link AwakeningShape#EMERGE_RISE} of
+     * {@code awakening.emergeTicks} (rounded), at least 1.
+     */
+    public static int emergeRiseTicks(int emergeTicks) {
+        return Math.max(1, (int) Math.round(AwakeningShape.EMERGE_RISE * emergeTicks));
+    }
+
+    /** Ticks the hill of a victory takes to settle: the rest of {@code awakening.emergeTicks}, at least 1. */
+    public static int emergeSettleTicks(int emergeTicks) {
+        return Math.max(1, emergeTicks - emergeRiseTicks(emergeTicks));
+    }
+
+    /**
+     * Ticks from a victory until the hill the victor comes out of starts to rise ({@link #emergeRiseTicks}): so that
+     * it has risen when the victor is moved out of the hollow into it, {@code fadeTicks} ({@code hollow.fadeTicks})
+     * after the victory. 0 if the rise takes that long or longer.
      */
     public static int emergeDelay(int fadeTicks, int emergeTicks) {
-        return Math.max(0, fadeTicks - (int) Math.round(AwakeningShape.EMERGE_RISE * emergeTicks));
+        return Math.max(0, fadeTicks - emergeRiseTicks(emergeTicks));
+    }
+
+    /**
+     * Game time the hill of a victory starts to settle, decided at game time {@code now} when the victor's event in the
+     * hollow ends: once the victor sees again, the screen coming back over {@code fadeTicks} from now
+     * ({@code screenComingBack}: the victor came out the normal way), else at once (the victor is gone: logged out,
+     * dead, brought out by a command); but not before the hill has risen ({@code risen}: the game time its rise ends).
+     */
+    public static long settleStart(long now, long risen, int fadeTicks, boolean screenComingBack) {
+        return Math.max(risen, screenComingBack ? now + Math.max(0, fadeTicks) : now);
+    }
+
+    /**
+     * Whether the hill of a victory with the peak {@code peak} at {@code focus} (spread {@code sigma},
+     * {@link AwakeningShape#hill}) is over the eyes of a player whose feet are at {@code feet}: the block under the
+     * feet, where the renderer measures it, is raised by more than {@code eyeHeight}. While it is, the victor is held
+     * in it; once it is not, the head is out and the victor is let go.
+     */
+    public static boolean overEyes(Vec3 focus, Vec3 feet, double peak, double sigma, double eyeHeight) {
+        double dx = Math.floor(feet.x()) + 0.5 - focus.x();
+        double dy = Math.floor(feet.y() - 0.5) + 0.5 - focus.y();
+        double dz = Math.floor(feet.z()) + 0.5 - focus.z();
+        return AwakeningShape.hill(peak, sigma, dx * dx + dy * dy + dz * dz) > eyeHeight;
     }
 
     /**

@@ -11,9 +11,10 @@ import tremor.core.path.Path;
 /**
  * The players a wander leg keeps away from (SPEC 5.6, 8), and how far: where each of them stands, how far from every
  * one the leg must end ({@link #endsClear}), and how near its way there may pass ({@link #passesClear}). DORMANT
- * wandering keeps only its end away; a roam while seeking (AWAKENING) keeps its way out of reach of every player who
- * can be taken too, so that a player who keeps quiet is not found by chance. {@link SurfacePicker#wanderTarget}
- * tests the straight way to each candidate, the body the route it plans for the leg.
+ * wandering keeps only its end away (and so does ALERT and HUNTING wandering with {@code behavior.wanderKeepAway});
+ * a roam while seeking (AWAKENING) keeps its way out of reach of every player who can be taken too, so that a player
+ * who keeps quiet is not found by chance. {@link SurfacePicker#wanderTarget} tests the straight way to each
+ * candidate, the body the route it plans for the leg.
  * <p>
  * The way: a point of it at most {@code passVertical} above or below a player's feet must be at least
  * {@code passHorizontal} from them horizontally, or, if the way starts nearer than that already (within the height
@@ -59,8 +60,8 @@ public record KeepAway(List<Vec3> players, double minDistance, double passHorizo
      * player who can be taken, and only those (one who cannot, in creative mode for one, takes none of that care away
      * from the others), the leg ending {@code minDistance} from each and its way passing none of them nearer than
      * {@code passHorizontal} horizontally where it is at most {@code passVertical} above or below the feet (or, starting
-     * nearer than that, nearer than its start; see the class). In another stage: every player who is not a spectator,
-     * only the end of the leg {@code minDistance} away ({@link #NONE} for 0).
+     * nearer than that, nearer than its start; see the class). In another stage (DORMANT, ALERT, HUNTING): every player
+     * who is not a spectator, only the end of the leg {@code minDistance} away ({@link #NONE} for 0).
      *
      * @throws IllegalArgumentException if a distance is negative or not a number
      */

@@ -28,6 +28,9 @@ import tremor.core.math.Vec3;
  *   voxel, up to half a voxel diagonal past the radius). The body is faster and its bump higher, and the Awakening
  *   starts once it has reached a player, or the entity calms down to HUNTING when the seeking runs out.</li>
  * </ul>
+ * ALERT and HUNTING wandering is random (SPEC 5.6): its legs may end near a player, as a warden roams, unless
+ * {@code wanderKeepAway} keeps them {@code minWanderDistance} away too. Going for a sound and searching around it are
+ * no wander legs and keep away from nobody.
  * Deterministic for a given seed and input sequence.
  *
  * <h2>Contract with the body</h2>
@@ -52,8 +55,8 @@ import tremor.core.math.Vec3;
  *   <li>Wander pauses are drawn uniformly from [0.5, 1.5) x {@code wanderPauseSeconds} and run only while the body is
  *   idle (a route still being followed finishes first). After the pause the brain asks for a wander target; if there
  *   is none it waits another pause. A DORMANT investigation, once arrived, goes back to wandering (pause first).</li>
- *   <li>{@code minWanderDistance} is passed to {@link BrainWorld#wanderTarget} only while DORMANT (SPEC 5.6) and
- *   while AWAKENING (seeking); ALERT and HUNTING wandering passes 0.</li>
+ *   <li>{@code minWanderDistance} is passed to {@link BrainWorld#wanderTarget} while DORMANT (SPEC 5.6) and while
+ *   AWAKENING (seeking); ALERT and HUNTING wandering passes it only with {@code wanderKeepAway}, else 0.</li>
  *   <li>Giving up a chase (ALERT losing interest, a HUNTING search running out, dropping to DORMANT): an idle entity
  *   starts wandering with a pause; a moving one asks for a wander leg right away, so the chase route is replaced (if
  *   no wander target is found, it finishes its route and then pauses).</li>
@@ -201,24 +204,23 @@ public final class Brain {
     }
 
     private Decision dormant(double dt, boolean heard, Vec3 position, boolean idle, BrainWorld world) {
-        double minDistance = params.minWanderDistance();
         if (heard && lastHeardLoudness >= params.dormantReactLoudness()) {
             mode = Mode.INVESTIGATE;
             return go(lastHeard, "investigate");
         }
         switch (mode) {
             case FREEZE, CREEP, LISTEN, HUNT, SEARCH -> {
-                return calmDown(idle, position, world, minDistance);
+                return calmDown(idle, position, world);
             }
             case INVESTIGATE -> {
                 if (!idle) {
                     return Decision.stay("investigate");
                 }
                 startPause();
-                return wander(0, true, position, world, minDistance);
+                return wander(0, true, position, world);
             }
             default -> {
-                return wander(dt, idle, position, world, minDistance);
+                return wander(dt, idle, position, world);
             }
         }
     }
@@ -247,7 +249,7 @@ public final class Brain {
             }
             case CREEP -> {
                 if (lostInterest()) {
-                    return calmDown(idle, position, world, 0);
+                    return calmDown(idle, position, world);
                 }
                 if (!lastHeard.equals(goal)) {
                     return go(lastHeard, "creep");
@@ -260,23 +262,19 @@ public final class Brain {
             }
             case LISTEN -> {
                 if (lostInterest()) {
-                    return calmDown(idle, position, world, 0);
+                    return calmDown(idle, position, world);
                 }
                 return Decision.stay("listen");
             }
             default -> {
-                return wander(dt, idle, position, world, 0);
+                return wander(dt, idle, position, world);
             }
         }
     }
 
-    /**
-     * HUNTING, and AWAKENING (seeking), whose search is narrower ({@code seekSearchRadius}) and whose wandering keeps
-     * {@code minWanderDistance} from the players.
-     */
+    /** HUNTING, and AWAKENING (seeking), whose search is narrower ({@code seekSearchRadius}). */
     private Decision hunting(double dt, boolean heard, Vec3 position, boolean idle, BrainWorld world) {
         boolean seeking = stage == Stage.AWAKENING;
-        double minDistance = seeking ? params.minWanderDistance() : 0;
         if (heard) {
             mode = Mode.HUNT;
             return go(lastHeard, "hunt");
@@ -304,7 +302,7 @@ public final class Brain {
         }
         if (mode == Mode.SEARCH) {
             if (searchOver()) {
-                return calmDown(idle, position, world, minDistance);
+                return calmDown(idle, position, world);
             }
             if (!idle) {
                 return Decision.stay("search");
@@ -321,11 +319,14 @@ public final class Brain {
             }
             return Decision.stay("search");
         }
-        return wander(dt, idle, position, world, minDistance);
+        return wander(dt, idle, position, world);
     }
 
-    /** Lazy wandering; {@link #mode} is PAUSE or WANDER. The pause runs only while idle. */
-    private Decision wander(double dt, boolean idle, Vec3 position, BrainWorld world, double minDistance) {
+    /**
+     * Lazy wandering; {@link #mode} is PAUSE or WANDER. The pause runs only while idle. A leg keeps as far from the
+     * players as the stage says ({@link #wanderTarget}).
+     */
+    private Decision wander(double dt, boolean idle, Vec3 position, BrainWorld world) {
         if (mode == Mode.WANDER) {
             if (!idle) {
                 return Decision.stay("wander");
@@ -335,7 +336,7 @@ public final class Brain {
             timer -= dt;
         }
         if (idle && timer <= EPS) {
-            Vec3 target = world.wanderTarget(position, minDistance, random);
+            Vec3 target = wanderTarget(position, world);
             if (target != null) {
                 mode = Mode.WANDER;
                 return go(target, "wander");
@@ -346,17 +347,26 @@ public final class Brain {
     }
 
     /** Gives up a chase: idle, it rests first; moving, it asks for a wander leg now so the chase route is replaced. */
-    private Decision calmDown(boolean idle, Vec3 position, BrainWorld world, double minDistance) {
+    private Decision calmDown(boolean idle, Vec3 position, BrainWorld world) {
         startPause();
         if (idle) {
-            return wander(0, true, position, world, minDistance);
+            return wander(0, true, position, world);
         }
-        Vec3 target = world.wanderTarget(position, minDistance, random);
+        Vec3 target = wanderTarget(position, world);
         if (target != null) {
             mode = Mode.WANDER;
             return go(target, "wander");
         }
         return Decision.stay("rest");
+    }
+
+    /**
+     * A wander leg from {@code position} (SPEC 5.6): {@code minWanderDistance} from the players while DORMANT or
+     * AWAKENING, and while ALERT or HUNTING only with {@code wanderKeepAway} (else 0: a random leg).
+     */
+    private Vec3 wanderTarget(Vec3 position, BrainWorld world) {
+        boolean keepAway = stage == Stage.DORMANT || stage == Stage.AWAKENING || params.wanderKeepAway();
+        return world.wanderTarget(position, keepAway ? params.minWanderDistance() : 0, random);
     }
 
     private void startPause() {

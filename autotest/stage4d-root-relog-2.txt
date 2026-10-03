@@ -1,0 +1,45 @@
+# Stage 4d (SPEC 9 "Победа"): part 2 of the logout check (run stage4d-root-relog-1.txt first): the player who quit
+# while held in the hill is at the swallow point (300.5 201 300.5) in the overworld, walks at full speed, and no
+# Awakening or event of the hollow is left. Then a death while held in the hill: a second victory, and /kill some 26
+# ticks after it (the harness answers the death screen, which the report lists as an error); after the respawn the
+# player is free, and the Awakening ends by itself once the hill has settled.
+# Run: gradlew runClientAutotest -Ptremor_autotest_script=stage4d-root-relog-2.txt
+
+waitchunks
+wait 40
+log --- back after quitting in the hill
+cmd data get entity @s Dimension
+cmd data get entity @s Pos
+cmd tremor info
+cmd tremor hollow status
+cmd attribute @s minecraft:generic.movement_speed get
+hold forward 20
+cmd data get entity @s Pos
+
+log --- a death while held in the hill
+config awakening.buildupSeconds 3
+config hollow.level.stillSeconds 60
+config hollow.level.graceSeconds 120
+cmd effect give @s minecraft:night_vision infinite 0 true
+cmd tp @s 300.5 201.0 300.5 0 10
+wait 20
+cmd tremor awaken
+wait 160
+waitchunks
+cmd data get entity @s Dimension
+cmd tremor hollow outcome victory
+wait 26
+cmd tremor info
+cmd data get entity @s Pos
+cmd kill @s
+wait 40
+cmd tremor info
+cmd data get entity @s Dimension
+cmd data get entity @s Pos
+cmd attribute @s minecraft:generic.movement_speed get
+hold forward 20
+cmd data get entity @s Pos
+wait 80
+cmd tremor info
+cmd tremor hollow status
+quit

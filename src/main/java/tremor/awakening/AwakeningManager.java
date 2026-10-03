@@ -59,9 +59,10 @@ import java.util.UUID;
  *   dimension paused for {@code awakening.cooldownSeconds}. Awakenings are not saved: an entity loaded as taken by
  *   one goes deep at once ({@link TremorManager#onLevelLoad}).</li>
  *   <li><b>The hollow</b>: a swallowed target's Awakening ends by the outcome of the level in there
- *   ({@link Outcomes}: a victory makes it EMERGING first, once the hill is due, {@link Awakening#won}; a defeat ends it
- *   once carried out) or with the target's event in the hollow ({@link #onHollowEnded}, registered with
- *   {@link HollowManager#addEndListener}).</li>
+ *   ({@link Outcomes}: a victory makes it EMERGING first, once the hill is due, {@link Awakening#won}, and SETTLING
+ *   when the victor's event in the hollow ends; a defeat ends it once carried out) or with the target's event in the
+ *   hollow ({@link #onHollowEnded}, registered with {@link HollowManager#addEndListener}). The victor moved out into
+ *   the hill is rooted there as it arrives ({@link #onPlayerChangedDimension}).</li>
  *   <li><b>Players</b>: one who logs out, changes dimension or respawns has dropped the state on the client; it is
  *   sent again once the player is near. A target who logs out before being swallowed ends it at once (before the
  *   player is saved, without the Darkness); once swallowed, the hollow ends its event, and that ends it. A target who
@@ -248,20 +249,34 @@ public final class AwakeningManager {
 
     /**
      * The player part of an event of the hollow is over: an Awakening whose target it swallowed ends with it
-     * ({@link AwakeningRules#afterHollow}), unless it is EMERGING after a victory (that ends by itself; one whose hill
-     * is not due yet goes EMERGING now if the victor came out the normal way). An outcome decided in the hollow ends it
-     * as that (an escape through the edge, normally; also a defeat whose crater was still being dug, the target
-     * having logged out meanwhile); else, before the move into the copy, it is a cancellation (the player died, logged
-     * out or left the dimension while it got dark, or the move failed), and afterwards
+     * ({@link AwakeningRules#afterHollow}), unless the hill of a victory is up: EMERGING goes SETTLING
+     * ({@link Awakening#settle}: once the victor's screen has come back if the victor came out the normal way, at once
+     * otherwise) and SETTLING ends by itself; a victory whose hill is not due yet goes EMERGING and SETTLING now if
+     * the victor came out the normal way. An outcome decided in the hollow ends it as that (a victory whose victor is
+     * gone before the hill rose, an escape through the edge, normally; also a defeat whose crater was still being dug,
+     * the target having logged out meanwhile); else, before the move into the copy, it is a cancellation (the player
+     * died, logged out or left the dimension while it got dark, or the move failed), and afterwards
      * {@link Awakening.End#HOLLOW_OVER}.
      */
     public static void onHollowEnded(HollowEvent event, HollowEvent.End why) {
         Awakening awakening = swallowedBy(event);
-        if (awakening != null && awakening.victoryPending() && why == HollowEvent.End.LEFT
-                && awakening.phase() == TremorAwakeningPayload.Phase.HOLLOW) {
-            awakening.emerge(awakening.level.getGameTime());
-        } else if (awakening != null && awakening.phase() != TremorAwakeningPayload.Phase.EMERGING) {
-            end(awakening, AwakeningRules.afterHollow(event.outcome(),
+        if (awakening == null) {
+            return;
+        }
+        long now = awakening.level.getGameTime();
+        boolean left = why == HollowEvent.End.LEFT;
+        if (awakening.victoryPending() && left && awakening.phase() == TremorAwakeningPayload.Phase.HOLLOW) {
+            awakening.emerge(now);
+        }
+        // Out the normal way, the screen coming back; the hollow ends a logout on the way out as left too.
+        ServerPlayer victor = awakening.player();
+        boolean seen = left && victor != null && !victor.hasDisconnected() && victor.isAlive();
+        switch (awakening.phase()) {
+            case EMERGING -> awakening.settle(now, seen);
+            case SETTLING -> {
+                // Ends once the hill has settled.
+            }
+            default -> end(awakening, AwakeningRules.afterHollow(event.outcome(),
                     awakening.phase() == TremorAwakeningPayload.Phase.HOLLOW), "the event in the hollow ended ("
                     + why.id() + (event.outcome() == null ? "" : ", " + event.outcome().id()) + ")");
         }
@@ -311,8 +326,18 @@ public final class AwakeningManager {
         }
     }
 
+    /**
+     * The player's client dropped the state (sent again once near). A target moved out of the hollow into the level of
+     * its Awakening after a victory is in the hill there: it is rooted at once ({@link Awakening#victorArrived}).
+     */
     public static void onPlayerChangedDimension(PlayerEvent.PlayerChangedDimensionEvent event) {
         forget(event.getEntity().getUUID());
+        if (event.getEntity() instanceof ServerPlayer player) {
+            Awakening awakening = targetOf(player.getUUID());
+            if (awakening != null) {
+                awakening.victorArrived(player);
+            }
+        }
     }
 
     /** Respawning may change the dimension without a PlayerChangedDimensionEvent. */

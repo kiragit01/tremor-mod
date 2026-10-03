@@ -72,7 +72,10 @@ import java.util.SequencedMap;
  * per frame, and kept, keyed by position, while the bump stays near or the zone lasts, so a moving bump only bakes the
  * voxels it newly raises; the zone's ground that will breathe is baked ahead in the spare bakes of each frame. Every
  * frame the heights are evaluated and the baked meshes are replayed at that offset, so the per-frame cost is just
- * copying vertices. Opaque layers are drawn after the block entities, translucent and tripwire layers in their own
+ * copying vertices. A copy the camera is inside (a player in a hill risen around them, SPEC 9) is replayed inside out
+ * as well ({@link VertexList#emitInside}; the blocks style only): its faces close the view in, as the copies around it
+ * do, instead of letting it through to what lies beyond them, so the sky does not show through a hill that is still
+ * over the player's eyes. Opaque layers are drawn after the block entities, translucent and tripwire layers in their own
  * terrain passes so that they blend correctly (and survive Fabulous graphics, which clears its translucent target
  * before the translucent terrain).
  * <p>
@@ -233,6 +236,12 @@ public final class DeformationRenderer {
     /** Distance from the camera at which the budget cut an Awakening's ground off ({@link RenderBudget}); NaN: none. */
     private static double frameCut = Double.NaN;
     private static double camX, camY, camZ;
+    /**
+     * How the shading of a face changes when it is turned inside out ({@link VertexList#emitInside}), by the
+     * {@link Direction} ordinal of its outward normal: the level's shade of the opposite direction over its own (a
+     * floor seen from inside a copy as bright as a top, its ceiling as dark as a bottom). Set every frame.
+     */
+    private static final float[] insideShade = new float[Direction.values().length];
     private static int frameCopies;
     private static int frameVertices;
     private static long pendingNanos;
@@ -370,6 +379,10 @@ public final class DeformationRenderer {
             }
         }
         frameWarp = TremorConfig.CLIENT.style.get() == TremorConfig.Style.WARP;
+        for (Direction direction : Direction.values()) {
+            float own = level.getShade(direction, true);
+            insideShade[direction.ordinal()] = own > 0 ? level.getShade(direction.getOpposite(), true) / own : 1;
+        }
         int total = 0;
         for (int i = 0, n = frameColumns.size(); i < n; i++) {
             Column col = frameColumns.get(i);
@@ -888,8 +901,15 @@ public final class DeformationRenderer {
                         emitWarped(consumer, mesh, col, k, bx, by, bz, 0, 0, 0);
                     } else {
                         double off = col.h - k;
-                        mesh.emit(consumer, bx + (float) (normal.x() * off), by + (float) (normal.y() * off),
-                                bz + (float) (normal.z() * off));
+                        float x = bx + (float) (normal.x() * off), y = by + (float) (normal.y() * off);
+                        float z = bz + (float) (normal.z() * off);
+                        mesh.emit(consumer, x, y, z);
+                        if (x <= 0 && x + 1 >= 0 && y <= 0 && y + 1 >= 0 && z <= 0 && z + 1 >= 0) {
+                            // The camera is inside this copy (a hill risen around the player): seen from inside,
+                            // its faces would be culled and show what lies beyond them, the sky over the hill.
+                            mesh.emitInside(consumer, x, y, z, insideShade);
+                            frameVertices += mesh.size();
+                        }
                     }
                     frameVertices += mesh.size();
                 }

@@ -1,8 +1,11 @@
 package tremor.awakening;
 
+import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.function.BooleanSupplier;
 
 /**
  * What the crater of a defeat or of an escape through the edge (SPEC 9 "Исходы", 12) digs out of the real world, and
@@ -11,16 +14,19 @@ import java.util.Map;
  * without updating the neighbours (nothing next to the crater pops off, falls or flows because of it) and sees what it
  * carved as air and what it filled as a whole block.
  * <p>
- * The crater is a set of {@link Column}s (from a {@link CraterShape}), each carved from its {@link #carveTop top} down
- * to its bottom: a column of open ground from the swallow point's height, a hill, a tree or the thin roof of a cave
- * from its top within {@code reachUp} blocks over that height, anything under a thicker roof (a tunnel, a cave, a
- * cliff) from that height, under the roof. The {@link Dig} goes layer by layer from the highest down, each layer from
- * the centre out, so the ground caves in from the top. A kept block (a block entity, {@code #tremor:protected}, an
- * unbreakable or burning block, the spawn protection, what is not loaded) is never carved, nor is a block fixed to it
- * (a whole block or anything to bump into touching it): it ends its column for good (nothing below it is carved
- * either), so a kept block stands on a pillar of the ground under it. A fluid in the crater (a pond, a stream, the edge
- * of a lake, the water the player stood in) is carved like the rest, no column stops at it: the fluid around is plugged
- * at its own blocks (below), and the walls of the crater keep their shape.
+ * The crater is a set of {@link Column}s (from a {@link CraterShape}, planned a place at a time by a {@link Plan}),
+ * each carved from its {@link #carveTop top} down to its bottom: a column of open ground from the swallow point's
+ * height, a hill, a tree or the thin roof of a cave from its top within {@code reachUp} blocks over that height,
+ * anything under a thicker roof (a tunnel, a cave, a cliff) from that height, under the roof. The {@link Dig} goes
+ * layer by layer from the highest down, each layer from the centre out, so the ground caves in from the top. The plan
+ * and the dig are spread over ticks a step at a time by a {@link Digging}, which stops only between two steps.
+ * <p>
+ * A kept block (a block entity, {@code #tremor:protected}, an unbreakable or burning block, the spawn protection, what
+ * is not loaded) is never carved, nor is a block fixed to it (a whole block or anything to bump into touching it): it
+ * ends its column for good (nothing below it is carved either), so a kept block stands on a pillar of the ground under
+ * it. A fluid in the crater (a pond, a stream, the edge of a lake, the water the player stood in) is carved like the
+ * rest, no column stops at it: the fluid around is plugged at its own blocks (below), and the walls of the crater keep
+ * their shape.
  * <p>
  * After each block carved (also each block of air in the crater, a cave crossing it), the crater is closed again, so
  * it is a closed bowl, open only at the top, at every moment of the dig (a server stopping in the middle leaves a
@@ -70,6 +76,13 @@ public final class CraterRules {
     @FunctionalInterface
     public interface Cells {
         Cell at(int x, int y, int z);
+    }
+
+    /** Where each column of a crater is carved from, as its {@link Plan} asks: mostly {@link #carveTop}. */
+    @FunctionalInterface
+    public interface Tops {
+        /** The highest block the crater carves in the column at {@code x, z} ({@link Column#top}). */
+        int at(int x, int z);
     }
 
     /** What the dig does to the world; the world must see each change at once. */
@@ -178,6 +191,129 @@ public final class CraterRules {
         /** Whether the column is carved down to its bottom. */
         public boolean through() {
             return !ended && next < bottom;
+        }
+    }
+
+    /**
+     * The columns of a crater under the swallow point: those of its {@link CraterShape}, in the order of
+     * {@link CraterShape#columns} (the nearest to the centre first), each from the top the world gives it
+     * ({@link Tops}). Planned a place of the shape's square at a time ({@link #step}), so that a large crater, or one
+     * under a roof (where the top of each column is looked for block by block), is planned over as many ticks as it
+     * takes.
+     */
+    public static final class Plan {
+        private final CraterShape shape;
+        private final int x;
+        private final int y;
+        private final int z;
+        /** Width of the shape's square, centred on the swallow point. */
+        private final int side;
+        /**
+         * The places of the square in the order they are planned: the square of their distance from the centre in the
+         * high half, so the nearest come first, and their index in the square (row by row) in the low half, so that
+         * places as far come in rows.
+         */
+        private final long[] places;
+        private final List<Column> columns = new ArrayList<>();
+        /** The next place to look at. */
+        private int next;
+
+        /** The plan of the columns of {@code shape} under the swallow point {@code x, y, z} (the player's feet). */
+        public Plan(CraterShape shape, int x, int y, int z) {
+            this.shape = shape;
+            this.x = x;
+            this.y = y;
+            this.z = z;
+            int reach = shape.reach();
+            side = 2 * reach + 1;
+            places = new long[side * side];
+            for (int index = 0; index < places.length; index++) {
+                int dx = index % side - reach;
+                int dz = index / side - reach;
+                places[index] = (long) (dx * dx + dz * dz) << 32 | index;
+            }
+            Arrays.sort(places);
+        }
+
+        /**
+         * Looks at the next place of the square: if the crater goes down there, plans its column from the top
+         * {@code tops} gives it. False once every place has been looked at.
+         */
+        public boolean step(Tops tops) {
+            if (done()) {
+                return false;
+            }
+            int index = (int) places[next++];
+            int dx = index % side - shape.reach();
+            int dz = index / side - shape.reach();
+            int depth = shape.depthAt(dx, dz);
+            if (depth > 0) {
+                columns.add(new Column(x + dx, z + dz, tops.at(x + dx, z + dz), y - depth));
+            }
+            return true;
+        }
+
+        /** Whether every place has been looked at. */
+        public boolean done() {
+            return next >= places.length;
+        }
+
+        /** How many places have been looked at. */
+        public int looked() {
+            return next;
+        }
+
+        /** How many places the shape's square has. */
+        public int places() {
+            return places.length;
+        }
+
+        /** The dig of the columns planned (all of them once {@link #done}); asked once. */
+        public Dig dig() {
+            return new Dig(y, columns);
+        }
+    }
+
+    /**
+     * A crater from its plan to the end of its dig, spread over ticks (SPEC 16): {@link #run} takes a step at a time,
+     * a place of the {@link Plan} or a block of the {@link Dig}, for as long as the tick allows, and the next run goes
+     * on where it stopped. It stops only between two steps, and every step of the dig leaves the crater closed: stopped
+     * after any tick, or for good, the crater is a closed bowl, only shallower.
+     */
+    public static final class Digging {
+        private final Plan plan;
+        /** Null while the columns are planned. */
+        private Dig dig;
+
+        public Digging(Plan plan) {
+            this.plan = plan;
+        }
+
+        /**
+         * Takes steps while {@code more} says so (asked before each): plans the next place, or, once the plan is made,
+         * digs the next block ({@link Dig#step}). True if it stopped because {@code more} said no, false once there
+         * is nothing left to do.
+         */
+        public boolean run(Cells cells, Tops tops, Works works, BooleanSupplier more) {
+            while (more.getAsBoolean()) {
+                if (dig == null) {
+                    if (!plan.step(tops)) {
+                        dig = plan.dig();
+                    }
+                } else if (!dig.step(cells, works)) {
+                    return false;
+                }
+            }
+            return true;
+        }
+
+        public Plan plan() {
+            return plan;
+        }
+
+        /** The dig, or null while the columns are planned. */
+        public Dig dig() {
+            return dig;
         }
     }
 

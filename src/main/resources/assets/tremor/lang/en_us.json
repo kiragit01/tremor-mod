@@ -87,6 +87,7 @@
   "tremor.configuration.behavior.wanderMinRadius": "Wander leg min length",
   "tremor.configuration.behavior.wanderMaxRadius": "Wander leg max length",
   "tremor.configuration.behavior.minWanderDistance": "Wandering distance from players",
+  "tremor.configuration.behavior.wanderKeepAway": "Keep the distance when alert and hunting",
   "tremor.configuration.behavior.transitionVolume": "Stage change sound volume",
   "tremor.configuration.behavior.stages": "Movement per stage",
   "tremor.configuration.behavior.stages.dormant": "Dormant",

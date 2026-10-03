@@ -4,6 +4,7 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.core.Holder;
 import net.minecraft.core.SectionPos;
 import net.minecraft.network.protocol.game.ClientboundMoveVehiclePacket;
+import net.minecraft.network.protocol.game.ClientboundUpdateAttributesPacket;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.tags.BlockTags;
@@ -21,17 +22,24 @@ import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.Vec3;
 import tremor.Tremor;
 
+import java.util.ArrayList;
 import java.util.List;
 
 /**
  * Holds the target of a swallowing in place (SPEC 9: "под игроком поднимается холм и затягивает его"): no walking,
- * jumping or flying while the hill rises and the screen goes dark. A player's client moves the player, so the root
- * works on several layers:
+ * jumping or flying while the hill rises and the screen goes dark; and the victor of the hollow in the hill they come
+ * out of, for as long as it is over their eyes ("пока холм выше глаз — игрок удержан на месте"). A player's client
+ * moves the player, so the root works on several layers:
  * <ul>
  *   <li>transient attribute modifiers (never saved with the player) bring the movement speed and the jump strength to
- *   0; both attributes are synced, so the client itself stops walking (sprinting included) and jumping. (Vanilla
- *   derives a narrower field of view from a movement speed of 0; the client keeps the view of a player with the
- *   modifier as it was, {@code tremor.client.awakening.ClientRoot}.)</li>
+ *   0; both attributes are synced, sent to the player at once when the root starts and ends, so the client itself
+ *   stops walking (sprinting included) and jumping. The client also lets go of the movement keys and stops what
+ *   momentum the player has ({@code tremor.client.awakening.ClientRoot}); it keeps the field of view of a player with
+ *   the modifier as it was (vanilla derives a narrower one from a movement speed of 0).</li>
+ *   <li>a player on foot is put back where it stands as the root starts, its momentum gone: the server takes no
+ *   movement from the client until the client has had that (vanilla's wait for a teleport to be confirmed), so a
+ *   player who was running or jumping when it started does not run on for the moments the client takes to learn of
+ *   the root;</li>
  *   <li>flying is switched off and gliding stopped;</li>
  *   <li>a vehicle is left if the player can get off it safely ({@link #mayDrop} at its dismount spot); over a fluid,
  *   lava, fire or the void the player stays on, and the vehicle is held instead (a living one rooted as the player
@@ -59,24 +67,35 @@ final class Root {
 
     /** Between {@link #start} and {@link #release}. */
     private boolean rooted;
+    /** The rooted player (the object {@link #start} was given), until {@link #release}. */
+    private ServerPlayer player;
     /** What is held: the player, or the vehicle the player is kept on; null before the first {@link #hold}. */
     private Entity held;
     /** Where {@link #held} is held. */
     private Vec3 anchor;
 
-    /** Roots the player where it stands (or on its vehicle, if it cannot get off safely). */
+    /**
+     * Roots the player where it stands (or on its vehicle, if it cannot get off safely): the modifiers are sent to it
+     * at once, and a player on foot is put back right there, so that its momentum and the moves its client makes
+     * before it learns of the root are gone.
+     */
     void start(ServerPlayer player) {
         rooted = true;
+        this.player = player;
         still(player, true);
+        sync(player);
         hold(player);
+        if (held == player) {
+            player.connection.teleport(anchor.x, anchor.y, anchor.z, 0, 0, RelativeMovement.ROTATION);
+        }
     }
 
     /**
-     * Once per tick while rooted: gets the player off a vehicle where that is safe, stops flight and puts the player
-     * (or the vehicle it is kept on) back if it strayed.
+     * Once per tick while rooted, with the rooted player: gets the player off a vehicle where that is safe, stops
+     * flight and puts the player (or the vehicle it is kept on) back if it strayed.
      */
     void hold(ServerPlayer player) {
-        if (!rooted) {
+        if (!rooted || player != this.player) {
             return;
         }
         Level level = player.level();
@@ -129,19 +148,25 @@ final class Root {
         }
     }
 
-    /** Lets the player (and a vehicle it was kept on) go; a no-op if not rooted. */
-    void release(ServerPlayer player) {
+    /**
+     * Lets the rooted player (and a vehicle it was kept on) go, the modifiers taken off and sent to it at once; a no-op
+     * if not rooted. Also for a player that has died or logged out since (its modifiers go with the object: they are
+     * neither saved nor carried over to the respawned player).
+     */
+    void release() {
         if (!rooted) {
             return;
         }
         rooted = false;
         still(player, false);
+        sync(player);
         if (held != null && held != player) {
             still(held, false);
         }
         held = null;
         anchor = null;
         player.resetFallDistance();
+        player = null;
     }
 
     boolean rooted() {
@@ -178,6 +203,24 @@ final class Root {
             return AwakeningRules.Cell.FLOOR;
         }
         return state.getFluidState().isEmpty() ? AwakeningRules.Cell.OPEN : AwakeningRules.Cell.UNSAFE;
+    }
+
+    /**
+     * Sends the player its movement speed and jump strength now, rather than with the next round of the entity
+     * tracker; not to a player that has logged out.
+     */
+    private static void sync(ServerPlayer player) {
+        if (player.hasDisconnected()) {
+            return;
+        }
+        List<AttributeInstance> instances = new ArrayList<>(ATTRIBUTES.size());
+        for (Holder<Attribute> attribute : ATTRIBUTES) {
+            AttributeInstance instance = player.getAttribute(attribute);
+            if (instance != null) {
+                instances.add(instance);
+            }
+        }
+        player.connection.send(new ClientboundUpdateAttributesPacket(player.getId(), instances));
     }
 
     /** Adds or removes the modifiers that bring the movement speed and the jump strength of a living entity to 0. */

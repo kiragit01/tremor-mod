@@ -87,6 +87,7 @@
   "tremor.configuration.behavior.wanderMinRadius": "Мин. длина перехода",
   "tremor.configuration.behavior.wanderMaxRadius": "Макс. длина перехода",
   "tremor.configuration.behavior.minWanderDistance": "Дистанция блуждания до игроков",
+  "tremor.configuration.behavior.wanderKeepAway": "Держать дистанцию в тревоге и на охоте",
   "tremor.configuration.behavior.transitionVolume": "Громкость смены стадии",
   "tremor.configuration.behavior.stages": "Движение по стадиям",
   "tremor.configuration.behavior.stages.dormant": "Спит",

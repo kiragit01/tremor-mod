@@ -101,7 +101,7 @@ class SeekingTest {
         assertEquals(Stage.HUNTING, meter.stage());
         // A loaded entity that was seeking: HUNTING at that anger.
         assertEquals(Stage.HUNTING, new AngerMeter(params, calm, Stage.HUNTING).stage());
-        BehaviorParams narrow = new BehaviorParams(25, 90, 100, 3, 0.5, 20, 3, 0.35, 2.5, 12, 8, 20, 4, 24, 4);
+        BehaviorParams narrow = new BehaviorParams(25, 90, 100, 3, 0.5, 20, 3, 0.35, 2.5, 12, 8, 20, 4, 24, 4, false);
         assertEquals(95, Seeking.calmAnger(narrow), 1e-9);
     }
 

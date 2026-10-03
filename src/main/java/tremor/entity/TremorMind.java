@@ -68,6 +68,8 @@ import java.util.random.RandomGenerator;
  * {@link TremorManager#onLevelLoad}), and it is HUNTING at the calm-down anger at once.</li>
  * <li><b>Brain</b> ({@link #think}): fed with the sounds heard since the last tick, ticked once per server tick
  * before the move, with the stage after this tick's anger; its decisions go through {@link BrainOrders} to the body.
+ * Its wander legs end {@code behavior.minWanderDistance} from the players while DORMANT and seeking, and while ALERT
+ * or HUNTING only with {@code behavior.wanderKeepAway} (SPEC 5.6; otherwise those are random, {@link #keepAway}).
  * Not while the brain is switched off ({@code /tremor ai off}) or the entity leaves. A {@code /tremor goto}
  * suspends its decisions, while it still hears and ticks (with "not idle"). A freeze ripples the ground, unless a
  * ripple is still running or the entity dives ({@link RippleTimer}).</li>
@@ -632,8 +634,8 @@ final class TremorMind {
      * (AWAKENING), every player who can be taken ({@link AwakeningManager#takeable}; one who cannot, in creative mode
      * for one, takes none of that care away from the others), the leg ending {@code minDistance} from each and its way
      * passing none of them within reach ({@code awakening.reachDistance} plus {@value #PASS_MARGIN} horizontally,
-     * {@link AwakeningRules#REACH_HEIGHT} plus {@value #PASS_MARGIN_HEIGHT} in height); in another stage every player
-     * who is not a spectator, only its end {@code minDistance} away (nobody for 0).
+     * {@link AwakeningRules#REACH_HEIGHT} plus {@value #PASS_MARGIN_HEIGHT} in height); in another stage (DORMANT,
+     * ALERT, HUNTING) every player who is not a spectator, only its end {@code minDistance} away (nobody for 0).
      */
     private KeepAway keepAway(double minDistance) {
         Stage stage = meter.stage();
@@ -654,7 +656,9 @@ final class TremorMind {
         /**
          * A wander leg {@code wanderMinRadius}..{@code wanderMaxRadius} away, keeping away from the players
          * ({@link #keepAway}), preferably seen by the nearest player (not a spectator) within {@value #VIEWER_RANGE}
-         * blocks; without one, any.
+         * blocks, from at least {@code behavior.minWanderDistance} away whatever the stage keeps (nearer points in
+         * sight are not preferred); without such a point, any (the first one that keeps away; none is chosen for
+         * being near that player, {@link SurfacePicker#wanderTarget}).
          */
         @Override
         public Vec3 wanderTarget(Vec3 from, double minDistanceToPlayer, RandomGenerator random) {
@@ -662,7 +666,7 @@ final class TremorMind {
             double min = config.wanderMinRadius.get();
             double max = Math.max(min, config.wanderMaxRadius.get());
             return SurfacePicker.wanderTarget(runtime.graph(), from, min, max, WANDER_VERTICAL_RANGE, viewerEye(from),
-                    keepAway(minDistanceToPlayer), random, WANDER_ATTEMPTS);
+                    params.minWanderDistance(), keepAway(minDistanceToPlayer), random, WANDER_ATTEMPTS);
         }
 
         @Override

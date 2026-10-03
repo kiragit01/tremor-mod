@@ -4,6 +4,7 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.core.particles.BlockParticleOption;
 import net.minecraft.core.particles.ParticleTypes;
+import net.minecraft.resources.ResourceKey;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.TicketType;
 import net.minecraft.sounds.SoundSource;
@@ -27,11 +28,15 @@ import tremor.config.TremorConfig;
 import tremor.sound.TremorSounds;
 import tremor.world.TremorTags;
 
+import java.lang.management.GarbageCollectorMXBean;
+import java.lang.management.ManagementFactory;
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Set;
 import java.util.function.BooleanSupplier;
 import java.util.function.Consumer;
@@ -44,16 +49,21 @@ import java.util.function.Consumer;
  * from the top down, so the ground caves in: with the crack and the rumble of the ground, and dust and crumbling
  * blocks over the layer being carved. A crater at the surface also takes all that stands over its funnel, up to the
  * top of the terrain there (trees, a hill, a house; {@value #REACH_UP} blocks over the swallow point at most), so
- * nothing is left hanging over it ({@link Job#plan}). A column carved through gets its rubble
+ * nothing is left hanging over it ({@link Job#carveTop}). A column carved through gets its rubble
  * ({@link CraterShape#rubbleAt}: gravel, some tuff and cobbled deepslate); what is filled in to close the crater (a
  * cavity beside it, the blocks of a fluid that touch it) is the ground around it (stone or deepslate if there is none),
  * and a creature in such a block is moved out first ({@link Job#rescue}). Event handlers are registered by
  * {@link tremor.Tremor}; server thread only.
  * <p>
  * Each crater holds a ticket on the chunks it touches (and the blocks around it) until it is done ({@link RealArea}),
- * and waits for them to load; then it changes at most {@code awakening.craterBlocksPerTick} blocks per tick, and all
- * craters together take at most {@code awakening.craterBudgetMillis} of server time per tick (SPEC 16). A crater that
- * is no longer wanted (its defeat was called off) is not dug, or no further.
+ * and waits for them to load; then it is planned and dug a step at a time ({@link CraterRules.Digging}: a place of its
+ * square, a block), at most {@code awakening.craterBlocksPerTick} blocks changed per tick, and all craters together
+ * take {@code awakening.craterBudgetMillis} of server time per tick (SPEC 16): the clock is read before every step,
+ * and a step is begun only if one as slow as the slowest of the tick so far still ends within the budget, so a tick
+ * goes over it only by a step slower than those before it (the first steps on a JVM warming up, a GC pause); the next
+ * tick goes on where it stopped. The server time of each crater (its worst tick, whether a GC pause fell in
+ * it, the ticks over the budget) is logged once it is over and shown by {@code /tremor info}. A crater that is no
+ * longer wanted (its defeat was called off) is not dug, or no further.
  * <p>
  * What is kept ({@link CraterRules.Cell#KEEP}): blocks with a block entity (the caches of an earlier crater too), of
  * {@code #tremor:protected}, that cannot be broken (a destroy speed below 0) or that burn (magma), and every block of
@@ -61,16 +71,19 @@ import java.util.function.Consumer;
  * {@code spawn-protection} of server.properties, 16 blocks in single player and on LAN) whoever the player is. Carved
  * blocks drop nothing, and their neighbours are not updated: nothing next to the crater pops off, falls or flows because
  * of it; only a plant next to a carved block that cannot stay without it drops as usual, and the leaves of a tree whose
- * trunk was carved wither as after a felling. Entities standing over the crater fall in. Not saved: a server that stops
- * in the middle leaves the crater as far as it got, closed like a finished one ({@link CraterRules}).
+ * trunk was carved wither as after a felling. Entities standing over the crater fall in, and mobs walking about do not
+ * plan their paths again for each block changed ({@link Job#told}): they find out as they go. Not saved: a server that
+ * stops in the middle leaves the crater as far as it got, closed like a finished one ({@link CraterRules}).
  */
 public final class Craters {
     /** Keeps the chunks of a crater loaded while it is dug; one ticket per crater (its id). */
     private static final TicketType<Integer> TICKET = TicketType.create(Tremor.MODID + "_crater", Integer::compare);
     /** A crater whose chunks are not loaded after this many ticks is given up (none is dug). */
     private static final int LOAD_TIMEOUT_TICKS = 200;
-    /** Carves a block without updating its neighbours (the clients still get it). */
-    private static final int DIG_FLAGS = Block.UPDATE_CLIENTS | Block.UPDATE_KNOWN_SHAPE;
+    /** Carves a block without updating its neighbours; the clients are told apart ({@link Job#told}). */
+    private static final int DIG_FLAGS = Block.UPDATE_KNOWN_SHAPE;
+    /** How deep the shape updates around a felled trunk may go on ({@link Job#fell}), as {@code setBlock}'s. */
+    private static final int SHAPE_RECURSION = 511;
     /** The exit of an escape through the edge keeps this many blocks beyond the farthest rim ({@link #footprint}). */
     static final int MARGIN = 4;
     /** A crater at the surface cuts at most this many blocks up into what stands over the swallow point. */
@@ -85,8 +98,17 @@ public final class Craters {
     private static final Direction[] SIDES = {Direction.NORTH, Direction.SOUTH, Direction.WEST, Direction.EAST};
 
     private static final List<Job> JOBS = new ArrayList<>();
+    /** What the last crater dug in each dimension did ({@code /tremor info}), until the server stops. */
+    private static final Map<ResourceKey<Level>, String> LAST = new HashMap<>();
     /** Id of the next crater; ids are never reused while the server runs. */
     private static int nextId = 1;
+    /** Picks the crater that goes first in a tick; one more each tick. */
+    private static int turn;
+    /**
+     * The JVM's garbage collectors, from the first crater on (a pause of theirs in a crater's worst tick is said); none
+     * before.
+     */
+    private static List<GarbageCollectorMXBean> collectors = List.of();
 
     private Craters() {
     }
@@ -145,6 +167,9 @@ public final class Craters {
      */
     static int dig(ServerLevel level, BlockPos top, String why, BooleanSupplier wanted, Consumer<Crater> done) {
         TremorConfig.Awakening config = TremorConfig.COMMON.awakening;
+        if (collectors.isEmpty()) {
+            collectors = ManagementFactory.getGarbageCollectorMXBeans();
+        }
         CraterShape shape = new CraterShape(Math.max(1, config.craterRadius.get()), config.craterDepth.get(),
                 top.asLong() ^ level.getSeed());
         Job job = new Job(nextId++, level, top.immutable(), why, shape, wanted, done);
@@ -162,7 +187,10 @@ public final class Craters {
         return radius <= 0 ? 0 : CraterShape.reach(radius) + MARGIN;
     }
 
-    /** The craters being dug in {@code level}, a line each (for {@code /tremor info}); null if there are none. */
+    /**
+     * The craters being dug in {@code level}, a line each, and the last one dug there since the server started (for
+     * {@code /tremor info}); null if there are none.
+     */
     public static String describe(ServerLevel level) {
         StringBuilder text = new StringBuilder();
         for (Job job : JOBS) {
@@ -170,30 +198,52 @@ public final class Craters {
                 text.append(text.isEmpty() ? "" : "\n").append(job.describe());
             }
         }
+        String last = LAST.get(level.dimension());
+        if (last != null) {
+            text.append(text.isEmpty() ? "" : "\n").append("Last dug: ").append(last);
+        }
         return text.isEmpty() ? null : text.toString();
     }
 
+    /**
+     * The craters' part of this tick: within {@code awakening.craterBudgetMillis} for all of them, a different one
+     * first each tick (with several, each moves on). What follows a crater once it is dug (its {@code done}) is timed
+     * apart from it.
+     */
     public static void onServerTick(ServerTickEvent.Post event) {
         if (JOBS.isEmpty()) {
             return;
         }
-        long start = System.nanoTime();
         long budget = (long) (TremorConfig.COMMON.awakening.craterBudgetMillis.get() * 1e6);
+        long deadline = System.nanoTime() + budget;
         long now = event.getServer().getTickCount();
-        for (Job job : List.copyOf(JOBS)) {
+        List<Job> jobs = List.copyOf(JOBS);
+        int first = Math.floorMod(turn++, jobs.size());
+        for (int i = 0; i < jobs.size(); i++) {
+            Job job = jobs.get((first + i) % jobs.size());
+            long begin = System.nanoTime();
+            long collections = collections();
             boolean over;
             try {
-                over = job.step(start, budget, now);
+                over = job.step(deadline, budget, now, i == 0);
             } catch (RuntimeException e) {
                 Tremor.LOGGER.error("Crater #{} failed; it stays as far as it got", job.id, e);
                 over = true;
             }
+            Crater crater = null;
             if (over) {
                 JOBS.remove(job);
                 try {
-                    job.finish();
+                    crater = job.finish();
                 } catch (RuntimeException e) {
-                    Tremor.LOGGER.error("Crater #{}: what was to follow it failed", job.id, e);
+                    Tremor.LOGGER.error("Crater #{}: finishing it failed", job.id, e);
+                }
+            }
+            job.account(System.nanoTime() - begin, budget, collections() != collections);
+            if (over) {
+                job.report();
+                if (crater != null) {
+                    job.follow(crater);
                 }
             }
         }
@@ -202,6 +252,16 @@ public final class Craters {
     /** The levels and their tickets are gone; a crater still being dug stays as far as it got. */
     public static void onServerStopped(ServerStoppedEvent event) {
         JOBS.clear();
+        LAST.clear();
+    }
+
+    /** How many collections the JVM's garbage collectors have made so far (each stops the server thread a while). */
+    private static long collections() {
+        long count = 0;
+        for (GarbageCollectorMXBean collector : collectors) {
+            count += Math.max(0, collector.getCollectionCount());
+        }
+        return count;
     }
 
     /** A block of the rubble on the bottom of a crater at {@code x, y, z}: mostly gravel, some tuff, cobbled deepslate. */
@@ -234,15 +294,40 @@ public final class Craters {
         final BlockPos spawn;
         final BlockPos.MutableBlockPos cursor = new BlockPos.MutableBlockPos();
         final List<Bottom> bottoms = new ArrayList<>();
+        final CraterRules.Cells cells = this::cell;
+        final CraterRules.Tops tops = this::carveTop;
+        final BooleanSupplier more = this::more;
         /** Null until the chunks are loaded. */
-        CraterRules.Dig dig;
+        CraterRules.Digging digging;
+        /** How far up from the swallow point the columns are carved ({@link #carveTop}). */
+        int reachUp;
         long digStartTick;
         int carved;
         int sealed;
         int rubble;
-        /** Server time the dig took (nanoseconds), in all and in its worst tick; the lighting that follows is not in it. */
+        /**
+         * Server time the crater took (nanoseconds), in all and in its worst tick (with its plan, its dust and sounds
+         * and its finish; the lighting that follows and what follows it are not in it); whether a GC pause fell in that
+         * tick, the worst of the ticks without one, and how many ticks took more than the budget.
+         */
         long nanos;
         long worstNanos;
+        boolean worstCollected;
+        long worstCleanNanos;
+        int overBudget;
+        /**
+         * This tick ({@link #more}): at most this many blocks changed; no step ends after this
+         * ({@link System#nanoTime}) unless it is the first of the first crater; how many steps were asked for, when the
+         * last was, and the slowest.
+         */
+        int limit;
+        long stepDeadline;
+        boolean first;
+        int asked;
+        long askedAt;
+        long slowest;
+        /** Server time this crater's dust and sounds took in its last tick: kept out of the steps of the next. */
+        long showNanos;
         /** Blocks changed in this tick, and some of the carved ones (with what they were) to show. */
         int changes;
         int seen;
@@ -272,15 +357,20 @@ public final class Craters {
         }
 
         /**
-         * Digs within the budget of this tick (all craters began at {@code start}, {@code budget} nanoseconds); true once
-         * it is done, given up or called off.
+         * This tick's part of the crater, until {@code deadline} ({@link System#nanoTime}; the tick's budget of all
+         * craters is {@code budget} nanoseconds) at most: it waits for its chunks, then plans and digs a step at a time
+         * ({@link CraterRules.Digging}: a place of its square, a block) while blocks ({@code craterBlocksPerTick}) and
+         * time of this tick are left ({@link #more}: the clock read before every step), the time its dust and sounds
+         * took in its last tick kept for them. The {@code first} crater of the tick takes a step at least, so that it
+         * moves on however small the budget. True once it is over: dug (with time left in this tick to finish it, else
+         * in a later one), given up or called off.
          */
-        boolean step(long start, long budget, long now) {
+        boolean step(long deadline, long budget, long now, boolean first) {
             if (!wanted.getAsBoolean()) {
                 calledOff = true;
                 return true;
             }
-            if (dig == null) {
+            if (digging == null) {
                 if (!area.ready()) {
                     if (now - startTick > LOAD_TIMEOUT_TICKS) {
                         Tremor.LOGGER.warn("Crater #{}: its chunks did not load in {} ticks, given up", id,
@@ -289,57 +379,84 @@ public final class Craters {
                     }
                     return false;
                 }
-                dig = plan();
+                reachUp = atSurface() ? REACH_UP : shape.depth();
+                digging = new CraterRules.Digging(new CraterRules.Plan(shape, top.getX(), top.getY(), top.getZ()));
                 digStartTick = now;
                 sound(TremorSounds.RUMBLE.get(), centre(), 0.6f);
             }
-            long begin = System.nanoTime();
-            int limit = TremorConfig.COMMON.awakening.craterBlocksPerTick.get();
+            limit = TremorConfig.COMMON.awakening.craterBlocksPerTick.get();
+            stepDeadline = deadline - Math.min(showNanos, budget / 4);
+            this.first = first;
+            asked = 0;
+            slowest = 0;
             changes = 0;
             seen = 0;
             shown.clear();
             shownStates.clear();
-            boolean over = false;
-            do {
-                if (!dig.step(this::cell, this)) {
-                    over = true;
-                    break;
-                }
-            } while (changes < limit && System.nanoTime() - start < budget);
+            boolean going = digging.run(cells, tops, this, more);
+            long showing = System.nanoTime();
             show(now);
-            long took = System.nanoTime() - begin;
-            nanos += took;
-            worstNanos = Math.max(worstNanos, took);
-            return over;
-        }
-
-        /** The server time of the dig so far, for the log and {@code /tremor info}. */
-        private String cost() {
-            return String.format(Locale.ROOT, "%.1f ms of server time, worst tick %.2f ms", nanos / 1e6,
-                    worstNanos / 1e6);
+            showNanos = System.nanoTime() - showing;
+            return !going && System.nanoTime() < deadline;
         }
 
         /**
-         * The columns of the shape at the swallow point, each carved from its top ({@link CraterRules#carveTop}). A
-         * crater at the surface ({@link #atSurface}) reaches {@value #REACH_UP} blocks up: it takes all that stands over
-         * it up to the top of the terrain there (a hill, a tree, a house), so nothing is left hanging over it, and only
-         * terrain higher still (a cliff) is cut under. One under a thick roof (deep in a cave or a mine) reaches as far
-         * up as it goes down (a thinner roof over it, another cave) and is carved under the rest: the ground there
-         * caves in under the roof, never up to the sky. Where the highest block of a column is within the reach, it is
-         * the top: the world's height map says so at once.
+         * Whether this tick's part takes another step (asked before each, so the time between two asks is a step): it
+         * has blocks left, and time for one more step as slow as the slowest of this tick so far (a JVM warming up has
+         * slow ones), or it is the first step of the first crater of the tick.
          */
-        private CraterRules.Dig plan() {
-            List<CraterRules.Column> columns = new ArrayList<>();
-            int reachUp = atSurface() ? REACH_UP : shape.depth();
-            for (CraterShape.Column column : shape.columns()) {
-                int x = top.getX() + column.dx();
-                int z = top.getZ() + column.dz();
-                int highest = level.getHeight(Heightmap.Types.WORLD_SURFACE, x, z) - 1;
-                int carveTop = highest < top.getY() ? top.getY() : highest <= top.getY() + reachUp ? highest
-                        : CraterRules.carveTop(this::cell, x, z, top.getY(), reachUp);
-                columns.add(new CraterRules.Column(x, z, carveTop, top.getY() - column.depth()));
+        private boolean more() {
+            long now = System.nanoTime();
+            if (asked > 0) {
+                slowest = Math.max(slowest, now - askedAt);
             }
-            return new CraterRules.Dig(top.getY(), columns);
+            askedAt = now;
+            if (changes >= limit) {
+                return false;
+            }
+            return asked++ == 0 && first || now + slowest < stepDeadline;
+        }
+
+        /** A tick of the crater took {@code took} of server time (nanoseconds); {@code collected}: a GC pause in it. */
+        void account(long took, long budget, boolean collected) {
+            nanos += took;
+            if (took > budget) {
+                overBudget++;
+            }
+            if (took > worstNanos) {
+                worstNanos = took;
+                worstCollected = collected;
+            }
+            if (!collected) {
+                worstCleanNanos = Math.max(worstCleanNanos, took);
+            }
+        }
+
+        /** The server time of the crater so far, for the log and {@code /tremor info}. */
+        private String cost() {
+            String text = String.format(Locale.ROOT, "%.1f ms of server time, worst tick %.2f ms", nanos / 1e6,
+                    worstNanos / 1e6);
+            if (worstCollected) {
+                text += String.format(Locale.ROOT, " with a GC pause in it (%.2f ms without one)",
+                        worstCleanNanos / 1e6);
+            }
+            return overBudget == 0 ? text : text + String.format(Locale.ROOT, ", %d %s over the budget", overBudget,
+                    overBudget == 1 ? "tick" : "ticks");
+        }
+
+        /**
+         * The highest block of the column at {@code x, z} that is carved ({@link CraterRules.Tops}). A crater at the
+         * surface ({@link #atSurface}) reaches {@value #REACH_UP} blocks up: it takes all that stands over it up to the
+         * top of the terrain there (a hill, a tree, a house), so nothing is left hanging over it, and only terrain
+         * higher still (a cliff) is cut under. One under a thick roof (deep in a cave or a mine) reaches as far up as
+         * it goes down (a thinner roof over it, another cave) and is carved under the rest: the ground there caves in
+         * under the roof, never up to the sky. Where the highest block of a column is within the reach, it is the top:
+         * the world's height map says so at once; otherwise {@link CraterRules#carveTop} looks for it.
+         */
+        private int carveTop(int x, int z) {
+            int highest = level.getHeight(Heightmap.Types.WORLD_SURFACE, x, z) - 1;
+            return highest < top.getY() ? top.getY() : highest <= top.getY() + reachUp ? highest
+                    : CraterRules.carveTop(cells, x, z, top.getY(), reachUp);
         }
 
         /**
@@ -351,40 +468,74 @@ public final class Craters {
             return roof <= top.getY() + shape.depth();
         }
 
-        /** Done (or given up): the ticket goes, the ground cracks, and {@code done} is told what is left. */
-        void finish() {
+        /**
+         * Over (dug, given up or called off): the ticket goes and the ground cracks. Returns what the crater left (for
+         * {@link #follow}), or null if it was called off.
+         */
+        Crater finish() {
             area.release();
             int blocks = carved + sealed + rubble;
             if (blocks > 0) {
                 sound(TremorSounds.CRACK.get(), centre(), 0.8f);
             }
             if (calledOff) {
-                Tremor.LOGGER.info("Crater #{} at {} called off: {} blocks carved", id, top.toShortString(), carved);
-                return;
+                return null;
             }
             bottoms.sort(Comparator.comparingInt(b -> (b.x() - top.getX()) * (b.x() - top.getX())
                     + (b.z() - top.getZ()) * (b.z() - top.getZ())));
-            Crater crater = new Crater(id, level, top, shape.depth() * 31L ^ top.asLong() ^ level.getSeed(), bottoms);
-            Vec3 bottom = crater.bottom();
-            Tremor.LOGGER.info(String.format(Locale.ROOT, "Crater #%d at %s: %d blocks carved, %d filled in, %d of "
-                            + "rubble in %d ticks (%s); %d columns on the bottom, %s", id, top.toShortString(),
-                    carved, sealed, rubble, level.getServer().getTickCount() - startTick, cost(), bottoms.size(),
-                    bottom == null ? "no bottom" : String.format(Locale.ROOT, "bottom %.1f %.1f %.1f", bottom.x,
-                            bottom.y, bottom.z)));
-            done.accept(crater);
+            return new Crater(id, level, top, shape.depth() * 31L ^ top.asLong() ^ level.getSeed(), bottoms);
+        }
+
+        /** Logs what the crater did once it is over, and keeps it for {@code /tremor info} ({@link #LAST}). */
+        void report() {
+            String text;
+            if (calledOff) {
+                text = String.format(Locale.ROOT, "Crater #%d at %s called off: %d blocks carved (%s)", id,
+                        top.toShortString(), carved, cost());
+            } else {
+                Bottom bottom = bottoms.isEmpty() ? null : bottoms.get(0);
+                text = String.format(Locale.ROOT, "Crater #%d at %s: %d blocks carved, %d filled in, %d of rubble in "
+                                + "%d ticks (%s); %d columns on the bottom, %s", id, top.toShortString(), carved,
+                        sealed, rubble, level.getServer().getTickCount() - startTick, cost(), bottoms.size(),
+                        bottom == null ? "no bottom" : String.format(Locale.ROOT, "bottom %.1f %.1f %.1f",
+                                bottom.x() + 0.5, (double) bottom.feet(), bottom.z() + 0.5));
+            }
+            Tremor.LOGGER.info(text);
+            LAST.put(level.dimension(), text);
+        }
+
+        /**
+         * Tells {@link #done} what the crater left: what follows it (the caches and the player of a defeat...), timed
+         * apart from the crater's ticks.
+         */
+        void follow(Crater crater) {
+            long begin = System.nanoTime();
+            try {
+                done.accept(crater);
+            } catch (RuntimeException e) {
+                Tremor.LOGGER.error("Crater #{}: what was to follow it failed", id, e);
+            }
+            Tremor.LOGGER.info(String.format(Locale.ROOT, "Crater #%d: what followed it (%s) took %.2f ms", id, why,
+                    (System.nanoTime() - begin) / 1e6));
         }
 
         String describe() {
             String head = String.format(Locale.ROOT, "Crater #%d (%s) at %s: radius %d, depth %d", id, why,
                     top.toShortString(), shape.radius(), shape.depth());
-            if (dig == null) {
+            if (digging == null) {
                 return head + "; waiting for its chunks";
+            }
+            long ticks = level.getServer().getTickCount() - digStartTick;
+            CraterRules.Dig dig = digging.dig();
+            if (dig == null) {
+                CraterRules.Plan plan = digging.plan();
+                return head + String.format(Locale.ROOT, "; planned %d of %d places, %d ticks, %s", plan.looked(),
+                        plan.places(), ticks, cost());
             }
             int layers = Math.max(1, dig.highest() - dig.lowest() + 1);
             return head + String.format(Locale.ROOT, "; layer %d (%d to %d, %.0f%% dug), %d blocks carved, %d filled "
                             + "in, %d of rubble, %d ticks, %s", dig.layer(), dig.highest(), dig.lowest(),
-                    100.0 * (dig.highest() - dig.layer()) / layers, carved, sealed, rubble,
-                    level.getServer().getTickCount() - digStartTick, cost());
+                    100.0 * (dig.highest() - dig.layer()) / layers, carved, sealed, rubble, ticks, cost());
         }
 
         // ---- the works ----
@@ -393,9 +544,11 @@ public final class Craters {
         public void carve(int x, int y, int z) {
             BlockPos pos = new BlockPos(x, y, z);
             BlockState state = level.getBlockState(pos);
-            // The trunk of a tree: its leaves around are told, so they wither as after a felling.
-            int flags = y > top.getY() && state.is(BlockTags.LOGS) ? Block.UPDATE_ALL : DIG_FLAGS;
-            level.setBlock(pos, Blocks.AIR.defaultBlockState(), flags);
+            if (y > top.getY() && state.is(BlockTags.LOGS)) {
+                fell(pos, state);
+            } else {
+                put(pos, Blocks.AIR.defaultBlockState());
+            }
             carved++;
             changes++;
             remember(pos, state);
@@ -404,7 +557,7 @@ public final class Craters {
                 BlockState beside = level.getBlockState(at);
                 if (cell(at.getX(), at.getY(), at.getZ()) == CraterRules.Cell.PLANT && !beside.canSurvive(level, at)) {
                     Block.dropResources(beside, level, at);
-                    level.setBlock(at, Blocks.AIR.defaultBlockState(), DIG_FLAGS);
+                    put(at, Blocks.AIR.defaultBlockState());
                 }
             }
         }
@@ -413,9 +566,43 @@ public final class Craters {
         public void seal(int x, int y, int z, int fromX, int fromY, int fromZ) {
             BlockPos pos = new BlockPos(x, y, z);
             rescue(pos, new BlockPos(fromX, fromY, fromZ));
-            level.setBlock(pos, ground(pos), DIG_FLAGS);
+            put(pos, ground(pos));
             sealed++;
             changes++;
+        }
+
+        /** Puts {@code state} at {@code pos}, its neighbours not updated, the clients told ({@link #told}). */
+        private void put(BlockPos pos, BlockState state) {
+            if (level.setBlock(pos, state, DIG_FLAGS)) {
+                told(pos);
+            }
+        }
+
+        /**
+         * Carves {@code trunk}, the block of a tree's trunk at {@code pos}, as {@code setBlock} with
+         * {@link Block#UPDATE_ALL} does, but for the paths of the mobs ({@link #told}): the blocks around it are
+         * updated (and the clients told of what that changes), so its leaves wither as after a felling.
+         */
+        private void fell(BlockPos pos, BlockState trunk) {
+            BlockState air = Blocks.AIR.defaultBlockState();
+            if (!level.setBlock(pos, air, Block.UPDATE_NEIGHBORS | Block.UPDATE_KNOWN_SHAPE)) {
+                return;
+            }
+            told(pos);
+            trunk.updateIndirectNeighbourShapes(level, pos, Block.UPDATE_CLIENTS, SHAPE_RECURSION);
+            air.updateNeighbourShapes(level, pos, Block.UPDATE_CLIENTS, SHAPE_RECURSION);
+            air.updateIndirectNeighbourShapes(level, pos, Block.UPDATE_CLIENTS, SHAPE_RECURSION);
+        }
+
+        /**
+         * The block at {@code pos} was changed without {@link Block#UPDATE_CLIENTS}: the clients are told, and the path
+         * finding forgets what it knew of the block, as {@code setBlock} with that flag does; but no mob plans its path
+         * again on the spot, which vanilla does for each mob whose path ends near the block (for a villager in the
+         * crater, 4 ms for one block): the mobs find out as they go, or fall in.
+         */
+        private void told(BlockPos pos) {
+            level.getChunkSource().blockChanged(pos);
+            level.getPathTypeCache().invalidate(pos);
         }
 
         /**
@@ -469,7 +656,7 @@ public final class Craters {
                 if (!level.getBlockState(pos).isAir()) {
                     break;
                 }
-                level.setBlock(pos, rubble(pos.getX(), pos.getY(), pos.getZ(), top.asLong()), DIG_FLAGS);
+                put(pos, rubble(pos.getX(), pos.getY(), pos.getZ(), top.asLong()));
                 rubble++;
                 changes++;
             }

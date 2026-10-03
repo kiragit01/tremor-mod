@@ -47,8 +47,9 @@ import java.util.WeakHashMap;
  * <ul>
  *   <li>{@link #victory}: the player fades out of the hollow to the swallow point (next to it if it is taken,
  *   {@link HollowManager#leave}); the ground lets go (the RELEASE sound, in the hollow and at the swallow point) and
- *   the Awakening goes EMERGING there: the hill rises, the player comes out of it, it settles, and the Awakening ends
- *   ({@link Awakening#won}).</li>
+ *   the Awakening goes EMERGING there ({@link Awakening#won}): the hill rises as high as the one that swallowed the
+ *   player, the player is put into it while the screen is still dark and held there, the screen comes back on the
+ *   view the player had as it went dark, and the hill settles and lets the player out; then the Awakening ends.</li>
  *   <li>{@link #edgeEscape}: the screen goes black, and the player fades out to a safe standing spot near the matching
  *   place of the real world with a way to the swallow point there, outside the footprint of the crater
  *   ({@link EdgeExits}, once the real chunks are loaded), alive and with everything; once the player is on the way

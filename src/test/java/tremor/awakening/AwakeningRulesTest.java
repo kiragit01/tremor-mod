@@ -10,6 +10,7 @@ import static tremor.awakening.AwakeningRules.Cell.UNSAFE;
 
 import org.junit.jupiter.api.Test;
 import tremor.core.math.Vec3;
+import tremor.core.shape.AwakeningParams;
 import tremor.core.shape.AwakeningShape;
 import tremor.hollow.HollowOutcome;
 
@@ -298,8 +299,14 @@ class AwakeningRulesTest {
     // ---- victory and defeat ----
 
     @Test
-    void theHillOfAVictoryIsHighestWhenTheVictorComesOut() {
-        // Defaults: a fade of 20 ticks, a phase of 80 rising over its first 16: it starts 4 ticks after the victory.
+    void theHillOfAVictoryHasRisenWhenTheVictorComesOut() {
+        // Defaults: emergeTicks 80, rising over its first 16 and settling over the other 64.
+        assertEquals(16, AwakeningRules.emergeRiseTicks(80));
+        assertEquals(64, AwakeningRules.emergeSettleTicks(80));
+        assertEquals(1, AwakeningRules.emergeRiseTicks(1), "at least a tick each");
+        assertEquals(1, AwakeningRules.emergeSettleTicks(1));
+        assertEquals(120, AwakeningRules.emergeRiseTicks(600));
+        // A fade of 20 ticks: the rise starts 4 ticks after the victory and ends as the victor is moved out.
         int delay = AwakeningRules.emergeDelay(20, 80);
         assertEquals(4, delay);
         assertEquals(20, delay + Math.round(AwakeningShape.EMERGE_RISE * 80));
@@ -309,6 +316,40 @@ class AwakeningRulesTest {
         assertEquals(0, AwakeningRules.emergeDelay(20, 100));
         assertEquals(0, AwakeningRules.emergeDelay(10, 600));
         assertEquals(0, AwakeningRules.emergeDelay(0, 1));
+    }
+
+    @Test
+    void theHillSettlesOnceTheVictorSeesAgain() {
+        // Out the normal way at 1033 (the hill risen at 1020): the screen is back at 1053, and it settles then.
+        assertEquals(1053, AwakeningRules.settleStart(1033, 1020, 20, true));
+        // Gone (logged out, died): at once, but not before it has risen.
+        assertEquals(1033, AwakeningRules.settleStart(1033, 1020, 20, false));
+        assertEquals(1050, AwakeningRules.settleStart(1033, 1050, 20, false));
+        assertEquals(1060, AwakeningRules.settleStart(1033, 1060, 20, true));
+        assertEquals(1033, AwakeningRules.settleStart(1033, 1020, 0, true), "no fade: at once");
+        assertEquals(1033, AwakeningRules.settleStart(1033, 1020, -5, true));
+    }
+
+    @Test
+    void theVictorIsHeldWhileTheHillIsOverTheEyes() {
+        AwakeningParams p = AwakeningParams.defaults();
+        double eyes = 1.62, sigma = p.hillSigma();
+        Vec3 focus = new Vec3(300.5, 201, 300.5);
+        Vec3 feet = new Vec3(300.5, 201, 300.5);
+        // The hill that swallowed the player, risen again: over the eyes.
+        assertTrue(AwakeningRules.overEyes(focus, feet, AwakeningShape.hillPeak(p, 1), sigma, eyes));
+        assertTrue(AwakeningRules.overEyes(focus, feet, AwakeningShape.emergeSettle(p, 0.4), sigma, eyes));
+        // A little before half way down the head is out.
+        assertFalse(AwakeningRules.overEyes(focus, feet, AwakeningShape.emergeSettle(p, 0.5), sigma, eyes));
+        assertFalse(AwakeningRules.overEyes(focus, feet, 0, sigma, eyes));
+        // Measured at the block under the feet: the same anywhere on that block, also standing a bit off its middle,
+        // or sunk a little into it.
+        assertTrue(AwakeningRules.overEyes(focus, new Vec3(300.1, 201, 300.9), 3, sigma, eyes));
+        assertTrue(AwakeningRules.overEyes(focus, new Vec3(300.5, 200.7, 300.5), 3, sigma, eyes));
+        // Put out next to the swallow point (it was taken): the hill there is lower, held less long or not at all.
+        assertFalse(AwakeningRules.overEyes(focus, new Vec3(302.5, 201, 300.5), 3, sigma, eyes));
+        // Measured as the renderer does: the hill at the centre of the block under the feet.
+        assertEquals(AwakeningShape.hill(3, sigma, 0.25) > 2.5, AwakeningRules.overEyes(focus, feet, 3, sigma, 2.5));
     }
 
     @Test

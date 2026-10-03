@@ -18,59 +18,71 @@ class EmergeHillTest {
     private static final double R = AwakeningShape.EMERGE_RISE;
 
     @Test
-    void theHillShootsUpThenSettlesSlowly() {
-        assertEquals(0, AwakeningShape.emergeHill(P, 0));
-        assertEquals(0, AwakeningShape.emergeHill(P, -1));
-        assertEquals(0, AwakeningShape.emergeHill(P, Double.NaN));
-        assertEquals(P.hillHeight(), AwakeningShape.emergeHill(P, R), 1e-12, "at the top after the rise");
-        assertEquals(0, AwakeningShape.emergeHill(P, 1), 1e-12, "gone at the end");
-        assertEquals(0, AwakeningShape.emergeHill(P, 2), 1e-12);
-        // Quickly over the eyes: well before the rise is done.
-        assertTrue(AwakeningShape.emergeHill(P, R / 2) > EYES);
-        // The player is out (the hill below the eyes) only in the second half of the settling.
-        double out = 0;
-        for (double t = R; t <= 1; t += 0.001) {
-            if (AwakeningShape.emergeHill(P, t) < EYES) {
-                out = t;
-                break;
-            }
-        }
-        assertTrue(out > R + (1 - R) / 3 && out < R + 2 * (1 - R) / 3, "out at " + out);
-        // Up, then down, never above its height.
+    void theHillRisesToTheHillThatSwallowedThePlayer() {
+        assertEquals(0, AwakeningShape.emergeRise(P, 0));
+        assertEquals(0, AwakeningShape.emergeRise(P, -1));
+        assertEquals(0, AwakeningShape.emergeRise(P, Double.NaN));
+        // At the top it is the last frame of the swallowing, and the settling starts from there: no jump either way.
+        assertEquals(AwakeningShape.hillPeak(P, 1), AwakeningShape.emergeRise(P, 1), 1e-12);
+        assertEquals(AwakeningShape.hillPeak(P, 1), AwakeningShape.emergeRise(P, 2), 1e-12);
+        assertEquals(AwakeningShape.hillPeak(P, 1), AwakeningShape.emergeSettle(P, 0), 1e-12);
+        assertEquals(AwakeningShape.hillPeak(P, 1), AwakeningShape.emergeSettle(P, -1), 1e-12);
+        assertEquals(AwakeningShape.hillPeak(P, 1), AwakeningShape.emergeSettle(P, Double.NaN), 1e-12);
+        // The same mound around the same point: the swallowed player's eyes are as deep in it.
+        double swallowed = AwakeningShape.hill(AwakeningShape.hillPeak(P, 1), P.hillSigma(), 0.25);
+        assertEquals(swallowed, AwakeningShape.hill(AwakeningShape.emergeRise(P, 1), P.hillSigma(), 0.25), 1e-12);
+        assertTrue(swallowed > EYES);
+        // Shoots up: over the eyes well before the rise is done; never above its height.
+        assertTrue(AwakeningShape.emergeRise(P, 0.5) > EYES);
         double last = 0;
-        for (double t = 0; t <= R; t += 0.001) {
-            double h = AwakeningShape.emergeHill(P, t);
+        for (double t = 0; t <= 1; t += 0.001) {
+            double h = AwakeningShape.emergeRise(P, t);
             assertTrue(h >= last - 1e-12 && h <= P.hillHeight() + 1e-12, "rising at " + t);
             last = h;
         }
-        last = AwakeningShape.emergeHill(P, R);
-        for (double t = R; t <= 1; t += 0.001) {
-            double h = AwakeningShape.emergeHill(P, t);
-            assertTrue(h <= last + 1e-12, "settling at " + t);
-            last = h;
-        }
-        // It settles slower than it rose.
-        double riseSpeed = AwakeningShape.emergeHillRate(P, R / 2);
-        double settleSpeed = AwakeningShape.emergeHillRate(P, R + (1 - R) / 2);
-        assertTrue(riseSpeed > 2 * -settleSpeed, riseSpeed + " vs " + settleSpeed);
     }
 
     @Test
-    void theRateIsTheSlopeOfTheHill() {
+    void theHillSettlesSlowlyAndLetsThePlayerOutHalfWay() {
+        assertEquals(0, AwakeningShape.emergeSettle(P, 1), 1e-12, "gone at the end");
+        assertEquals(0, AwakeningShape.emergeSettle(P, 2), 1e-12);
+        double last = P.hillHeight();
+        double out = Double.NaN;
+        for (double t = 0; t <= 1; t += 0.001) {
+            double h = AwakeningShape.emergeSettle(P, t);
+            assertTrue(h <= last + 1e-12, "settling at " + t);
+            last = h;
+            // Over the eyes where the renderer measures it under a player at the middle: the block under the feet.
+            if (Double.isNaN(out) && AwakeningShape.hill(h, P.hillSigma(), 0.25) < EYES) {
+                out = t;
+            }
+        }
+        // The player's head comes out a little before half way: the victor sees it sink for a while first.
+        assertTrue(out > 0.4 && out < 0.5, "out at " + out);
+        // It settles slower than it rose (at the defaults, the settling takes four times the rise).
+        double rise = AwakeningShape.emergeRiseRate(P, 0.5) / R;
+        double settle = AwakeningShape.emergeSettleRate(P, 0.5) / (1 - R);
+        assertTrue(rise > 2 * -settle, rise + " vs " + settle);
+    }
+
+    @Test
+    void theRatesAreTheSlopesOfTheHill() {
         double step = 1e-6;
         for (double t = 0.01; t < 1; t += 0.01) {
-            if (Math.abs(t - R) < 2 * step) {
-                continue;
-            }
-            double slope = (AwakeningShape.emergeHill(P, t + step) - AwakeningShape.emergeHill(P, t - step))
+            double rise = (AwakeningShape.emergeRise(P, t + step) - AwakeningShape.emergeRise(P, t - step)) / (2 * step);
+            assertEquals(rise, AwakeningShape.emergeRiseRate(P, t), 1e-4, "rise at " + t);
+            assertTrue(AwakeningShape.emergeRiseRate(P, t) > 0);
+            double settle = (AwakeningShape.emergeSettle(P, t + step) - AwakeningShape.emergeSettle(P, t - step))
                     / (2 * step);
-            assertEquals(slope, AwakeningShape.emergeHillRate(P, t), 1e-4, "at " + t);
-            assertTrue(t < R ? AwakeningShape.emergeHillRate(P, t) > 0 : AwakeningShape.emergeHillRate(P, t) <= 0);
+            assertEquals(settle, AwakeningShape.emergeSettleRate(P, t), 1e-4, "settle at " + t);
+            assertTrue(AwakeningShape.emergeSettleRate(P, t) < 0);
         }
-        assertEquals(0, AwakeningShape.emergeHillRate(P, 0));
-        assertEquals(0, AwakeningShape.emergeHillRate(P, R), 1e-12, "still at the top");
-        assertEquals(0, AwakeningShape.emergeHillRate(P, 1));
-        assertEquals(0, AwakeningShape.emergeHillRate(P, Double.NaN));
+        for (double outside : new double[]{0, 1, -1, 2, Double.NaN}) {
+            assertEquals(0, AwakeningShape.emergeRiseRate(P, outside), "rise at " + outside);
+            assertEquals(0, AwakeningShape.emergeSettleRate(P, outside), "settle at " + outside);
+        }
+        assertEquals(0, AwakeningShape.emergeRiseRate(P, 1 - 1e-9), 1e-6, "slows to the top");
+        assertEquals(0, AwakeningShape.emergeSettleRate(P, 1e-9), 1e-6, "starts to sink without a jerk");
     }
 
     @Test

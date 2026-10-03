@@ -41,10 +41,16 @@ class BrainTest {
     /**
      * SPEC anger numbers; react to DORMANT sounds from 0.35, freeze 1 s, lose interest after 4 s, search radius 8 for
      * 5 s, the given mean wander pause, keep 24 blocks from the players while DORMANT (and AWAKENING), search radius 3
-     * while AWAKENING.
+     * while AWAKENING; ALERT and HUNTING wandering random ({@code wanderKeepAway} off).
      */
     private static BehaviorParams params(double wanderPause) {
-        return new BehaviorParams(25, 60, 100, 3, 0.5, 20, 3, 0.35, 1.0, 4.0, 8, 5.0, wanderPause, 24, 3);
+        return params(wanderPause, 24, false);
+    }
+
+    /** {@link #params(double)} with the given {@code minWanderDistance} and {@code wanderKeepAway}. */
+    private static BehaviorParams params(double wanderPause, double minWanderDistance, boolean wanderKeepAway) {
+        return new BehaviorParams(25, 60, 100, 3, 0.5, 20, 3, 0.35, 1.0, 4.0, 8, 5.0, wanderPause, minWanderDistance, 3,
+                wanderKeepAway);
     }
 
     /** Scripted world: answers from queues (a null entry or an empty queue = nothing found), records questions. */
@@ -353,7 +359,7 @@ class BrainTest {
         assertTrue(world.wanderFrom.isEmpty());
         assertGo(tick(ALERT, true), W1, "wander"); // 4.0 = alertLoseInterestSeconds; idle: pause (0 here), leg
         assertEquals(List.of(S1), world.wanderFrom);
-        assertEquals(List.of(0.0), world.wanderMinDistance, "minWanderDistance is for DORMANT only");
+        assertEquals(List.of(0.0), world.wanderMinDistance, "ALERT wandering is random (no wanderKeepAway)");
     }
 
     @Test
@@ -421,7 +427,7 @@ class BrainTest {
         assertEquals(List.of(S1, S1, S1, S1), world.searchCenter);
         assertEquals(List.of(8.0, 8.0, 8.0, 8.0), world.searchRadius);
         assertEquals(List.of(P3), world.wanderFrom);
-        assertEquals(List.of(0.0), world.wanderMinDistance);
+        assertEquals(List.of(0.0), world.wanderMinDistance, "HUNTING wandering is random (no wanderKeepAway)");
         assertEquals("hunting: wandering", brain.describe());
         here = W1;
         assertStays(10, HUNTING, true, "rest");
@@ -510,6 +516,62 @@ class BrainTest {
         assertEquals(List.of(24.0, 24.0), world.wanderMinDistance);
         assertEquals(List.of(3.0), world.searchRadius);
         assertEquals("awakening: wandering", brain.describe());
+    }
+
+    @Test
+    void wanderDistanceByStageAndTheKeepAwaySwitch() {
+        // SPEC 5.6: DORMANT and AWAKENING keep minWanderDistance; ALERT and HUNTING wander at random (as a warden
+        // roams) unless wanderKeepAway keeps them away too.
+        for (boolean keepAway : new boolean[]{false, true}) {
+            for (Stage stage : Stage.values()) {
+                world = new FakeWorld().wander(A);
+                brain = new Brain(params(0, 24, keepAway), 1);
+                assertGo(tick(stage, true), A, "wander");
+                boolean kept = keepAway || stage == DORMANT || stage == AWAKENING;
+                assertEquals(List.of(kept ? 24.0 : 0.0), world.wanderMinDistance, stage + ", switch " + keepAway);
+            }
+        }
+        // A minWanderDistance of 0 is passed on as it is, switch or not.
+        world = new FakeWorld().wander(A);
+        brain = new Brain(params(0, 0, true), 1);
+        assertGo(tick(HUNTING, true), A, "wander");
+        assertEquals(List.of(0.0), world.wanderMinDistance);
+    }
+
+    @Test
+    void calmedDownFromSeekingItWandersAsTheSwitchSays() {
+        // The seeking ran out (AWAKENING -> HUNTING) with nothing heard, then the anger fell to ALERT and DORMANT:
+        // the roam goes on with each stage's distance (the review saw a calmed-down entity roam to a hidden player).
+        for (boolean keepAway : new boolean[]{false, true}) {
+            world = new FakeWorld().wander(A, B, W1, S1);
+            here = HOME;
+            brain = new Brain(params(0, 24, keepAway), 1);
+            assertGo(tick(AWAKENING, true), A, "wander");
+            assertStay(tick(HUNTING, false), "wander"); // the leg under way goes on
+            here = A;
+            assertGo(tick(HUNTING, true), B, "wander");
+            assertEquals("hunting: wandering", brain.describe());
+            here = B;
+            assertGo(tick(ALERT, true), W1, "wander");
+            here = W1;
+            assertGo(tick(DORMANT, true), S1, "wander");
+            double hunting = keepAway ? 24 : 0;
+            assertEquals(List.of(24.0, hunting, hunting, 24.0), world.wanderMinDistance, "switch " + keepAway);
+            assertTrue(world.searchCenter.isEmpty(), "no search without a sound");
+        }
+    }
+
+    @Test
+    void theSwitchLeavesSoundsAndSearchesAlone() {
+        // Going for a sound and searching around it are no wandering: nothing asks for a wander leg.
+        brain = new Brain(params(100, 24, true), 1);
+        world.search(P1);
+        brain.hear(S1, 0.3);
+        assertGo(tick(HUNTING, true), S1, "hunt");
+        here = S1;
+        assertGo(tick(HUNTING, true), P1, "search");
+        assertEquals(List.of(8.0), world.searchRadius);
+        assertTrue(world.wanderMinDistance.isEmpty());
     }
 
     // ---------------------------------------------------------------- stage changes
