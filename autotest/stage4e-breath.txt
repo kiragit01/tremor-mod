@@ -1,5 +1,6 @@
-# Stage 4e (SPEC 9): the air in the hollow. Swallowed on the sky platform; the bubbles show over the food bar and
-# burst one by one; out of air the ground takes the player (the defeat, soft variant here so nothing is lost).
+# Stage 4e (SPEC 9): the time in the hollow. Swallowed on the sky platform, the player keeps walking (so the soft
+# ground does not pull them in): the bar at the top closes in toward the middle; when it is gone the ground takes
+# the player (soft variant here, so nothing is lost).
 # Run: gradlew runClientAutotest -Ptremor_autotest_script=stage4e-breath.txt
 waitchunks
 cmd gamemode spectator
@@ -23,10 +24,12 @@ wait 200
 waitchunks
 cmd tremor hollow status
 hud on
-screenshot 10_breath_full
-wait 120
-screenshot 11_breath_half
-waitfor 600 ran out of air|Out of the hollow|defeat
+screenshot 10_time_early
+hold left 120
+screenshot 11_time_late
+hold right 100
+screenshot 12_time_last
+hold left 160
 wait 100
 cmd tremor info
 cmd data get entity @s Dimension

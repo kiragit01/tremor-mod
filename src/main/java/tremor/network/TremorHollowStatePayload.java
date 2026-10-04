@@ -21,7 +21,7 @@ import tremor.core.math.Vec3;
  * @param node        position of the node ({@code tremor:heart_node}), or null while there is none
  * @param beatTicks   game ticks between two beats of the node (its pulse quickens as the hollow closes)
  * @param sink        how deep the soft ground has pulled the player in, 0 (free) .. 1 (fully pulled in)
- * @param breath      the air the player has left in the hollow, 1 (on arrival) .. 0 (out of air: the defeat);
+ * @param breath      the time the player has left in the hollow, 1 (on arrival) .. 0 (run out: the defeat);
  *                    1 for a hollow without the limit
  * @param gameTime    level game time of this state
  */

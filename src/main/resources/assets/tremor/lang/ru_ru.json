@@ -1,4 +1,5 @@
 {
+  "tremor.hud.hollow_time": "Земля смыкается",
   "tremor.configuration.title": "Tremor",
   "tremor.configuration.section.tremor.common.toml": "Общие настройки",
   "tremor.configuration.section.tremor.common.toml.title": "Tremor: общие настройки",
@@ -160,7 +161,8 @@
   "tremor.configuration.hollow.level.wallShifts": "Блоков стен за раз",
   "tremor.configuration.hollow.level.stillSeconds": "Стоять на месте до размягчения земли (с)",
   "tremor.configuration.hollow.level.sinkSeconds": "Затягивает с головой за (с)",
-  "tremor.configuration.hollow.level.breathSeconds": "Воздух в изнанке (с, 0 = без предела)",
+  "tremor.configuration.hollow.level.breathSeconds": "Время в изнанке (с, 0 = без предела)",
+  "tremor.configuration.hollow.level.digFactor": "Скорость копания в изнанке (доля)",
   "tremor.configuration.hollow.level.recoverSeconds": "Мягкая земля застывает через (с)",
   "tremor.configuration.hollow.level.beatSlowTicks": "Пульс узла в начале (тики)",
   "tremor.configuration.hollow.level.beatFastTicks": "Пульс узла в конце (тики)",

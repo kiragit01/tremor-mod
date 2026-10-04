@@ -535,6 +535,7 @@ public final class TremorConfig {
         public final ModConfigSpec.DoubleValue stillSeconds;
         public final ModConfigSpec.DoubleValue sinkSeconds;
         public final ModConfigSpec.DoubleValue breathSeconds;
+        public final ModConfigSpec.DoubleValue digFactor;
         public final ModConfigSpec.DoubleValue recoverSeconds;
         public final ModConfigSpec.IntValue beatSlowTicks;
         public final ModConfigSpec.IntValue beatFastTicks;
@@ -602,9 +603,13 @@ public final class TremorConfig {
             sinkSeconds = b.comment("How long the softening takes to pull a player who keeps standing on it in over",
                             "the eyes: the defeat (seconds)")
                     .translation(KEY + "hollow.level.sinkSeconds").defineInRange("sinkSeconds", 10.0, 1.0, 120.0);
-            breathSeconds = b.comment("Air the player has inside the hollow (seconds; 0 = no limit): it runs out whatever the",
-                            "player eats or drinks, shown as bubbles; out of air, the ground takes the player (the defeat)")
+            breathSeconds = b.comment("Time the player has inside the hollow (seconds; 0 = no limit): it runs out whatever the",
+                            "player eats or drinks, shown as a bar at the top of the screen; at its end the ground takes",
+                            "the player (the defeat)")
                     .translation(KEY + "hollow.level.breathSeconds").defineInRange("breathSeconds", 75.0, 0.0, 600.0);
+            digFactor = b.comment("Blocks of the hollow break this many times as fast as elsewhere (the node excepted;",
+                            "no effect on the player): digging a way out is slow work")
+                    .translation(KEY + "hollow.level.digFactor").defineInRange("digFactor", 0.15, 0.0, 1.0);
             recoverSeconds = b.comment("Soft ground sets again this long after the player got off it (seconds)")
                     .translation(KEY + "hollow.level.recoverSeconds")
                     .defineInRange("recoverSeconds", 4.0, 0.5, 120.0);

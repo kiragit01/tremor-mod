@@ -454,7 +454,7 @@ final class EventLevel {
             return;
         }
         if (breath() <= 0) {
-            decided(player, "ran out of air");
+            decided(player, "ran out of time");
             Outcomes.defeat(player);
             return;
         }
@@ -668,7 +668,7 @@ final class EventLevel {
     }
 
     /**
-     * The air the player has left (SPEC 9: under the ground the player suffocates): 1 on arrival, down to 0 over
+     * The time the player has left (SPEC 9: the earth closes in), 1 on arrival, down to 0 over
      * {@code hollow.level.breathSeconds} of play inside, whatever the player eats or drinks; at 0 the ground takes the
      * player (the defeat). Always 1 with the limit off (0).
      */

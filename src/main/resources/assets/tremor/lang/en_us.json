@@ -1,4 +1,5 @@
 {
+  "tremor.hud.hollow_time": "The earth closes in",
   "tremor.configuration.title": "Tremor",
   "tremor.configuration.section.tremor.common.toml": "Common settings",
   "tremor.configuration.section.tremor.common.toml.title": "Tremor: common settings",
@@ -160,7 +161,8 @@
   "tremor.configuration.hollow.level.wallShifts": "Wall blocks moved each time",
   "tremor.configuration.hollow.level.stillSeconds": "Standing still before the ground softens (s)",
   "tremor.configuration.hollow.level.sinkSeconds": "Pulled in over the eyes after (s)",
-  "tremor.configuration.hollow.level.breathSeconds": "Air in the hollow (s, 0 = no limit)",
+  "tremor.configuration.hollow.level.breathSeconds": "Time in the hollow (s, 0 = no limit)",
+  "tremor.configuration.hollow.level.digFactor": "Digging speed in the hollow (share)",
   "tremor.configuration.hollow.level.recoverSeconds": "Soft ground sets again after (s)",
   "tremor.configuration.hollow.level.beatSlowTicks": "Node beat at the start (ticks)",
   "tremor.configuration.hollow.level.beatFastTicks": "Node beat at the end (ticks)",
