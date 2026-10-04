@@ -3,6 +3,7 @@ package tremor.awakening;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.nbt.CompoundTag;
+import net.minecraft.network.protocol.game.ClientboundStopSoundPacket;
 import net.minecraft.sounds.SoundSource;
 import net.minecraft.world.effect.MobEffectInstance;
 import net.minecraft.world.effect.MobEffects;
@@ -430,15 +431,24 @@ final class Awakening {
         }
         TremorAwakeningPayload ended = new TremorAwakeningPayload(id, center, (float) radius, Phase.ENDED, now, 0,
                 target, focus);
+        // Got away (or called off): the long sound of the start breaks off at once and no sigh follows, so nothing
+        // goes on rumbling after the player is out.
+        boolean quiet = why == End.ESCAPED || why == End.CANCELLED;
         for (UUID receiver : recipients) {
             ServerPlayer online = level.getServer().getPlayerList().getPlayer(receiver);
             if (online != null) {
                 PacketDistributor.sendToPlayer(online, ended);
+                if (quiet) {
+                    online.connection.send(new ClientboundStopSoundPacket(TremorSounds.AWAKEN.getId(),
+                            SoundSource.HOSTILE));
+                }
             }
         }
         recipients.clear();
-        level.playSound(null, focus.x(), focus.y(), focus.z(), TremorSounds.SIGH, SoundSource.HOSTILE,
-                (float) TremorConfig.COMMON.transitionVolume.getAsDouble(), 1);
+        if (!quiet) {
+            level.playSound(null, focus.x(), focus.y(), focus.z(), TremorSounds.SIGH, SoundSource.HOSTILE,
+                    (float) TremorConfig.COMMON.transitionVolume.getAsDouble(), 1);
+        }
         boolean entity = TremorManager.goDeep(level);
         Tremor.LOGGER.info(String.format(Locale.ROOT, "Awakening #%d in %s ended (%s) after %.1f s: %s; %s, no "
                         + "natural spawn for %d s", id, level.dimension().location(), why.id(),

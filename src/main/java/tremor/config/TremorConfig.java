@@ -58,6 +58,7 @@ public final class TremorConfig {
         public final ModConfigSpec.DoubleValue itemLandLoudness;
         public final ModConfigSpec.DoubleValue fallLoudness;
         public final ModConfigSpec.DoubleValue mobLoudnessFactor;
+        public final ModConfigSpec.DoubleValue mobAngerFactor;
         public final ModConfigSpec.DoubleValue waterFactor;
         public final ModConfigSpec.DoubleValue rustlingFactor;
         public final ModConfigSpec.DoubleValue conductivityInsulating;
@@ -96,6 +97,7 @@ public final class TremorConfig {
         public final ModConfigSpec.DoubleValue contactKnockback;
         public final ModConfigSpec.DoubleValue contactLift;
         public final ModConfigSpec.DoubleValue contactAnger;
+        public final ModConfigSpec.BooleanValue devourMobs;
         public final ModConfigSpec.DoubleValue despawnPlayerDistance;
         public final ModConfigSpec.DoubleValue despawnFarSeconds;
         public final ModConfigSpec.DoubleValue despawnQuietSeconds;
@@ -193,9 +195,12 @@ public final class TremorConfig {
                     .translation(KEY + "hearing.itemLandLoudness").defineInRange("itemLandLoudness", 3.0, 0.0, 1000.0);
             fallLoudness = b.comment("Loudness of a fall with fall damage, plus the fall height in blocks")
                     .translation(KEY + "hearing.fallLoudness").defineInRange("fallLoudness", 10.0, 0.0, 1000.0);
-            mobLoudnessFactor = b.comment("Loudness factor for living non-player sources (0: the entity listens for",
-                            "players, not cows); explosions always count fully")
-                    .translation(KEY + "hearing.mobLoudnessFactor").defineInRange("mobLoudnessFactor", 0.0, 0.0, 10.0);
+            mobLoudnessFactor = b.comment("Loudness factor for living non-player sources: the entity hears animals and",
+                            "monsters too and goes for them (0: it listens for players only); explosions always count fully")
+                    .translation(KEY + "hearing.mobLoudnessFactor").defineInRange("mobLoudnessFactor", 0.6, 0.0, 10.0);
+            mobAngerFactor = b.comment("Share of the usual anger a heard animal or monster adds (it goes for them, but",
+                            "only players really anger it)")
+                    .translation(KEY + "hearing.mobAngerFactor").defineInRange("mobAngerFactor", 0.3, 0.0, 10.0);
             waterFactor = b.comment("Footing of a source that is not on the ground but in water or in a boat",
                             "(a source in the air makes no vibration)")
                     .translation(KEY + "hearing.waterFactor").defineInRange("waterFactor", 0.2, 0.0, 10.0);
@@ -316,6 +321,9 @@ public final class TremorConfig {
                     .translation(KEY + "behavior.contact.lift").defineInRange("lift", 0.45, 0.0, 3.0);
             contactAnger = b.comment("Anger added by a strike")
                     .translation(KEY + "behavior.contact.anger").defineInRange("anger", 15.0, 0.0, 100.0);
+            devourMobs = b.comment("Animals and monsters the bump touches while it is not DORMANT are pulled under and",
+                            "gone (no drops, no crater); bosses and #tremor:undevourable never")
+                    .translation(KEY + "behavior.contact.devourMobs").define("devourMobs", true);
             b.pop();
 
             b.comment("A naturally spawned entity leaves (sinks and disappears, SPEC 11) when no player was near for",
@@ -666,7 +674,7 @@ public final class TremorConfig {
                     .translation(KEY + "awakening.searchRadius")
                     .defineInRange("searchRadius", BehaviorParams.defaults().seekSearchRadius(), 0.0, 64.0);
             radius = b.comment("Radius of the zone (blocks, horizontally) around where the player stood at the start")
-                    .translation(KEY + "awakening.radius").defineInRange("radius", 24.0, 4.0, 128.0);
+                    .translation(KEY + "awakening.radius").defineInRange("radius", 32.0, 4.0, 128.0);
             buildupSeconds = b.comment("Time to get out of the zone before it closes (seconds); the last third is dark")
                     .translation(KEY + "awakening.buildupSeconds").defineInRange("buildupSeconds", 8, 1, 600);
             buildupDrag = b.comment("The ground grabs at the target's feet during the build-up: its movement speed and jump",

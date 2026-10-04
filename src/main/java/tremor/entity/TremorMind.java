@@ -11,7 +11,9 @@ import net.minecraft.sounds.SoundEvent;
 import net.minecraft.sounds.SoundSource;
 import net.minecraft.world.damagesource.DamageSource;
 import net.minecraft.world.damagesource.DamageType;
+import net.minecraft.world.entity.Mob;
 import net.minecraft.world.entity.ai.attributes.Attributes;
+import net.minecraft.world.phys.AABB;
 import tremor.Tremor;
 import tremor.awakening.AwakeningManager;
 import tremor.awakening.AwakeningRules;
@@ -288,6 +290,9 @@ final class TremorMind {
         Stage stage = meter.stage();
         if (stage == Stage.HUNTING || stage == Stage.AWAKENING) {
             strike(now);
+        }
+        if (stage != Stage.DORMANT && TremorConfig.COMMON.devourMobs.get()) {
+            devour();
         }
         if (entity.natural()) {
             TremorConfig.Common config = TremorConfig.COMMON;
@@ -569,6 +574,30 @@ final class TremorMind {
             if (ContactZone.touches(runtime.liveView(), center, crawler.normal(), amplitude, feet, height, radius)) {
                 strikes.put(player.getUUID(), now);
                 hit(player, feet);
+            }
+        }
+    }
+
+    /**
+     * Takes every animal or monster the bump touches ({@link Devour}; {@link ContactZone} over the live world, the bump
+     * at least half up and not diving, as for a strike). Not while DORMANT: the lazy bump passes under them.
+     */
+    private void devour() {
+        Crawler crawler = entity.crawler();
+        double amplitude = crawler.amplitude();
+        double full = entity.params().get(Param.AMPLITUDE) * TremorConfig.COMMON.amplitudeFactor(meter.stage());
+        if (crawler.diving() || amplitude < full / 2) {
+            return;
+        }
+        double radius = TremorConfig.COMMON.contactRadius.get();
+        Vec3 center = crawler.position();
+        double reach = ContactZone.reach(amplitude, radius, 3);
+        AABB box = new AABB(center.x() - reach, center.y() - reach, center.z() - reach, center.x() + reach,
+                center.y() + reach, center.z() + reach);
+        for (Mob mob : level.getEntitiesOfClass(Mob.class, box, m -> Devour.takeable(level, m))) {
+            if (ContactZone.touches(runtime.liveView(), center, crawler.normal(), amplitude, vec(mob.position()),
+                    mob.getBbHeight(), radius)) {
+                Devour.take(level, mob);
             }
         }
     }

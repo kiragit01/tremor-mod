@@ -1,0 +1,53 @@
+# Stage 4e: the bump devours animals it touches (not while DORMANT), and the look of the time bar in the hollow.
+# Part 1: three still cows on the sky platform, the bump (HUNTING, brain off) is sent through them: none is left.
+# Part 2: swallowed, the time bar at the top closes in toward the heart (short limit set by config).
+# Run: gradlew runClientAutotest -Ptremor_autotest_script=stage4e-devour-bar.txt
+waitchunks
+cmd gamemode spectator
+cmd time set noon
+cmd tremor despawn
+cmd tp @s 300.5 201.0 300.5 270 10
+wait 40
+waitchunks
+cmd fill 270 198 270 330 200 330 minecraft:stone
+cmd fill 270 201 270 330 205 330 minecraft:air
+cmd kill @e[type=!player]
+log --- 1. devour
+cmd summon minecraft:cow 310.5 201 299.5 {NoAI:1b}
+cmd summon minecraft:cow 311.5 201 300.5 {NoAI:1b}
+cmd summon minecraft:cow 310.5 201 301.5 {NoAI:1b}
+cmd tp @s 300.5 206.0 290.5 0 30
+cmd tremor spawn 296 200 300
+cmd tremor ai off
+cmd tremor stage hunting
+cmd tremor goto 318 200 300
+hud off
+wait 30
+screenshot 10_bump_to_cows
+wait 30
+screenshot 11_cows_sinking
+wait 140
+screenshot 12_after
+cmd kill @e[type=minecraft:cow]
+cmd tremor despawn
+log --- 2. time bar
+cmd tp @s 300.5 201.0 300.5 270 10
+cmd gamemode survival
+cmd effect clear @s
+cmd effect give @s minecraft:instant_health 1 4 true
+config awakening.buildupSeconds 3
+config awakening.lethal false
+config awakening.craterRadius 0
+config hollow.level.breathSeconds 30
+cmd tremor awaken
+wait 200
+waitchunks
+hud on
+hold left 100
+screenshot 20_bar_early
+hold right 200
+screenshot 21_bar_late
+hold left 120
+screenshot 22_bar_last
+wait 100
+quit

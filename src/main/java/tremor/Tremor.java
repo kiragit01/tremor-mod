@@ -57,6 +57,7 @@ public final class Tremor {
         game.addListener(TremorManager::onLevelLoad);
         game.addListener(TremorManager::onLevelUnload);
         game.addListener(TremorManager::onLevelTick);
+        game.addListener(tremor.entity.Devour::onLevelTick);
         // Lowest priority, cancelled ones included: what matters is the final state of the world.
         game.addListener(EventPriority.LOWEST, true, BlockEvent.NeighborNotifyEvent.class,
                 TremorManager::onNeighborNotify);

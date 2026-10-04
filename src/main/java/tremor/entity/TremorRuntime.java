@@ -457,8 +457,10 @@ public final class TremorRuntime {
         entity.setLastHeard(new TremorEntity.Heard(vibration.source(), now, perceived, vibration.event()));
         data.setDirty();
         float before = entity.anger();
+        double angerShare = "mob".equals(vibration.note()) ? TremorConfig.COMMON.mobAngerFactor.getAsDouble() : 1;
         String reaction = mind(entity).heard(vibration.source(), perceived,
-                perceived * TremorConfig.COMMON.angerPerLoudness.getAsDouble() + vibration.angerBonus());
+                perceived * TremorConfig.COMMON.angerPerLoudness.getAsDouble() * angerShare
+                        + vibration.angerBonus());
         return new Perception(listener, distance, perceived, true, entity.anger() - before, entity.anger(), stage,
                 entity.stage(), reaction);
     }
