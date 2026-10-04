@@ -1,0 +1,46 @@
+# Multiplayer test, Bob (tools/mp-test.sh mp-alice.txt mp-bob.txt): the onlooker, in spectator mode some 16 blocks
+# from Alice. He sees the build-up and the hill take her, the ground smooth again, the hill she comes out of after her
+# victory, and the crater of her defeat. Kept in step by Alice's chat marks.
+waitchunks
+cmd gamemode spectator
+waitfor 3000 MARK start
+cmd tp @s 0.5 206 -15.5 0 20
+wait 20
+waitchunks
+hud off
+waitfor 1200 MARK awaken
+wait 40
+screenshot b10_buildup
+wait 100
+screenshot b11_hill
+wait 60
+screenshot b12_after_swallow
+cmd tremor info
+waitfor 2400 MARK node
+screenshot b20_emerge_00
+wait 15
+screenshot b20_emerge_15
+wait 15
+screenshot b20_emerge_30
+wait 15
+screenshot b20_emerge_45
+wait 15
+screenshot b20_emerge_60
+wait 20
+screenshot b20_emerge_80
+wait 40
+screenshot b20_emerge_120
+wait 60
+screenshot b20_emerge_180
+waitfor 2400 MARK defeat
+wait 120
+screenshot b30_crater_digging
+wait 240
+cmd tp @s 0.5 216 0.5 0 90
+wait 20
+screenshot b31_crater_above
+cmd tp @s 0.5 203 -14.5 0 35
+wait 10
+screenshot b32_crater_side
+waitfor 1200 MARK done
+quit

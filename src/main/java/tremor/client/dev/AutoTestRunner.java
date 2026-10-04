@@ -35,7 +35,10 @@ import net.minecraft.client.gui.screens.DisconnectedScreen;
 import net.minecraft.client.gui.screens.GenericMessageScreen;
 import net.minecraft.client.gui.screens.RecoverWorldDataScreen;
 import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.client.gui.screens.ConnectScreen;
 import net.minecraft.client.gui.screens.TitleScreen;
+import net.minecraft.client.multiplayer.ServerData;
+import net.minecraft.client.multiplayer.resolver.ServerAddress;
 import net.minecraft.client.player.LocalPlayer;
 import net.minecraft.client.tutorial.TutorialSteps;
 import net.minecraft.network.chat.Component;
@@ -567,9 +570,20 @@ final class AutoTestRunner {
         }
     }
 
-    /** Queued task: open the autotest world, creating it first if needed. */
+    /**
+     * Queued task: open the autotest world, creating it first if needed; or, with the system property
+     * {@code tremor.autotest.server} ({@code host:port}), join that server instead (the multiplayer test,
+     * {@code tools/mp-test.sh}).
+     */
     private void launchWorld() {
         launchRan = true;
+        String server = System.getProperty("tremor.autotest.server", "").strip();
+        if (!server.isEmpty()) {
+            report.line("connecting to server " + server);
+            ConnectScreen.startConnecting(new TitleScreen(), mc, ServerAddress.parseString(server),
+                    new ServerData("tremor autotest", server, ServerData.Type.OTHER), false, null);
+            return;
+        }
         try {
             String name = config.world();
             LevelStorageSource source = mc.getLevelSource();

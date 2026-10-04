@@ -24,6 +24,13 @@
 ./gradlew runClientAutotest -Ptremor_autotest_script=stage1-cave.txt
 ```
 
+Сетевой тест: `tools/mp-test.sh mp-alice.txt mp-bob.txt` поднимает выделенный сервер на localhost (папка
+`run-mp/server`, офлайн-режим, оба игрока — операторы) и два клиента-автотеста, Alice и Bob, каждый со своим
+скриптом; клиент подключается к серверу из `-Dtremor.autotest.server`. Отчёты — в `run-mp/alice|bob/tremor-autotest`.
+Скрипту нужны `build/moddev/serverClasspathArg.txt` и `clientClasspathArg.txt` (строка `-cp ...` из командной строки
+java, которую запускает `./gradlew runServer` / `runClientAutotest`). Этап 4e: `stage4e-breath` (срок в изнанке),
+`stage4e-devour-bar` (поглощение мобов, вид полосы срока).
+
 Формат скрипта (wait, cmd, hold, bench, screenshot, graphics, fps, config, waitfor, ...) описан в
 `tremor.client.dev.Script`. Сценарии по этапам: `stage1-cave/smooth/fixes`, `stage2-hearing`, `stage3-aggression`,
 `stage3-ripple`, `stage4a-hollow`, `stage4a-relog-1/2`, `stage4b-buildup`, `stage4c-victory`, а также

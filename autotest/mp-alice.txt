@@ -1,0 +1,56 @@
+# Multiplayer test, Alice (tools/mp-test.sh mp-alice.txt mp-bob.txt): the target. On a stone block in the sky over
+# the world spawn she is awakened and swallowed, wins in the hollow (Bob watches the hill she comes out of), then is
+# awakened again and loses (Bob watches the crater). Marks in the chat (say MARK ...) keep Bob in step.
+waitchunks
+waitfor 2400 Bob joined the game
+wait 60
+cmd gamemode creative
+cmd fill -20 176 -20 19 187 19 minecraft:stone
+cmd fill -20 188 -20 19 199 19 minecraft:stone
+cmd fill -20 200 -20 19 215 19 minecraft:air
+cmd tp @s 0.5 200 0.5 0 10
+wait 40
+waitchunks
+cmd gamemode survival
+cmd clear @s
+cmd give @s minecraft:iron_pickaxe
+cmd effect give @s minecraft:night_vision infinite 0 true
+cmd say MARK start
+wait 100
+log --- 1. awakened, swallowed
+cmd say MARK awaken
+cmd tremor awaken
+wait 300
+waitchunks
+cmd data get entity @s Dimension
+cmd tremor hollow status
+hud on
+screenshot a10_hollow
+log --- 2. victory
+cmd tremor hollow tonode
+wait 10
+cmd say MARK node
+hold attack 120
+wait 10
+screenshot a20_emerging
+wait 60
+screenshot a21_out
+cmd data get entity @s Dimension
+cmd data get entity @s Pos
+wait 160
+log --- 3. defeat
+cmd tp @s 0.5 200 0.5 0 10
+cmd give @s minecraft:diamond 5
+cmd say MARK awaken2
+cmd tremor awaken
+wait 300
+waitchunks
+cmd say MARK defeat
+cmd tremor hollow outcome defeat
+wait 400
+screenshot a30_after_defeat
+cmd tremor info
+cmd say MARK done
+wait 300
+cmd stop
+quit
