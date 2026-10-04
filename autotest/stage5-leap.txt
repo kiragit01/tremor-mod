@@ -1,0 +1,30 @@
+# Stage 5: the bump flings itself across a gap of air. The player stands on a block floating two blocks over the sky
+# platform; the HUNTING bump (leaps of up to 3) is sent to that block, leaps up to it and strikes the player.
+# Run: gradlew runClientAutotest -Ptremor_autotest_script=stage5-leap.txt
+waitchunks
+cmd gamemode spectator
+cmd time set noon
+cmd tremor despawn
+cmd tp @s 300.5 205.0 300.5 270 30
+wait 40
+waitchunks
+cmd fill 280 198 280 320 200 320 minecraft:stone
+cmd fill 280 201 280 320 210 320 minecraft:air
+cmd setblock 300 203 300 minecraft:stone
+cmd tp @s 300.5 204.0 300.5 270 30
+cmd gamemode survival
+cmd effect clear @s
+cmd effect give @s minecraft:instant_health 1 4 true
+cmd tremor spawn 312 200 300
+cmd tremor ai off
+cmd tremor anger 95
+cmd tremor goto 300 203 300
+hud off
+wait 40
+screenshot 10_coming
+wait 60
+screenshot 11_on_the_block
+cmd tremor info
+cmd data get entity @s Health
+cmd tremor despawn
+quit

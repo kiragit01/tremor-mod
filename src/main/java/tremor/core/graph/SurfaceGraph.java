@@ -34,6 +34,12 @@ import tremor.core.surface.SurfaceNormals;
  * under the skin), {@code b + dir} is open (it surfaces on the far side), every voxel strictly between is solid and
  * known, and there is no skin edge {@code a-b}. Length = {@code k}. Through open space: never.
  * <p>
+ * <b>Leap edges</b> (not memoized; off until {@link #setMaxLeap}) go straight through open space along one of the 6
+ * axes: from node {@code a} along {@code dir} to node {@code b = a + k·dir}, {@code 2 <= k <= maxLeap + 1}, when every
+ * voxel strictly between is open and known (a gap of {@code k - 1} blocks: the bump flings itself across, e.g. from
+ * the ground up to the underside of a block over it). Reported as dive edges (the bump is hidden on them).
+ * Length = {@code k}.
+ * <p>
  * All edges are symmetric. Edges are reported skin edges first, in the (y, z, x) neighbour order of
  * {@link SurfaceNormals}, then dive edges in the direction order -x, +x, -y, +y, -z, +z.
  * <p>
@@ -135,6 +141,8 @@ public final class SurfaceGraph implements Graph {
 
     private final VoxelView view;
     private final int maxDiveDepth;
+    /** Longest gap a leap edge crosses (blocks); 0: no leaps. */
+    private int maxLeap;
 
     /** Memo sections, open addressing with linear probing; capacity is a power of two. */
     private Memo[] table = new Memo[INITIAL_CAPACITY];
@@ -157,6 +165,18 @@ public final class SurfaceGraph implements Graph {
 
     public VoxelView view() {
         return view;
+    }
+
+    /**
+     * Sets the longest gap of open space a leap edge crosses (blocks, 0 for none; the owner sets it by the entity's
+     * stage before each path search). Leap edges are not memoized, so nothing needs invalidating.
+     */
+    public void setMaxLeap(int maxLeap) {
+        this.maxLeap = Math.max(0, maxLeap);
+    }
+
+    public int maxLeap() {
+        return maxLeap;
     }
 
     public int maxDiveDepth() {
@@ -202,6 +222,28 @@ public final class SurfaceGraph implements Graph {
                 }
             }
         }
+        if (maxLeap > 0) {
+            for (int t = 0; t < 6; t++) {
+                int k = leapLength(x, y, z, t);
+                if (k != 0) {
+                    consumer.accept(VoxelPos.pack(x + k * DX[t], y + k * DY[t], z + k * DZ[t]), k, true);
+                }
+            }
+        }
+    }
+
+    /** Length of the leap edge from {@code x, y, z} along direction {@code t}, or 0 if there is none. */
+    private int leapLength(int x, int y, int z, int t) {
+        for (int k = 1; k <= maxLeap + 1; k++) {
+            int bx = x + k * DX[t], by = y + k * DY[t], bz = z + k * DZ[t];
+            if (!view.isKnown(bx, by, bz)) {
+                return 0;
+            }
+            if (view.isSolid(bx, by, bz)) {
+                return k >= 2 && isNode(bx, by, bz) ? k : 0;
+            }
+        }
+        return 0;
     }
 
     /** Smoothed surface normal of a node (SPEC 6.2, same result as {@code SurfaceNormals.smoothNormal}); ZERO otherwise. */

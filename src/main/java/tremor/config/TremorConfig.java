@@ -34,6 +34,11 @@ public final class TremorConfig {
         public final ModConfigSpec.DoubleValue jitter;
 
         public final ModConfigSpec.IntValue maxDiveDepth;
+        public final ModConfigSpec.IntValue leapDormant;
+        public final ModConfigSpec.IntValue leapAlert;
+        public final ModConfigSpec.IntValue leapHunting;
+        public final ModConfigSpec.IntValue leapAwakening;
+        public final ModConfigSpec.IntValue leapFrenzy;
         public final ModConfigSpec.DoubleValue diveCost;
         public final ModConfigSpec.IntValue pathMaxNodes;
         public final ModConfigSpec.IntValue pathNodesPerTick;
@@ -140,6 +145,11 @@ public final class TremorConfig {
             b.comment("Movement over the surface of the world (SPEC 5)").translation(KEY + "movement").push("movement");
             maxDiveDepth = b.comment("How far (blocks) the entity can travel straight through rock to another surface")
                     .translation(KEY + "movement.maxDiveDepth").defineInRange("maxDiveDepth", 4, 0, 16);
+            leapDormant = leap(b, "leapDormant", "DORMANT", 1);
+            leapAlert = leap(b, "leapAlert", "ALERT", 2);
+            leapHunting = leap(b, "leapHunting", "HUNTING", 3);
+            leapAwakening = leap(b, "leapAwakening", "AWAKENING", 3);
+            leapFrenzy = leap(b, "leapFrenzy", "a frenzy over a dropped shard", 5);
             diveCost = b.comment("Path cost of a block travelled through rock, relative to a block on the surface")
                     .translation(KEY + "movement.diveCost").defineInRange("diveCost", 2.0, 1.0, 20.0);
             pathMaxNodes = b.comment("A* gives up after expanding this many nodes and heads for the best one found")
@@ -416,6 +426,28 @@ public final class TremorConfig {
         }
 
         /** Factor on the crawling speed in {@code stage} (SPEC 5.5, 8). */
+        /**
+         * Longest gap of open space (blocks) the entity flings itself across between two surfaces in {@code stage}
+         * ({@code frenzy}: in a frenzy over a dropped shard).
+         */
+        public int leap(Stage stage, boolean frenzy) {
+            if (frenzy) {
+                return leapFrenzy.get();
+            }
+            return switch (stage) {
+                case DORMANT -> leapDormant.get();
+                case ALERT -> leapAlert.get();
+                case HUNTING -> leapHunting.get();
+                case AWAKENING -> leapAwakening.get();
+            };
+        }
+
+        private static ModConfigSpec.IntValue leap(ModConfigSpec.Builder b, String key, String when, int blocks) {
+            return b.comment("Longest gap of open air (blocks) the entity flings itself across to another surface "
+                            + when + " (0 = none)")
+                    .translation(KEY + "movement." + key).defineInRange(key, blocks, 0, 8);
+        }
+
         public double speedFactor(Stage stage) {
             return stageSpeedFactors.get(stage).get();
         }

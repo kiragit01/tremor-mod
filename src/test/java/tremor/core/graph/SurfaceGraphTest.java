@@ -295,6 +295,25 @@ class SurfaceGraphTest {
     }
 
     @Test
+    void aGapOfAirIsCrossedByALeapUpToTheSetLength() {
+        // The ground (y <= 0) and a floating block two blocks over it (y = 3, gap y = 1..2).
+        ArrayVoxelGrid g = new ArrayVoxelGrid(-6, -4, -6, 6, 8, 6, false);
+        g.fill(-6, -4, -6, 6, 0, 6, true);
+        g.set(0, 3, 0, true);
+        SurfaceGraph graph = new SurfaceGraph(g, 4);
+        assertFalse(edges(graph, 0, 0, 0).contains(dive(0, 3, 0, 3)), "no leaps before they are switched on");
+        graph.setMaxLeap(1);
+        assertFalse(edges(graph, 0, 0, 0).contains(dive(0, 3, 0, 3)), "a gap of 2 is too long for a leap of 1");
+        graph.setMaxLeap(2);
+        assertTrue(edges(graph, 0, 0, 0).contains(dive(0, 3, 0, 3)));
+        assertTrue(edges(graph, 0, 3, 0).contains(dive(0, 0, 0, 3)), "leaps are symmetric");
+        graph.setMaxLeap(5);
+        for (Edge e : edges(graph, 1, 0, 1)) {
+            assertTrue(!e.dive() || VoxelPos.y(e.to()) <= 0, "no leap off the column of the block: " + e);
+        }
+    }
+
+    @Test
     void twoThickWallIsCrossedOnlyByADive() {
         ArrayVoxelGrid g = ArrayVoxelGrid.thinWallBetweenCaves(0, 8, 0, 2);
         SurfaceGraph graph = new SurfaceGraph(g, 4);

@@ -1,4 +1,9 @@
 {
+  "tremor.configuration.movement.leapDormant": "Leap across, dormant (blocks)",
+  "tremor.configuration.movement.leapAlert": "Leap across, alert (blocks)",
+  "tremor.configuration.movement.leapHunting": "Leap across, hunting (blocks)",
+  "tremor.configuration.movement.leapAwakening": "Leap across, at the peak (blocks)",
+  "tremor.configuration.movement.leapFrenzy": "Leap across, in a frenzy (blocks)",
   "tremor.configuration.items.frenzySpeedFactor": "Frenzy speed (x hunting)",
   "tremor.configuration.items.frenzyAmplitudeFactor": "Frenzy bump height (x)",
   "tremor.configuration.items.frenzyBuildupTicks": "Frenzy build-up (ticks)",

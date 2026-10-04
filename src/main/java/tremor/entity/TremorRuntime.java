@@ -781,6 +781,9 @@ public final class TremorRuntime {
             giveUp(entity, "it is not on the surface");
             return;
         }
+        if (entity != null) {
+            graph.setMaxLeap(TremorConfig.COMMON.leap(entity.stage(), entity.frenzy()));
+        }
         search = new PathSearch(graph, start, goal, TremorConfig.COMMON.pathMaxNodes.get(),
                 entity.params().diveCost());
     }

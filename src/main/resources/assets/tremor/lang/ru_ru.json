@@ -1,4 +1,9 @@
 {
+  "tremor.configuration.movement.leapDormant": "Прыжок через воздух, спокойна (блоки)",
+  "tremor.configuration.movement.leapAlert": "Прыжок через воздух, настороже (блоки)",
+  "tremor.configuration.movement.leapHunting": "Прыжок через воздух, охота (блоки)",
+  "tremor.configuration.movement.leapAwakening": "Прыжок через воздух, пик (блоки)",
+  "tremor.configuration.movement.leapFrenzy": "Прыжок через воздух, бешенство (блоки)",
   "tremor.configuration.items.frenzySpeedFactor": "Скорость в бешенстве (x охоты)",
   "tremor.configuration.items.frenzyAmplitudeFactor": "Высота бугра в бешенстве (x)",
   "tremor.configuration.items.frenzyBuildupTicks": "Нарастание при бешенстве (тики)",
