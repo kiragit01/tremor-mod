@@ -24,7 +24,7 @@ import tremor.entity.TremorRuntime;
  * The geophone (SPEC 15, stage 5: the alarm for a base): a block that listens to the ground for the entity, not for
  * players. With the entity within {@code items.geophoneRange} blocks it gives a redstone signal, the stronger the
  * nearer ({@link Sensing#power}), and a comparator reads the entity's stage ({@link Sensing#stageSignal}); while it
- * hears something it sheds dust. It checks every {@value #INTERVAL} ticks (a scheduled tick, kept with the chunk).
+ * hears something its veins and lens glow and pulse (model {@code geophone_on}, light level 3) and it sheds dust. It checks every {@value #INTERVAL} ticks (a scheduled tick, kept with the chunk).
  */
 public class GeophoneBlock extends Block {
     public static final MapCodec<GeophoneBlock> CODEC = simpleCodec(GeophoneBlock::new);

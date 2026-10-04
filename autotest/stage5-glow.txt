@@ -1,0 +1,26 @@
+# Stage 5: the geophone glows while it senses the entity (at night, to see the light).
+# Run: gradlew runClientAutotest -Ptremor_autotest_script=stage5-glow.txt
+waitchunks
+cmd gamemode creative
+cmd time set midnight
+cmd tremor despawn
+cmd tp @s 300.5 201.0 300.5 0 25
+wait 40
+waitchunks
+cmd fill 290 201 290 310 206 310 minecraft:air
+cmd setblock 300 201 303 tremor:geophone
+cmd setblock 302 201 304 tremor:geophone
+hud off
+wait 20
+screenshot 10_off_night
+cmd tremor spawn 296 200 318
+cmd tremor ai off
+wait 30
+screenshot 11_on_night
+wait 6
+screenshot 12_on_night_b
+cmd time set noon
+wait 10
+screenshot 13_on_day
+cmd tremor despawn
+quit

@@ -33,6 +33,7 @@ public final class TremorItems {
                     .mapColor(MapColor.DEEPSLATE)
                     .strength(3.0F, 6.0F)
                     .requiresCorrectToolForDrops()
+                    .lightLevel(state -> state.getValue(GeophoneBlock.POWER) > 0 ? 3 : 0)
                     .sound(SoundType.DEEPSLATE));
     public static final DeferredItem<BlockItem> GEOPHONE_ITEM = ITEMS.registerSimpleBlockItem(GEOPHONE);
 
