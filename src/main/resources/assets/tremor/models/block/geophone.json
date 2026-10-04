@@ -2,7 +2,7 @@
   "parent": "minecraft:block/cube_bottom_top",
   "textures": {
     "top": "tremor:block/geophone_top",
-    "bottom": "tremor:block/geophone_side",
+    "bottom": "tremor:block/geophone_bottom",
     "side": "tremor:block/geophone_side"
   }
 }

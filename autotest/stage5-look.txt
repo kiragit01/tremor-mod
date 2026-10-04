@@ -1,0 +1,30 @@
+# Stage 5: how the shard, the seismograph and the geophone look in hand and placed.
+# Run: gradlew runClientAutotest -Ptremor_autotest_script=stage5-look.txt
+waitchunks
+cmd gamemode creative
+cmd time set noon
+cmd tremor despawn
+cmd tp @s 300.5 201.0 300.5 0 20
+wait 40
+waitchunks
+cmd fill 290 201 290 310 206 310 minecraft:air
+cmd setblock 300 201 303 tremor:geophone
+cmd setblock 302 202 303 tremor:geophone
+cmd clear @s
+cmd give @s tremor:seismograph
+cmd give @s tremor:tremor_shard 5
+cmd give @s tremor:geophone
+cmd tremor spawn 290 200 315
+cmd tremor ai off
+hud on
+wait 20
+screenshot 10_seismograph_in_hand
+cmd item replace entity @s weapon.mainhand with tremor:tremor_shard 5
+wait 10
+screenshot 11_shard_in_hand
+wait 9
+screenshot 12_shard_in_hand_b
+cmd tp @s 300.5 203.0 300.5 0 40
+wait 10
+screenshot 13_geophone_placed
+quit
