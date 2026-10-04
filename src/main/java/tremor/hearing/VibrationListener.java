@@ -4,6 +4,11 @@ import it.unimi.dsi.fastutil.objects.Object2DoubleOpenHashMap;
 import net.minecraft.core.Holder;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.resources.ResourceLocation;
+import tremor.Tremor;
+import net.minecraft.world.entity.EquipmentSlot;
+import net.minecraft.world.item.enchantment.EnchantmentHelper;
+import net.minecraft.world.item.enchantment.Enchantment;
+import net.minecraft.core.registries.Registries;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.ExperienceOrb;
@@ -150,6 +155,10 @@ public final class VibrationListener {
                 loudness = SoundRules.playerMovement(base, landing, sneaking, sprinting,
                         config.sprintStepLoudness.getAsDouble());
                 note = sneaking ? "sneaking" : step && sprinting ? "sprinting" : null;
+                if (muffled(player)) {
+                    loudness *= config.muffledStepsFactor.getAsDouble();
+                    note = note == null ? "muffled" : note + ", muffled";
+                }
             }
         } else if (cause instanceof AbstractMinecart) {
             if (step) {
@@ -351,5 +360,17 @@ public final class VibrationListener {
 
     private static String join(String a, String b) {
         return a == null ? b : b == null ? a : a + ", " + b;
+    }
+
+    /** The enchantment that muffles the steps of whoever wears it on the feet (SPEC 15, stage 5). */
+    public static final ResourceKey<Enchantment> MUFFLED_STEPS = ResourceKey.create(Registries.ENCHANTMENT,
+            ResourceLocation.fromNamespaceAndPath(Tremor.MODID, "muffled_steps"));
+
+    /** Whether {@code player}'s boots have {@link #MUFFLED_STEPS}: its steps and landings are much quieter. */
+    static boolean muffled(Player player) {
+        Holder<Enchantment> holder = player.level().registryAccess().registryOrThrow(Registries.ENCHANTMENT)
+                .getHolder(MUFFLED_STEPS).orElse(null);
+        return holder != null
+                && EnchantmentHelper.getItemEnchantmentLevel(holder, player.getItemBySlot(EquipmentSlot.FEET)) > 0;
     }
 }

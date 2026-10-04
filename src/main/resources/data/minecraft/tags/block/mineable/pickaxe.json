@@ -1,6 +1,7 @@
 {
   "replace": false,
   "values": [
-    "tremor:heart_node"
+    "tremor:heart_node",
+    "tremor:geophone"
   ]
 }

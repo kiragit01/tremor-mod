@@ -49,6 +49,7 @@ public final class Tremor {
         modBus.addListener(TremorNetwork::register);
         TremorSounds.register(modBus);
         TremorBlocks.register(modBus);
+        tremor.item.TremorItems.register(modBus);
 
         IEventBus game = NeoForge.EVENT_BUS;
         game.addListener(TremorCommands::register);

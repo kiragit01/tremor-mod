@@ -59,6 +59,11 @@ public final class TremorConfig {
         public final ModConfigSpec.DoubleValue fallLoudness;
         public final ModConfigSpec.DoubleValue mobLoudnessFactor;
         public final ModConfigSpec.DoubleValue mobAngerFactor;
+        public final ModConfigSpec.DoubleValue geophoneRange;
+        public final ModConfigSpec.DoubleValue seismographRange;
+        public final ModConfigSpec.DoubleValue muffledStepsFactor;
+        public final ModConfigSpec.IntValue shardsMin;
+        public final ModConfigSpec.IntValue shardsMax;
         public final ModConfigSpec.DoubleValue waterFactor;
         public final ModConfigSpec.DoubleValue rustlingFactor;
         public final ModConfigSpec.DoubleValue conductivityInsulating;
@@ -339,6 +344,24 @@ public final class TremorConfig {
                     .translation(KEY + "behavior.despawn.quietSeconds")
                     .defineInRange("quietSeconds", 600.0, 1.0, 86400.0);
             b.pop(2);
+
+            b.comment("The things made from the entity's shard (SPEC 15, stage 5)")
+                    .translation(KEY + "items").push("items");
+            geophoneRange = b.comment("A geophone hears the entity within this many blocks (its redstone signal is 15",
+                            "right by it and 1 at this distance)")
+                    .translation(KEY + "items.geophoneRange").defineInRange("geophoneRange", 32.0, 4.0, 128.0);
+            seismographRange = b.comment("The needle of a seismograph points at the entity within this many blocks",
+                            "(as far as the client knows of it); beyond, it turns idly")
+                    .translation(KEY + "items.seismographRange").defineInRange("seismographRange", 64.0, 8.0, 160.0);
+            muffledStepsFactor = b.comment("Loudness of the steps and landings of a player whose boots have the",
+                            "\"muffled steps\" enchantment, as a share of the usual")
+                    .translation(KEY + "items.muffledStepsFactor")
+                    .defineInRange("muffledStepsFactor", 0.2, 0.0, 1.0);
+            shardsMin = b.comment("Shards a destroyed node gives: at least...")
+                    .translation(KEY + "items.shardsMin").defineInRange("shardsMin", 1, 0, 64);
+            shardsMax = b.comment("...and at most")
+                    .translation(KEY + "items.shardsMax").defineInRange("shardsMax", 2, 0, 64);
+            b.pop();
 
             spawn = new Spawn(b);
             hollow = new Hollow(b);

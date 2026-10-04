@@ -1,0 +1,110 @@
+{
+  "parent": "minecraft:item/generated",
+  "textures": {
+    "layer0": "tremor:item/seismograph_00"
+  },
+  "overrides": [
+    {
+      "predicate": {
+        "tremor:angle": 0.0
+      },
+      "model": "tremor:item/seismograph_00"
+    },
+    {
+      "predicate": {
+        "tremor:angle": 0.03125
+      },
+      "model": "tremor:item/seismograph_01"
+    },
+    {
+      "predicate": {
+        "tremor:angle": 0.09375
+      },
+      "model": "tremor:item/seismograph_02"
+    },
+    {
+      "predicate": {
+        "tremor:angle": 0.15625
+      },
+      "model": "tremor:item/seismograph_03"
+    },
+    {
+      "predicate": {
+        "tremor:angle": 0.21875
+      },
+      "model": "tremor:item/seismograph_04"
+    },
+    {
+      "predicate": {
+        "tremor:angle": 0.28125
+      },
+      "model": "tremor:item/seismograph_05"
+    },
+    {
+      "predicate": {
+        "tremor:angle": 0.34375
+      },
+      "model": "tremor:item/seismograph_06"
+    },
+    {
+      "predicate": {
+        "tremor:angle": 0.40625
+      },
+      "model": "tremor:item/seismograph_07"
+    },
+    {
+      "predicate": {
+        "tremor:angle": 0.46875
+      },
+      "model": "tremor:item/seismograph_08"
+    },
+    {
+      "predicate": {
+        "tremor:angle": 0.53125
+      },
+      "model": "tremor:item/seismograph_09"
+    },
+    {
+      "predicate": {
+        "tremor:angle": 0.59375
+      },
+      "model": "tremor:item/seismograph_10"
+    },
+    {
+      "predicate": {
+        "tremor:angle": 0.65625
+      },
+      "model": "tremor:item/seismograph_11"
+    },
+    {
+      "predicate": {
+        "tremor:angle": 0.71875
+      },
+      "model": "tremor:item/seismograph_12"
+    },
+    {
+      "predicate": {
+        "tremor:angle": 0.78125
+      },
+      "model": "tremor:item/seismograph_13"
+    },
+    {
+      "predicate": {
+        "tremor:angle": 0.84375
+      },
+      "model": "tremor:item/seismograph_14"
+    },
+    {
+      "predicate": {
+        "tremor:angle": 0.90625
+      },
+      "model": "tremor:item/seismograph_15"
+    },
+    {
+      "predicate": {
+        "tremor:angle": 0.96875
+      },
+      "model": "tremor:item/seismograph_00"
+    }
+  ]
+}

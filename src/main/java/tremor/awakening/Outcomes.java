@@ -18,6 +18,7 @@ import net.neoforged.neoforge.event.server.ServerStoppingEvent;
 import net.neoforged.neoforge.network.PacketDistributor;
 import net.neoforged.neoforge.server.ServerLifecycleHooks;
 import tremor.Tremor;
+import tremor.item.TremorItems;
 import tremor.config.TremorConfig;
 import tremor.core.math.Vec3;
 import tremor.hollow.HollowDimension;
@@ -161,8 +162,27 @@ public final class Outcomes {
             real.playSound(null, at.x, at.y, at.z, TremorSounds.RELEASE, SoundSource.HOSTILE, volume, 1);
         }
         AwakeningManager.victory(event);
+        reward(player, real, event.origin().position());
         Tremor.LOGGER.info("Outcome: {} destroyed the node, out at {}", name(player), text(event.origin().position()));
         return event;
+    }
+
+    /**
+     * The node's reward (SPEC 15, stage 5): {@code items.shardsMin}..{@code shardsMax} shards of the entity, into the
+     * victor's inventory (it goes out of the hollow with the player), or dropped at the swallow point if it is full.
+     */
+    private static void reward(ServerPlayer player, ServerLevel real, net.minecraft.world.phys.Vec3 at) {
+        int min = TremorConfig.COMMON.shardsMin.get();
+        int count = min + player.getRandom().nextInt(Math.max(0, TremorConfig.COMMON.shardsMax.get() - min) + 1);
+        if (count <= 0) {
+            return;
+        }
+        ItemStack shards = new ItemStack(TremorItems.SHARD.get(), count);
+        if (!player.getInventory().add(shards) && !shards.isEmpty() && real != null) {
+            ItemEntity dropped = new ItemEntity(real, at.x, at.y + 0.5, at.z, shards);
+            dropped.setUnlimitedLifetime();
+            real.addFreshEntity(dropped);
+        }
     }
 
     /**
