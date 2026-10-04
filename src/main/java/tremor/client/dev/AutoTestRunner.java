@@ -429,6 +429,13 @@ final class AutoTestRunner {
             if (player != null && h.keys.contains(Script.HoldKey.ATTACK)) {
                 mine(player);
             }
+            if (player != null && h.keys.contains(Script.HoldKey.DROP) && !h.dropped) {
+                // Held keys make no clicks: drop one of the held item once, as one press of the drop key does.
+                h.dropped = true;
+                if (player.drop(false)) {
+                    player.swing(net.minecraft.world.InteractionHand.MAIN_HAND);
+                }
+            }
             if (player != null && !h.keys.contains(Script.HoldKey.SPRINT)) {
                 suppressDoubleTapSprint(player);
                 if (player.isSprinting()) {
@@ -955,6 +962,7 @@ final class AutoTestRunner {
             case SNEAK -> options.keyShift;
             case SPRINT -> options.keySprint;
             case ATTACK -> options.keyAttack;
+            case DROP -> options.keyDrop;
         };
     }
 
@@ -1030,6 +1038,8 @@ final class AutoTestRunner {
         final int total;
         final Vec3 start;
         final HoldTally tally;
+        /** A held drop key has dropped its one item. */
+        boolean dropped;
 
         Hold(Script.Step step, Vec3 start) {
             this.label = step.text();

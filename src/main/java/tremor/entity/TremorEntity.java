@@ -53,6 +53,8 @@ public final class TremorEntity {
     private TargetKind targetKind;
     private Heard lastHeard;
     private boolean aiEnabled = true;
+    /** In a frenzy over a dropped shard ({@link Frenzy}): not saved, the brain idle, much faster and taller. */
+    private boolean frenzy;
     private boolean leaving;
     private boolean absorbed;
     private final DespawnClock despawnClock;
@@ -147,6 +149,15 @@ public final class TremorEntity {
      * a debug switch for scripted tests), it only obeys {@code /tremor goto} and {@code /tremor stop}; anger, stages,
      * contact and despawning still run.
      */
+    /** Whether it is in a frenzy over a dropped shard ({@link Frenzy}); not saved. */
+    public boolean frenzy() {
+        return frenzy;
+    }
+
+    public void setFrenzy(boolean frenzy) {
+        this.frenzy = frenzy;
+    }
+
     public boolean aiEnabled() {
         return aiEnabled;
     }

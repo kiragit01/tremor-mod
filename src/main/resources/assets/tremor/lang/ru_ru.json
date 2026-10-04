@@ -1,4 +1,8 @@
 {
+  "tremor.configuration.items.frenzySpeedFactor": "Скорость в бешенстве (x охоты)",
+  "tremor.configuration.items.frenzyAmplitudeFactor": "Высота бугра в бешенстве (x)",
+  "tremor.configuration.items.frenzyBuildupTicks": "Нарастание при бешенстве (тики)",
+  "tremor.configuration.items.frenzySeconds": "Бешенство стихает через (с)",
   "item.tremor.tremor_shard": "Осколок Тремора",
   "item.tremor.seismograph": "Сейсмограф",
   "block.tremor.geophone": "Геофон",

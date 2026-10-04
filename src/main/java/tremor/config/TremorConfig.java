@@ -64,6 +64,10 @@ public final class TremorConfig {
         public final ModConfigSpec.DoubleValue muffledStepsFactor;
         public final ModConfigSpec.IntValue shardsMin;
         public final ModConfigSpec.IntValue shardsMax;
+        public final ModConfigSpec.DoubleValue frenzySpeedFactor;
+        public final ModConfigSpec.DoubleValue frenzyAmplitudeFactor;
+        public final ModConfigSpec.IntValue frenzyBuildupTicks;
+        public final ModConfigSpec.IntValue frenzySeconds;
         public final ModConfigSpec.DoubleValue waterFactor;
         public final ModConfigSpec.DoubleValue rustlingFactor;
         public final ModConfigSpec.DoubleValue conductivityInsulating;
@@ -361,6 +365,17 @@ public final class TremorConfig {
                     .translation(KEY + "items.shardsMin").defineInRange("shardsMin", 1, 0, 64);
             shardsMax = b.comment("...and at most")
                     .translation(KEY + "items.shardsMax").defineInRange("shardsMax", 2, 0, 64);
+            frenzySpeedFactor = b.comment("A dropped shard drives the entity into a frenzy: it rushes to the shard, takes",
+                            "it in and rushes on to whoever dropped it. Its speed is this many times its HUNTING speed...")
+                    .translation(KEY + "items.frenzySpeedFactor").defineInRange("frenzySpeedFactor", 3.0, 1.0, 10.0);
+            frenzyAmplitudeFactor = b.comment("...and its bump this many times taller")
+                    .translation(KEY + "items.frenzyAmplitudeFactor")
+                    .defineInRange("frenzyAmplitudeFactor", 1.7, 1.0, 5.0);
+            frenzyBuildupTicks = b.comment("When it reaches that player an Awakening starts with a build-up of only this",
+                            "many ticks (no running from it)")
+                    .translation(KEY + "items.frenzyBuildupTicks").defineInRange("frenzyBuildupTicks", 20, 1, 600);
+            frenzySeconds = b.comment("A frenzy that has not reached the player in this long dies down (seconds)")
+                    .translation(KEY + "items.frenzySeconds").defineInRange("frenzySeconds", 90, 5, 3600);
             b.pop();
 
             spawn = new Spawn(b);

@@ -1,0 +1,41 @@
+# Stage 5: the frenzy over a dropped shard. The player throws a shard on the sky platform; an entity rises some 24
+# blocks away, rushes to the shard (fast, tall), takes it in, rushes on after the player, who sprints away, and an
+# Awakening starts the moment it reaches them (a build-up too short to run from).
+# Run: gradlew runClientAutotest -Ptremor_autotest_script=stage5-frenzy.txt
+waitchunks
+cmd gamemode spectator
+cmd time set noon
+cmd tremor despawn
+cmd tremor awaken stop
+cmd tp @s 300.5 201.0 300.5 90 20
+wait 40
+waitchunks
+cmd fill 240 198 240 360 200 360 minecraft:stone
+cmd fill 240 201 240 360 206 360 minecraft:air
+cmd kill @e[type=!player]
+cmd gamemode survival
+cmd effect clear @s
+cmd clear @s
+cmd item replace entity @s weapon.mainhand with tremor:tremor_shard 1
+config awakening.craterRadius 0
+config awakening.lethal false
+hud on
+log --- throw the shard
+hold drop 2
+wait 10
+cmd tremor info
+screenshot 10_thrown
+wait 20
+screenshot 11_rushing
+cmd tremor info
+wait 30
+cmd tremor info
+cmd execute if entity @e[type=item,distance=..12]
+screenshot 12_after_take
+log --- run
+hold back+sprint 60
+cmd tremor info
+cmd tremor awaken stop
+wait 40
+cmd data get entity @s Dimension
+quit

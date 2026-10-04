@@ -20,7 +20,9 @@ import java.util.List;
  *     runs ({@link AwakeningShape#breathAmplitude}); every step sends a ring ({@link AwakeningShape#stepRipple});</li>
  *     <li>SWALLOWING: the breathing stays at its full height and the rings go on, and the hill rises at the focus
  *     ({@link AwakeningShape#hillPeak});</li>
- *     <li>HOLLOW: nothing; for everyone left behind the ground is smooth at once, as if nobody had been there;</li>
+ *     <li>HOLLOW: for everyone left behind the hill that took the player and the ground settle back to smooth over
+ *     {@link AwakeningParams#releaseSeconds}, as after an escape, and then nothing is left, as if nobody had been
+ *     there;</li>
  *     <li>EMERGING and SETTLING (after a victory in the hollow, SPEC 9 "Победа"): the hill rises at the focus once
  *     more, quickly, with a ring bursting out from under it ({@link AwakeningShape#emergeRise}), to the height and the
  *     shape of the hill of the last frame of the swallowing, stands while the player is put into it, then settles
@@ -73,6 +75,10 @@ public final class AwakeningGround {
             return emerging(emerging, gameTime);
         }
         TremorAwakeningPayload state = ClientAwakening.state();
+        if (state != null && state.phase() == Phase.HOLLOW && last != null && last.id() == state.id()) {
+            // The player was taken: for everyone left behind the hill and the ground settle back to smooth.
+            state = null;
+        }
         double release = 1;
         List<ClientAwakening.StepRipple> ripples;
         if (state != null) {

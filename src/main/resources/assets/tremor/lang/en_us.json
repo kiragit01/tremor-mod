@@ -1,4 +1,8 @@
 {
+  "tremor.configuration.items.frenzySpeedFactor": "Frenzy speed (x hunting)",
+  "tremor.configuration.items.frenzyAmplitudeFactor": "Frenzy bump height (x)",
+  "tremor.configuration.items.frenzyBuildupTicks": "Frenzy build-up (ticks)",
+  "tremor.configuration.items.frenzySeconds": "Frenzy dies down after (s)",
   "item.tremor.tremor_shard": "Tremor Shard",
   "item.tremor.seismograph": "Seismograph",
   "block.tremor.geophone": "Geophone",

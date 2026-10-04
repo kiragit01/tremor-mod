@@ -484,9 +484,27 @@ public final class AwakeningManager {
      * or a sound that topped its anger); not twice at once, which would sound as one doubled.
      */
     private static Awakening start(ServerLevel level, ServerPlayer target, boolean natural) {
+        return start(level, target, natural, TremorConfig.COMMON.awakening.buildupSeconds.get() * 20);
+    }
+
+    /**
+     * The frenzy over a dropped shard reached the player who dropped it ({@code tremor.entity.Frenzy}): an Awakening
+     * starts for them with a build-up of only {@code items.frenzyBuildupTicks}, there is no running from it. False if
+     * it cannot start (the target dead, a spectator, in the hollow, or an Awakening already runs in the level).
+     */
+    public static boolean frenzy(ServerPlayer target) {
+        ServerLevel level = target.serverLevel();
+        if (!target.isAlive() || target.isSpectator() || HollowManager.event(target) != null
+                || HollowDimension.is(level) || running(level) != null) {
+            return false;
+        }
+        start(level, target, false, Math.max(1, TremorConfig.COMMON.frenzyBuildupTicks.get()));
+        return true;
+    }
+
+    private static Awakening start(ServerLevel level, ServerPlayer target, boolean natural, int buildupTicks) {
         TremorConfig.Awakening config = TremorConfig.COMMON.awakening;
-        Awakening awakening = new Awakening(nextId++, level, target, natural, config.radius.get(),
-                config.buildupSeconds.get() * 20);
+        Awakening awakening = new Awakening(nextId++, level, target, natural, config.radius.get(), buildupTicks);
         state(level, true).awakening = awakening;
         TremorRuntime runtime = TremorManager.runtime(level);
         boolean entity = runtime != null && runtime.entity() != null;

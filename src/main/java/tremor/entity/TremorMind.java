@@ -195,6 +195,9 @@ final class TremorMind {
         }
         heardSinceTick = true;
         addAnger(anger);
+        if (entity.frenzy()) {
+            return "frenzy";
+        }
         if (!entity.aiEnabled()) {
             return "ai off";
         }
@@ -238,7 +241,7 @@ final class TremorMind {
             meter.tick(TremorRuntime.TICK_SECONDS, secondsSinceHeard(now));
         }
         settle(before);
-        if (!entity.aiEnabled()) {
+        if (!entity.aiEnabled() || entity.frenzy()) {
             return;
         }
         boolean manual = entity.targetKind() == TremorEntity.TargetKind.MANUAL;
@@ -269,7 +272,14 @@ final class TremorMind {
         Stage stage = meter.stage();
         double amplitude = entity.leaving() || entity.absorbed() ? 0
                 : base.amplitude() * TremorConfig.COMMON.amplitudeFactor(stage);
-        return new MotionParams(base.maxSpeed() * TremorConfig.COMMON.speedFactor(stage), base.acceleration(),
+        double speed = base.maxSpeed() * TremorConfig.COMMON.speedFactor(stage);
+        double acceleration = base.acceleration();
+        if (entity.frenzy()) {
+            amplitude *= TremorConfig.COMMON.frenzyAmplitudeFactor.getAsDouble();
+            speed *= TremorConfig.COMMON.frenzySpeedFactor.getAsDouble();
+            acceleration *= TremorConfig.COMMON.frenzySpeedFactor.getAsDouble();
+        }
+        return new MotionParams(speed, acceleration,
                 base.normalSmoothingSeconds(), amplitude, base.amplitudeSmoothingSeconds());
     }
 
@@ -432,6 +442,9 @@ final class TremorMind {
         }
         if (entity.leaving()) {
             return "leaving";
+        }
+        if (entity.frenzy()) {
+            return "frenzy: going for the shard or for whoever dropped it";
         }
         if (!entity.aiEnabled()) {
             return "ai off" + seekingState();
