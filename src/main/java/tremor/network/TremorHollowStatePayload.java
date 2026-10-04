@@ -21,10 +21,13 @@ import tremor.core.math.Vec3;
  * @param node        position of the node ({@code tremor:heart_node}), or null while there is none
  * @param beatTicks   game ticks between two beats of the node (its pulse quickens as the hollow closes)
  * @param sink        how deep the soft ground has pulled the player in, 0 (free) .. 1 (fully pulled in)
+ * @param breath      the air the player has left in the hollow, 1 (on arrival) .. 0 (out of air: the defeat);
+ *                    1 for a hollow without the limit
  * @param gameTime    level game time of this state
  */
 public record TremorHollowStatePayload(int event, boolean active, Vec3 center, float boxRadius, float closeRadius,
-                                       BlockPos node, int beatTicks, float sink, long gameTime)
+                                       BlockPos node, int beatTicks, float sink, float breath,
+                                       long gameTime)
         implements CustomPacketPayload {
 
     public static final Type<TremorHollowStatePayload> TYPE =
@@ -35,7 +38,7 @@ public record TremorHollowStatePayload(int event, boolean active, Vec3 center, f
 
     /** The player has left the hollow of {@code event}. */
     public static TremorHollowStatePayload inactive(int event, long gameTime) {
-        return new TremorHollowStatePayload(event, false, Vec3.ZERO, 0, 0, null, 0, 0, gameTime);
+        return new TremorHollowStatePayload(event, false, Vec3.ZERO, 0, 0, null, 0, 0, 1, gameTime);
     }
 
     private void write(FriendlyByteBuf buf) {
@@ -56,6 +59,7 @@ public record TremorHollowStatePayload(int event, boolean active, Vec3 center, f
         }
         buf.writeVarInt(beatTicks);
         buf.writeFloat(sink);
+        buf.writeFloat(breath);
     }
 
     private static TremorHollowStatePayload read(FriendlyByteBuf buf) {
@@ -71,8 +75,9 @@ public record TremorHollowStatePayload(int event, boolean active, Vec3 center, f
         BlockPos node = buf.readBoolean() ? buf.readBlockPos() : null;
         int beatTicks = buf.readVarInt();
         float sink = buf.readFloat();
+        float breath = buf.readFloat();
         return new TremorHollowStatePayload(event, true, center, boxRadius, closeRadius, node, beatTicks, sink,
-                gameTime);
+                breath, gameTime);
     }
 
     @Override

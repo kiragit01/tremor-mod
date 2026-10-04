@@ -390,6 +390,15 @@ final class TremorMind {
     }
 
     /**
+     * Whether the entity listens hard: ALERT and frozen toward a sound it heard ({@link Brain#frozen}), its ring of
+     * ripples running out. Vibrations meanwhile reach it {@code behavior.alertListenFactor} times louder: whoever
+     * moves while the ring passes gives themselves away.
+     */
+    boolean listening() {
+        return brain != null && entity.aiEnabled() && entity.stage() == Stage.ALERT && brain.frozen();
+    }
+
+    /**
      * Whether the entity made the sound of rising to AWAKENING (SPEC 13) at most {@value #AWAKEN_SOUND_TICKS} ticks
      * before game time {@code now} (by itself, by a command, or as an Awakening took it): an Awakening that starts now
      * makes no sound of its own.

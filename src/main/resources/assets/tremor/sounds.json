@@ -24,7 +24,7 @@
   "entity.tremor.rustle": {
     "subtitle": "subtitles.tremor.rustle",
     "sounds": [
-      {"name": "minecraft:minecart/base", "attenuation_distance": 20}
+      {"name": "minecraft:minecart/base", "attenuation_distance": 40}
     ]
   },
   "entity.tremor.strike": {

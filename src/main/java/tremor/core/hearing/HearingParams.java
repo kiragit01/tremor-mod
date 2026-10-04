@@ -16,6 +16,6 @@ public record HearingParams(double threshold, double maxDistance, double sampleS
     }
 
     public static HearingParams defaults() {
-        return new HearingParams(0.1, 64, 0.5, 0.01);
+        return new HearingParams(0.05, 96, 0.5, 0.01);
     }
 }

@@ -22,6 +22,7 @@ public final class TremorClient {
 
         modBus.addListener(DeformationRenderer::onModelBakingCompleted);
         modBus.addListener(tremor.client.hollow.SinkOverlay::onRegisterGuiLayers);
+        modBus.addListener(tremor.client.hollow.BreathBar::onRegisterGuiLayers);
         modBus.addListener(tremor.client.hollow.HollowSky::onRegisterDimensionEffects);
 
         IEventBus game = NeoForge.EVENT_BUS;

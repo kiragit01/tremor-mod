@@ -157,6 +157,8 @@ final class EventLevel {
 
     private long sentTick = Long.MIN_VALUE / 2;
     private float sentSink;
+    /** {@link #breath} last sent. */
+    private float sentBreath = 1;
     private int sentBeat;
     private BlockPos sentNode;
     private long workNanos;
@@ -451,6 +453,11 @@ final class EventLevel {
             Outcomes.defeat(player);
             return;
         }
+        if (breath() <= 0) {
+            decided(player, "ran out of air");
+            Outcomes.defeat(player);
+            return;
+        }
         int shiftTicks = Math.max(1, ticks(config.wallShiftSeconds.get()));
         if (config.wallShifts.get() > 0 && ticks % shiftTicks == 0) {
             walls.shift(hollow, this, at.add(0, player.getBbHeight() / 2, 0), schedule.radius(),
@@ -660,21 +667,34 @@ final class EventLevel {
         }
     }
 
+    /**
+     * The air the player has left (SPEC 9: under the ground the player suffocates): 1 on arrival, down to 0 over
+     * {@code hollow.level.breathSeconds} of play inside, whatever the player eats or drinks; at 0 the ground takes the
+     * player (the defeat). Always 1 with the limit off (0).
+     */
+    double breath() {
+        double seconds = TremorConfig.COMMON.hollow.level.breathSeconds.get();
+        return seconds <= 0 ? 1 : Math.max(0, 1 - ticks / (seconds * 20));
+    }
+
     /** Sends the state when it is due ({@code force}: now). */
     private void sync(ServerPlayer player, boolean force) {
         BlockPos shown = nodeBroken ? null : node;
         float sink = (float) mire.sink();
         int beat = schedule.beatTicks();
+        float breath = (float) breath();
         long since = ticks - sentTick;
         if (!force && since < SYNC_TICKS && Objects.equals(shown, sentNode) && beat == sentBeat
-                && (since < SINK_SYNC_TICKS || Math.abs(sink - sentSink) < SINK_STEP)) {
+                && (since < SINK_SYNC_TICKS || Math.abs(sink - sentSink) < SINK_STEP)
+                && Math.ceil(breath * 10) == Math.ceil(sentBreath * 10)) {
             return;
         }
         PacketDistributor.sendToPlayer(player, new TremorHollowStatePayload(id, true,
                 new tremor.core.math.Vec3(centreX, centreY, centreZ), (float) boxRadius, (float) schedule.radius(),
-                shown, beat, sink, hollow.getGameTime()));
+                shown, beat, sink, breath, hollow.getGameTime()));
         sentTick = ticks;
         sentSink = sink;
+        sentBreath = breath;
         sentBeat = beat;
         sentNode = shown;
     }

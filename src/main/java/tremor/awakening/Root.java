@@ -65,8 +65,14 @@ final class Root {
     private static final List<Holder<Attribute>> ATTRIBUTES = List.of(Attributes.MOVEMENT_SPEED,
             Attributes.JUMP_STRENGTH);
 
+    /** Id of the drag of the build-up ({@link #drag}), apart from the root's own modifiers. */
+    private static final ResourceLocation DRAG_ID = ResourceLocation.fromNamespaceAndPath(Tremor.MODID,
+            "awakening_drag");
+
     /** Between {@link #start} and {@link #release}. */
     private boolean rooted;
+    /** The player the build-up drags ({@link #drag}), until {@link #release}; null if none. */
+    private ServerPlayer dragged;
     /** The rooted player (the object {@link #start} was given), until {@link #release}. */
     private ServerPlayer player;
     /** What is held: the player, or the vehicle the player is kept on; null before the first {@link #hold}. */
@@ -154,6 +160,10 @@ final class Root {
      * neither saved nor carried over to the respawned player).
      */
     void release() {
+        if (dragged != null) {
+            modify(dragged, DRAG_ID, null);
+            dragged = null;
+        }
         if (!rooted) {
             return;
         }
@@ -224,6 +234,37 @@ final class Root {
     }
 
     /** Adds or removes the modifiers that bring the movement speed and the jump strength of a living entity to 0. */
+    /**
+     * The ground of the build-up grabs at the target's feet (SPEC 9 phase 1): its movement speed and jump strength are
+     * cut by {@code share} (0..1) of their total, by transient modifiers apart from the root's, until {@link #release}.
+     * Called every tick of the build-up with a growing share.
+     */
+    void drag(ServerPlayer player, double share) {
+        if (dragged != null && dragged != player) {
+            modify(dragged, DRAG_ID, null);
+        }
+        dragged = player;
+        modify(player, DRAG_ID, new AttributeModifier(DRAG_ID, -Mth.clamp(share, 0, 1),
+                AttributeModifier.Operation.ADD_MULTIPLIED_TOTAL));
+    }
+
+    /** Puts {@code modifier} (with {@code id}) on the movement speed and jump strength of {@code entity}; null removes. */
+    private static void modify(Entity entity, ResourceLocation id, AttributeModifier modifier) {
+        if (!(entity instanceof LivingEntity living)) {
+            return;
+        }
+        for (Holder<Attribute> attribute : ATTRIBUTES) {
+            AttributeInstance instance = living.getAttribute(attribute);
+            if (instance != null) {
+                if (modifier != null) {
+                    instance.addOrUpdateTransientModifier(modifier);
+                } else {
+                    instance.removeModifier(id);
+                }
+            }
+        }
+    }
+
     private static void still(Entity entity, boolean on) {
         if (!(entity instanceof LivingEntity living)) {
             return;

@@ -502,6 +502,8 @@ final class Awakening {
                     targetName, AwakeningRules.horizontalDistance(center, at)));
             return;
         }
+        root.drag(player, TremorConfig.COMMON.awakening.buildupDrag.get()
+                * Math.min(1, clock.elapsed(now) / (double) Math.max(1, clock.ticks())));
         if (clock.elapsed(now) >= AwakeningRules.darknessStart(clock.ticks())) {
             darken(player);
         }

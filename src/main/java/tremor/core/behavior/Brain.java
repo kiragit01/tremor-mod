@@ -188,6 +188,14 @@ public final class Brain {
         };
     }
 
+    /**
+     * Whether the brain stands frozen, turned toward a sound it heard while ALERT (the ring of ripples runs out from
+     * it then): it listens harder meanwhile ({@code behavior.alertListenFactor}).
+     */
+    public boolean frozen() {
+        return mode == Mode.FREEZE;
+    }
+
     /** Position of the last heard sound (whatever the stage did with it); null if nothing was heard yet. */
     public Vec3 lastHeard() {
         return lastHeard;

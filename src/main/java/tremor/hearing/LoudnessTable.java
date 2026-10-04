@@ -16,8 +16,8 @@ public final class LoudnessTable {
     public static final double MAX = 1000;
 
     public static final List<String> DEFAULTS = List.of(
-            "minecraft:step=2",
-            "minecraft:hit_ground=5",
+            "minecraft:step=3",
+            "minecraft:hit_ground=8",
             "minecraft:block_destroy=6",
             "minecraft:block_place=4",
             "minecraft:projectile_land=4",

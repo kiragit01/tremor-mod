@@ -78,6 +78,7 @@ public final class TremorConfig {
         public final ModConfigSpec.DoubleValue quietDecayFactor;
         public final ModConfigSpec.DoubleValue dormantReactLoudness;
         public final ModConfigSpec.DoubleValue alertFreezeSeconds;
+        public final ModConfigSpec.DoubleValue alertListenFactor;
         public final ModConfigSpec.DoubleValue alertLoseInterestSeconds;
         public final ModConfigSpec.DoubleValue huntSearchRadius;
         public final ModConfigSpec.DoubleValue huntSearchSeconds;
@@ -184,7 +185,7 @@ public final class TremorConfig {
                             LoudnessTable::isValid);
             sprintStepLoudness = b.comment("Loudness of a sprinting player's step (replaces the step loudness)")
                     .translation(KEY + "hearing.sprintStepLoudness")
-                    .defineInRange("sprintStepLoudness", 4.0, 0.0, 1000.0);
+                    .defineInRange("sprintStepLoudness", 8.0, 0.0, 1000.0);
             mountStepLoudness = b.comment("Loudness of a step of a mount ridden by a player, and of a moving minecart")
                     .translation(KEY + "hearing.mountStepLoudness")
                     .defineInRange("mountStepLoudness", 6.0, 0.0, 1000.0);
@@ -248,6 +249,10 @@ public final class TremorConfig {
                             "then creeps toward it")
                     .translation(KEY + "behavior.alertFreezeSeconds")
                     .defineInRange("alertFreezeSeconds", bp.alertFreezeSeconds(), 0.0, 60.0);
+            alertListenFactor = b.comment("While it stands frozen (its ring of ripples running out), vibrations reach",
+                            "it this many times louder: whoever moves then gives themselves away")
+                    .translation(KEY + "behavior.alertListenFactor")
+                    .defineInRange("alertListenFactor", 3.0, 1.0, 20.0);
             alertLoseInterestSeconds = b.comment("An ALERT entity that hears nothing for this long wanders again")
                     .translation(KEY + "behavior.alertLoseInterestSeconds")
                     .defineInRange("alertLoseInterestSeconds", bp.alertLoseInterestSeconds(), 0.0, 600.0);
@@ -529,6 +534,7 @@ public final class TremorConfig {
         public final ModConfigSpec.IntValue wallShifts;
         public final ModConfigSpec.DoubleValue stillSeconds;
         public final ModConfigSpec.DoubleValue sinkSeconds;
+        public final ModConfigSpec.DoubleValue breathSeconds;
         public final ModConfigSpec.DoubleValue recoverSeconds;
         public final ModConfigSpec.IntValue beatSlowTicks;
         public final ModConfigSpec.IntValue beatFastTicks;
@@ -596,6 +602,9 @@ public final class TremorConfig {
             sinkSeconds = b.comment("How long the softening takes to pull a player who keeps standing on it in over",
                             "the eyes: the defeat (seconds)")
                     .translation(KEY + "hollow.level.sinkSeconds").defineInRange("sinkSeconds", 10.0, 1.0, 120.0);
+            breathSeconds = b.comment("Air the player has inside the hollow (seconds; 0 = no limit): it runs out whatever the",
+                            "player eats or drinks, shown as bubbles; out of air, the ground takes the player (the defeat)")
+                    .translation(KEY + "hollow.level.breathSeconds").defineInRange("breathSeconds", 75.0, 0.0, 600.0);
             recoverSeconds = b.comment("Soft ground sets again this long after the player got off it (seconds)")
                     .translation(KEY + "hollow.level.recoverSeconds")
                     .defineInRange("recoverSeconds", 4.0, 0.5, 120.0);
@@ -619,6 +628,7 @@ public final class TremorConfig {
         public final ModConfigSpec.DoubleValue searchRadius;
         public final ModConfigSpec.DoubleValue radius;
         public final ModConfigSpec.IntValue buildupSeconds;
+        public final ModConfigSpec.DoubleValue buildupDrag;
         public final ModConfigSpec.IntValue swallowTicks;
         public final ModConfigSpec.IntValue cooldownSeconds;
         public final ModConfigSpec.IntValue emergeTicks;
@@ -651,9 +661,12 @@ public final class TremorConfig {
                     .translation(KEY + "awakening.searchRadius")
                     .defineInRange("searchRadius", BehaviorParams.defaults().seekSearchRadius(), 0.0, 64.0);
             radius = b.comment("Radius of the zone (blocks, horizontally) around where the player stood at the start")
-                    .translation(KEY + "awakening.radius").defineInRange("radius", 30.0, 4.0, 128.0);
+                    .translation(KEY + "awakening.radius").defineInRange("radius", 24.0, 4.0, 128.0);
             buildupSeconds = b.comment("Time to get out of the zone before it closes (seconds); the last third is dark")
-                    .translation(KEY + "awakening.buildupSeconds").defineInRange("buildupSeconds", 30, 1, 600);
+                    .translation(KEY + "awakening.buildupSeconds").defineInRange("buildupSeconds", 8, 1, 600);
+            buildupDrag = b.comment("The ground grabs at the target's feet during the build-up: its movement speed and jump",
+                            "strength are cut by up to this share, growing from 0 at the start to it at the end")
+                    .translation(KEY + "awakening.buildupDrag").defineInRange("buildupDrag", 0.6, 0.0, 1.0);
             swallowTicks = b.comment("How long the hill rises under the rooted player before the screen goes dark",
                             "(ticks)")
                     .translation(KEY + "awakening.swallowTicks").defineInRange("swallowTicks", 50, 1, 600);

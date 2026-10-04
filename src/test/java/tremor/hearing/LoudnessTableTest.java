@@ -14,7 +14,7 @@ class LoudnessTableTest {
     @Test
     void defaultsMatchTheSpecTable() {
         Map<String, Double> table = LoudnessTable.parse(LoudnessTable.DEFAULTS);
-        assertEquals(Map.of("minecraft:step", 2.0, "minecraft:hit_ground", 5.0, "minecraft:block_destroy", 6.0,
+        assertEquals(Map.of("minecraft:step", 3.0, "minecraft:hit_ground", 8.0, "minecraft:block_destroy", 6.0,
                 "minecraft:block_place", 4.0, "minecraft:projectile_land", 4.0, "minecraft:explode", 20.0), table);
         LoudnessTable.DEFAULTS.forEach(entry -> assertTrue(LoudnessTable.isValid(entry), entry));
     }

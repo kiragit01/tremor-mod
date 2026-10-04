@@ -19,7 +19,7 @@ import tremor.sound.TremorSounds;
  * The rustle of the ground under the moving bump (SPEC 13): a looping sound at the interpolated bump centre of the
  * entity in the current level ({@link ClientTremor#presence()}), its volume and pitch following the bump's speed,
  * height and stage ({@link RustleTone}), eased so that they never jump. It is heard only within the attenuation
- * distance of the sound event (assets/tremor/sounds.json: 20 blocks); the sound engine stretches that distance by a
+ * distance of the sound event (assets/tremor/sounds.json: 40 blocks); the sound engine stretches that distance by a
  * volume above 1 at the start, so every sound starts silent and fades in.
  * <p>
  * {@link #onClientTick} starts one once the rustle of the entity becomes audible (it starts moving, surfaces, or

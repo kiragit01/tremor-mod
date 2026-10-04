@@ -446,6 +446,9 @@ public final class TremorRuntime {
         }
         double perceived = Hearing.perceived(view, vibration.source(), listener, vibration.loudness(),
                 vibration.footing(), vibration.foliage(view), params);
+        if (mind(entity).listening()) {
+            perceived *= TremorConfig.COMMON.alertListenFactor.getAsDouble();
+        }
         Stage stage = entity.stage();
         if (!(perceived >= params.threshold())) {
             return new Perception(listener, distance, perceived, false, 0, entity.anger(), stage, stage, null);
