@@ -103,6 +103,8 @@ final class EventLevel {
     private final HollowBox box;
     private final double centreX;
     private final double centreY;
+    /** A nightmare hollow ({@link tremor.hollow.Nightmare}): far harder, no way out by the edge. */
+    private final boolean nightmare;
     private final double centreZ;
     /** Horizontal radius of the copy: the edge. */
     private final double boxRadius;
@@ -168,6 +170,7 @@ final class EventLevel {
         this.hollow = hollow;
         this.event = event;
         this.id = id;
+        nightmare = tremor.hollow.Nightmare.is(event.player());
         box = event.hollowBox();
         centreX = (box.minX() + box.maxX() + 1) / 2.0;
         centreZ = (box.minZ() + box.maxZ() + 1) / 2.0;
@@ -261,8 +264,9 @@ final class EventLevel {
             widened = true;
             caveSize = size(cave.carve());
         }
-        minLength = config.nodeMinDistance.get();
-        maxLength = Math.max(minLength, config.nodeMaxDistance.get());
+        double far = nightmare ? tremor.hollow.Nightmare.NODE_FACTOR : 1;
+        minLength = (int) Math.round(config.nodeMinDistance.get() * far);
+        maxLength = Math.max(minLength, (int) Math.round(config.nodeMaxDistance.get() * far));
         planner = new WayPlanner(grid, region, start.getX(), start.getY(), start.getZ(), new WayPlanner.Params(
                 minLength, maxLength, config.nodeMinStraight.get(), config.minDeadEnds.get(),
                 Math.max(config.minDeadEnds.get(), config.maxDeadEnds.get())), seed + 1);
@@ -349,14 +353,16 @@ final class EventLevel {
         light.clear();
         TremorConfig.HollowLevel config = TremorConfig.COMMON.hollow.level;
         double edge = boxRadius - 1;
-        schedule = new ClosingSchedule(new ClosingSchedule.Params(config.graceSeconds.get() * 20, edge,
-                config.minRadius.get(), config.closeSpeed.get(), config.noiseFactor.get(), config.noiseSeconds.get(),
+        schedule = new ClosingSchedule(new ClosingSchedule.Params(nightmare ? 0 : config.graceSeconds.get() * 20, edge,
+                config.minRadius.get(), config.closeSpeed.get() * (nightmare ? tremor.hollow.Nightmare.CLOSE_FACTOR : 1),
+                config.noiseFactor.get(), config.noiseSeconds.get(),
                 ticks(config.lurePauseSeconds.get()), ticks(config.lureCooldownSeconds.get()),
                 config.lureMinDistance.get(), config.beatSlowTicks.get(), config.beatFastTicks.get()));
         closer = new Closer(new ClosingOrder(box.minX(), box.minZ(), box.maxX(), box.maxZ(), centreX, centreZ, edge,
                 FRONT_WOBBLE, seed), box.minY(), box.maxY(), centreX, centreY, centreZ, seed);
-        int sinkTicks = ticks(config.sinkSeconds.get());
-        mire = new Mire(new SinkTracker.Params(ticks(config.stillSeconds.get()), STILL_DISTANCE,
+        int sinkTicks = ticks(nightmare ? tremor.hollow.Nightmare.SINK_SECONDS : config.sinkSeconds.get());
+        mire = new Mire(new SinkTracker.Params(ticks(nightmare ? tremor.hollow.Nightmare.STILL_SECONDS
+                : config.stillSeconds.get()), STILL_DISTANCE,
                 SINK_DEPTH / sinkTicks, SINK_DEPTH), ticks(config.recoverSeconds.get()));
         stage = Stage.READY;
         Tremor.LOGGER.info("Hollow level: {} ready in {} ms of server time over {} ticks (reading {} ms, widening {} "
@@ -440,6 +446,11 @@ final class EventLevel {
         schedule.tick();
         Vec3 at = player.position();
         String out = out(at);
+        if (out != null && nightmare) {
+            decided(player, out + ", but a nightmare has no way out");
+            Outcomes.defeat(player);
+            return;
+        }
         if (out != null) {
             decided(player, out);
             Outcomes.edgeEscape(player, new tremor.core.math.Vec3(at.x, at.y, at.z));
@@ -673,7 +684,8 @@ final class EventLevel {
      * player (the defeat). Always 1 with the limit off (0).
      */
     double breath() {
-        double seconds = TremorConfig.COMMON.hollow.level.breathSeconds.get();
+        double seconds = nightmare ? tremor.hollow.Nightmare.SECONDS
+                : TremorConfig.COMMON.hollow.level.breathSeconds.get();
         return seconds <= 0 ? 1 : Math.max(0, 1 - ticks / (seconds * 20));
     }
 

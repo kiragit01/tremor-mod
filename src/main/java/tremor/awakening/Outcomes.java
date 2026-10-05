@@ -172,6 +172,10 @@ public final class Outcomes {
      * victor's inventory (it goes out of the hollow with the player), or dropped at the swallow point if it is full.
      */
     private static void reward(ServerPlayer player, ServerLevel real, net.minecraft.world.phys.Vec3 at) {
+        if (tremor.hollow.Nightmare.is(player.getUUID())) {
+            tremor.hollow.Nightmare.clear(player.getUUID());
+            return; // a nightmare gives nothing: getting out alive is all
+        }
         int min = TremorConfig.COMMON.shardsMin.get();
         int count = min + player.getRandom().nextInt(Math.max(0, TremorConfig.COMMON.shardsMax.get() - min) + 1);
         if (count <= 0) {
@@ -341,7 +345,15 @@ public final class Outcomes {
             Tremor.LOGGER.info("Outcome: {} is gone before the defeat took them", event.playerName());
             return;
         }
-        if (player.isAlive() && TremorConfig.COMMON.awakening.lethal.get()) {
+        boolean nightmare = tremor.hollow.Nightmare.is(player.getUUID());
+        if (nightmare) {
+            // A nightmare takes everything: nothing is left on the bottom of the crater.
+            tremor.hollow.Nightmare.clear(player.getUUID());
+            player.getInventory().clearContent();
+            player.setExperienceLevels(0);
+            player.setExperiencePoints(0);
+        }
+        if (player.isAlive() && (nightmare || TremorConfig.COMMON.awakening.lethal.get())) {
             player.hurt(new DamageSource(server.registryAccess().registryOrThrow(Registries.DAMAGE_TYPE)
                     .getHolderOrThrow(SWALLOWED)), AwakeningRules.pullDamage(player.getHealth(),
                     player.getAbsorptionAmount()));

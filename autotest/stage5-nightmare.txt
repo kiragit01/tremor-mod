@@ -1,0 +1,36 @@
+# Stage 5: the nightmare hollow. A dropped shard drives the entity into a frenzy; it takes the player into a nightmare
+# hollow (30 s, the node far, the closing fast, no way out by the edge). The player stands still and is pulled in:
+# the defeat kills, whatever the config says, and takes everything: no caches on the bottom of the crater.
+# Run: gradlew runClientAutotest -Ptremor_autotest_script=stage5-nightmare.txt
+waitchunks
+cmd gamemode spectator
+cmd time set noon
+cmd tremor despawn
+cmd tremor awaken stop
+cmd tp @s 300.5 201.0 300.5 90 20
+wait 40
+waitchunks
+cmd fill 240 176 240 360 200 360 minecraft:stone
+cmd fill 240 201 240 360 215 360 minecraft:air
+cmd kill @e[type=!player]
+cmd gamemode survival
+cmd effect clear @s
+cmd clear @s
+cmd give @s minecraft:diamond 9
+cmd give @s minecraft:iron_sword
+cmd item replace entity @s weapon.mainhand with tremor:tremor_shard 1
+config awakening.lethal false
+hud on
+hold drop 2
+wait 160
+waitchunks
+cmd data get entity @s Dimension
+cmd tremor hollow status
+screenshot 10_nightmare
+wait 200
+cmd tremor info
+wait 100
+cmd execute positioned 300 190 300 if block ~ ~ ~ minecraft:air
+cmd execute if entity @e[type=item]
+cmd clear @s minecraft:diamond 0
+quit

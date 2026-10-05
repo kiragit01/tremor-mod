@@ -498,6 +498,7 @@ public final class AwakeningManager {
                 || HollowDimension.is(level) || running(level) != null) {
             return false;
         }
+        tremor.hollow.Nightmare.mark(target.getUUID());
         start(level, target, false, Math.max(1, TremorConfig.COMMON.frenzyBuildupTicks.get()));
         return true;
     }

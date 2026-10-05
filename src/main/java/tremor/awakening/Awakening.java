@@ -422,6 +422,7 @@ final class Awakening {
      */
     void finish(End why, String detail) {
         over = true;
+        tremor.hollow.Nightmare.clear(target); // whatever came of it, the next hollow is an ordinary one
         long now = level.getGameTime();
         root.release();
         victor = null;
