@@ -1,0 +1,35 @@
+# Frames for the mod icon: the hunting mound crawling over grass straight at the camera, in daylight.
+# Run: gradlew runClientAutotest -Ptremor_autotest_script=icon-shots.txt
+waitchunks
+cmd gamemode spectator
+cmd tremor despawn
+cmd tremor awaken stop
+cmd tp @s 300.5 201.0 300.5 0 10
+wait 40
+waitchunks
+cmd fill 270 198 270 330 199 330 minecraft:dirt
+cmd fill 270 200 270 330 200 330 minecraft:grass_block
+cmd fill 270 201 270 330 210 330 minecraft:air
+cmd kill @e[type=!player]
+cmd time set 6000
+cmd weather clear
+cmd gamemode creative
+cmd effect clear @s
+cmd tp @s 300.5 201.4 293.5 0 14
+cmd tremor spawn 300 200 312
+cmd tremor ai off
+cmd tremor anger 75
+cmd tremor goto 300 200 296
+hud off
+wait 30
+screenshot 10_coming_a
+wait 10
+screenshot 11_coming_b
+wait 10
+screenshot 12_coming_c
+wait 10
+screenshot 13_coming_d
+wait 10
+screenshot 14_coming_e
+cmd tremor despawn
+quit

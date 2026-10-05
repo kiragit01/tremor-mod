@@ -7,7 +7,8 @@ import tremor.config.TremorConfig;
 
 /**
  * The hollow is the entity's body (SPEC 9), and it treats a player as such: nothing can be built in it (a block a
- * survival or adventure player places is refused, so nobody pillars up or walls in), a player in it is blind (the
+ * survival or adventure player places is refused, so nobody pillars up or walls in; torches, lanterns and candles,
+ * {@code #tremor:hollow_placeable}, may be set down), a player in it is blind (the
  * vanilla blindness, ambient, with no icon and no particles, renewed while inside and taken away on the way out; shader
  * packs know it, where they drop the fog of {@code tremor.client.hollow.HollowFog}), and
  * the ground of the hollow resists the pickaxe (SPEC 9: the hollow is the entity's body, not a place to dig out of):
@@ -22,10 +23,17 @@ public final class HollowDigging {
     /** Ticks of blindness given at a time; renewed while inside. */
     static final int BLIND_TICKS = 40;
 
-    /** A survival or adventure player places no block in the hollow. */
+    /** What may still be set down in the hollow: lights that nobody can climb on (torches, lanterns, candles). */
+    public static final net.minecraft.tags.TagKey<net.minecraft.world.level.block.Block> PLACEABLE =
+            net.minecraft.tags.TagKey.create(net.minecraft.core.registries.Registries.BLOCK,
+                    net.minecraft.resources.ResourceLocation.fromNamespaceAndPath(tremor.Tremor.MODID,
+                            "hollow_placeable"));
+
+    /** A survival or adventure player places no block in the hollow, but a light ({@link #PLACEABLE}). */
     public static void onPlace(net.neoforged.neoforge.event.level.BlockEvent.EntityPlaceEvent event) {
         if (event.getEntity() instanceof Player player && !player.isCreative() && !player.isSpectator()
-                && event.getLevel() instanceof net.minecraft.world.level.Level level && HollowDimension.is(level)) {
+                && event.getLevel() instanceof net.minecraft.world.level.Level level && HollowDimension.is(level)
+                && !event.getPlacedBlock().is(PLACEABLE)) {
             event.setCanceled(true);
         }
     }
