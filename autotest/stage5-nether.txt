@@ -1,0 +1,35 @@
+# Stage 5: the Nether. On a netherrack platform: the entity appears and hunts there; an Awakening takes the player
+# into the hollow (a copy of the Nether), and a victory brings them back out into the Nether.
+# Run: gradlew runClientAutotest -Ptremor_autotest_script=stage5-nether.txt
+waitchunks
+cmd gamemode spectator
+cmd execute in minecraft:the_nether run tp @s 0.5 110 0.5 0 20
+wait 60
+waitchunks
+cmd fill -16 100 -16 16 108 16 minecraft:netherrack
+cmd fill -16 109 -16 16 116 16 minecraft:air
+cmd tp @s 0.5 109 0.5 0 20
+cmd gamemode survival
+cmd effect clear @s
+cmd effect give @s minecraft:fire_resistance infinite 0 true
+cmd tremor spawn 10 108 0
+cmd tremor anger 70
+hud off
+wait 40
+screenshot 10_nether_hunting
+cmd tremor info
+cmd tremor despawn
+config awakening.buildupSeconds 3
+config awakening.craterRadius 0
+cmd tremor awaken
+wait 220
+waitchunks
+cmd data get entity @s Dimension
+cmd tremor hollow status
+cmd tremor hollow outcome victory
+wait 200
+waitchunks
+cmd data get entity @s Dimension
+cmd data get entity @s Pos
+screenshot 20_back_in_the_nether
+quit

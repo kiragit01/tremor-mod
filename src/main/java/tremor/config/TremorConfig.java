@@ -94,6 +94,8 @@ public final class TremorConfig {
         public final ModConfigSpec.DoubleValue dormantReactLoudness;
         public final ModConfigSpec.DoubleValue alertFreezeSeconds;
         public final ModConfigSpec.DoubleValue alertListenFactor;
+        public final ModConfigSpec.DoubleValue netherSpeedFactor;
+        public final ModConfigSpec.DoubleValue netherAngerFactor;
         public final ModConfigSpec.DoubleValue alertLoseInterestSeconds;
         public final ModConfigSpec.DoubleValue huntSearchRadius;
         public final ModConfigSpec.DoubleValue huntSearchSeconds;
@@ -309,6 +311,13 @@ public final class TremorConfig {
                             "warden roams (SPEC 5.6); none is drawn toward a player either way")
                     .translation(KEY + "behavior.wanderKeepAway")
                     .define("wanderKeepAway", bp.wanderKeepAway());
+            netherSpeedFactor = b.comment("In the Nether it is fiercer: its speed is this many times what the stage",
+                            "gives elsewhere...")
+                    .translation(KEY + "behavior.netherSpeedFactor")
+                    .defineInRange("netherSpeedFactor", 1.25, 0.1, 5.0);
+            netherAngerFactor = b.comment("...and a heard sound angers it this many times as much")
+                    .translation(KEY + "behavior.netherAngerFactor")
+                    .defineInRange("netherAngerFactor", 1.5, 0.1, 5.0);
             transitionVolume = b.comment("Volume of the stage change sounds; heard up to 16 blocks times this away")
                     .translation(KEY + "behavior.transitionVolume")
                     .defineInRange("transitionVolume", 3.0, 0.0, 16.0);
@@ -500,7 +509,8 @@ public final class TremorConfig {
                     .translation(KEY + "spawn.enabled").define("enabled", true);
             dimensions = b.comment("Dimensions it appears in, ids like minecraft:overworld")
                     .translation(KEY + "spawn.dimensions")
-                    .defineListAllowEmpty("dimensions", List.of("minecraft:overworld"), () -> "minecraft:overworld",
+                    .defineListAllowEmpty("dimensions", List.of("minecraft:overworld", "minecraft:the_nether"),
+                            () -> "minecraft:overworld",
                             Spawn::isDimensionId);
             checkIntervalSeconds = b.comment("Every player in such a dimension gets a spawn check this often",
                             "(seconds); the checks of different players are spread over this time")

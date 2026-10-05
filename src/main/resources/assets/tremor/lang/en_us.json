@@ -1,4 +1,6 @@
 {
+  "tremor.configuration.behavior.netherSpeedFactor": "Speed in the Nether (x)",
+  "tremor.configuration.behavior.netherAngerFactor": "Anger in the Nether (x)",
   "tremor.configuration.movement.leapDormant": "Leap across, dormant (blocks)",
   "tremor.configuration.movement.leapAlert": "Leap across, alert (blocks)",
   "tremor.configuration.movement.leapHunting": "Leap across, hunting (blocks)",

@@ -1,4 +1,6 @@
 {
+  "tremor.configuration.behavior.netherSpeedFactor": "Скорость в аду (x)",
+  "tremor.configuration.behavior.netherAngerFactor": "Злость в аду (x)",
   "tremor.configuration.movement.leapDormant": "Прыжок через воздух, спокойна (блоки)",
   "tremor.configuration.movement.leapAlert": "Прыжок через воздух, настороже (блоки)",
   "tremor.configuration.movement.leapHunting": "Прыжок через воздух, охота (блоки)",
