@@ -147,6 +147,10 @@ public final class VibrationListener {
         }
 
         double loudness = base;
+        if (cause instanceof net.minecraft.world.entity.projectile.Snowball
+                && type == GameEvent.PROJECTILE_LAND.value()) {
+            loudness *= SNOWBALL_SHARE; // a snowball is soft: it hardly knocks on the ground
+        }
         String note = null;
         if (cause instanceof Player player) {
             if (step || landing) {
@@ -361,6 +365,9 @@ public final class VibrationListener {
     private static String join(String a, String b) {
         return a == null ? b : b == null ? a : a + ", " + b;
     }
+
+    /** Share of a projectile's landing loudness a snowball makes (it is soft). */
+    static final double SNOWBALL_SHARE = 0.4;
 
     /** The enchantment that muffles the steps of whoever wears it on the feet (SPEC 15, stage 5). */
     public static final ResourceKey<Enchantment> MUFFLED_STEPS = ResourceKey.create(Registries.ENCHANTMENT,

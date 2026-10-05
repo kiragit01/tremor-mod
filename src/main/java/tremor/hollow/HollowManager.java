@@ -750,8 +750,11 @@ public final class HollowManager {
                         Math.min(origin.getMaxBuildHeight(), hollow.getMaxBuildHeight())));
             }
             HollowBox box = event.hollowBox();
+            Vec3 arrival = event.toHollow(event.origin().position());
+            HollowVault vault = new HollowVault(arrival.x, Math.floor(arrival.y), arrival.z,
+                    TremorConfig.COMMON.hollow.radius.get(), event.player().getMostSignificantBits() ^ event.createdGameTime());
             if (!work(event, event.copyStats, now, piece -> TerrainCopier.copy(origin, hollow, piece, box,
-                    event.offsetX(), event.offsetZ(), event.copyStats))) {
+                    event.offsetX(), event.offsetZ(), vault, event.copyStats))) {
                 return;
             }
             // The level inside the copy (stage 4c): the cave, the node and the way to it, before the player is in,

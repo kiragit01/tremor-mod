@@ -1,0 +1,51 @@
+# Stage 5: the body of the hollow. Swallowed on the sky platform: the player is blind (vanilla blindness, hidden);
+# the copy has a vault of rock over it with four columns; the closing comes in round (the ground rises, the roof comes
+# down), not as a straight wall. Looked at in spectator mode with the fog pushed out, the closing set fast.
+# Run: gradlew runClientAutotest -Ptremor_autotest_script=stage5-vault.txt
+waitchunks
+cmd gamemode spectator
+cmd time set noon
+cmd tremor despawn
+cmd tp @s 300.5 201.0 300.5 270 10
+wait 40
+waitchunks
+cmd fill 260 198 260 340 200 340 minecraft:stone
+cmd fill 260 201 260 340 215 340 minecraft:air
+cmd tp @s 300.5 201.0 300.5 270 10
+cmd gamemode survival
+cmd effect clear @s
+config awakening.buildupSeconds 3
+config awakening.craterRadius 0
+config awakening.lethal false
+config hollow.level.graceSeconds 0
+config hollow.level.closeSpeed 0.4
+config hollow.level.breathSeconds 120
+cmd tremor awaken
+wait 220
+waitchunks
+cmd data get entity @s active_effects
+cmd tremor hollow status
+hud off
+screenshot 10_blind
+cmd gamemode spectator
+cmd effect clear @s
+cmd tp @s ~ ~4 ~ 0 -35
+wait 20
+screenshot 11_vault_up
+cmd tp @s ~ ~ ~ 45 10
+wait 10
+screenshot 12_toward_column
+wait 300
+cmd tp @s ~ ~-3 ~13 0 15
+wait 10
+screenshot 13_front_close
+cmd tp @s ~ ~ ~ 40 15
+wait 10
+screenshot 14_front_side
+wait 200
+cmd tp @s ~ ~ ~ 0 15
+wait 10
+screenshot 15_front_later
+cmd tremor hollow status
+cmd tremor awaken stop
+quit

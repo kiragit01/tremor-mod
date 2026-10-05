@@ -354,7 +354,7 @@ final class EventLevel {
                 ticks(config.lurePauseSeconds.get()), ticks(config.lureCooldownSeconds.get()),
                 config.lureMinDistance.get(), config.beatSlowTicks.get(), config.beatFastTicks.get()));
         closer = new Closer(new ClosingOrder(box.minX(), box.minZ(), box.maxX(), box.maxZ(), centreX, centreZ, edge,
-                FRONT_WOBBLE, seed), box.minY(), box.maxY(), centreX, centreZ);
+                FRONT_WOBBLE, seed), box.minY(), box.maxY(), centreX, centreY, centreZ, seed);
         int sinkTicks = ticks(config.sinkSeconds.get());
         mire = new Mire(new SinkTracker.Params(ticks(config.stillSeconds.get()), STILL_DISTANCE,
                 SINK_DEPTH / sinkTicks, SINK_DEPTH), ticks(config.recoverSeconds.get()));

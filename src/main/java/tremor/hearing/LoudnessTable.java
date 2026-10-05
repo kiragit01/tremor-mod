@@ -20,7 +20,7 @@ public final class LoudnessTable {
             "minecraft:hit_ground=8",
             "minecraft:block_destroy=6",
             "minecraft:block_place=4",
-            "minecraft:projectile_land=4",
+            "minecraft:projectile_land=10",
             "minecraft:explode=20");
 
     /** Same character sets as a {@code ResourceLocation}. */

@@ -96,7 +96,7 @@ final class TerrainCopier {
      * also copies the column's biomes, so grass, foliage, water, fog and weather look as in the real place.
      */
     static void copy(ServerLevel origin, ServerLevel hollow, PieceCursor.Piece piece, HollowBox box, int dx, int dz,
-                     WorkStats stats) {
+                     HollowVault vault, WorkStats stats) {
         LevelChunk target = loadedChunk(hollow, piece.chunkX(), piece.chunkZ());
         LevelChunk source = origin.getChunkSource().getChunkNow(piece.chunkX() - (dx >> 4), piece.chunkZ() - (dz >> 4));
         if (piece.firstInColumn()) {
@@ -112,8 +112,10 @@ final class TerrainCopier {
         BlockPos.MutableBlockPos real = new BlockPos.MutableBlockPos();
         write(hollow, target, piece, (x, y, z) -> {
             BlockState state = section.getBlockState(x & 15, y & 15, z & 15);
-            return box.contains(x, y, z) ? copyable(state)
-                    : shell(source, state, real.set(x - dx, y, z - dz), y < box.minY());
+            if (!box.contains(x, y, z)) {
+                return shell(source, state, real.set(x - dx, y, z - dz), y < box.minY());
+            }
+            return vault != null && vault.solid(x, y, z) ? vaultRock(state, x, y, z) : copyable(state);
         }, (chunk, pos, state) -> placeProp(hollow, chunk, pos, state, source, pos.offset(-dx, 0, -dz)), stats);
     }
 
@@ -256,6 +258,23 @@ final class TerrainCopier {
      * The state a block of the real world gets in the copy: a moving piston (what moves lives in its block entity) and
      * a portal (nether, end, gateway: it would lead out into the real world) become air.
      */
+    /**
+     * The state a cell of the vault ({@link HollowVault}) gets: a full block of rock the copy had there stays; anything
+     * else (air, water, a plant, a build) becomes rock: stone with patches of andesite and tuff, deepslate below y 0.
+     */
+    private static BlockState vaultRock(BlockState state, int x, int y, int z) {
+        if (state.canOcclude() && !(state.getBlock() instanceof net.minecraft.world.level.block.FallingBlock)
+                && !state.hasBlockEntity()) {
+            return state;
+        }
+        double patch = tremor.hollow.level.LevelNoise.at(77, 1, x * 0.15, y * 0.15, z * 0.15);
+        if (y < 0) {
+            return patch > 0.45 ? Blocks.TUFF.defaultBlockState() : Blocks.DEEPSLATE.defaultBlockState();
+        }
+        return patch > 0.5 ? Blocks.TUFF.defaultBlockState()
+                : patch < -0.45 ? Blocks.ANDESITE.defaultBlockState() : Blocks.STONE.defaultBlockState();
+    }
+
     private static BlockState copyable(BlockState state) {
         return state.is(Blocks.MOVING_PISTON) || state.is(BlockTags.PORTALS) ? AIR : state;
     }

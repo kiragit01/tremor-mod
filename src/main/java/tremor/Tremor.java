@@ -54,6 +54,9 @@ public final class Tremor {
         IEventBus game = NeoForge.EVENT_BUS;
         game.addListener(TremorCommands::register);
         game.addListener(tremor.hollow.HollowDigging::onBreakSpeed);
+        game.addListener(tremor.hollow.HollowDigging::onPlace);
+        game.addListener(tremor.hollow.HollowDigging::onPlayerTick);
+        game.addListener(tremor.hollow.HollowDigging::onChangedDimension);
 
         game.addListener(TremorManager::onLevelLoad);
         game.addListener(TremorManager::onLevelUnload);

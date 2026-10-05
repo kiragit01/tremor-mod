@@ -25,6 +25,14 @@ import java.util.ArrayDeque;
  */
 final class Closer {
     /** How close to the player nothing is filled (blocks). */
+    /** How far the closing front is bent in and out by noise (blocks). */
+    static final double WOBBLE = 3.5;
+    /** How much sooner the ground under the place of arrival closes, at most (blocks of radius). */
+    static final double FLOOR_RISE = 6;
+    /** How much sooner the roof closes, at most (blocks of radius). */
+    static final double ROOF_FALL = 9;
+    /** Columns are gone over this much before the front at their middle: their low and high cells close sooner. */
+    private static final double LEAD = WOBBLE + Math.max(1.5 * FLOOR_RISE, 1.44 * ROOF_FALL);
     static final double NEAR = 2;
     private static final int RESCAN_TICKS = 20;
     private static final int RESCAN_RADIUS = 8;
@@ -36,7 +44,9 @@ final class Closer {
     private final int minY;
     private final int maxY;
     private final double centreX;
+    private final double centreY;
     private final double centreZ;
+    private final long seed;
     /** Columns to go over, the one in progress first. */
     private final ArrayDeque<Column> queue = new ArrayDeque<>();
     /** Columns to go over again later, in the order they are due. */
@@ -62,12 +72,30 @@ final class Closer {
         }
     }
 
-    Closer(ClosingOrder order, int minY, int maxY, double centreX, double centreZ) {
+    Closer(ClosingOrder order, int minY, int maxY, double centreX, double centreY, double centreZ, long seed) {
         this.order = order;
         this.minY = minY;
         this.maxY = maxY;
         this.centreX = centreX;
+        this.centreY = centreY;
         this.centreZ = centreZ;
+        this.seed = seed;
+    }
+
+    /**
+     * When a cell closes: once the closing radius is below this. Not a flat wall: its distance from the middle, bent
+     * in and out by up to {@value #WOBBLE} blocks of noise in all three directions, and pushed out by up to
+     * {@value #FLOOR_RISE} blocks toward the floor and {@value #ROOF_FALL} toward the roof, so the ground rises and
+     * the roof comes down ahead of the front, which closes in round, like the ground swelling shut.
+     */
+    double key(int x, int y, int z) {
+        double d = Math.hypot(x + 0.5 - centreX, z + 0.5 - centreZ);
+        double wobble = WOBBLE * LevelNoise.at(seed, 9, x * 0.12, y * 0.15, z * 0.12);
+        // The way stays open longest at chest height; under it the ground comes in the sooner the lower (a mound
+        // creeping toward the middle), over it the roof comes down the sooner the higher.
+        double below = Math.max(0, Math.min(1.5, (centreY + 3.5 - y) / 3.0));
+        double above = Math.max(0, Math.min(1.2, (y - centreY - 3.5) / 5.0));
+        return d + wobble + FLOOR_RISE * below + ROOF_FALL * above * above;
     }
 
     /**
@@ -76,7 +104,7 @@ final class Closer {
      */
     void tick(ServerLevel level, EventLevel owner, double radius, Vec3 player, double height, long tick,
               long deadline, int maxFills) {
-        int due = order.advance(radius);
+        int due = order.advance(radius - LEAD);
         for (; started < due; started++) {
             list(order.x(started), order.z(started));
         }
@@ -88,7 +116,7 @@ final class Closer {
             int pz = (int) Math.floor(player.z);
             for (int z = pz - RESCAN_RADIUS; z <= pz + RESCAN_RADIUS; z++) {
                 for (int x = px - RESCAN_RADIUS; x <= px + RESCAN_RADIUS; x++) {
-                    if (order.closed(x, z, radius)) {
+                    if (order.closed(x, z, radius - LEAD)) {
                         list(x, z);
                     }
                 }
@@ -108,6 +136,10 @@ final class Closer {
                 BlockState state = level.getBlockState(pos);
                 if (!Materials.open(state) || owner.keepsOpen(pos.asLong())
                         || HollowManager.isPlayerPlaced(level, pos)) {
+                    continue;
+                }
+                if (key(column.x, column.y, column.z) < radius) {
+                    column.again = true; // not yet: the front reaches this cell later
                     continue;
                 }
                 if (near(player, height, column.x, column.y, column.z)) {
