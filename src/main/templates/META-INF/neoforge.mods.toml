@@ -1,13 +1,20 @@
 modLoader="javafml"
 loaderVersion="${loader_version_range}"
 license="${mod_license}"
+issueTrackerURL="https://github.com/kiragit01/tremor-mod/issues"
 
 [[mods]]
 modId="${mod_id}"
 version="${mod_version}"
 displayName="${mod_name}"
+authors="kiragit01"
+logoFile="tremor_logo.png"
+displayURL="https://github.com/kiragit01/tremor-mod"
 description='''
-The ground itself is listening. An unseen presence crawls beneath the surface of the world.
+The ground itself is listening. Something vast crawls beneath the surface of the world, a mound that follows every
+footstep through the rock. Walk softly, sneak, stay still when the ripples pass. If it reaches you at the peak of its
+anger, the earth opens and takes you into the Hollow, and you will have to find its beating heart before the ground
+closes in.
 '''
 
 [[dependencies.${mod_id}]]
