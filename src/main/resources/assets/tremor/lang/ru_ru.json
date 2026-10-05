@@ -1,4 +1,8 @@
 {
+  "tremor.configuration.render.quality": "Качество",
+  "tremor.configuration.render.quality.low": "Низкое",
+  "tremor.configuration.render.quality.medium": "Среднее",
+  "tremor.configuration.render.quality.high": "Высокое",
   "tremor.configuration.behavior.netherSpeedFactor": "Скорость в аду (x)",
   "tremor.configuration.behavior.netherAngerFactor": "Злость в аду (x)",
   "tremor.configuration.movement.leapDormant": "Прыжок через воздух, спокойна (блоки)",

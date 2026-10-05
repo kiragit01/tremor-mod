@@ -1,4 +1,8 @@
 {
+  "tremor.configuration.render.quality": "Quality",
+  "tremor.configuration.render.quality.low": "Low",
+  "tremor.configuration.render.quality.medium": "Medium",
+  "tremor.configuration.render.quality.high": "High",
   "tremor.configuration.behavior.netherSpeedFactor": "Speed in the Nether (x)",
   "tremor.configuration.behavior.netherAngerFactor": "Anger in the Nether (x)",
   "tremor.configuration.movement.leapDormant": "Leap across, dormant (blocks)",

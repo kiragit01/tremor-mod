@@ -365,7 +365,7 @@ public final class DeformationRenderer {
         boolean bumpRipple = bump != null && bump.ripple() != null;
         boolean rings = ground != null && !ground.rings().isEmpty();
         boolean heaves = ground != null && !ground.heaves().isEmpty();
-        if ((bumpRipple || rings || heaves) && tick != dustTick && TremorConfig.CLIENT.rippleDust.get()) {
+        if ((bumpRipple || rings || heaves) && tick != dustTick && TremorConfig.CLIENT.drawDust()) {
             // Once per game tick (per frame below 20 fps); none while the game time stands still, like the ripples.
             dustTick = tick;
             if (bumpRipple) {
@@ -396,8 +396,8 @@ public final class DeformationRenderer {
             total += col.cost();
         }
         frameCut = Double.NaN;
-        int budget = ground != null ? TremorConfig.CLIENT.awakeningMaxBlocks.get()
-                : TremorConfig.CLIENT.maxDeformedBlocks.get();
+        int budget = ground != null ? TremorConfig.CLIENT.awakeningBlocks()
+                : TremorConfig.CLIENT.deformedBlocks();
         if (total > budget) {
             trim(budget, ground != null);
         }
@@ -432,7 +432,7 @@ public final class DeformationRenderer {
         }
         Vec3 c = frame.center();
         RenderStats.recordCenter(c.x(), c.y(), c.z(), System.nanoTime());
-        double range = TremorConfig.CLIENT.renderDistance.get();
+        double range = TremorConfig.CLIENT.deformationDistance();
         double ox = c.x() - camX, oy = c.y() - camY, oz = c.z() - camZ;
         if (ox * ox + oy * oy + oz * oz > range * range) {
             return null;
@@ -443,7 +443,7 @@ public final class DeformationRenderer {
             collect(level, frame, new SurfaceCollector.Options(radius, options.normalBand(), options.minNormalDot()),
                     tick);
         }
-        return new HeightField(params, frame, state.timeSeconds(), TremorConfig.CLIENT.jitter.get(), ripple,
+        return new HeightField(params, frame, state.timeSeconds(), TremorConfig.CLIENT.drawJitter(), ripple,
                 state.rippleAgeSeconds());
     }
 
@@ -469,7 +469,7 @@ public final class DeformationRenderer {
 
     /** Whether the ground's region can lie within the deformation draw distance of the camera. */
     private static boolean nearCamera(GroundField ground) {
-        double range = TremorConfig.CLIENT.renderDistance.get();
+        double range = TremorConfig.CLIENT.deformationDistance();
         Vec3 c = ground.scanCenter();
         double dx = c.x() - camX, dz = c.z() - camZ, across = range + ground.scanRadius();
         return dx * dx + dz * dz <= across * across

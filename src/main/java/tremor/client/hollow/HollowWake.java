@@ -301,7 +301,7 @@ public final class HollowWake {
      * the renderer's ripple dust, half at Decreased, none at Minimal.
      */
     private static double dustShare(Minecraft mc) {
-        if (!TremorConfig.CLIENT.rippleDust.get()) {
+        if (!TremorConfig.CLIENT.drawDust()) {
             return 0;
         }
         ParticleStatus setting = mc.options.particles().get();

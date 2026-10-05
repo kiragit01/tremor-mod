@@ -814,6 +814,33 @@ public final class TremorConfig {
         }
     }
 
+    /** One switch for weaker computers: scales the work of the client's effects (see {@link Client#quality}). */
+    public enum Quality implements TranslatableEnum {
+        /** A third of the block copies, half the distance, no fine tremble, no dust. */
+        LOW(0.3, 0.5, false, false),
+        /** Two thirds of the block copies, three quarters of the distance. */
+        MEDIUM(0.65, 0.75, true, true),
+        /** As configured. */
+        HIGH(1, 1, true, true);
+
+        final double blocks;
+        final double distance;
+        final boolean jitter;
+        final boolean dust;
+
+        Quality(double blocks, double distance, boolean jitter, boolean dust) {
+            this.blocks = blocks;
+            this.distance = distance;
+            this.jitter = jitter;
+            this.dust = dust;
+        }
+
+        @Override
+        public Component getTranslatedName() {
+            return Component.translatable(KEY + "render.quality." + name().toLowerCase(Locale.ROOT));
+        }
+    }
+
     public static final class Client {
         public final ModConfigSpec.IntValue maxDeformedBlocks;
         public final ModConfigSpec.IntValue awakeningMaxBlocks;
@@ -829,9 +856,39 @@ public final class TremorConfig {
         public final ModConfigSpec.DoubleValue heartbeatVolume;
         public final ModConfigSpec.DoubleValue humVolume;
         public final ModConfigSpec.DoubleValue pullVolume;
+        public final ModConfigSpec.EnumValue<Quality> quality;
+
+        /** Block copies drawn per frame at most, by the quality. */
+        public int deformedBlocks() {
+            return (int) Math.round(maxDeformedBlocks.get() * quality.get().blocks);
+        }
+
+        /** The same while the ground of an Awakening zone is drawn, by the quality. */
+        public int awakeningBlocks() {
+            return (int) Math.round(awakeningMaxBlocks.get() * quality.get().blocks);
+        }
+
+        /** Distance the deformation is drawn within, by the quality. */
+        public double deformationDistance() {
+            return renderDistance.get() * quality.get().distance;
+        }
+
+        /** Whether the fine tremble of the ground is drawn (never on LOW). */
+        public boolean drawJitter() {
+            return jitter.get() && quality.get().jitter;
+        }
+
+        /** Whether the ripples throw up dust (never on LOW). */
+        public boolean drawDust() {
+            return rippleDust.get() && quality.get().dust;
+        }
 
         Client(ModConfigSpec.Builder b) {
             b.comment("Rendering quality of the ground deformation").translation(KEY + "render").push("render");
+            quality = b.comment("One switch for weaker computers: LOW draws a third of the block copies within half the",
+                            "distance, with no fine tremble and no dust; MEDIUM two thirds within three quarters;",
+                            "HIGH everything as set below")
+                    .translation(KEY + "render.quality").defineEnum("quality", Quality.HIGH);
             maxDeformedBlocks = b.comment("Upper bound of block copies drawn per frame; the rest is skipped")
                     .translation(KEY + "render.maxDeformedBlocks").defineInRange("maxDeformedBlocks", 1500, 0, 20000);
             awakeningMaxBlocks = b.comment("The same bound while the ground of an Awakening zone (SPEC 9) is drawn,",
