@@ -39,6 +39,8 @@ And never, ever throw a shard on the ground.
 
 Requires NeoForge for Minecraft 1.21.1.
 
-## Modpacks
+## Modpacks & usage
 
-Feel free to use Tremor in modpacks.
+Feel free to include Tremor in any modpack, public or private, and to make videos or streams with it, monetized or
+not. Credit is appreciated but not required. Please don't re-upload the mod to other sites or redistribute modified
+versions without my permission.
