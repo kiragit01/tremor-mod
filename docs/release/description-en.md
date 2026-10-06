@@ -38,3 +38,7 @@ And never, ever throw a shard on the ground.
 - Everything is configurable: hearing, anger, the Awakening, the hollow, the crater, the tools.
 
 Requires NeoForge for Minecraft 1.21.1.
+
+## Modpacks
+
+Feel free to use Tremor in modpacks.

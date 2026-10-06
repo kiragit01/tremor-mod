@@ -604,7 +604,8 @@ final class TremorMind {
         if (crawler.diving() || amplitude < full / 2) {
             return;
         }
-        double radius = TremorConfig.COMMON.contactRadius.get();
+        // The taller the bump, the wider it is: what it takes in grows with it (up to two and a half times).
+        double radius = TremorConfig.COMMON.contactRadius.get() * Math.max(1, Math.min(2.5, amplitude / 2.0));
         Vec3 center = crawler.position();
         double reach = ContactZone.reach(amplitude, radius, 3);
         AABB box = new AABB(center.x() - reach, center.y() - reach, center.z() - reach, center.x() + reach,

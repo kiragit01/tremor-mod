@@ -15,7 +15,7 @@ import net.neoforged.neoforge.registries.DeferredRegister;
 import tremor.Tremor;
 
 /**
- * The things made from the entity (SPEC 15, stage 5): the shard a destroyed node gives (1 or 2,
+ * The things made from the entity (SPEC 15, stage 5): the shard a destroyed node gives (one by default,
  * {@code tremor.awakening.Outcomes}), the seismograph (its needle points at the entity, client side
  * {@code tremor.client.SeismographNeedle}) and the geophone ({@link GeophoneBlock}); the "muffled steps" enchantment
  * is data ({@code data/tremor/enchantment/muffled_steps.json}), its book a recipe. Registered by {@link Tremor}.

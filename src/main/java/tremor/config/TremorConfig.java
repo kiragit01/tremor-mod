@@ -328,7 +328,7 @@ public final class TremorConfig {
             stage(b, Stage.ALERT, "Freezing and creeping toward sounds", 0.5, 0.85);
             stage(b, Stage.HUNTING, "Going for sounds: fast, a higher bump", 1.6, 1.25);
             stage(b, Stage.AWAKENING, "Seeking a player at the top of the anger (see the awakening section): faster and"
-                    + " higher than hunting", 2.1, 1.4);
+                    + " higher than hunting, a little faster than a player running and jumping", 2.5, 1.4);
             b.pop();
 
             b.comment("Contact of the bump with a player while HUNTING or AWAKENING (SPEC 8), with the bump at least",
@@ -383,7 +383,7 @@ public final class TremorConfig {
             shardsMin = b.comment("Shards a destroyed node gives: at least...")
                     .translation(KEY + "items.shardsMin").defineInRange("shardsMin", 1, 0, 64);
             shardsMax = b.comment("...and at most")
-                    .translation(KEY + "items.shardsMax").defineInRange("shardsMax", 2, 0, 64);
+                    .translation(KEY + "items.shardsMax").defineInRange("shardsMax", 1, 0, 64);
             frenzySpeedFactor = b.comment("A dropped shard drives the entity into a frenzy: it rushes to the shard, takes",
                             "it in and rushes on to whoever dropped it. Its speed is this many times its HUNTING speed...")
                     .translation(KEY + "items.frenzySpeedFactor").defineInRange("frenzySpeedFactor", 3.0, 1.0, 10.0);
@@ -694,7 +694,7 @@ public final class TremorConfig {
             breathSeconds = b.comment("Time the player has inside the hollow (seconds; 0 = no limit): it runs out whatever the",
                             "player eats or drinks, shown as a bar at the top of the screen; at its end the ground takes",
                             "the player (the defeat)")
-                    .translation(KEY + "hollow.level.breathSeconds").defineInRange("breathSeconds", 75.0, 0.0, 600.0);
+                    .translation(KEY + "hollow.level.breathSeconds").defineInRange("breathSeconds", 60.0, 0.0, 600.0);
             digFactor = b.comment("Blocks of the hollow break this many times as fast as elsewhere (the node excepted;",
                             "no effect on the player): digging a way out is slow work")
                     .translation(KEY + "hollow.level.digFactor").defineInRange("digFactor", 0.15, 0.0, 1.0);
@@ -756,7 +756,7 @@ public final class TremorConfig {
             radius = b.comment("Radius of the zone (blocks, horizontally) around where the player stood at the start")
                     .translation(KEY + "awakening.radius").defineInRange("radius", 32.0, 4.0, 128.0);
             buildupSeconds = b.comment("Time to get out of the zone before it closes (seconds); the last third is dark")
-                    .translation(KEY + "awakening.buildupSeconds").defineInRange("buildupSeconds", 8, 1, 600);
+                    .translation(KEY + "awakening.buildupSeconds").defineInRange("buildupSeconds", 7, 1, 600);
             buildupDrag = b.comment("The ground grabs at the target's feet during the build-up: its movement speed and jump",
                             "strength are cut by up to this share, growing from 0 at the start to it at the end")
                     .translation(KEY + "awakening.buildupDrag").defineInRange("buildupDrag", 0.6, 0.0, 1.0);
