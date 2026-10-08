@@ -1,6 +1,5 @@
 package tremor.block;
 
-import com.mojang.serialization.MapCodec;
 import net.minecraft.core.BlockPos;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.level.BlockGetter;
@@ -28,7 +27,6 @@ import tremor.hollow.level.SinkTracker;
  * It neither suffocates nor drops anything; the level turns it back into the copied block once the player is off it.
  */
 public final class MireBlock extends Block {
-    public static final MapCodec<MireBlock> CODEC = simpleCodec(MireBlock::new);
     /** How much of the block has given way, in eighths: 0 (holds like the block it was) .. 8 (holds nothing). */
     public static final IntegerProperty SOFTNESS = IntegerProperty.create("softness", 0, SinkTracker.MAX_SOFTNESS);
     /**
@@ -51,40 +49,35 @@ public final class MireBlock extends Block {
     }
 
     @Override
-    protected MapCodec<MireBlock> codec() {
-        return CODEC;
-    }
-
-    @Override
     protected void createBlockStateDefinition(StateDefinition.Builder<Block, BlockState> builder) {
         builder.add(SOFTNESS);
     }
 
     @Override
-    protected VoxelShape getCollisionShape(BlockState state, BlockGetter level, BlockPos pos,
+    public VoxelShape getCollisionShape(BlockState state, BlockGetter level, BlockPos pos,
                                            CollisionContext context) {
         return SHAPES[state.getValue(SOFTNESS)];
     }
 
     /** Things placed on it hold as on the block it was (as mud). */
     @Override
-    protected VoxelShape getBlockSupportShape(BlockState state, BlockGetter level, BlockPos pos) {
+    public VoxelShape getBlockSupportShape(BlockState state, BlockGetter level, BlockPos pos) {
         return Shapes.block();
     }
 
     @Override
-    protected VoxelShape getVisualShape(BlockState state, BlockGetter level, BlockPos pos, CollisionContext context) {
+    public VoxelShape getVisualShape(BlockState state, BlockGetter level, BlockPos pos, CollisionContext context) {
         return Shapes.block();
     }
 
     @Override
-    protected boolean isPathfindable(BlockState state, PathComputationType type) {
+    public boolean isPathfindable(BlockState state, BlockGetter level, BlockPos pos, PathComputationType type) {
         return false;
     }
 
     /** As mud: the faces around it are shaded as if it were a full solid block. */
     @Override
-    protected float getShadeBrightness(BlockState state, BlockGetter level, BlockPos pos) {
+    public float getShadeBrightness(BlockState state, BlockGetter level, BlockPos pos) {
         return 0.2F;
     }
 
@@ -93,7 +86,7 @@ public final class MireBlock extends Block {
      * ones beside the block a creature stands on).
      */
     @Override
-    protected void entityInside(BlockState state, Level level, BlockPos pos, Entity entity) {
+    public void entityInside(BlockState state, Level level, BlockPos pos, Entity entity) {
         if (entity.getY() < pos.getY() + 1 && entity.getY() >= pos.getY()) {
             entity.makeStuckInBlock(state, HOLD);
         }

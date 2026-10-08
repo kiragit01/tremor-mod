@@ -73,8 +73,8 @@ class ZoneScanTest {
         }
         voxels(points);
         // The flood runs outward from the centre: the first point is right under it.
-        assertEquals(0, points.getFirst().x());
-        assertEquals(0, points.getFirst().z());
+        assertEquals(0, points.get(0).x());
+        assertEquals(0, points.get(0).z());
     }
 
     @Test

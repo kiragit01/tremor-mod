@@ -41,7 +41,7 @@ public record Origin(ResourceKey<Level> dimension, Vec3 position, float yRot, fl
     /** @throws net.minecraft.ResourceLocationException if the dimension id is malformed */
     static Origin load(CompoundTag tag) {
         ResourceKey<Level> dimension = ResourceKey.create(Registries.DIMENSION,
-                ResourceLocation.parse(tag.getString("dimension")));
+                new ResourceLocation(tag.getString("dimension")));
         return new Origin(dimension, new Vec3(tag.getDouble("x"), tag.getDouble("y"), tag.getDouble("z")),
                 tag.getFloat("yRot"), tag.getFloat("xRot"));
     }

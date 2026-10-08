@@ -32,7 +32,15 @@
     "minecraft:chest",
     "minecraft:trapped_chest",
     {
+      "id": "#forge:chests/wooden",
+      "required": false
+    },
+    {
       "id": "#c:chests/wooden",
+      "required": false
+    },
+    {
+      "id": "#forge:barrels/wooden",
       "required": false
     },
     {

@@ -9,6 +9,7 @@ import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import tremor.core.math.Clamp;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -34,7 +35,7 @@ class CrawlerTest {
     }
 
     private static double angleDeg(Vec3 a, Vec3 b) {
-        return Math.toDegrees(Math.acos(Math.clamp(a.normalize().dot(b.normalize()), -1, 1)));
+        return Math.toDegrees(Math.acos(Clamp.clamp(a.normalize().dot(b.normalize()), -1, 1)));
     }
 
     private static long p(int x, int y, int z) {
@@ -1461,7 +1462,7 @@ class CrawlerTest {
         double best = Double.POSITIVE_INFINITY;
         for (int i = 0; i + 1 < path.size(); i++) {
             Vec3 a = path.point(i), ab = path.point(i + 1).sub(a);
-            double t = Math.clamp(q.sub(a).dot(ab) / ab.lengthSquared(), 0, 1);
+            double t = Clamp.clamp(q.sub(a).dot(ab) / ab.lengthSquared(), 0, 1);
             best = Math.min(best, q.distance(a.add(ab.scale(t))));
         }
         return best;

@@ -6,6 +6,7 @@ import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static tremor.core.path.TestGraphs.p;
 
+import tremor.core.math.Clamp;
 import java.util.HashSet;
 import java.util.Random;
 import java.util.Set;
@@ -360,7 +361,7 @@ class PathSplineTest {
 
     private static double distanceToSegment(Vec3 q, Vec3 a, Vec3 b) {
         Vec3 ab = b.sub(a);
-        double t = Math.clamp(q.sub(a).dot(ab) / ab.lengthSquared(), 0, 1);
+        double t = Clamp.clamp(q.sub(a).dot(ab) / ab.lengthSquared(), 0, 1);
         return q.distance(a.add(ab.scale(t)));
     }
 

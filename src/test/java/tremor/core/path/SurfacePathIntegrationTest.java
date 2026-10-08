@@ -5,6 +5,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import tremor.core.math.Clamp;
 import java.util.function.Supplier;
 
 import org.junit.jupiter.api.Assumptions;
@@ -151,10 +152,10 @@ class SurfacePathIntegrationTest {
         Vec3 previous = crawler.normal();
         for (int i = 0; i < 400; i++) {
             crawler.tick(0.05, params, normals);
-            double step = Math.toDegrees(Math.acos(Math.clamp(previous.dot(crawler.normal()), -1, 1)));
+            double step = Math.toDegrees(Math.acos(Clamp.clamp(previous.dot(crawler.normal()), -1, 1)));
             assertTrue(step <= k * 90 + 1e-6, "normal turned " + step + "° in one tick");
             closestToWall = Math.min(closestToWall,
-                    Math.toDegrees(Math.acos(Math.clamp(wallNormal.dot(crawler.normal()), -1, 1))));
+                    Math.toDegrees(Math.acos(Clamp.clamp(wallNormal.dot(crawler.normal()), -1, 1))));
             previous = crawler.normal();
         }
         assertTrue(crawler.arrived());

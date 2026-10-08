@@ -1,5 +1,6 @@
 package tremor.core.testing;
 
+import tremor.core.math.Clamp;
 import java.util.Arrays;
 
 import tremor.core.VoxelView;
@@ -207,6 +208,6 @@ public final class ArrayVoxelGrid implements VoxelView {
     }
 
     private int clampedIndex(int x, int y, int z) {
-        return index(Math.clamp(x, minX, maxX), Math.clamp(y, minY, maxY), Math.clamp(z, minZ, maxZ));
+        return index(Clamp.clamp(x, minX, maxX), Clamp.clamp(y, minY, maxY), Clamp.clamp(z, minZ, maxZ));
     }
 }

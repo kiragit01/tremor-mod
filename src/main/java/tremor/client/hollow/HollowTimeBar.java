@@ -1,14 +1,13 @@
 package tremor.client.hollow;
 
 import com.mojang.blaze3d.systems.RenderSystem;
-import net.minecraft.client.DeltaTracker;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.util.Mth;
-import net.neoforged.neoforge.client.event.RegisterGuiLayersEvent;
-import net.neoforged.neoforge.client.gui.VanillaGuiLayers;
+import net.minecraftforge.client.event.RegisterGuiOverlaysEvent;
+import net.minecraftforge.client.gui.overlay.VanillaGuiOverlay;
 import tremor.Tremor;
 import tremor.network.TremorHollowStatePayload;
 
@@ -22,14 +21,14 @@ import tremor.network.TremorHollowStatePayload;
  * Render thread only.
  */
 public final class HollowTimeBar {
-    public static final ResourceLocation ID = ResourceLocation.fromNamespaceAndPath(Tremor.MODID, "hollow_time");
+    public static final ResourceLocation ID = new ResourceLocation(Tremor.MODID, "hollow_time");
     /** Width and height of the bar (pixels of the GUI scale), the size of a vanilla boss bar. */
     private static final int WIDTH = 182;
     private static final int HEIGHT = 5;
     /** Top of the bar. */
     private static final int TOP = 16;
     /** The texture: the frame (196 x 13, the bar's window at 7, 4), the empty and the full bar, the hearts. */
-    private static final ResourceLocation TEXTURE = ResourceLocation.fromNamespaceAndPath(Tremor.MODID,
+    private static final ResourceLocation TEXTURE = new ResourceLocation(Tremor.MODID,
             "textures/gui/hollow_time.png");
     private static final int TEXTURE_SIZE = 256;
     private static final int TEXTURE_HEIGHT = 64;
@@ -49,11 +48,12 @@ public final class HollowTimeBar {
     }
 
     /** Puts the bar above the boss bars' layer, at the top of the screen. */
-    public static void onRegisterGuiLayers(RegisterGuiLayersEvent event) {
-        event.registerAbove(VanillaGuiLayers.BOSS_OVERLAY, ID, HollowTimeBar::render);
+    public static void onRegisterGuiOverlays(RegisterGuiOverlaysEvent event) {
+        event.registerAbove(VanillaGuiOverlay.BOSS_EVENT_PROGRESS.id(), ID.getPath(),
+                (gui, graphics, partialTick, width, height) -> render(graphics, partialTick));
     }
 
-    private static void render(GuiGraphics graphics, DeltaTracker delta) {
+    private static void render(GuiGraphics graphics, float partialTick) {
         Minecraft mc = Minecraft.getInstance();
         if (mc.options.hideGui || mc.player == null || mc.level == null) {
             return;
@@ -63,7 +63,7 @@ public final class HollowTimeBar {
             return;
         }
         double left = Mth.clamp(state.breath(), 0, 1);
-        double time = mc.level.getGameTime() + delta.getGameTimeDeltaPartialTick(false);
+        double time = mc.level.getGameTime() + partialTick;
         // A throb on every beat of the node: sharp at the beat, fading before the next.
         int beat = Math.max(1, state.beatTicks());
         double throb = Math.exp(-6 * ((time % beat) / beat));

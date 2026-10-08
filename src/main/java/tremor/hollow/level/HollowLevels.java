@@ -4,7 +4,7 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.player.Player;
-import net.neoforged.neoforge.event.server.ServerStoppedEvent;
+import net.minecraftforge.event.server.ServerStoppedEvent;
 import tremor.Tremor;
 import tremor.hearing.Vibration;
 import tremor.hollow.HollowDimension;

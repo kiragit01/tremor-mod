@@ -1,5 +1,6 @@
 package tremor.core.path;
 
+import tremor.core.math.Clamp;
 import java.util.Arrays;
 import java.util.Objects;
 
@@ -218,7 +219,7 @@ public final class PathSpline {
     /** Curve parameter {@code u} of segment {@code j} at global arc length {@code s} (clamped to the segment). */
     private double parameterAt(int j, double s) {
         int base = j * (SAMPLES + 1);
-        double l = Math.clamp(s - segmentStart[j], 0, table[base + SAMPLES]);
+        double l = Clamp.clamp(s - segmentStart[j], 0, table[base + SAMPLES]);
         int lo = 0, hi = SAMPLES - 1;
         while (lo < hi) {
             int mid = (lo + hi + 1) >>> 1;
@@ -237,7 +238,7 @@ public final class PathSpline {
             if (speed < 1e-12) {
                 break;
             }
-            double next = Math.clamp(u - (l0 + arcLength(j, u0, u) - l) / speed, u0, u1);
+            double next = Clamp.clamp(u - (l0 + arcLength(j, u0, u) - l) / speed, u0, u1);
             if (Math.abs(next - u) < 1e-15) {
                 break;
             }

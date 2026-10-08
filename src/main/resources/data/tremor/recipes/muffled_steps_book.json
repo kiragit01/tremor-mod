@@ -22,14 +22,8 @@
     }
   ],
   "result": {
-    "id": "minecraft:enchanted_book",
+    "item": "minecraft:enchanted_book",
     "count": 1,
-    "components": {
-      "minecraft:stored_enchantments": {
-        "levels": {
-          "tremor:muffled_steps": 1
-        }
-      }
-    }
+    "nbt": "{StoredEnchantments:[{id:\"tremor:muffled_steps\",lvl:1s}]}"
   }
 }

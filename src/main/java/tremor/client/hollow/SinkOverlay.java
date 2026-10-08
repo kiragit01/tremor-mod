@@ -1,12 +1,11 @@
 package tremor.client.hollow;
 
 import com.mojang.blaze3d.vertex.VertexConsumer;
-import net.minecraft.client.DeltaTracker;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.renderer.RenderType;
 import net.minecraft.resources.ResourceLocation;
-import net.neoforged.neoforge.client.event.RegisterGuiLayersEvent;
-import net.neoforged.neoforge.client.gui.VanillaGuiLayers;
+import net.minecraftforge.client.event.RegisterGuiOverlaysEvent;
+import net.minecraftforge.client.gui.overlay.VanillaGuiOverlay;
 import org.joml.Matrix4f;
 import tremor.Tremor;
 
@@ -15,7 +14,7 @@ import tremor.Tremor;
  * black shade from the edges of the view, deeper and closer to the middle as the player sinks
  * ({@link SinkCurve#shade} of {@link HollowSink}); nothing while the ground does not pull.
  * <p>
- * A HUD layer right above vanilla's camera overlays (the vignette, the pumpkin, the powder snow), so the crosshair,
+ * A HUD layer right above vanilla's camera overlays (the portal one is the last) (the vignette, the pumpkin, the powder snow), so the crosshair,
  * the hotbar and the rest of the HUD stay above it. Like the blackout of the moves into and out of the hollow, it is
  * part of what the player sees of the world and is drawn with the HUD hidden (F1) too. The shade is a mesh of
  * concentric rings of quads along ellipses of the screen's proportions, each vertex as dark as the curve says at its
@@ -23,7 +22,7 @@ import tremor.Tremor;
  */
 public final class SinkOverlay {
     /** Id of the HUD layer. */
-    public static final ResourceLocation ID = ResourceLocation.fromNamespaceAndPath(Tremor.MODID, "hollow_sink");
+    public static final ResourceLocation ID = new ResourceLocation(Tremor.MODID, "hollow_sink");
     /** Segments of each ring; a multiple of 8, so that vertices fall on the screen's corners. */
     private static final int SEGMENTS = 48;
     /** Rings from the clear middle out to the corners. */
@@ -47,13 +46,14 @@ public final class SinkOverlay {
     private SinkOverlay() {
     }
 
-    /** Mod bus: the layer goes right above vanilla's camera overlays. */
-    public static void onRegisterGuiLayers(RegisterGuiLayersEvent event) {
-        event.registerAbove(VanillaGuiLayers.CAMERA_OVERLAYS, ID, SinkOverlay::render);
+    /** Mod bus: the layer goes right above vanilla's camera overlays (the portal one is the last). */
+    public static void onRegisterGuiOverlays(RegisterGuiOverlaysEvent event) {
+        event.registerAbove(VanillaGuiOverlay.PORTAL.id(), ID.getPath(),
+                (gui, graphics, partialTick, width, height) -> render(graphics, partialTick));
     }
 
-    private static void render(GuiGraphics graphics, DeltaTracker delta) {
-        double sink = HollowSink.at(delta.getGameTimeDeltaPartialTick(false));
+    private static void render(GuiGraphics graphics, float partialTick) {
+        double sink = HollowSink.at(partialTick);
         if (SinkCurve.edge(sink) < INVISIBLE) {
             return;
         }
@@ -75,13 +75,17 @@ public final class SinkOverlay {
             float ri = (float) inner, ro = (float) outer;
             for (int i = 0; i < SEGMENTS; i++) {
                 // Counter-clockwise as seen on the screen, like the quads of GuiGraphics.fill: facing the viewer.
-                out.addVertex(pose, cx + ax * ri * COS[i], cy + ay * ri * SIN[i], 0).setColor(innerColor);
-                out.addVertex(pose, cx + ax * ri * COS[i + 1], cy + ay * ri * SIN[i + 1], 0).setColor(innerColor);
-                out.addVertex(pose, cx + ax * ro * COS[i + 1], cy + ay * ro * SIN[i + 1], 0).setColor(outerColor);
-                out.addVertex(pose, cx + ax * ro * COS[i], cy + ay * ro * SIN[i], 0).setColor(outerColor);
+                corner(out, pose, cx + ax * ri * COS[i], cy + ay * ri * SIN[i], innerColor);
+                corner(out, pose, cx + ax * ri * COS[i + 1], cy + ay * ri * SIN[i + 1], innerColor);
+                corner(out, pose, cx + ax * ro * COS[i + 1], cy + ay * ro * SIN[i + 1], outerColor);
+                corner(out, pose, cx + ax * ro * COS[i], cy + ay * ro * SIN[i], outerColor);
             }
         }
         graphics.flush();
+    }
+
+    private static void corner(VertexConsumer out, Matrix4f pose, float x, float y, int argb) {
+        out.vertex(pose, x, y, 0).color(argb >> 16 & 0xFF, argb >> 8 & 0xFF, argb & 0xFF, argb >>> 24).endVertex();
     }
 
     /** Black at the opacity, as ARGB. */

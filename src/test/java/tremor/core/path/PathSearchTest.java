@@ -348,7 +348,7 @@ class PathSearchTest {
                 } while (status == Status.RUNNING);
                 assertEquals(expected, status, "trial " + trial);
                 assertEquals(reference.expanded(), search.expanded());
-                assertTrue(calls >= Math.ceilDiv(reference.expanded(), budget));
+                assertTrue(calls >= -Math.floorDiv(-reference.expanded(), budget));
                 if (expected != Status.FAILED) {
                     assertSamePath(reference.path(), search.path());
                 }

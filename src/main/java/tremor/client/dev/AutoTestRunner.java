@@ -20,6 +20,7 @@ import net.minecraft.SharedConstants;
 import net.minecraft.client.GraphicsStatus;
 import net.minecraft.client.KeyMapping;
 import net.minecraft.client.Minecraft;
+import net.minecraft.world.level.storage.LevelResource;
 import net.minecraft.client.NarratorStatus;
 import net.minecraft.client.Options;
 import net.minecraft.client.Screenshot;
@@ -32,8 +33,7 @@ import net.minecraft.client.gui.screens.ConfirmScreen;
 import net.minecraft.client.gui.screens.DatapackLoadFailureScreen;
 import net.minecraft.client.gui.screens.DeathScreen;
 import net.minecraft.client.gui.screens.DisconnectedScreen;
-import net.minecraft.client.gui.screens.GenericMessageScreen;
-import net.minecraft.client.gui.screens.RecoverWorldDataScreen;
+import net.minecraft.client.gui.screens.GenericDirtMessageScreen;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.gui.screens.ConnectScreen;
 import net.minecraft.client.gui.screens.TitleScreen;
@@ -53,22 +53,21 @@ import net.minecraft.world.level.levelgen.WorldOptions;
 import net.minecraft.world.level.levelgen.presets.WorldPresets;
 import net.minecraft.world.level.storage.LevelStorageSource;
 import net.minecraft.world.phys.Vec3;
-import net.neoforged.bus.api.EventPriority;
-import net.neoforged.bus.api.IEventBus;
-import net.neoforged.fml.ModList;
-import net.neoforged.fml.ModLoader;
-import net.neoforged.fml.ModLoadingIssue;
-import net.neoforged.fml.event.lifecycle.FMLClientSetupEvent;
-import net.neoforged.fml.i18n.FMLTranslations;
-import net.neoforged.neoforge.client.event.ClientChatReceivedEvent;
-import net.neoforged.neoforge.client.event.ClientTickEvent;
-import net.neoforged.neoforge.client.event.RenderFrameEvent;
-import net.neoforged.neoforge.client.event.ScreenEvent;
-import net.neoforged.neoforge.client.event.ScreenshotEvent;
-import net.neoforged.neoforge.client.gui.LoadingErrorScreen;
-import net.neoforged.neoforge.common.NeoForge;
-import net.neoforged.neoforge.event.GameShuttingDownEvent;
-import net.neoforged.neoforge.internal.versions.neoforge.NeoForgeVersion;
+import net.minecraftforge.eventbus.api.EventPriority;
+import net.minecraftforge.eventbus.api.IEventBus;
+import net.minecraftforge.fml.ModList;
+import net.minecraftforge.fml.ModLoader;
+import net.minecraftforge.fml.ModLoadingWarning;
+import net.minecraftforge.fml.event.lifecycle.FMLClientSetupEvent;
+import net.minecraftforge.common.ForgeI18n;
+import net.minecraftforge.client.event.ClientChatReceivedEvent;
+import net.minecraftforge.event.TickEvent;
+import net.minecraftforge.client.event.ScreenEvent;
+import net.minecraftforge.client.event.ScreenshotEvent;
+import net.minecraftforge.client.gui.LoadingErrorScreen;
+import net.minecraftforge.common.MinecraftForge;
+import net.minecraftforge.event.GameShuttingDownEvent;
+import net.minecraftforge.versions.forge.ForgeVersion;
 import tremor.Tremor;
 import tremor.client.render.RenderStats;
 
@@ -210,15 +209,15 @@ final class AutoTestRunner {
         // Watchdog and shutdown hook first: if anything below fails, mod loading fails and the watchdog reports it.
         startWatchdog();
         Runtime.getRuntime().addShutdownHook(new Thread(this::onJvmShutdown, "Tremor autotest shutdown hook"));
-        IEventBus bus = NeoForge.EVENT_BUS;
-        modBus.addListener(FMLClientSetupEvent.class, e -> e.enqueueWork(this::prepareClient));
-        bus.addListener(ClientTickEvent.Pre.class, this::onClientTickPre);
-        bus.addListener(ClientTickEvent.Post.class, this::onClientTick);
-        bus.addListener(RenderFrameEvent.Pre.class, this::onFrameStart);
-        bus.addListener(RenderFrameEvent.Post.class, this::onFrameEnd);
-        bus.addListener(ScreenEvent.Opening.class, this::onScreenOpening);
+        IEventBus bus = MinecraftForge.EVENT_BUS;
+        modBus.addListener(EventPriority.NORMAL, false, FMLClientSetupEvent.class, e -> e.enqueueWork(this::prepareClient));
+        bus.addListener(EventPriority.NORMAL, false, TickEvent.ClientTickEvent.class, this::onClientTickPre);
+        bus.addListener(EventPriority.NORMAL, false, TickEvent.ClientTickEvent.class, this::onClientTick);
+        bus.addListener(EventPriority.NORMAL, false, TickEvent.RenderTickEvent.class, this::onFrameStart);
+        bus.addListener(EventPriority.NORMAL, false, TickEvent.RenderTickEvent.class, this::onFrameEnd);
+        bus.addListener(EventPriority.NORMAL, false, ScreenEvent.Opening.class, this::onScreenOpening);
         bus.addListener(EventPriority.LOWEST, true, ClientChatReceivedEvent.class, this::onChat);
-        bus.addListener(GameShuttingDownEvent.class, this::onGameShuttingDown);
+        bus.addListener(EventPriority.NORMAL, false, GameShuttingDownEvent.class, this::onGameShuttingDown);
     }
 
     // ---- startup failure ---------------------------------------------------------------------------------------
@@ -250,7 +249,7 @@ final class AutoTestRunner {
         Minecraft mc = Minecraft.getInstance();
         AtomicBoolean ticked = new AtomicBoolean();
         AtomicBoolean stopping = new AtomicBoolean();
-        NeoForge.EVENT_BUS.addListener(ClientTickEvent.Post.class, e -> {
+        MinecraftForge.EVENT_BUS.addListener(EventPriority.NORMAL, false, TickEvent.ClientTickEvent.class, e -> {
             ticked.set(true);
             if (mc.getOverlay() == null && mc.screen != null && stopping.compareAndSet(false, true)) {
                 Tremor.LOGGER.error("[autotest] the harness could not start, stopping the game");
@@ -340,8 +339,8 @@ final class AutoTestRunner {
         Options options = mc.options;
         Runtime runtime = Runtime.getRuntime();
         report.raw("environment");
-        report.raw("  minecraft   " + SharedConstants.getCurrentVersion().getName() + ", neoforge "
-                + NeoForgeVersion.getVersion() + ", " + ModList.get().size() + " mods loaded");
+        report.raw("  minecraft   " + SharedConstants.getCurrentVersion().getName() + ", forge "
+                + ForgeVersion.getVersion() + ", " + ModList.get().size() + " mods loaded");
         report.raw("  java        " + System.getProperty("java.version") + " (" + System.getProperty("java.vm.name")
                 + ", " + System.getProperty("java.vendor") + ")");
         report.raw("  os          " + System.getProperty("os.name") + " " + System.getProperty("os.version") + " "
@@ -359,7 +358,10 @@ final class AutoTestRunner {
 
     // ---- events ------------------------------------------------------------------------------------------------
 
-    private void onClientTick(ClientTickEvent.Post event) {
+    private void onClientTick(TickEvent.ClientTickEvent event) {
+        if (event.phase != TickEvent.Phase.END) {
+            return;
+        }
         tick++;
         if (state == State.FINISHED) {
             return;
@@ -414,7 +416,10 @@ final class AutoTestRunner {
      * double-tap of forward from sprinting (see {@link #suppressDoubleTapSprint}) and, as a backstop, stops any sprint
      * it finds. Releases the keys if another thread has ended the run.
      */
-    private void onClientTickPre(ClientTickEvent.Pre event) {
+    private void onClientTickPre(TickEvent.ClientTickEvent event) {
+        if (event.phase != TickEvent.Phase.START) {
+            return;
+        }
         Hold h = hold;
         if (h == null) {
             return;
@@ -449,7 +454,10 @@ final class AutoTestRunner {
         }
     }
 
-    private void onFrameStart(RenderFrameEvent.Pre event) {
+    private void onFrameStart(TickEvent.RenderTickEvent event) {
+        if (event.phase != TickEvent.Phase.START) {
+            return;
+        }
         FrameBench b = bench;
         if (b != null && state == State.RUNNING) {
             try {
@@ -461,7 +469,10 @@ final class AutoTestRunner {
         }
     }
 
-    private void onFrameEnd(RenderFrameEvent.Post event) {
+    private void onFrameEnd(TickEvent.RenderTickEvent event) {
+        if (event.phase != TickEvent.Phase.END) {
+            return;
+        }
         if (pendingShot == null) {
             return;
         }
@@ -510,7 +521,8 @@ final class AutoTestRunner {
     private void onScreenOpening(ScreenEvent.Opening event) {
         try {
             if (state != State.FINISHED && event.getNewScreen() instanceof AccessibilityOnboardingScreen) {
-                mc.options.onboardingAccessibilityFinished();
+                mc.options.onboardAccessibility = false;
+                mc.options.save();
                 event.setNewScreen(new TitleScreen(true));
                 report.line("replaced the accessibility onboarding screen with the title screen");
             }
@@ -558,7 +570,7 @@ final class AutoTestRunner {
         Screen screen = mc.screen;
         if (screen instanceof LoadingErrorScreen && screen != lastErrorScreen) {
             lastErrorScreen = screen;
-            String label = FMLTranslations.parseMessage("fml.button.continue.launch");
+            String label = ForgeI18n.parseMessage("fml.button.continue.launch");
             Button proceed = findButton(screen, b -> b.getMessage().getString().equals(label));
             if (proceed == null) {
                 report.error("mod loading failed: " + describe(screen));
@@ -588,7 +600,7 @@ final class AutoTestRunner {
         if (!server.isEmpty()) {
             report.line("connecting to server " + server);
             ConnectScreen.startConnecting(new TitleScreen(), mc, ServerAddress.parseString(server),
-                    new ServerData("tremor autotest", server, ServerData.Type.OTHER), false, null);
+                    new ServerData("tremor autotest", server, false), false);
             return;
         }
         try {
@@ -597,8 +609,8 @@ final class AutoTestRunner {
             boolean exists = false;
             if (source.levelExists(name)) {
                 try (LevelStorageSource.LevelStorageAccess access = source.createAccess(name)) {
-                    if (config.fresh() || !access.hasWorldData()) {
-                        report.line("deleting world folder " + source.getLevelPath(name).toAbsolutePath()
+                    if (config.fresh() || !Files.exists(access.getLevelPath(LevelResource.LEVEL_DATA_FILE))) {
+                        report.line("deleting world folder " + source.getBaseDir().resolve(name).toAbsolutePath()
                                 + (config.fresh() ? " (fresh)" : " (no level data)"));
                         access.deleteLevel();
                     } else {
@@ -607,18 +619,14 @@ final class AutoTestRunner {
                 }
             }
             if (exists) {
-                report.line("opening world " + source.getLevelPath(name).toAbsolutePath());
-                mc.createWorldOpenFlows().openWorld(name, () -> {
-                    launchFailed = true;
-                    mc.setScreen(new TitleScreen());
-                });
+                report.line("opening world " + source.getBaseDir().resolve(name).toAbsolutePath());
+                mc.createWorldOpenFlows().loadLevel(new TitleScreen(), name);
             } else {
-                report.line("creating world " + source.getLevelPath(name).toAbsolutePath() + ": creative, peaceful, "
+                report.line("creating world " + source.getBaseDir().resolve(name).toAbsolutePath() + ": creative, peaceful, "
                         + "commands on, normal preset, seed " + config.seed() + ", no structures, "
                         + "doDaylightCycle/doWeatherCycle/doMobSpawning false");
                 mc.createWorldOpenFlows().createFreshLevel(name, levelSettings(name),
-                        new WorldOptions(config.seed(), false, false), WorldPresets::createNormalWorldDimensions,
-                        new TitleScreen());
+                        new WorldOptions(config.seed(), false, false), WorldPresets::createNormalWorldDimensions);
             }
         } catch (Throwable t) {
             launchFailed = true;
@@ -652,8 +660,7 @@ final class AutoTestRunner {
         }
         Screen screen = mc.screen;
         if (launchFailed || screen instanceof TitleScreen || screen instanceof DisconnectedScreen
-                || screen instanceof AlertScreen || screen instanceof DatapackLoadFailureScreen
-                || screen instanceof RecoverWorldDataScreen) {
+                || screen instanceof AlertScreen || screen instanceof DatapackLoadFailureScreen) {
             report.error("world loading failed" + (screen != null ? ", screen " + describe(screen) : ""));
             finish("aborted: world loading failed");
             return;
@@ -996,7 +1003,7 @@ final class AutoTestRunner {
      * Vanilla's double-tap of forward ({@code LocalPlayer.aiStep}): a rising edge of forward impulse on the ground
      * opens a 7-tick window in {@code sprintTriggerTime}, and another rising edge inside it starts sprinting. Two holds
      * with forward a few ticks apart are such a double tap. Zeroing the window before the player ticks (this runs in
-     * {@link ClientTickEvent.Pre}, before {@code tickEntities}) makes every rising edge only open it again.
+     * {@link TickEvent.ClientTickEvent} start, before {@code tickEntities}) makes every rising edge only open it again.
      * <p>
      * The field is protected, so it is reached by reflection on its Mojang name (the runtime names in NeoForge 1.21.1),
      * resolved once. If that fails, the runner reports it once and only the backstop in {@link #onClientTickPre}
@@ -1135,7 +1142,7 @@ final class AutoTestRunner {
      */
     private boolean terrainReady() {
         int chunks = mc.level.getChunkSource().getLoadedChunksCount();
-        int sections = mc.levelRenderer.countRenderedSections();
+        int sections = mc.levelRenderer.countRenderedChunks();
         if (chunks == 0 || chunks != lastChunks || sections != lastSections) {
             stableTicks = 0;
         } else {
@@ -1143,13 +1150,13 @@ final class AutoTestRunner {
         }
         lastChunks = chunks;
         lastSections = sections;
-        return stableTicks >= TERRAIN_STABLE_TICKS && mc.levelRenderer.hasRenderedAllSections();
+        return stableTicks >= TERRAIN_STABLE_TICKS && mc.levelRenderer.hasRenderedAllChunks();
     }
 
     private String terrainStats() {
         return "chunks " + mc.level.getChunkSource().getLoadedChunksCount()
-                + ", meshed visible sections " + mc.levelRenderer.countRenderedSections()
-                + ", mesher " + (mc.levelRenderer.hasRenderedAllSections() ? "idle" : "busy");
+                + ", meshed visible sections " + mc.levelRenderer.countRenderedChunks()
+                + ", mesher " + (mc.levelRenderer.hasRenderedAllChunks() ? "idle" : "busy");
     }
 
     /** Without a grabbed mouse, someone touching the mouse cannot turn the camera mid-benchmark. */
@@ -1237,10 +1244,10 @@ final class AutoTestRunner {
             if (mc.level != null) {
                 report.line("saving and leaving the world");
                 mc.level.disconnect();
-                mc.disconnect(new GenericMessageScreen(Component.translatable("menu.savingLevel")));
+                mc.clearLevel(new GenericDirtMessageScreen(Component.translatable("menu.savingLevel")));
                 report.line("world saved and closed");
             } else if (mc.getSingleplayerServer() != null) {
-                mc.disconnect(new GenericMessageScreen(Component.translatable("menu.savingLevel")));
+                mc.clearLevel(new GenericDirtMessageScreen(Component.translatable("menu.savingLevel")));
             }
         } catch (Throwable t) {
             report.error("leaving the world failed", t);
@@ -1315,7 +1322,7 @@ final class AutoTestRunner {
     private static boolean fatalLoadingError(Minecraft mc) {
         try {
             // The screen first: once it is up, loading has ended and FML's issue list is complete.
-            return mc.screen instanceof LoadingErrorScreen && ModLoader.hasErrors();
+            return mc.screen instanceof LoadingErrorScreen && !ModLoader.isLoadingStateValid();
         } catch (Throwable t) {
             // The issue list is filled by loader threads without synchronisation.
             return false;
@@ -1354,30 +1361,21 @@ final class AutoTestRunner {
         }
     }
 
-    /** Writes FML's mod loading errors and warnings (what the {@link LoadingErrorScreen} lists) to the report. */
+    /**
+     * Writes FML's mod loading warnings to the report; the errors the {@link LoadingErrorScreen} lists are in the log
+     * (Forge 1.20.1 keeps them to the screen).
+     */
     private void writeLoadingIssues() {
-        List<ModLoadingIssue> issues;
+        List<ModLoadingWarning> warnings;
         try {
-            issues = ModLoader.getLoadingIssues();
+            warnings = ModLoader.get().getWarnings();
         } catch (Throwable t) {
-            report.line("cannot read the mod loading issues: " + t);
+            report.line("cannot read the mod loading warnings: " + t);
             return;
         }
-        report.raw("mod loading issues: " + issues.size());
-        for (ModLoadingIssue issue : issues) {
-            String text;
-            try {
-                text = FMLTranslations.stripControlCodes(FMLTranslations.translateIssueEnglish(issue));
-            } catch (Throwable t) {
-                text = issue.toString();
-            }
-            List<String> lines = text.strip().lines().toList();
-            report.raw("  " + issue.severity() + ": " + (lines.isEmpty() ? issue.translationKey() : lines.get(0)));
-            lines.stream().skip(1).forEach(l -> report.raw("    " + l.strip()));
-            if (issue.cause() != null) {
-                report.raw("    cause: " + issue.cause());
-                report.stackTrace(issue.cause());
-            }
+        report.raw("mod loading warnings: " + warnings.size() + " (errors: see the log)");
+        for (ModLoadingWarning warning : warnings) {
+            report.raw("  " + warning.formatToString());
         }
     }
 

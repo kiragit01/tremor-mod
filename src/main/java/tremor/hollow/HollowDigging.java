@@ -1,7 +1,8 @@
 package tremor.hollow;
 
+import net.minecraftforge.event.TickEvent;
 import net.minecraft.world.entity.player.Player;
-import net.neoforged.neoforge.event.entity.player.PlayerEvent;
+import net.minecraftforge.event.entity.player.PlayerEvent;
 import tremor.block.TremorBlocks;
 import tremor.config.TremorConfig;
 
@@ -26,11 +27,11 @@ public final class HollowDigging {
     /** What may still be set down in the hollow: lights that nobody can climb on (torches, lanterns, candles). */
     public static final net.minecraft.tags.TagKey<net.minecraft.world.level.block.Block> PLACEABLE =
             net.minecraft.tags.TagKey.create(net.minecraft.core.registries.Registries.BLOCK,
-                    net.minecraft.resources.ResourceLocation.fromNamespaceAndPath(tremor.Tremor.MODID,
+                    new net.minecraft.resources.ResourceLocation(tremor.Tremor.MODID,
                             "hollow_placeable"));
 
     /** A survival or adventure player places no block in the hollow, but a light ({@link #PLACEABLE}). */
-    public static void onPlace(net.neoforged.neoforge.event.level.BlockEvent.EntityPlaceEvent event) {
+    public static void onPlace(net.minecraftforge.event.level.BlockEvent.EntityPlaceEvent event) {
         if (event.getEntity() instanceof Player player && !player.isCreative() && !player.isSpectator()
                 && event.getLevel() instanceof net.minecraft.world.level.Level level && HollowDimension.is(level)
                 && !event.getPlacedBlock().is(PLACEABLE)) {
@@ -39,8 +40,11 @@ public final class HollowDigging {
     }
 
     /** Keeps a survival or adventure player in the hollow blind. */
-    public static void onPlayerTick(net.neoforged.neoforge.event.tick.PlayerTickEvent.Post event) {
-        Player player = event.getEntity();
+    public static void onPlayerTick(TickEvent.PlayerTickEvent event) {
+        if (event.phase != TickEvent.Phase.END) {
+            return;
+        }
+        Player player = event.player;
         if (player.level().isClientSide || player.isCreative() || player.isSpectator()
                 || !HollowDimension.is(player.level()) || player.tickCount % 10 != 0) {
             return;

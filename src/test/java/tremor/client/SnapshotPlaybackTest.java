@@ -100,7 +100,7 @@ class SnapshotPlaybackTest {
     }
 
     private static int firstFrameAfter(List<Frame> frames, double seconds) {
-        long start = frames.getFirst().nanos();
+        long start = frames.get(0).nanos();
         for (int i = 0; i < frames.size(); i++) {
             if (frames.get(i).nanos() - start >= seconds * SECOND) {
                 return i;
@@ -165,9 +165,9 @@ class SnapshotPlaybackTest {
     @Test
     void delayFollowsTheSnapshotSpacing() {
         List<Frame> frames = simulate(LINE, LINE_VELOCITY, 2, 0, 0, 0, 60, 3, 3);
-        assertEquals(3.0, frames.getLast().delay(), 0.3);
+        assertEquals(3.0, frames.get(frames.size() - 1).delay(), 0.3);
         frames = simulate(LINE, LINE_VELOCITY, 5, 0, 0, 0, 60, 5, 3);
-        assertEquals(7.5, frames.getLast().delay(), 0.6);
+        assertEquals(7.5, frames.get(frames.size() - 1).delay(), 0.6);
         double[] range = relativeSpeedRange(frames, firstFrameAfter(frames, 1.0));
         assertTrue(range[0] > 0.8 && range[1] < 1.2, "speed " + range[0] + ".." + range[1]);
     }

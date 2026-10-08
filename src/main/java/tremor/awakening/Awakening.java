@@ -9,7 +9,7 @@ import net.minecraft.world.effect.MobEffectInstance;
 import net.minecraft.world.effect.MobEffects;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.player.Player;
-import net.neoforged.neoforge.network.PacketDistributor;
+import tremor.network.TremorNetwork;
 import tremor.Tremor;
 import tremor.config.TremorConfig;
 import tremor.core.math.Vec3;
@@ -223,8 +223,8 @@ final class Awakening {
      */
     void begin(boolean sound) {
         if (sound) {
-            level.playSound(null, center.x(), center.y(), center.z(), TremorSounds.AWAKEN, SoundSource.HOSTILE,
-                    (float) TremorConfig.COMMON.transitionVolume.getAsDouble(), 1);
+            level.playSound(null, center.x(), center.y(), center.z(), TremorSounds.AWAKEN.get(), SoundSource.HOSTILE,
+                    TremorConfig.COMMON.transitionVolume.get().floatValue(), 1);
         }
         sync(true);
         Tremor.LOGGER.info(String.format(Locale.ROOT, "Awakening #%d in %s (%s) for %s: zone of %.0f blocks around %s, "
@@ -405,7 +405,7 @@ final class Awakening {
         double reach = radius + RIPPLE_MARGIN;
         for (ServerPlayer receiver : level.players()) {
             if (near(receiver, reach)) {
-                PacketDistributor.sendToPlayer(receiver, ripple);
+                TremorNetwork.sendToPlayer(receiver, ripple);
             }
         }
     }
@@ -438,7 +438,7 @@ final class Awakening {
         for (UUID receiver : recipients) {
             ServerPlayer online = level.getServer().getPlayerList().getPlayer(receiver);
             if (online != null) {
-                PacketDistributor.sendToPlayer(online, ended);
+                TremorNetwork.sendToPlayer(online, ended);
                 if (quiet) {
                     online.connection.send(new ClientboundStopSoundPacket(TremorSounds.AWAKEN.getId(),
                             SoundSource.HOSTILE));
@@ -447,8 +447,8 @@ final class Awakening {
         }
         recipients.clear();
         if (!quiet) {
-            level.playSound(null, focus.x(), focus.y(), focus.z(), TremorSounds.SIGH, SoundSource.HOSTILE,
-                    (float) TremorConfig.COMMON.transitionVolume.getAsDouble(), 1);
+            level.playSound(null, focus.x(), focus.y(), focus.z(), TremorSounds.SIGH.get(), SoundSource.HOSTILE,
+                    TremorConfig.COMMON.transitionVolume.get().floatValue(), 1);
         }
         boolean entity = TremorManager.goDeep(level);
         Tremor.LOGGER.info(String.format(Locale.ROOT, "Awakening #%d in %s ended (%s) after %.1f s: %s; %s, no "
@@ -653,7 +653,7 @@ final class Awakening {
                     payload = new TremorAwakeningPayload(id, center, (float) radius, phase, clock.start(),
                             clock.ticks(), target, focus);
                 }
-                PacketDistributor.sendToPlayer(player, payload);
+                TremorNetwork.sendToPlayer(player, payload);
                 recipients.add(player.getUUID());
             }
         }

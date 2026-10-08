@@ -2,8 +2,6 @@ package tremor.network;
 
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.FriendlyByteBuf;
-import net.minecraft.network.codec.StreamCodec;
-import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
 import net.minecraft.resources.ResourceLocation;
 import tremor.Tremor;
 import tremor.core.math.Vec3;
@@ -28,20 +26,15 @@ import tremor.core.math.Vec3;
 public record TremorHollowStatePayload(int event, boolean active, Vec3 center, float boxRadius, float closeRadius,
                                        BlockPos node, int beatTicks, float sink, float breath,
                                        long gameTime)
-        implements CustomPacketPayload {
-
-    public static final Type<TremorHollowStatePayload> TYPE =
-            new Type<>(ResourceLocation.fromNamespaceAndPath(Tremor.MODID, "hollow_state"));
-
-    public static final StreamCodec<FriendlyByteBuf, TremorHollowStatePayload> STREAM_CODEC =
-            StreamCodec.ofMember(TremorHollowStatePayload::write, TremorHollowStatePayload::read);
+        implements TremorPayload {
 
     /** The player has left the hollow of {@code event}. */
     public static TremorHollowStatePayload inactive(int event, long gameTime) {
         return new TremorHollowStatePayload(event, false, Vec3.ZERO, 0, 0, null, 0, 0, 1, gameTime);
     }
 
-    private void write(FriendlyByteBuf buf) {
+    @Override
+    public void write(FriendlyByteBuf buf) {
         buf.writeVarInt(event);
         buf.writeBoolean(active);
         buf.writeVarLong(gameTime);
@@ -62,7 +55,7 @@ public record TremorHollowStatePayload(int event, boolean active, Vec3 center, f
         buf.writeFloat(breath);
     }
 
-    private static TremorHollowStatePayload read(FriendlyByteBuf buf) {
+    static TremorHollowStatePayload read(FriendlyByteBuf buf) {
         int event = buf.readVarInt();
         boolean active = buf.readBoolean();
         long gameTime = buf.readVarLong();
@@ -78,10 +71,5 @@ public record TremorHollowStatePayload(int event, boolean active, Vec3 center, f
         float breath = buf.readFloat();
         return new TremorHollowStatePayload(event, true, center, boxRadius, closeRadius, node, beatTicks, sink,
                 breath, gameTime);
-    }
-
-    @Override
-    public Type<? extends CustomPacketPayload> type() {
-        return TYPE;
     }
 }

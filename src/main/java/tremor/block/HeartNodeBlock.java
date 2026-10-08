@@ -1,6 +1,5 @@
 package tremor.block;
 
-import com.mojang.serialization.MapCodec;
 import net.minecraft.core.BlockPos;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
@@ -19,15 +18,8 @@ import tremor.hollow.level.HollowLevels;
  * hollow it belongs to is told ({@link HollowLevels#nodeBroken}); a node anywhere else is just a block.
  */
 public final class HeartNodeBlock extends Block {
-    public static final MapCodec<HeartNodeBlock> CODEC = simpleCodec(HeartNodeBlock::new);
-
     public HeartNodeBlock(BlockBehaviour.Properties properties) {
         super(properties);
-    }
-
-    @Override
-    protected MapCodec<HeartNodeBlock> codec() {
-        return CODEC;
     }
 
     /** Called by {@code ServerPlayerGameMode.destroyBlock} (creative players included) to remove the block. */

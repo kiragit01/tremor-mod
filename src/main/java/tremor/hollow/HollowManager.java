@@ -2,6 +2,7 @@ package tremor.hollow;
 
 import it.unimi.dsi.fastutil.longs.Long2ObjectMap;
 import net.minecraft.core.BlockPos;
+import net.minecraft.world.level.levelgen.Heightmap;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.Tag;
@@ -34,13 +35,12 @@ import net.minecraft.world.level.block.BucketPickup;
 import net.minecraft.world.level.block.LiquidBlock;
 import net.minecraft.world.level.block.PowderSnowBlock;
 import net.minecraft.world.level.block.state.BlockState;
-import net.minecraft.world.level.portal.DimensionTransition;
 import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
-import net.neoforged.neoforge.event.entity.player.PlayerEvent;
-import net.neoforged.neoforge.event.server.ServerStoppedEvent;
-import net.neoforged.neoforge.event.tick.ServerTickEvent;
-import net.neoforged.neoforge.network.PacketDistributor;
+import net.minecraftforge.event.entity.player.PlayerEvent;
+import net.minecraftforge.event.server.ServerStoppedEvent;
+import net.minecraftforge.event.TickEvent;
+import tremor.network.TremorNetwork;
 import tremor.Tremor;
 import tremor.config.TremorConfig;
 import tremor.hollow.level.HollowLevels;
@@ -52,6 +52,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 import java.util.WeakHashMap;
@@ -409,7 +410,10 @@ public final class HollowManager {
 
     // ---- events ----
 
-    public static void onServerTick(ServerTickEvent.Post event) {
+    public static void onServerTick(TickEvent.ServerTickEvent event) {
+        if (event.phase != TickEvent.Phase.END) {
+            return;
+        }
         State s = state(event.getServer());
         if (s != null) {
             s.tick();
@@ -559,7 +563,7 @@ public final class HollowManager {
             if (rest.isEmpty()) {
                 return;
             }
-            if (ItemStack.isSameItemSameComponents(held, rest) && held.getCount() < held.getMaxStackSize()) {
+            if (ItemStack.isSameItemSameTags(held, rest) && held.getCount() < held.getMaxStackSize()) {
                 int moved = Math.min(rest.getCount(), held.getMaxStackSize() - held.getCount());
                 held.grow(moved);
                 rest.shrink(moved);
@@ -575,7 +579,7 @@ public final class HollowManager {
     }
 
     private static void blackout(ServerPlayer player, boolean dark, int fadeTicks) {
-        PacketDistributor.sendToPlayer(player, new TremorBlackoutPayload(dark, fadeTicks));
+        TremorNetwork.sendToPlayer(player, new TremorBlackoutPayload(dark, fadeTicks));
     }
 
     private static int fadeTicks() {
@@ -588,7 +592,7 @@ public final class HollowManager {
         ChunkPos at = player.chunkPosition();
         for (int z = at.z - READY_RADIUS; z <= at.z + READY_RADIUS; z++) {
             for (int x = at.x - READY_RADIUS; x <= at.x + READY_RADIUS; x++) {
-                if (chunks.getChunkNow(x, z) == null || player.connection.chunkSender.isPending(ChunkPos.asLong(x, z))) {
+                if (chunks.getChunkNow(x, z) == null) {
                     return false;
                 }
             }
@@ -889,7 +893,7 @@ public final class HollowManager {
                     pack(parcel, item.getItem());
                 } else if (entity instanceof AbstractArrow arrow) {
                     if (arrow.pickup == AbstractArrow.Pickup.ALLOWED) {
-                        pack(parcel, arrow.getPickupItemStackOrigin());
+                        pack(parcel, ArrowItems.of(arrow));
                     }
                 } else if (entity instanceof ExperienceOrb
                         || entity instanceof OwnableEntity owned && owned.getOwnerUUID() != null) {
@@ -938,8 +942,7 @@ public final class HollowManager {
                 return;
             }
             ItemStack tool = new ItemStack(Items.SHEARS);
-            tool.enchant(hollow.registryAccess().registryOrThrow(Registries.ENCHANTMENT)
-                    .getHolderOrThrow(Enchantments.SILK_TOUCH), 1);
+            tool.enchant(Enchantments.SILK_TOUCH, 1);
             BlockPos.MutableBlockPos pos = new BlockPos.MutableBlockPos();
             Long2ObjectMap<Block> blocks = event.placed();
             for (long at : blocks.keySet().toLongArray()) {
@@ -951,7 +954,7 @@ public final class HollowManager {
                         pack(parcel, new ItemStack(placed));
                     }
                 } else if (placed instanceof LiquidBlock || placed instanceof PowderSnowBlock) {
-                    pack(parcel, ((BucketPickup) placed).pickupBlock(null, hollow, pos, state));
+                    pack(parcel, ((BucketPickup) placed).pickupBlock(hollow, pos, state));
                 } else {
                     for (ItemStack drop : Block.getDrops(state, hollow, pos, hollow.getBlockEntity(pos), null, tool)) {
                         pack(parcel, drop);
@@ -992,7 +995,7 @@ public final class HollowManager {
                 } else {
                     ItemStack stack = entity instanceof ItemEntity item ? item.getItem().copy()
                             : ((AbstractArrow) entity).pickup == AbstractArrow.Pickup.ALLOWED
-                            ? ((AbstractArrow) entity).getPickupItemStackOrigin().copy() : ItemStack.EMPTY;
+                            ? ArrowItems.of((AbstractArrow) entity).copy() : ItemStack.EMPTY;
                     entity.discard();
                     if (!stack.isEmpty()) {
                         Vec3 at = site.position();
@@ -1027,8 +1030,9 @@ public final class HollowManager {
 
         /** Moves an entity of the player's (an experience orb, a pet) to the drop site as it is. */
         private void send(Entity entity, DropSite site) {
-            move(entity, () -> entity.changeDimension(new DimensionTransition(site.level(), site.position(), Vec3.ZERO,
-                    entity.getYRot(), entity.getXRot(), DimensionTransition.DO_NOTHING)));
+            Vec3 to = site.position();
+            move(entity, () -> entity.teleportTo(site.level(), to.x, to.y, to.z, Set.of(), entity.getYRot(),
+                    entity.getXRot()));
             if (!entity.isRemoved()) {
                 Tremor.LOGGER.warn("Hollow: could not move {} out of the hollow (another mod stopped it)", entity);
             }
@@ -1192,12 +1196,17 @@ public final class HollowManager {
          * another mod stopped it.
          */
         private boolean respawn(ServerPlayer player) {
-            DimensionTransition to = player.findRespawnPositionAndUseSpawnBlock(true, DimensionTransition.DO_NOTHING);
-            if (HollowDimension.is(to.newLevel())) {
-                to = new DimensionTransition(server.overworld(), player, DimensionTransition.DO_NOTHING);
-            }
-            DimensionTransition transition = to;
-            move(player, () -> player.changeDimension(transition));
+            ServerLevel bedLevel = server.getLevel(player.getRespawnDimension());
+            BlockPos bed = player.getRespawnPosition();
+            Optional<Vec3> spot = bedLevel != null && bed != null && !HollowDimension.is(bedLevel)
+                    ? Player.findRespawnPositionAndUseSpawnBlock(bedLevel, bed, player.getRespawnAngle(),
+                    player.isRespawnForced(), true)
+                    : Optional.empty();
+            ServerLevel level = spot.isPresent() ? bedLevel : server.overworld();
+            Vec3 pos = spot.orElseGet(() -> Vec3.atBottomCenterOf(
+                    level.getHeightmapPos(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, level.getSharedSpawnPos())));
+            float yaw = spot.isPresent() ? player.getRespawnAngle() : 0;
+            move(player, () -> player.teleportTo(level, pos.x, pos.y, pos.z, yaw, 0));
             if (HollowDimension.is(player.level())) {
                 return false;
             }

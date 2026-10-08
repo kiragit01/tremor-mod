@@ -1,6 +1,5 @@
 package tremor.entity;
 
-import net.minecraft.core.HolderLookup;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.Tag;
 import net.minecraft.server.level.ServerLevel;
@@ -16,9 +15,6 @@ import tremor.core.math.Vec3;
  */
 public final class TremorSavedData extends SavedData {
     public static final String NAME = Tremor.MODID;
-    public static final SavedData.Factory<TremorSavedData> FACTORY =
-            new SavedData.Factory<>(TremorSavedData::new, TremorSavedData::load);
-
     private int lastInstance;
     private TremorEntity entity;
     private long lastNaturalDespawn = Long.MIN_VALUE;
@@ -29,7 +25,7 @@ public final class TremorSavedData extends SavedData {
 
     /** The level's data, created empty (and not written until something changes) if there is none yet. */
     public static TremorSavedData get(ServerLevel level) {
-        return level.getDataStorage().computeIfAbsent(FACTORY, NAME);
+        return level.getDataStorage().computeIfAbsent(TremorSavedData::load, TremorSavedData::new, NAME);
     }
 
     /** The entity of the dimension, or null. */
@@ -87,7 +83,7 @@ public final class TremorSavedData extends SavedData {
     }
 
     @Override
-    public CompoundTag save(CompoundTag tag, HolderLookup.Provider registries) {
+    public CompoundTag save(CompoundTag tag) {
         tag.putInt("lastInstance", lastInstance);
         if (lastNaturalDespawn != Long.MIN_VALUE) {
             tag.putLong("lastNaturalDespawn", lastNaturalDespawn);
@@ -101,7 +97,7 @@ public final class TremorSavedData extends SavedData {
         return tag;
     }
 
-    private static TremorSavedData load(CompoundTag tag, HolderLookup.Provider registries) {
+    private static TremorSavedData load(CompoundTag tag) {
         TremorSavedData data = new TremorSavedData();
         data.lastInstance = tag.getInt("lastInstance");
         if (tag.contains("lastNaturalDespawn", Tag.TAG_LONG)) {

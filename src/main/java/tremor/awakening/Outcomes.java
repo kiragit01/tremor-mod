@@ -14,9 +14,9 @@ import net.minecraft.world.effect.MobEffectInstance;
 import net.minecraft.world.effect.MobEffects;
 import net.minecraft.world.entity.item.ItemEntity;
 import net.minecraft.world.item.ItemStack;
-import net.neoforged.neoforge.event.server.ServerStoppingEvent;
-import net.neoforged.neoforge.network.PacketDistributor;
-import net.neoforged.neoforge.server.ServerLifecycleHooks;
+import net.minecraftforge.event.server.ServerStoppingEvent;
+import tremor.network.TremorNetwork;
+import net.minecraftforge.server.ServerLifecycleHooks;
 import tremor.Tremor;
 import tremor.item.TremorItems;
 import tremor.config.TremorConfig;
@@ -88,7 +88,7 @@ import java.util.WeakHashMap;
 public final class Outcomes {
     /** The damage type of the ground's pull ({@code data/tremor/damage_type/swallowed.json}). */
     private static final ResourceKey<DamageType> SWALLOWED = ResourceKey.create(Registries.DAMAGE_TYPE,
-            ResourceLocation.fromNamespaceAndPath(Tremor.MODID, "swallowed"));
+            new ResourceLocation(Tremor.MODID, "swallowed"));
     /** How long a player who survives a defeat stays weakened (ticks). */
     static final int WEAKENED_TICKS = 600;
     /** Amplifier of the weakness and the slowness then (level II). */
@@ -153,13 +153,13 @@ public final class Outcomes {
     static HollowEvent win(ServerPlayer player) throws HollowManager.Refusal {
         HollowEvent event = HollowManager.decide(player, HollowOutcome.VICTORY);
         HollowManager.leave(player, null);
-        float volume = (float) TremorConfig.COMMON.transitionVolume.getAsDouble();
-        player.serverLevel().playSound(null, player.getX(), player.getY(), player.getZ(), TremorSounds.RELEASE,
+        float volume = TremorConfig.COMMON.transitionVolume.get().floatValue();
+        player.serverLevel().playSound(null, player.getX(), player.getY(), player.getZ(), TremorSounds.RELEASE.get(),
                 SoundSource.HOSTILE, volume, 1);
         ServerLevel real = player.server.getLevel(event.origin().dimension());
         if (real != null) {
             net.minecraft.world.phys.Vec3 at = event.origin().position();
-            real.playSound(null, at.x, at.y, at.z, TremorSounds.RELEASE, SoundSource.HOSTILE, volume, 1);
+            real.playSound(null, at.x, at.y, at.z, TremorSounds.RELEASE.get(), SoundSource.HOSTILE, volume, 1);
         }
         AwakeningManager.victory(event);
         reward(player, real, event.origin().position());
@@ -204,7 +204,7 @@ public final class Outcomes {
             HollowManager.leave(player, null);
             return reached;
         }
-        PacketDistributor.sendToPlayer(player, new TremorBlackoutPayload(true,
+        TremorNetwork.sendToPlayer(player, new TremorBlackoutPayload(true,
                 TremorConfig.COMMON.hollow.fadeTicks.get()));
         MinecraftServer server = player.server;
         UUID id = player.getUUID();
@@ -222,7 +222,7 @@ public final class Outcomes {
      */
     static HollowEvent lose(ServerPlayer player) throws HollowManager.Refusal {
         HollowEvent event = HollowManager.decide(player, HollowOutcome.DEFEAT);
-        PacketDistributor.sendToPlayer(player, new TremorBlackoutPayload(true,
+        TremorNetwork.sendToPlayer(player, new TremorBlackoutPayload(true,
                 TremorConfig.COMMON.hollow.fadeTicks.get()));
         MinecraftServer server = player.server;
         UUID id = player.getUUID();

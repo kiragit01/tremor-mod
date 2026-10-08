@@ -1,8 +1,6 @@
 package tremor.network;
 
 import net.minecraft.network.FriendlyByteBuf;
-import net.minecraft.network.codec.StreamCodec;
-import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
 import net.minecraft.resources.ResourceLocation;
 import tremor.Tremor;
 import tremor.core.math.Vec3;
@@ -26,7 +24,7 @@ import java.util.UUID;
  * @param focus       where the swallow hill rises (the target's position when SWALLOWING started); the centre otherwise
  */
 public record TremorAwakeningPayload(int id, Vec3 center, float radius, Phase phase, long phaseStart, int phaseTicks,
-                                     UUID target, Vec3 focus) implements CustomPacketPayload {
+                                     UUID target, Vec3 focus) implements TremorPayload {
 
     /** Phases of an Awakening as the clients see them. */
     public enum Phase {
@@ -50,13 +48,8 @@ public record TremorAwakeningPayload(int id, Vec3 center, float radius, Phase ph
         ENDED
     }
 
-    public static final Type<TremorAwakeningPayload> TYPE =
-            new Type<>(ResourceLocation.fromNamespaceAndPath(Tremor.MODID, "awakening"));
-
-    public static final StreamCodec<FriendlyByteBuf, TremorAwakeningPayload> STREAM_CODEC =
-            StreamCodec.ofMember(TremorAwakeningPayload::write, TremorAwakeningPayload::read);
-
-    private void write(FriendlyByteBuf buf) {
+    @Override
+    public void write(FriendlyByteBuf buf) {
         buf.writeVarInt(id);
         buf.writeDouble(center.x());
         buf.writeDouble(center.y());
@@ -71,7 +64,7 @@ public record TremorAwakeningPayload(int id, Vec3 center, float radius, Phase ph
         buf.writeDouble(focus.z());
     }
 
-    private static TremorAwakeningPayload read(FriendlyByteBuf buf) {
+    static TremorAwakeningPayload read(FriendlyByteBuf buf) {
         int id = buf.readVarInt();
         Vec3 center = new Vec3(buf.readDouble(), buf.readDouble(), buf.readDouble());
         float radius = buf.readFloat();
@@ -81,10 +74,5 @@ public record TremorAwakeningPayload(int id, Vec3 center, float radius, Phase ph
         UUID target = buf.readUUID();
         Vec3 focus = new Vec3(buf.readDouble(), buf.readDouble(), buf.readDouble());
         return new TremorAwakeningPayload(id, center, radius, phase, phaseStart, phaseTicks, target, focus);
-    }
-
-    @Override
-    public Type<? extends CustomPacketPayload> type() {
-        return TYPE;
     }
 }

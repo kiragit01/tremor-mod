@@ -91,6 +91,27 @@ CurseForge тоже проверяет проект и файл вручную, 
 
 ---
 
+## Версия для Forge 1.20.1
+
+Живёт в ветке `forge-1.20.1` (основная ветка `main` — NeoForge 1.21.1). Собрать: переключиться на ветку и
+`./gradlew build`; файл — `build/libs/tremor-forge-1.20.1-1.0.0.jar`.
+
+Загружается как ещё один файл того же проекта (не отдельный проект):
+
+| Поле | Modrinth | CurseForge |
+|---|---|---|
+| Version number / Display name | `1.0.0+forge-1.20.1` / `Tremor 1.0.0 (Forge 1.20.1)` | `Tremor 1.0.0 (Forge 1.20.1)` |
+| Loaders | `Forge` | `Forge` |
+| Game versions | `1.20.1` | `1.20.1` |
+| Java | — | `Java 17` |
+| Changelog | `Port to Forge 1.20.1. Same features as 1.0.0 for NeoForge 1.21.1.` | то же |
+
+Отличия от версии 1.21.1, о которых стоит знать: нет экрана настроек в меню модов (Forge 1.20.1 не умеет делать его
+сам — настройки правятся в `config/tremor-common.toml` и `tremor-client.toml`). Вместо Sodium на Forge 1.20.1 —
+Embeddium: с ним проверено, всё рисуется. Oculus (Iris для Forge) с шейдерами не проверялся.
+
+---
+
 ## Короткие тексты (если где-то просят ещё)
 
 - Слоган в несколько слов: **`The ground is listening.`**

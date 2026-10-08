@@ -6,8 +6,8 @@ import net.minecraft.client.player.LocalPlayer;
 import net.minecraft.client.resources.sounds.SimpleSoundInstance;
 import net.minecraft.client.resources.sounds.SoundInstance;
 import net.minecraft.sounds.SoundSource;
-import net.neoforged.neoforge.client.event.ClientPlayerNetworkEvent;
-import net.neoforged.neoforge.client.event.ClientTickEvent;
+import net.minecraftforge.client.event.ClientPlayerNetworkEvent;
+import net.minecraftforge.event.TickEvent;
 import tremor.client.awakening.ClientAwakening;
 import tremor.client.awakening.ClientEmerge;
 import tremor.config.TremorConfig;
@@ -71,7 +71,10 @@ public final class AwakeningSounds {
      * while being moved into it), its sounds instead ({@link HollowSounds#tick}, {@link HollowSounds#arrive}); the
      * rumble of an emerging hill when it starts.
      */
-    public static void onClientTick(ClientTickEvent.Post event) {
+    public static void onClientTick(TickEvent.ClientTickEvent event) {
+        if (event.phase != TickEvent.Phase.END) {
+            return;
+        }
         Minecraft mc = Minecraft.getInstance();
         ListenerSubtitles.register(mc);
         if (mc.level != owner) {

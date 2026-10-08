@@ -153,7 +153,7 @@ record Contact(Vec3 point, double footing, String note, boolean rustling) {
         float conductivity = view.conductivity(ground.getX(), ground.getY(), ground.getZ());
         boolean rustling = rustles(view, ground.getX(), ground.getY(), ground.getZ());
         return new Contact(center(ground), SoundRules.footing(conductivity, rustling,
-                TremorConfig.COMMON.rustlingFactor.getAsDouble()), rustling ? "rustling" : null, rustling);
+                TremorConfig.COMMON.rustlingFactor.get()), rustling ? "rustling" : null, rustling);
     }
 
     private static boolean isPowderSnow(LevelVoxelView view, BlockPos pos) {

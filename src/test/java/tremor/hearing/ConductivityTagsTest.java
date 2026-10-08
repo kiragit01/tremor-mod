@@ -23,7 +23,7 @@ import java.util.zip.ZipFile;
 import org.junit.jupiter.api.Test;
 
 /**
- * The block tags of the hearing (the conductivity classes in {@code data/tremor/tags/block/conductivity}, and
+ * The block tags of the hearing (the conductivity classes in {@code data/tremor/tags/blocks/conductivity}, and
  * {@code #tremor:rustling}) against the game data: a required entry
  * that does not exist makes the whole tag fail to load, so every required {@code minecraft:} block and tag must exist
  * in the vanilla data, and every optional common ({@code c:}) tag in NeoForge's (a typo there would be ignored
@@ -49,7 +49,7 @@ class ConductivityTagsTest {
 
     /** Entries of the block tag {@code tremor:<tag>}. */
     private static Entries tagEntries(String tag) throws IOException {
-        String path = "/data/tremor/tags/block/" + tag + ".json";
+        String path = "/data/tremor/tags/blocks/" + tag + ".json";
         String json;
         try (InputStream in = ConductivityTagsTest.class.getResourceAsStream(path)) {
             assertNotNull(in, "missing " + path);
@@ -100,7 +100,7 @@ class ConductivityTagsTest {
         int colon = id.indexOf(':');
         String namespace = id.substring(0, colon);
         String path = id.substring(colon + 1);
-        return tag ? "data/" + namespace + "/tags/block/" + path + ".json"
+        return tag ? "data/" + namespace + "/tags/blocks/" + path + ".json"
                 : "assets/" + namespace + "/blockstates/" + path + ".json";
     }
 
@@ -109,7 +109,7 @@ class ConductivityTagsTest {
         List<ZipFile> jars = gameJars();
         try {
             assumeTrue(exists(jars, "assets/minecraft/blockstates/stone.json"), "no vanilla resources jar");
-            assumeTrue(exists(jars, "data/c/tags/block/ores.json"), "no NeoForge jar");
+            assumeTrue(exists(jars, "data/c/tags/blocks/ores.json"), "no NeoForge jar");
             List<String> problems = new ArrayList<>();
             for (String tag : TAGS) {
                 Entries entries = tagEntries(tag);

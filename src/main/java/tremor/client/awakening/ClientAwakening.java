@@ -2,7 +2,7 @@ package tremor.client.awakening;
 
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.multiplayer.ClientLevel;
-import net.neoforged.neoforge.client.event.ClientPlayerNetworkEvent;
+import net.minecraftforge.client.event.ClientPlayerNetworkEvent;
 import tremor.core.math.Vec3;
 import tremor.network.TremorAwakeningPayload;
 import tremor.network.TremorStepRipplePayload;

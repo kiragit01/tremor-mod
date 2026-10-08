@@ -8,8 +8,8 @@ import net.minecraft.client.sounds.SoundManager;
 import net.minecraft.client.sounds.WeighedSoundEvents;
 import net.minecraft.sounds.SoundSource;
 import net.minecraft.util.RandomSource;
-import net.neoforged.neoforge.client.event.ClientPlayerNetworkEvent;
-import net.neoforged.neoforge.client.event.ClientTickEvent;
+import net.minecraftforge.client.event.ClientPlayerNetworkEvent;
+import net.minecraftforge.event.TickEvent;
 import tremor.client.ClientTremor;
 import tremor.config.TremorConfig;
 import tremor.core.math.Vec3;
@@ -71,14 +71,17 @@ public final class RustleSound extends AbstractTickableSoundInstance {
      * Starts the rustle of the entity in the current level once it is audible, the listener is in hearing and none
      * plays for it; forgets a sound that has stopped, and stops one that is out of hearing or muted.
      */
-    public static void onClientTick(ClientTickEvent.Post event) {
+    public static void onClientTick(TickEvent.ClientTickEvent event) {
+        if (event.phase != TickEvent.Phase.END) {
+            return;
+        }
         Minecraft mc = Minecraft.getInstance();
         SoundManager sounds = mc.getSoundManager();
         if (retryDelay > 0) {
             retryDelay--;
         }
         boolean audible = audible(mc);
-        net.minecraft.world.phys.Vec3 listener = sounds.getListenerTransform().position();
+        net.minecraft.world.phys.Vec3 listener = Minecraft.getInstance().gameRenderer.getMainCamera().getPosition();
         double range = hearingRange(sounds);
         if (current != null) {
             if (current.level != mc.level) {

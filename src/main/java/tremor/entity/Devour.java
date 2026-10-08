@@ -14,8 +14,8 @@ import net.minecraft.world.entity.Mob;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.Vec3;
-import net.neoforged.neoforge.common.Tags;
-import net.neoforged.neoforge.event.tick.LevelTickEvent;
+import net.minecraftforge.common.Tags;
+import net.minecraftforge.event.TickEvent;
 import tremor.Tremor;
 import tremor.sound.TremorSounds;
 
@@ -38,7 +38,7 @@ public final class Devour {
     static final int SINK_TICKS = 30;
     /** Entity types the bump never takes. */
     public static final TagKey<EntityType<?>> UNDEVOURABLE = TagKey.create(Registries.ENTITY_TYPE,
-            ResourceLocation.fromNamespaceAndPath(Tremor.MODID, "undevourable"));
+            new ResourceLocation(Tremor.MODID, "undevourable"));
 
     /** Per level: the mobs being pulled under and the ticks they have sunk. */
     private static final Map<ServerLevel, Map<Mob, Integer>> TAKEN = new WeakHashMap<>();
@@ -75,8 +75,11 @@ public final class Devour {
     }
 
     /** Sinks the taken mobs of the level a little further, and removes those that are under. */
-    public static void onLevelTick(LevelTickEvent.Post event) {
-        if (!(event.getLevel() instanceof ServerLevel level)) {
+    public static void onLevelTick(TickEvent.LevelTickEvent event) {
+        if (event.phase != TickEvent.Phase.END) {
+            return;
+        }
+        if (!(event.level instanceof ServerLevel level)) {
             return;
         }
         Map<Mob, Integer> taken = TAKEN.get(level);

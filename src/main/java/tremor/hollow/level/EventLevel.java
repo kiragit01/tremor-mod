@@ -8,7 +8,7 @@ import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.level.ChunkPos;
 import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
-import net.neoforged.neoforge.network.PacketDistributor;
+import tremor.network.TremorNetwork;
 import tremor.Tremor;
 import tremor.awakening.Outcomes;
 import tremor.block.TremorBlocks;
@@ -337,8 +337,7 @@ final class EventLevel {
             node = at;
         }
         for (long chunk : changedChunks) {
-            light.add(hollow.getChunkSource().getLightEngine().waitForPendingTasks(ChunkPos.getX(chunk),
-                    ChunkPos.getZ(chunk)));
+            light.add(tremor.hollow.TerrainCopier.lightDone(hollow, ChunkPos.getX(chunk), ChunkPos.getZ(chunk)));
         }
         stage = Stage.LIGHT;
     }
@@ -437,7 +436,7 @@ final class EventLevel {
 
     /** One tick with the player inside the copy, alive. */
     void tick(ServerPlayer player) {
-        if (!running() || !hollow.tickRateManager().runsNormally()) {
+        if (!running()) {
             return;
         }
         long begin = System.nanoTime();
@@ -518,7 +517,7 @@ final class EventLevel {
     void ended() {
         ServerPlayer player = hollow.getServer().getPlayerList().getPlayer(event.player());
         if (player != null && sentTick > Long.MIN_VALUE / 2) {
-            PacketDistributor.sendToPlayer(player, TremorHollowStatePayload.inactive(id,
+            TremorNetwork.sendToPlayer(player, TremorHollowStatePayload.inactive(id,
                     player.level().getGameTime()));
         }
     }
@@ -672,7 +671,7 @@ final class EventLevel {
 
     /** Puts the node back if it is gone (not broken by the player: something else took it). */
     private void keepNode(ServerPlayer player) {
-        if (node != null && !nodeBroken && !hollow.getBlockState(node).is(TremorBlocks.HEART_NODE)
+        if (node != null && !nodeBroken && !hollow.getBlockState(node).is(TremorBlocks.HEART_NODE.get())
                 && !player.getBoundingBox().intersects(new AABB(node))) {
             hollow.setBlock(node, TremorBlocks.HEART_NODE.get().defaultBlockState(), Materials.FLAGS);
         }
@@ -701,7 +700,7 @@ final class EventLevel {
                 && Math.ceil(breath * 10) == Math.ceil(sentBreath * 10)) {
             return;
         }
-        PacketDistributor.sendToPlayer(player, new TremorHollowStatePayload(id, true,
+        TremorNetwork.sendToPlayer(player, new TremorHollowStatePayload(id, true,
                 new tremor.core.math.Vec3(centreX, centreY, centreZ), (float) boxRadius, (float) schedule.radius(),
                 shown, beat, sink, breath, hollow.getGameTime()));
         sentTick = ticks;

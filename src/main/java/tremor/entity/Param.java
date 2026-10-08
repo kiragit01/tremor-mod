@@ -1,6 +1,6 @@
 package tremor.entity;
 
-import net.neoforged.neoforge.common.ModConfigSpec;
+import net.minecraftforge.common.ForgeConfigSpec;
 import tremor.config.TremorConfig;
 
 import java.util.Arrays;
@@ -90,16 +90,16 @@ public enum Param {
     }
 
     private double bound(boolean upper) {
-        ModConfigSpec.ValueSpec spec = config().getSpec();
+        ForgeConfigSpec.ValueSpec spec = TremorConfig.COMMON_SPEC.getSpec().get(config().getPath());
         if (isInteger()) {
-            ModConfigSpec.Range<Integer> range = spec.<Integer>getRange();
+            ForgeConfigSpec.Range<Integer> range = spec.<Integer>getRange();
             return upper ? range.getMax() : range.getMin();
         }
-        ModConfigSpec.Range<Double> range = spec.<Double>getRange();
+        ForgeConfigSpec.Range<Double> range = spec.<Double>getRange();
         return upper ? range.getMax() : range.getMin();
     }
 
-    private ModConfigSpec.ConfigValue<? extends Number> config() {
+    private ForgeConfigSpec.ConfigValue<? extends Number> config() {
         TremorConfig.Common c = TremorConfig.COMMON;
         return switch (this) {
             case AMPLITUDE -> c.amplitude;

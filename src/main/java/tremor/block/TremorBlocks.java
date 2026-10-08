@@ -7,11 +7,12 @@ import net.minecraft.world.level.block.entity.BlockEntityType;
 import net.minecraft.world.level.block.state.BlockBehaviour;
 import net.minecraft.world.level.material.MapColor;
 import net.minecraft.world.level.material.PushReaction;
-import net.neoforged.bus.api.IEventBus;
-import net.neoforged.neoforge.registries.DeferredBlock;
-import net.neoforged.neoforge.registries.DeferredHolder;
-import net.neoforged.neoforge.registries.DeferredItem;
-import net.neoforged.neoforge.registries.DeferredRegister;
+import net.minecraftforge.eventbus.api.IEventBus;
+import net.minecraftforge.registries.RegistryObject;
+import net.minecraft.world.item.Item;
+import net.minecraft.world.level.block.Block;
+import net.minecraftforge.registries.ForgeRegistries;
+import net.minecraftforge.registries.DeferredRegister;
 import tremor.Tremor;
 
 /**
@@ -25,10 +26,10 @@ public final class TremorBlocks {
     /** The node's light level: the block next to it is barely lit, the tunnel around it dark. */
     public static final int NODE_LIGHT = 4;
 
-    private static final DeferredRegister.Blocks BLOCKS = DeferredRegister.createBlocks(Tremor.MODID);
+    private static final DeferredRegister<Block> BLOCKS = DeferredRegister.create(ForgeRegistries.BLOCKS, Tremor.MODID);
     private static final DeferredRegister<BlockEntityType<?>> BLOCK_ENTITIES =
             DeferredRegister.create(Registries.BLOCK_ENTITY_TYPE, Tremor.MODID);
-    private static final DeferredRegister.Items ITEMS = DeferredRegister.createItems(Tremor.MODID);
+    private static final DeferredRegister<Item> ITEMS = DeferredRegister.create(ForgeRegistries.ITEMS, Tremor.MODID);
 
     /**
      * The node (SPEC 9, "Узел"): a pulsing block somewhere in the hollow; a player who breaks it wins. A few seconds by
@@ -37,8 +38,8 @@ public final class TremorBlocks {
      * few blocks: it is found by its beat and its rings, not by a glow down the tunnels ("Сквозь туман он не
      * светится").
      */
-    public static final DeferredBlock<HeartNodeBlock> HEART_NODE = BLOCKS.registerBlock("heart_node",
-            HeartNodeBlock::new, BlockBehaviour.Properties.of()
+    public static final RegistryObject<HeartNodeBlock> HEART_NODE = BLOCKS.register("heart_node",
+            () -> new HeartNodeBlock(BlockBehaviour.Properties.of()
                     .mapColor(MapColor.COLOR_RED)
                     .strength(2.5F, BLAST_PROOF)
                     .lightLevel(state -> TremorBlocks.NODE_LIGHT)
@@ -47,15 +48,15 @@ public final class TremorBlocks {
                     .sound(SoundType.SCULK_CATALYST)
                     .pushReaction(PushReaction.BLOCK)
                     .noLootTable()
-                    .isValidSpawn((state, level, pos, type) -> false));
+                    .isValidSpawn((state, level, pos, type) -> false)));
 
     /**
      * The soft ground (SPEC 9, "Затягивание"): what the ground under a player who stands still turns into, sinking
      * level by level ({@link MireBlock#SOFTNESS}); it sets back into the copied block once the player is off it.
      * Unbreakable (the player gets out by moving, or by digging the ground around), drops nothing, never moved.
      */
-    public static final DeferredBlock<MireBlock> MIRE = BLOCKS.registerBlock("mire", MireBlock::new,
-            BlockBehaviour.Properties.of()
+    public static final RegistryObject<MireBlock> MIRE = BLOCKS.register("mire",
+            () -> new MireBlock(BlockBehaviour.Properties.of()
                     .mapColor(MapColor.TERRACOTTA_CYAN)
                     .strength(-1.0F, BLAST_PROOF)
                     .sound(SoundType.MUD)
@@ -63,7 +64,7 @@ public final class TremorBlocks {
                     .noLootTable()
                     .isValidSpawn((state, level, pos, type) -> false)
                     .isViewBlocking((state, level, pos) -> true)
-                    .isSuffocating((state, level, pos) -> false));
+                    .isSuffocating((state, level, pos) -> false)));
 
     /**
      * A cache of rubble (SPEC 9, "Поражение": the things of a player the ground killed, scattered over the bottom of
@@ -72,20 +73,21 @@ public final class TremorBlocks {
      * ({@code loot_table/blocks/rubble_cache.json}); whatever breaks it spills what it holds, a command that replaces it
      * empties it first ({@link RubbleCacheBlock}). It does not fall, pistons do not move it.
      */
-    public static final DeferredBlock<RubbleCacheBlock> RUBBLE_CACHE = BLOCKS.registerBlock("rubble_cache",
-            RubbleCacheBlock::new, BlockBehaviour.Properties.of()
+    public static final RegistryObject<RubbleCacheBlock> RUBBLE_CACHE = BLOCKS.register("rubble_cache",
+            () -> new RubbleCacheBlock(BlockBehaviour.Properties.of()
                     .mapColor(MapColor.STONE)
                     .strength(0.6F)
                     .sound(SoundType.SUSPICIOUS_GRAVEL)
-                    .pushReaction(PushReaction.BLOCK));
+                    .pushReaction(PushReaction.BLOCK)));
 
     /** What a {@link #RUBBLE_CACHE} holds. */
-    public static final DeferredHolder<BlockEntityType<?>, BlockEntityType<RubbleCacheBlockEntity>>
+    public static final RegistryObject<BlockEntityType<RubbleCacheBlockEntity>>
             RUBBLE_CACHE_ENTITY = BLOCK_ENTITIES.register("rubble_cache",
             () -> BlockEntityType.Builder.of(RubbleCacheBlockEntity::new, RUBBLE_CACHE.get()).build(null));
 
     /** The item of a {@link #RUBBLE_CACHE} (for {@code /give} and {@code /setblock}; placed, it holds nothing). */
-    public static final DeferredItem<BlockItem> RUBBLE_CACHE_ITEM = ITEMS.registerSimpleBlockItem(RUBBLE_CACHE);
+    public static final RegistryObject<BlockItem> RUBBLE_CACHE_ITEM = ITEMS.register("rubble_cache",
+            () -> new BlockItem(RUBBLE_CACHE.get(), new Item.Properties()));
 
     private TremorBlocks() {
     }

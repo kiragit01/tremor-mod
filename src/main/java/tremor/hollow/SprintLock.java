@@ -2,7 +2,7 @@ package tremor.hollow;
 
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.player.Player;
-import net.neoforged.neoforge.event.tick.PlayerTickEvent;
+import net.minecraftforge.event.TickEvent;
 
 /**
  * No running in the hollow (SPEC 9 phase 2: "в изнанке чёрный туман — видно ~5 блоков, бег невозможен"), as under
@@ -21,8 +21,11 @@ public final class SprintLock {
     }
 
     /** Stops a sprinting player in the hollow, after the player's tick. */
-    public static void onPlayerTick(PlayerTickEvent.Post event) {
-        if (event.getEntity() instanceof ServerPlayer player && player.isSprinting() && locks(player)) {
+    public static void onPlayerTick(TickEvent.PlayerTickEvent event) {
+        if (event.phase != TickEvent.Phase.END) {
+            return;
+        }
+        if (event.player instanceof ServerPlayer player && player.isSprinting() && locks(player)) {
             player.setSprinting(false);
         }
     }

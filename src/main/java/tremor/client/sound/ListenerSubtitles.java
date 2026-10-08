@@ -21,13 +21,11 @@ import java.lang.reflect.Field;
  * the listener has no direction (while the player moves on, it falls a little behind until the next beat).
  * <p>
  * Registered with the sound manager as a listener of played sounds ({@link #register}), so it hears of exactly the
- * sounds the overlay hears of. The overlay is the HUD's own and not public; it is read by reflection (the runtime
- * names in NeoForge 1.21.1 are Mojang's). If that is not possible, it is logged once and vanilla's arrow stays. Main
- * thread only.
+ * sounds the overlay hears of. The overlay is the HUD's own and not public; it is read by reflection, found by its
+ * type (the runtime names in Forge 1.20.1 are not Mojang's). If that is not possible, it is logged once and vanilla's
+ * arrow stays. Main thread only.
  */
 final class ListenerSubtitles implements SoundEventListener {
-    /** Field of {@link Gui} that holds the subtitle overlay, by its Mojang name. */
-    private static final String OVERLAY_FIELD = "subtitleOverlay";
     private static final ListenerSubtitles INSTANCE = new ListenerSubtitles();
 
     private static boolean registered;
@@ -47,7 +45,7 @@ final class ListenerSubtitles implements SoundEventListener {
     }
 
     @Override
-    public void onPlaySound(SoundInstance sound, WeighedSoundEvents accessor, float range) {
+    public void onPlaySound(SoundInstance sound, WeighedSoundEvents accessor) {
         if (!sound.isRelative() || accessor.getSubtitle() == null
                 || !Tremor.MODID.equals(sound.getLocation().getNamespace())) {
             return;
@@ -58,10 +56,10 @@ final class ListenerSubtitles implements SoundEventListener {
         }
         SubtitleOverlay overlay = overlay(mc);
         if (overlay != null) {
-            Vec3 at = mc.getSoundManager().getListenerTransform().position();
+            Vec3 at = Minecraft.getInstance().gameRenderer.getMainCamera().getPosition();
             overlay.onPlaySound(new SimpleSoundInstance(sound.getLocation(), sound.getSource(), 0, 1,
                     SoundInstance.createUnseededRandom(), false, 0, SoundInstance.Attenuation.NONE, at.x, at.y, at.z,
-                    false), accessor, range);
+                    false), accessor);
         }
     }
 
@@ -69,12 +67,15 @@ final class ListenerSubtitles implements SoundEventListener {
         if (!overlayResolved) {
             overlayResolved = true;
             try {
-                Field field = Gui.class.getDeclaredField(OVERLAY_FIELD);
-                if (!SubtitleOverlay.class.isAssignableFrom(field.getType())) {
-                    throw new NoSuchFieldException(OVERLAY_FIELD + " is a " + field.getType().getName());
+                for (Field field : Gui.class.getDeclaredFields()) {
+                    if (field.getType() == SubtitleOverlay.class) {
+                        field.setAccessible(true);
+                        overlayField = field;
+                    }
                 }
-                field.setAccessible(true);
-                overlayField = field;
+                if (overlayField == null) {
+                    throw new NoSuchFieldException("no SubtitleOverlay field in Gui");
+                }
             } catch (ReflectiveOperationException | RuntimeException e) {
                 unreachable(e);
             }

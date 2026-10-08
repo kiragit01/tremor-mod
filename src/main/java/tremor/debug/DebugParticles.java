@@ -6,8 +6,8 @@ import net.minecraft.core.particles.ParticleOptions;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
-import net.neoforged.neoforge.event.server.ServerStoppingEvent;
-import net.neoforged.neoforge.event.tick.LevelTickEvent;
+import net.minecraftforge.event.server.ServerStoppingEvent;
+import net.minecraftforge.event.TickEvent;
 import org.joml.Vector3f;
 import tremor.config.TremorConfig;
 import tremor.core.graph.SurfaceGraph;
@@ -92,8 +92,11 @@ public final class DebugParticles {
 
     // ---- events (registered on the game bus by Tremor, after TremorManager's tick) ----
 
-    public static void onLevelTick(LevelTickEvent.Post event) {
-        if (VIEWS.isEmpty() || !(event.getLevel() instanceof ServerLevel level) || level.getGameTime() % INTERVAL != 0) {
+    public static void onLevelTick(TickEvent.LevelTickEvent event) {
+        if (event.phase != TickEvent.Phase.END) {
+            return;
+        }
+        if (VIEWS.isEmpty() || !(event.level instanceof ServerLevel level) || level.getGameTime() % INTERVAL != 0) {
             return;
         }
         TremorRuntime runtime = TremorManager.runtime(level);

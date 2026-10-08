@@ -1,7 +1,7 @@
 package tremor.client.render;
 
 import com.mojang.blaze3d.systems.RenderSystem;
-import com.mojang.blaze3d.vertex.ByteBufferBuilder;
+import com.mojang.blaze3d.vertex.BufferBuilder;
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.blaze3d.vertex.VertexConsumer;
 import net.minecraft.client.Minecraft;
@@ -19,10 +19,11 @@ import net.minecraft.util.RandomSource;
 import net.minecraft.world.level.LightLayer;
 import net.minecraft.world.level.block.RenderShape;
 import net.minecraft.world.level.block.state.BlockState;
-import net.neoforged.neoforge.client.event.ClientPlayerNetworkEvent;
-import net.neoforged.neoforge.client.event.ModelEvent;
-import net.neoforged.neoforge.client.event.RenderLevelStageEvent;
-import net.neoforged.neoforge.client.model.data.ModelData;
+import net.minecraftforge.client.event.ClientPlayerNetworkEvent;
+import net.minecraftforge.client.event.ModelEvent;
+import net.minecraftforge.client.event.RenderLevelStageEvent;
+import net.minecraftforge.client.model.data.ModelData;
+import net.minecraftforge.client.model.data.ModelDataManager;
 import tremor.client.ClientTremor;
 import tremor.client.awakening.AwakeningGround;
 import tremor.client.hollow.HollowGround;
@@ -50,7 +51,6 @@ import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.SequencedMap;
 
 /**
  * Additive client-side deformation (SPEC 6.3): the world is never touched; instead copies of the affected surface
@@ -282,25 +282,36 @@ public final class DeformationRenderer {
     }
 
     public static void onRenderLevelStage(RenderLevelStageEvent event) {
-        RenderLevelStageEvent.Stage stage = event.getStage();
-        if (stage == RenderLevelStageEvent.Stage.AFTER_BLOCK_ENTITIES) {
-            long start = System.nanoTime();
-            frameReady = prepare(event);
-            if (frameReady) {
-                for (RenderType layer : OPAQUE) {
-                    draw(layer);
+        // 1.20.1: the camera's rotation is in the event's pose stack, not in the model-view matrix the draws use.
+        PoseStack view = RenderSystem.getModelViewStack();
+        view.pushPose();
+        view.mulPoseMatrix(event.getPoseStack().last().pose());
+        RenderSystem.applyModelViewMatrix();
+        try {
+            RenderLevelStageEvent.Stage stage = event.getStage();
+            if (stage == RenderLevelStageEvent.Stage.AFTER_BLOCK_ENTITIES) {
+                long start = System.nanoTime();
+                frameReady = prepare(event);
+                if (frameReady) {
+                    for (RenderType layer : OPAQUE) {
+                        draw(layer);
+                    }
+                    RenderStats.record(System.nanoTime() - start + pendingNanos, frameCopies, frameVertices);
                 }
-                RenderStats.record(System.nanoTime() - start + pendingNanos, frameCopies, frameVertices);
+                pendingNanos = 0;
+            } else if (frameReady && stage == RenderLevelStageEvent.Stage.AFTER_TRANSLUCENT_BLOCKS) {
+                long start = System.nanoTime();
+                draw(RenderType.translucent());
+                pendingNanos += System.nanoTime() - start;
+            } else if (frameReady && stage == RenderLevelStageEvent.Stage.AFTER_TRIPWIRE_BLOCKS) {
+                long start = System.nanoTime();
+                draw(RenderType.tripwire());
+                pendingNanos += System.nanoTime() - start;
             }
-            pendingNanos = 0;
-        } else if (frameReady && stage == RenderLevelStageEvent.Stage.AFTER_TRANSLUCENT_BLOCKS) {
-            long start = System.nanoTime();
-            draw(RenderType.translucent());
-            pendingNanos += System.nanoTime() - start;
-        } else if (frameReady && stage == RenderLevelStageEvent.Stage.AFTER_TRIPWIRE_BLOCKS) {
-            long start = System.nanoTime();
-            draw(RenderType.tripwire());
-            pendingNanos += System.nanoTime() - start;
+    
+        } finally {
+            view.popPose();
+            RenderSystem.applyModelViewMatrix();
         }
     }
 
@@ -329,7 +340,7 @@ public final class DeformationRenderer {
             columns.values().removeIf(col -> tick - col.lastUsed > EVICT_AGE);
         }
 
-        float partialTick = event.getPartialTick().getGameTimeDeltaPartialTick(false);
+        float partialTick = event.getPartialTick();
         net.minecraft.world.phys.Vec3 cam = event.getCamera().getPosition();
         camX = cam.x;
         camY = cam.y;
@@ -510,7 +521,7 @@ public final class DeformationRenderer {
             frameCut = Math.sqrt(drawn.get(keep).distanceSq);
         }
         while (drawn.size() > keep) {
-            drawn.removeLast();
+            drawn.remove(drawn.size() - 1);
         }
         if (Double.isNaN(frameCut)) {
             return;
@@ -524,7 +535,7 @@ public final class DeformationRenderer {
             }
         }
         while (drawn.size() > kept) {
-            drawn.removeLast();
+            drawn.remove(drawn.size() - 1);
         }
     }
 
@@ -608,7 +619,7 @@ public final class DeformationRenderer {
             return count;
         }
         while (dustFront.size() > kept) {
-            dustFront.removeLast();
+            dustFront.remove(dustFront.size() - 1);
         }
         return RippleDust.keep(count, kept, total, level.random.nextDouble());
     }
@@ -996,7 +1007,9 @@ public final class DeformationRenderer {
     private static void bakeBlock(BlockRenderDispatcher dispatcher, ClientLevel level, BlockState state, BlockPos pos,
                                   Map<RenderType, VertexList> into) {
         BakedModel model = dispatcher.getBlockModel(state);
-        ModelData data = model.getModelData(probe, pos, state, level.getModelData(pos));
+        ModelDataManager models = level.getModelDataManager();
+        ModelData stored = models == null ? null : models.getAt(pos);
+        ModelData data = model.getModelData(probe, pos, state, stored == null ? ModelData.EMPTY : stored);
         random.setSeed(state.getSeed(pos));
         for (RenderType type : model.getRenderTypes(state, random, data)) {
             VertexList mesh = into.computeIfAbsent(type, t -> new VertexList());
@@ -1006,11 +1019,11 @@ public final class DeformationRenderer {
 
     private static MultiBufferSource.BufferSource buffers() {
         if (buffers == null) {
-            SequencedMap<RenderType, ByteBufferBuilder> fixed = new LinkedHashMap<>();
+            Map<RenderType, BufferBuilder> fixed = new LinkedHashMap<>();
             for (RenderType layer : RenderType.chunkBufferLayers()) {
-                fixed.put(layer, new ByteBufferBuilder(layer.bufferSize()));
+                fixed.put(layer, new BufferBuilder(layer.bufferSize()));
             }
-            buffers = MultiBufferSource.immediateWithBuffers(fixed, new ByteBufferBuilder(256));
+            buffers = MultiBufferSource.immediateWithBuffers(fixed, new BufferBuilder(256));
         }
         return buffers;
     }

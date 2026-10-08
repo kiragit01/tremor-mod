@@ -2,7 +2,7 @@ package tremor.client.hollow;
 
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.multiplayer.ClientLevel;
-import net.neoforged.neoforge.client.event.ClientPlayerNetworkEvent;
+import net.minecraftforge.client.event.ClientPlayerNetworkEvent;
 import tremor.config.TremorConfig;
 import tremor.core.shape.HollowShape;
 import tremor.network.TremorHollowStatePayload;

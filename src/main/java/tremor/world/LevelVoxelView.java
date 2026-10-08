@@ -11,7 +11,7 @@ import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.chunk.LevelChunk;
 import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.shapes.VoxelShape;
-import net.neoforged.neoforge.event.TagsUpdatedEvent;
+import net.minecraftforge.event.TagsUpdatedEvent;
 import tremor.config.TremorConfig;
 import tremor.core.VoxelView;
 
@@ -83,7 +83,7 @@ public final class LevelVoxelView implements VoxelView {
                 case EARTH -> c.conductivityEarth;
                 case FLUID -> c.conductivityFluid;
                 case AIR -> c.conductivityAir;
-            }).getAsDouble();
+            }).get().floatValue();
         }
 
         public static ConductivityClass of(BlockState state) {

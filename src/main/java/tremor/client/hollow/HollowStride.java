@@ -6,8 +6,8 @@ import net.minecraft.client.player.LocalPlayer;
 import net.minecraft.util.Mth;
 import net.minecraft.world.entity.ai.attributes.Attributes;
 import net.minecraft.world.phys.Vec3;
-import net.neoforged.neoforge.event.entity.living.LivingEvent;
-import net.neoforged.neoforge.event.tick.PlayerTickEvent;
+import net.minecraftforge.event.entity.living.LivingEvent;
+import net.minecraftforge.event.TickEvent;
 import tremor.Tremor;
 import tremor.hollow.SprintLock;
 
@@ -67,8 +67,11 @@ public final class HollowStride {
      * Lets the sprint key go, closes the double tap's window and stops a sprint before the local player's tick, while
      * the lock holds; gives a toggled sprint back once it no longer does.
      */
-    public static void onPlayerTickPre(PlayerTickEvent.Pre event) {
-        if (!(event.getEntity() instanceof LocalPlayer player)) {
+    public static void onPlayerTickPre(TickEvent.PlayerTickEvent event) {
+        if (event.phase != TickEvent.Phase.START) {
+            return;
+        }
+        if (!(event.player instanceof LocalPlayer player)) {
             return;
         }
         Minecraft mc = Minecraft.getInstance();
@@ -96,8 +99,11 @@ public final class HollowStride {
     }
 
     /** Stops a sprint that started in the local player's tick all the same, while the lock holds. */
-    public static void onPlayerTickPost(PlayerTickEvent.Post event) {
-        if (event.getEntity() instanceof LocalPlayer player && SprintLock.locks(player)) {
+    public static void onPlayerTickPost(TickEvent.PlayerTickEvent event) {
+        if (event.phase != TickEvent.Phase.END) {
+            return;
+        }
+        if (event.player instanceof LocalPlayer player && SprintLock.locks(player)) {
             stop(player);
         }
     }
@@ -162,13 +168,19 @@ public final class HollowStride {
             return;
         }
         fieldsResolved = true;
-        keyDown = field(KeyMapping.class, KEY_DOWN_FIELD, boolean.class);
-        trigger = field(LocalPlayer.class, TRIGGER_FIELD, int.class);
+        keyDown = field(KeyMapping.class, KEY_DOWN_FIELD, "f_90817_", boolean.class);
+        trigger = field(LocalPlayer.class, TRIGGER_FIELD, "f_108583_", int.class);
     }
 
-    private static Field field(Class<?> owner, String name, Class<?> type) {
+    /** The field by its Mojang name (development) or its SRG name (a release: Forge 1.20.1 runs on SRG names). */
+    private static Field field(Class<?> owner, String name, String srg, Class<?> type) {
         try {
-            Field field = owner.getDeclaredField(name);
+            Field field;
+            try {
+                field = owner.getDeclaredField(name);
+            } catch (NoSuchFieldException e) {
+                field = owner.getDeclaredField(srg);
+            }
             if (field.getType() != type) {
                 throw new NoSuchFieldException(name + " is a " + field.getType().getName());
             }

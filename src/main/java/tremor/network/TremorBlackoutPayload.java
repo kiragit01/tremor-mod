@@ -1,8 +1,6 @@
 package tremor.network;
 
 import net.minecraft.network.FriendlyByteBuf;
-import net.minecraft.network.codec.StreamCodec;
-import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
 import net.minecraft.resources.ResourceLocation;
 import tremor.Tremor;
 
@@ -14,29 +12,19 @@ import tremor.Tremor;
  *                   false: fade back in
  * @param fadeTicks  length of the fade in client ticks (0 = at once)
  */
-public record TremorBlackoutPayload(boolean dark, int fadeTicks) implements CustomPacketPayload {
-
-    public static final Type<TremorBlackoutPayload> TYPE =
-            new Type<>(ResourceLocation.fromNamespaceAndPath(Tremor.MODID, "blackout"));
-
-    public static final StreamCodec<FriendlyByteBuf, TremorBlackoutPayload> STREAM_CODEC =
-            StreamCodec.ofMember(TremorBlackoutPayload::write, TremorBlackoutPayload::read);
+public record TremorBlackoutPayload(boolean dark, int fadeTicks) implements TremorPayload {
 
     public TremorBlackoutPayload {
         fadeTicks = Math.max(0, fadeTicks);
     }
 
-    private void write(FriendlyByteBuf buf) {
+    @Override
+    public void write(FriendlyByteBuf buf) {
         buf.writeBoolean(dark);
         buf.writeVarInt(fadeTicks);
     }
 
-    private static TremorBlackoutPayload read(FriendlyByteBuf buf) {
+    static TremorBlackoutPayload read(FriendlyByteBuf buf) {
         return new TremorBlackoutPayload(buf.readBoolean(), buf.readVarInt());
-    }
-
-    @Override
-    public Type<? extends CustomPacketPayload> type() {
-        return TYPE;
     }
 }

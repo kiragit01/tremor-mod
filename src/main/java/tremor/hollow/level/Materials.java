@@ -66,8 +66,8 @@ final class Materials {
         return !state.hasBlockEntity() && state.isCollisionShapeFullBlock(level, pos)
                 && !(block instanceof FallingBlock) && !(block instanceof LeavesBlock) && !(block instanceof TntBlock)
                 && !(block instanceof SpongeBlock) && !state.isSignalSource() && !state.is(HollowRules.PROPS)
-                && state.getDestroySpeed(level, pos) >= 0 && !state.is(TremorBlocks.HEART_NODE)
-                && !state.is(TremorBlocks.MIRE);
+                && state.getDestroySpeed(level, pos) >= 0 && !state.is(TremorBlocks.HEART_NODE.get())
+                && !state.is(TremorBlocks.MIRE.get());
     }
 
     /**
@@ -115,7 +115,7 @@ final class Materials {
      */
     static boolean softenable(BlockGetter level, BlockPos pos, BlockState state) {
         return !state.hasBlockEntity() && !state.getCollisionShape(level, pos).isEmpty()
-                && !state.is(TremorBlocks.HEART_NODE) && !state.is(TremorBlocks.MIRE);
+                && !state.is(TremorBlocks.HEART_NODE.get()) && !state.is(TremorBlocks.MIRE.get());
     }
 
     /**

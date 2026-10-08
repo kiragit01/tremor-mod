@@ -2,6 +2,7 @@ package tremor.hollow;
 
 import it.unimi.dsi.fastutil.longs.LongArrayList;
 import net.minecraft.core.BlockPos;
+import net.minecraft.network.protocol.game.ClientboundLevelChunkWithLightPacket;
 import net.minecraft.core.Holder;
 import net.minecraft.core.HolderLookup;
 import net.minecraft.core.QuartPos;
@@ -63,7 +64,7 @@ import java.util.concurrent.CompletableFuture;
  * the real world, and its bottom is always solid, so nothing falls out of it into the empty hollow below. The real
  * world is read only from chunks that are loaded; a part that is not is filled with stone (deepslate below y 0).
  */
-final class TerrainCopier {
+public final class TerrainCopier {
     private static final BlockState AIR = Blocks.AIR.defaultBlockState();
     private static final BlockState STONE = Blocks.STONE.defaultBlockState();
     private static final BlockState DEEPSLATE = Blocks.DEEPSLATE.defaultBlockState();
@@ -163,9 +164,15 @@ final class TerrainCopier {
                 area.maxY() + 1, area.maxZ() + 1), entity -> !(entity instanceof Player)).forEach(Entity::discard);
     }
 
-    /** Completes on the light thread once the light engine went through everything queued for the chunk so far. */
-    static CompletableFuture<?> lightDone(ServerLevel level, int chunkX, int chunkZ) {
-        return level.getChunkSource().getLightEngine().waitForPendingTasks(chunkX, chunkZ);
+    /**
+     * Completes on the light thread once the light engine went through everything queued for the chunk so far: 1.20.1
+     * has no wait for that alone, so this is a light pass over the chunk, whose last step runs after the updates
+     * queued before it (and spreads the light of its sources again, which changes nothing).
+     */
+    public static CompletableFuture<?> lightDone(ServerLevel level, int chunkX, int chunkZ) {
+        LevelChunk chunk = level.getChunkSource().getChunkNow(chunkX, chunkZ);
+        return chunk == null ? CompletableFuture.completedFuture(null)
+                : level.getChunkSource().getLightEngine().lightChunk(chunk, true);
     }
 
     /** Sends the chunk again to the players that already have it, with its blocks, biomes and light as they are now. */
@@ -173,7 +180,8 @@ final class TerrainCopier {
         LevelChunk chunk = level.getChunkSource().getChunkNow(chunkX, chunkZ);
         if (chunk != null) {
             for (ServerPlayer player : level.getChunkSource().chunkMap.getPlayers(chunk.getPos(), false)) {
-                player.connection.chunkSender.markChunkPendingToSend(chunk);
+                player.connection.send(new ClientboundLevelChunkWithLightPacket(chunk, level.getLightEngine(), null,
+                        null));
             }
         }
     }
@@ -319,9 +327,8 @@ final class TerrainCopier {
         if (DECORATIVE.contains(prop.getType())) {
             BlockEntity original = source.getBlockEntity(sourcePos);
             if (original != null && original.getType() == prop.getType()) {
-                HolderLookup.Provider registries = hollow.registryAccess();
                 try {
-                    prop.loadWithComponents(original.saveWithoutMetadata(registries), registries);
+                    prop.load(original.saveWithoutMetadata());
                 } catch (RuntimeException e) {
                     Tremor.LOGGER.warn("Hollow: could not copy the look of the block entity at {}", sourcePos, e);
                 }

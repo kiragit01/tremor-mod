@@ -4,7 +4,7 @@ import net.minecraft.SharedConstants;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.multiplayer.ClientLevel;
 import net.minecraft.client.player.LocalPlayer;
-import net.neoforged.neoforge.client.event.ClientTickEvent;
+import net.minecraftforge.event.TickEvent;
 import tremor.client.ClientBlackout;
 import tremor.core.shape.AwakeningParams;
 import tremor.network.TremorAwakeningPayload;
@@ -37,7 +37,10 @@ public final class ClientEmerge {
     }
 
     /** Learns of a new hill or its settling, and lets a settling that waits start once the screen is clear. */
-    public static void onClientTick(ClientTickEvent.Post event) {
+    public static void onClientTick(TickEvent.ClientTickEvent event) {
+        if (event.phase != TickEvent.Phase.END) {
+            return;
+        }
         update(Minecraft.getInstance());
     }
 

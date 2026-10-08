@@ -3,16 +3,16 @@ package tremor.spawn;
 import net.minecraft.SharedConstants;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.SectionPos;
+import net.minecraft.util.Mth;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.resources.ResourceLocation;
-import net.minecraft.server.level.ChunkTrackingView;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.Difficulty;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.levelgen.Heightmap;
-import net.neoforged.neoforge.event.level.LevelEvent;
-import net.neoforged.neoforge.event.tick.LevelTickEvent;
+import net.minecraftforge.event.level.LevelEvent;
+import net.minecraftforge.event.TickEvent;
 import tremor.Tremor;
 import tremor.awakening.AwakeningManager;
 import tremor.config.TremorConfig;
@@ -104,8 +104,11 @@ public final class NaturalSpawner {
     }
 
     /** Not while the game is frozen ({@code /tick freeze}): the schedules wait. */
-    public static void onLevelTick(LevelTickEvent.Post event) {
-        if (!(event.getLevel() instanceof ServerLevel level) || !level.tickRateManager().runsNormally()) {
+    public static void onLevelTick(TickEvent.LevelTickEvent event) {
+        if (event.phase != TickEvent.Phase.END) {
+            return;
+        }
+        if (!(event.level instanceof ServerLevel level)) {
             return;
         }
         TremorConfig.Spawn config = TremorConfig.COMMON.spawn;
@@ -309,10 +312,11 @@ public final class NaturalSpawner {
     private static Search search(ServerLevel level, ServerPlayer player, Vec3 feet, Vec3 displacement) {
         long start = System.nanoTime();
         TremorConfig.Spawn config = TremorConfig.COMMON.spawn;
-        Heading heading = Heading.of(vec(player.getKnownMovement()), displacement,
-                vec(player.calculateViewVector(0, player.getYRot())));
+        // The server knows a player's motion only from its positions: the last tick's move.
+        Heading heading = Heading.of(vec(player.position().subtract(player.xo, player.yo, player.zo)), displacement,
+                vec(net.minecraft.world.phys.Vec3.directionFromRotation(0, player.getYRot())));
         SpawnProtection protection = protection(level);
-        ChunkTrackingView view = player.getChunkTrackingView();
+        View view = View.of(player);
         double halfWidth = config.routeHalfWidth.get();
         Predicate<Vec3> allowed = p -> protection.test(p) && (inView(view, p) || heading.passes(feet, p, halfWidth));
         SurfaceGraph graph = new SurfaceGraph(new LevelVoxelView(level), TremorConfig.COMMON.maxDiveDepth.get());
@@ -322,17 +326,39 @@ public final class NaturalSpawner {
         if (pick != null && pick.visible() && !inView(view, pick.position())) {
             pick = new SurfacePicker.SpawnPick(pick.node(), pick.position(), false, pick.nearRoute());
         }
-        int viewDistance = view instanceof ChunkTrackingView.Positioned positioned ? positioned.viewDistance() : 0;
+        int viewDistance = view.distance();
         return new Search(pick, heading, protection, viewDistance, (System.nanoTime() - start) / 1e6);
     }
 
     /**
      * Whether {@code p} is in a chunk the player's client draws: within the view distance the server sends chunks to
      * it for (the client's render distance, at most the server's view distance), as the client's
-     * {@link ChunkTrackingView#isInViewDistance} test. The server keeps chunks loaded beyond it.
+     * {@link View#contains} test. The server keeps chunks loaded beyond it.
      */
-    private static boolean inView(ChunkTrackingView view, Vec3 p) {
-        return view.isInViewDistance(SectionPos.blockToSectionCoord(p.x()), SectionPos.blockToSectionCoord(p.z()));
+    private static boolean inView(View view, Vec3 p) {
+        return view.contains(SectionPos.blockToSectionCoord(p.x()), SectionPos.blockToSectionCoord(p.z()));
+    }
+
+    /**
+     * The chunks a player's client draws (1.20.1 has no {@code ChunkTrackingView}): around the section the server last
+     * sent chunks for, within the distance it sends them in (the server's view distance, plus one as {@code ChunkMap}
+     * keeps it).
+     */
+    private record View(int x, int z, int distance) {
+        static View of(ServerPlayer player) {
+            SectionPos at = player.getLastSectionPos();
+            return new View(at.x(), at.z(), Mth.clamp(player.server.getPlayerList().getViewDistance() + 1, 3, 33));
+        }
+
+        /** As {@code ChunkMap.isChunkInRange} of 1.20.1. */
+        boolean contains(int chunkX, int chunkZ) {
+            long dx = Math.max(0, Math.abs(chunkX - x) - 1);
+            long dz = Math.max(0, Math.abs(chunkZ - z) - 1);
+            long far = Math.max(0, Math.max(dx, dz) - 1);
+            long near = Math.min(dx, dz);
+            long limit = distance - 1;
+            return near * near + far * far <= limit * limit;
+        }
     }
 
     /**

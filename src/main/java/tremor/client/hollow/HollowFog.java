@@ -4,7 +4,7 @@ import com.mojang.blaze3d.shaders.FogShape;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.player.LocalPlayer;
 import net.minecraft.world.level.material.FogType;
-import net.neoforged.neoforge.client.event.ViewportEvent;
+import net.minecraftforge.client.event.ViewportEvent;
 import tremor.config.TremorConfig;
 import tremor.hollow.HollowDimension;
 import tremor.network.TremorHollowStatePayload;

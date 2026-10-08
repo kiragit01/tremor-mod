@@ -1,6 +1,6 @@
 plugins {
     id 'java-library'
-    id 'net.neoforged.moddev' version '2.0.148'
+    id 'net.neoforged.moddev.legacyforge' version '2.0.148'
     id 'idea'
 }
 
@@ -18,14 +18,14 @@ sourceSets.main.resources {
 }
 
 base {
-    archivesName = mod_id
+    archivesName = "${mod_id}-forge-${minecraft_version}"
 }
 
-// Mojang ships Java 21 to end users in 1.21.1, so mods should target Java 21.
-java.toolchain.languageVersion = JavaLanguageVersion.of(21)
+// Minecraft 1.20.1 runs on Java 17.
+java.toolchain.languageVersion = JavaLanguageVersion.of(17)
 
-neoForge {
-    version = project.neo_version
+legacyForge {
+    version = "${minecraft_version}-${forge_version}"
 
     parchment {
         mappingsVersion = project.parchment_mappings_version
@@ -35,7 +35,7 @@ neoForge {
     runs {
         client {
             client()
-            systemProperty 'neoforge.enabledGameTestNamespaces', project.mod_id
+            gameDirectory = project.file('run-forge')
         }
 
         // Scripted in-game check: boots straight into a fixed-seed dev world and runs a script of commands,
@@ -44,7 +44,7 @@ neoForge {
         clientAutotest {
             client()
             ideName = 'Client (autotest)'
-            gameDirectory = project.file('run-autotest')
+            gameDirectory = project.file('run-forge-autotest')
             programArguments.addAll '--width', '1600', '--height', '900'
             systemProperty 'tremor.autotest', project.file("autotest/${providers.gradleProperty('tremor_autotest_script').getOrElse('stage0.txt')}").absolutePath
         }
@@ -52,20 +52,7 @@ neoForge {
         server {
             server()
             programArgument '--nogui'
-            gameDirectory = project.file('run-server')
-            systemProperty 'neoforge.enabledGameTestNamespaces', project.mod_id
-        }
-
-        gameTestServer {
-            type = "gameTestServer"
-            gameDirectory = project.file('run-gametest')
-            systemProperty 'neoforge.enabledGameTestNamespaces', project.mod_id
-        }
-
-        data {
-            data()
-            gameDirectory = project.file('run-data')
-            programArguments.addAll '--mod', project.mod_id, '--all', '--output', file('src/generated/resources/').getAbsolutePath(), '--existing', file('src/main/resources/').getAbsolutePath()
+            gameDirectory = project.file('run-forge-server')
         }
 
         configureEach {
@@ -85,13 +72,13 @@ neoForge {
     }
 }
 
-// -Ptremor_hotswap=true runs the game on JetBrains Runtime 21 (auto-provisioned by the foojay resolver if it is not
+// -Ptremor_hotswap=true runs the game on JetBrains Runtime 17 (auto-provisioned by the foojay resolver if it is not
 // installed), so `gradlew runClient --debug-jvm` + attaching a debugger gives full hot swap.
-// In IntelliJ just pick a JBR 21 as the JRE of the generated run configuration instead.
+// In IntelliJ just pick a JBR 17 as the JRE of the generated run configuration instead.
 if (providers.gradleProperty('tremor_hotswap').map { it.toBoolean() }.getOrElse(false)) {
     tasks.withType(JavaExec).matching { it.name.startsWith('run') }.configureEach {
         javaLauncher = javaToolchains.launcherFor {
-            languageVersion = JavaLanguageVersion.of(21)
+            languageVersion = JavaLanguageVersion.of(17)
             vendor = JvmVendorSpec.JETBRAINS
         }
     }
@@ -116,9 +103,10 @@ configurations {
 }
 
 dependencies {
-    // -Ptremor_sodium=true adds Sodium to the dev runtime to check render compatibility (SPEC 6.3).
-    if (providers.gradleProperty('tremor_sodium').map { it.toBoolean() }.getOrElse(false)) {
-        localRuntime "maven.modrinth:sodium:${sodium_version}"
+    // -Ptremor_embeddium=true adds Embeddium (Sodium for Forge 1.20.1) to the dev runtime to check render
+    // compatibility (SPEC 6.3).
+    if (providers.gradleProperty('tremor_embeddium').map { it.toBoolean() }.getOrElse(false)) {
+        modRuntimeOnly "maven.modrinth:embeddium:${embeddium_version}"
     }
 
     // Pure-math core (tremor.core) is tested with plain JUnit 5, without booting the game.
@@ -143,7 +131,7 @@ var generateModMetadata = tasks.register("generateModMetadata", ProcessResources
     var replaceProperties = [
             minecraft_version      : minecraft_version,
             minecraft_version_range: minecraft_version_range,
-            neo_version            : neo_version,
+            forge_version_range    : forge_version_range,
             loader_version_range   : loader_version_range,
             mod_id                 : mod_id,
             mod_name               : mod_name,
@@ -156,7 +144,7 @@ var generateModMetadata = tasks.register("generateModMetadata", ProcessResources
     into "build/generated/sources/modMetadata"
 }
 sourceSets.main.resources.srcDir generateModMetadata
-neoForge.ideSyncTask generateModMetadata
+legacyForge.ideSyncTask generateModMetadata
 
 tasks.withType(JavaCompile).configureEach {
     options.encoding = 'UTF-8'

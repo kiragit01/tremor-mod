@@ -3,6 +3,10 @@
     "minecraft:warden",
     "minecraft:elder_guardian",
     {
+      "id": "#forge:bosses",
+      "required": false
+    },
+    {
       "id": "#c:bosses",
       "required": false
     }

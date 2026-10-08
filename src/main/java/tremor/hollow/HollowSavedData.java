@@ -1,6 +1,5 @@
 package tremor.hollow;
 
-import net.minecraft.core.HolderLookup;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.ListTag;
 import net.minecraft.nbt.Tag;
@@ -20,9 +19,6 @@ import java.util.UUID;
  */
 final class HollowSavedData extends SavedData {
     static final String NAME = Tremor.MODID + "_hollow";
-    private static final SavedData.Factory<HollowSavedData> FACTORY =
-            new SavedData.Factory<>(HollowSavedData::new, HollowSavedData::load);
-
     private final List<HollowEvent> events = new ArrayList<>();
 
     private HollowSavedData() {
@@ -30,7 +26,7 @@ final class HollowSavedData extends SavedData {
 
     /** The server's data, created empty (and not written until something changes) if there is none yet. */
     static HollowSavedData get(MinecraftServer server) {
-        return server.overworld().getDataStorage().computeIfAbsent(FACTORY, NAME);
+        return server.overworld().getDataStorage().computeIfAbsent(HollowSavedData::load, HollowSavedData::new, NAME);
     }
 
     /** All events, those whose slot is being cleared included. */
@@ -80,7 +76,7 @@ final class HollowSavedData extends SavedData {
     }
 
     @Override
-    public CompoundTag save(CompoundTag tag, HolderLookup.Provider registries) {
+    public CompoundTag save(CompoundTag tag) {
         ListTag list = new ListTag();
         for (HollowEvent event : events) {
             list.add(event.save());
@@ -89,7 +85,7 @@ final class HollowSavedData extends SavedData {
         return tag;
     }
 
-    private static HollowSavedData load(CompoundTag tag, HolderLookup.Provider registries) {
+    private static HollowSavedData load(CompoundTag tag) {
         HollowSavedData data = new HollowSavedData();
         for (Tag entry : tag.getList("events", Tag.TAG_COMPOUND)) {
             try {

@@ -1,0 +1,71 @@
+# Forge 1.20.1 port check in one run: mod loading, recipes, the geophone and the seismograph, the bump and its
+# rendering, hearing with Muffled Steps, the Awakening, the hollow with its time bar, a won node and its shard.
+waitchunks
+cmd gamemode spectator
+cmd time set noon
+cmd tremor despawn
+cmd tp @s 300.5 201.0 300.5 270 10
+wait 40
+waitchunks
+cmd fill 270 198 270 330 200 330 minecraft:stone
+cmd fill 270 201 270 330 206 330 minecraft:air
+cmd kill @e[type=!player]
+cmd gamemode survival
+cmd effect clear @s
+cmd clear @s
+log --- recipes
+cmd recipe give @s tremor:seismograph
+cmd recipe give @s tremor:geophone
+cmd recipe give @s tremor:muffled_steps_book
+log --- geophone
+cmd setblock 300 200 305 tremor:geophone
+cmd setblock 301 200 305 minecraft:redstone_lamp
+cmd execute if block 301 200 305 minecraft:redstone_lamp[lit=false]
+cmd tremor spawn 312 200 305
+cmd tremor ai off
+wait 30
+cmd execute if block 301 200 305 minecraft:redstone_lamp[lit=true]
+log --- seismograph and the bump
+cmd give @s tremor:seismograph
+cmd tp @s 300.5 201.0 300.5 291 12
+hud on
+wait 80
+screenshot 10_bump_east
+cmd tremor stage hunting
+cmd tremor ai on
+wait 40
+screenshot 11_hunting
+cmd tremor despawn
+wait 20
+cmd execute if block 301 200 305 minecraft:redstone_lamp[lit=false]
+log --- muffled steps
+cmd tremor spawn 320 200 290
+cmd tremor ai off
+cmd tremor debug hearing on
+cmd item replace entity @s armor.feet with minecraft:iron_boots
+hold forward 30
+cmd item replace entity @s armor.feet with minecraft:iron_boots{Enchantments:[{id:"tremor:muffled_steps",lvl:1s}]}
+hold back 30
+cmd tremor debug hearing off
+cmd tremor despawn
+log --- the Awakening, the hollow, its time bar, a won node
+cmd clear @s
+config awakening.buildupSeconds 3
+config awakening.lethal false
+config awakening.craterRadius 0
+config hollow.level.breathSeconds 30
+cmd tremor awaken
+wait 50
+screenshot 20_buildup
+wait 170
+waitchunks
+cmd tremor hollow status
+screenshot 30_hollow
+hold left 60
+screenshot 31_hollow_moved
+cmd tremor hollow outcome victory
+wait 120
+cmd data get entity @s Dimension
+cmd clear @s tremor:tremor_shard 0
+screenshot 40_back
+quit

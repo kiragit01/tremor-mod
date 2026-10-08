@@ -50,24 +50,23 @@ import net.minecraft.world.level.material.Fluids;
 import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.HitResult;
 import net.minecraft.world.phys.Vec3;
-import net.neoforged.neoforge.common.util.BlockSnapshot;
-import net.neoforged.neoforge.common.util.TriState;
-import net.neoforged.neoforge.event.entity.EntityJoinLevelEvent;
-import net.neoforged.neoforge.event.entity.EntityLeaveLevelEvent;
-import net.neoforged.neoforge.event.entity.EntityTeleportEvent;
-import net.neoforged.neoforge.event.entity.EntityTravelToDimensionEvent;
-import net.neoforged.neoforge.event.entity.living.LivingDropsEvent;
-import net.neoforged.neoforge.event.entity.living.LivingExperienceDropEvent;
-import net.neoforged.neoforge.event.entity.player.ItemFishedEvent;
-import net.neoforged.neoforge.event.entity.player.PlayerEvent;
-import net.neoforged.neoforge.event.entity.player.PlayerInteractEvent;
-import net.neoforged.neoforge.event.level.BlockDropsEvent;
-import net.neoforged.neoforge.event.level.BlockEvent;
-import net.neoforged.neoforge.event.level.ExplosionEvent;
-import net.neoforged.neoforge.event.level.LevelEvent;
-import net.neoforged.neoforge.event.level.PistonEvent;
-import net.neoforged.neoforge.event.server.ServerStoppedEvent;
-import net.neoforged.neoforge.event.tick.ServerTickEvent;
+import net.minecraftforge.common.util.BlockSnapshot;
+import net.minecraftforge.eventbus.api.Event;
+import net.minecraftforge.event.entity.EntityJoinLevelEvent;
+import net.minecraftforge.event.entity.EntityLeaveLevelEvent;
+import net.minecraftforge.event.entity.EntityTeleportEvent;
+import net.minecraftforge.event.entity.EntityTravelToDimensionEvent;
+import net.minecraftforge.event.entity.living.LivingDropsEvent;
+import net.minecraftforge.event.entity.living.LivingExperienceDropEvent;
+import net.minecraftforge.event.entity.player.ItemFishedEvent;
+import net.minecraftforge.event.entity.player.PlayerEvent;
+import net.minecraftforge.event.entity.player.PlayerInteractEvent;
+import net.minecraftforge.event.level.BlockEvent;
+import net.minecraftforge.event.level.ExplosionEvent;
+import net.minecraftforge.event.level.LevelEvent;
+import net.minecraftforge.event.level.PistonEvent;
+import net.minecraftforge.event.server.ServerStoppedEvent;
+import net.minecraftforge.event.TickEvent;
 import tremor.Tremor;
 
 import java.util.ArrayList;
@@ -113,14 +112,14 @@ public final class HollowRules {
      * anchor), or hand out copies (berry bushes, glow berries, pumpkins to carve, cake).
      */
     public static final TagKey<Block> PROPS =
-            TagKey.create(Registries.BLOCK, ResourceLocation.fromNamespaceAndPath(Tremor.MODID, "hollow_props"));
+            TagKey.create(Registries.BLOCK, new ResourceLocation(Tremor.MODID, "hollow_props"));
     /**
      * Blocks a player may not place in the hollow: automation that would take from the copy (hoppers, droppers,
      * dispensers, crafters), heads that would build a golem or a wither, and eggs and spawn that would hatch (mobs
      * cannot live there, so what went into them would be lost).
      */
     public static final TagKey<Block> UNPLACEABLE =
-            TagKey.create(Registries.BLOCK, ResourceLocation.fromNamespaceAndPath(Tremor.MODID, "hollow_unplaceable"));
+            TagKey.create(Registries.BLOCK, new ResourceLocation(Tremor.MODID, "hollow_unplaceable"));
     /** Persistent data of a falling block of the player ({@link #onEntityJoinLevel}). */
     private static final String PLAYERS_FALLING = Tremor.MODID + ":players_falling";
 
@@ -158,12 +157,12 @@ public final class HollowRules {
         BlockState state = level.getBlockState(event.getPos());
         boolean players = level instanceof ServerLevel server && HollowManager.isPlayerPlaced(server, event.getPos());
         if (!players && (state.hasBlockEntity() || state.is(PROPS))) {
-            event.setUseBlock(TriState.FALSE);
+            event.setUseBlock(Event.Result.DENY);
         }
         ItemStack stack = event.getItemStack();
         if (becomesEntity(stack) || placesUnplaceable(stack) || !players && stack.getItem() instanceof BoneMealItem
                 || stack.is(Items.ENDER_EYE) && state.is(Blocks.END_PORTAL_FRAME)) {
-            event.setUseItem(TriState.FALSE);
+            event.setUseItem(Event.Result.DENY);
         }
     }
 
@@ -222,7 +221,7 @@ public final class HollowRules {
         }
         for (BlockSnapshot snapshot : snapshots(event)) {
             BlockPos pos = snapshot.getPos();
-            BlockState before = snapshot.getState();
+            BlockState before = snapshot.getReplacedBlock();
             BlockState now = level.getBlockState(pos);
             PlayerBlocks.Replaced replaced;
             if (HollowManager.isPlayerPlaced(level, pos)) {
@@ -249,7 +248,7 @@ public final class HollowRules {
                 && HollowDimension.is(level)) {
             for (BlockSnapshot snapshot : snapshots(event)) {
                 mark(level, snapshot.getPos());
-                recheck(level, snapshot.getPos(), PlayerBlocks.Change.PLACED, snapshot.getState(), null);
+                recheck(level, snapshot.getPos(), PlayerBlocks.Change.PLACED, snapshot.getReplacedBlock(), null);
             }
         }
     }
@@ -266,12 +265,13 @@ public final class HollowRules {
     }
 
     /**
-     * Blocks of the copy broken by players, water, pistons, decay... drop nothing (this also cancels their experience
-     * and {@code spawnAfterBreak}: no silverfish); the player's own blocks drop as anywhere.
+     * Blocks of the copy a player breaks give no experience; their drops are taken by {@link HollowDrops} (whatever
+     * breaks them). The player's own blocks give it as anywhere.
      */
-    public static void onBlockDrops(BlockDropsEvent event) {
-        if (HollowDimension.is(event.getLevel()) && !HollowManager.isPlayerPlaced(event.getLevel(), event.getPos())) {
-            event.setCanceled(true);
+    public static void onBlockBreak(BlockEvent.BreakEvent event) {
+        if (event.getLevel() instanceof ServerLevel level && HollowDimension.is(level)
+                && !HollowManager.isPlayerPlaced(level, event.getPos())) {
+            event.setExpToDrop(0);
         }
     }
 
@@ -307,10 +307,8 @@ public final class HollowRules {
      */
     public static void onExplosion(ExplosionEvent.Detonate event) {
         Explosion explosion = event.getExplosion();
-        Explosion.BlockInteraction interaction = explosion.getBlockInteraction();
         if (event.getLevel() instanceof ServerLevel level && HollowDimension.is(level)
-                && (interaction == Explosion.BlockInteraction.DESTROY
-                || interaction == Explosion.BlockInteraction.DESTROY_WITH_DECAY)) {
+                && explosion.interactsWithBlocks()) {
             List<BlockPos> copies = new ArrayList<>();
             for (Iterator<BlockPos> blocks = event.getAffectedBlocks().iterator(); blocks.hasNext(); ) {
                 BlockPos pos = blocks.next();
@@ -327,7 +325,10 @@ public final class HollowRules {
      * Removes the copied blocks of this tick's explosions the way an explosion does, minus the drops (TNT still
      * primes); then brings the record of the player's blocks up to date with this tick's changes.
      */
-    public static void onServerTick(ServerTickEvent.Post event) {
+    public static void onServerTick(TickEvent.ServerTickEvent event) {
+        if (event.phase != TickEvent.Phase.END) {
+            return;
+        }
         for (Blast blast : BLASTS) {
             for (BlockPos pos : blast.blocks()) {
                 BlockState state = blast.level().getBlockState(pos);
@@ -512,8 +513,8 @@ public final class HollowRules {
      */
     private static boolean mayUse(ServerLevel level, ServerPlayer player, Item item) {
         if (item instanceof BucketItem bucket) {
-            Fluid content = bucket.content;
-            BlockHitResult hit = Item.getPlayerPOVHitResult(level, player,
+            Fluid content = bucket.getFluid();
+            BlockHitResult hit = povHit(level, player,
                     content == Fluids.EMPTY ? ClipContext.Fluid.SOURCE_ONLY : ClipContext.Fluid.NONE);
             if (hit.getType() != HitResult.Type.BLOCK) {
                 return true;
@@ -533,7 +534,7 @@ public final class HollowRules {
             return true;
         }
         if (item instanceof PlaceOnWaterBlockItem) {
-            BlockHitResult hit = Item.getPlayerPOVHitResult(level, player, ClipContext.Fluid.SOURCE_ONLY);
+            BlockHitResult hit = povHit(level, player, ClipContext.Fluid.SOURCE_ONLY);
             if (hit.getType() != HitResult.Type.BLOCK) {
                 return true;
             }
@@ -546,7 +547,7 @@ public final class HollowRules {
             return true;
         }
         if (item instanceof BottleItem) {
-            BlockHitResult hit = Item.getPlayerPOVHitResult(level, player, ClipContext.Fluid.SOURCE_ONLY);
+            BlockHitResult hit = povHit(level, player, ClipContext.Fluid.SOURCE_ONLY);
             return hit.getType() != HitResult.Type.BLOCK || !level.getFluidState(hit.getBlockPos()).is(FluidTags.WATER)
                     || HollowManager.isPlayerPlaced(level, hit.getBlockPos());
         }
@@ -557,7 +558,7 @@ public final class HollowRules {
     private static boolean takesFluid(Level level, Player player, BlockPos pos, Fluid fluid) {
         BlockState state = level.getBlockState(pos);
         return state.getBlock() instanceof LiquidBlockContainer container
-                && container.canPlaceLiquid(player, level, pos, state, fluid);
+                && container.canPlaceLiquid(level, pos, state, fluid);
     }
 
     /** Whether {@code pos} lies in the area of the running event {@code player} is inside of. */
@@ -614,6 +615,13 @@ public final class HollowRules {
      * the way a dead or disconnected player's are, and what they drop is caught instead of spawned (what a living,
      * connected player's menus give back goes into the inventory as usual).
      */
+    /** The block the player looks at within reach, as {@code Item.getPlayerPOVHitResult} (protected in 1.20.1). */
+    private static BlockHitResult povHit(Level level, Player player, ClipContext.Fluid fluid) {
+        net.minecraft.world.phys.Vec3 eye = player.getEyePosition();
+        net.minecraft.world.phys.Vec3 end = eye.add(player.getViewVector(1).scale(player.getBlockReach()));
+        return level.clip(new ClipContext(eye, end, ClipContext.Block.OUTLINE, fluid, player));
+    }
+
     private static List<ItemStack> takeLoose(ServerPlayer player) {
         List<ItemEntity> caught = new ArrayList<>();
         Collection<ItemEntity> outer = player.captureDrops(caught);

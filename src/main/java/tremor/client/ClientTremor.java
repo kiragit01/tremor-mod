@@ -2,8 +2,8 @@ package tremor.client;
 
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.multiplayer.ClientLevel;
-import net.minecraft.world.TickRateManager;
-import net.neoforged.neoforge.client.event.ClientPlayerNetworkEvent;
+import net.minecraft.SharedConstants;
+import net.minecraftforge.client.event.ClientPlayerNetworkEvent;
 import tremor.core.behavior.Stage;
 import tremor.core.math.Vec3;
 import tremor.core.shape.BumpFrame;
@@ -71,10 +71,9 @@ public final class ClientTremor {
             return null;
         }
         adopt(level);
-        TickRateManager rates = level.tickRateManager();
-        boolean running = rates.runsNormally() && !Minecraft.getInstance().isPaused();
+        boolean running = !Minecraft.getInstance().isPaused();
         SnapshotPlayback.Sample sample = playback.sample(level.getGameTime() + partialTick, System.nanoTime(),
-                rates.tickrate(), running);
+                SharedConstants.TICKS_PER_SECOND, running);
         presence = sample == null ? null : new Presence(sample.frame().center(),
                 running ? sample.velocity() : Vec3.ZERO, sample.amplitude(), sample.stage(), playback.instance());
         if (sample == null || shape == null || shapeInstance != playback.instance()) {

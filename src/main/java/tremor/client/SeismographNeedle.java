@@ -8,7 +8,7 @@ import net.minecraft.util.Mth;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.item.ItemStack;
-import net.neoforged.fml.event.lifecycle.FMLClientSetupEvent;
+import net.minecraftforge.fml.event.lifecycle.FMLClientSetupEvent;
 import tremor.Tremor;
 import tremor.config.TremorConfig;
 import tremor.core.math.Vec3;
@@ -22,7 +22,7 @@ import tremor.item.TremorItems;
  * the angrier the entity is ({@link Sensing#tremble}); with none in range it turns slowly round and round.
  */
 public final class SeismographNeedle {
-    public static final ResourceLocation ANGLE = ResourceLocation.fromNamespaceAndPath(Tremor.MODID, "angle");
+    public static final ResourceLocation ANGLE = new ResourceLocation(Tremor.MODID, "angle");
     /** Turns per tick of the idle needle. */
     private static final double IDLE_TURN = 1.0 / 160;
 
@@ -49,7 +49,7 @@ public final class SeismographNeedle {
             Vec3 at = presence.center();
             double dx = at.x() - who.getX();
             double dz = at.z() - who.getZ();
-            if (dx * dx + dz * dz <= sq(TremorConfig.COMMON.seismographRange.getAsDouble())) {
+            if (dx * dx + dz * dz <= sq(TremorConfig.COMMON.seismographRange.get())) {
                 double bearing = Math.atan2(dz, dx) / (2 * Math.PI);
                 double facing = (who.getVisualRotationYInDegrees() + 90) / 360.0;
                 double tremble = Sensing.tremble(presence.stage()) * Math.sin(time * 1.7 + seed);

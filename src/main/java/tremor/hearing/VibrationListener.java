@@ -1,10 +1,12 @@
 package tremor.hearing;
 
 import it.unimi.dsi.fastutil.objects.Object2DoubleOpenHashMap;
+import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.core.Holder;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.resources.ResourceLocation;
 import tremor.Tremor;
+import tremor.item.TremorItems;
 import net.minecraft.world.entity.EquipmentSlot;
 import net.minecraft.world.item.enchantment.EnchantmentHelper;
 import net.minecraft.world.item.enchantment.Enchantment;
@@ -19,8 +21,8 @@ import net.minecraft.world.entity.item.ItemEntity;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.entity.vehicle.AbstractMinecart;
 import net.minecraft.world.level.gameevent.GameEvent;
-import net.neoforged.neoforge.event.VanillaGameEvent;
-import net.neoforged.neoforge.event.entity.living.LivingFallEvent;
+import net.minecraftforge.event.VanillaGameEvent;
+import net.minecraftforge.event.entity.living.LivingFallEvent;
 import tremor.awakening.AwakeningManager;
 import tremor.config.TremorConfig;
 import tremor.core.math.Vec3;
@@ -80,8 +82,10 @@ import java.util.Locale;
 public final class VibrationListener {
     /** Sources this much beyond the hearing distance (from the event position) are dropped before anything else. */
     private static final double RANGE_MARGIN = 3;
+    /** Fall height that does no damage yet: fixed in 1.20.1 (no safe fall distance attribute). */
+    private static final double SAFE_FALL_DISTANCE = 3;
     /** The game event of a step ({@link #walkingStepLoudness}). */
-    private static final ResourceLocation STEP = ResourceLocation.withDefaultNamespace("step");
+    private static final ResourceLocation STEP = new ResourceLocation("step");
 
     private static List<? extends String> parsedFrom;
     private static Object2DoubleOpenHashMap<ResourceLocation> loudness = new Object2DoubleOpenHashMap<>();
@@ -105,10 +109,10 @@ public final class VibrationListener {
         if (cause != null && cause.isSpectator() || cause instanceof ExperienceOrb) {
             return;
         }
-        GameEvent type = event.getVanillaEvent().value();
+        GameEvent type = event.getVanillaEvent();
         net.minecraft.world.phys.Vec3 pos = event.getEventPosition();
-        boolean step = type == GameEvent.STEP.value();
-        boolean landing = type == GameEvent.HIT_GROUND.value();
+        boolean step = type == GameEvent.STEP;
+        boolean landing = type == GameEvent.HIT_GROUND;
         if (cause instanceof ItemEntity item) {
             if (landing) {
                 itemLanded(level, runtime, item, pos);
@@ -124,7 +128,7 @@ public final class VibrationListener {
                 return; // a step down: the walk is heard through its steps
             }
             if (cause instanceof AbstractHorse horse && SoundRules.isDamagingFall(horse.fallDistance,
-                    horse.getAttributeValue(Attributes.SAFE_FALL_DISTANCE), 1)) {
+                    SAFE_FALL_DISTANCE, 1)) {
                 // No fall event for horses; the damage multiplier of the block it lands on is not known here.
                 fall(level, runtime, horse, horse.fallDistance);
                 return;
@@ -139,16 +143,16 @@ public final class VibrationListener {
         TremorConfig.Common config = TremorConfig.COMMON;
         LevelVoxelView view = new LevelVoxelView(level);
         String name = name(id);
-        if (type == GameEvent.EXPLODE.value()) {
+        if (type == GameEvent.EXPLODE) {
             Contact contact = Contact.ofBlast(view, pos);
             emit(level, runtime, new Vibration(name, contact.point(), base, contact.footing(),
-                    (float) config.explosionAngerBonus.getAsDouble(), null), cause);
+                    config.explosionAngerBonus.get().floatValue(), null), cause);
             return;
         }
 
         double loudness = base;
         if (cause instanceof net.minecraft.world.entity.projectile.Snowball
-                && type == GameEvent.PROJECTILE_LAND.value()) {
+                && type == GameEvent.PROJECTILE_LAND) {
             loudness *= SNOWBALL_SHARE; // a snowball is soft: it hardly knocks on the ground
         }
         String note = null;
@@ -157,25 +161,25 @@ public final class VibrationListener {
                 boolean sneaking = player.isSteppingCarefully() || player.isCrouching();
                 boolean sprinting = player.isSprinting();
                 loudness = SoundRules.playerMovement(base, landing, sneaking, sprinting,
-                        config.sprintStepLoudness.getAsDouble());
+                        config.sprintStepLoudness.get());
                 note = sneaking ? "sneaking" : step && sprinting ? "sprinting" : null;
                 if (muffled(player)) {
-                    loudness *= config.muffledStepsFactor.getAsDouble();
+                    loudness *= config.muffledStepsFactor.get();
                     note = note == null ? "muffled" : note + ", muffled";
                 }
             }
         } else if (cause instanceof AbstractMinecart) {
             if (step) {
-                loudness = config.mountStepLoudness.getAsDouble();
+                loudness = config.mountStepLoudness.get();
                 note = "minecart";
             }
         } else if (cause != null && ridden(cause)) {
             if (step) {
-                loudness = config.mountStepLoudness.getAsDouble();
+                loudness = config.mountStepLoudness.get();
                 note = "mount";
             }
         } else if (cause instanceof LivingEntity) {
-            loudness *= config.mobLoudnessFactor.getAsDouble();
+            loudness *= config.mobLoudnessFactor.get();
             note = "mob";
             if (!(loudness > 0)) {
                 return;
@@ -212,7 +216,7 @@ public final class VibrationListener {
             return; // a rider's share of a fall already heard
         }
         float distance = event.getDistance();
-        if (!SoundRules.isDamagingFall(distance, entity.getAttributeValue(Attributes.SAFE_FALL_DISTANCE),
+        if (!SoundRules.isDamagingFall(distance, SAFE_FALL_DISTANCE,
                 event.getDamageMultiplier())) {
             return; // no fall damage: an ordinary landing
         }
@@ -225,12 +229,12 @@ public final class VibrationListener {
      */
     private static void fall(ServerLevel level, TremorRuntime runtime, LivingEntity entity, float distance) {
         TremorConfig.Common config = TremorConfig.COMMON;
-        double loudness = SoundRules.fall(config.fallLoudness.getAsDouble(), distance);
+        double loudness = SoundRules.fall(config.fallLoudness.get(), distance);
         String note = null;
         if (ridden(entity)) {
             note = "mount";
         } else if (!(entity instanceof Player)) {
-            loudness *= config.mobLoudnessFactor.getAsDouble();
+            loudness *= config.mobLoudnessFactor.get();
             note = "mob";
         }
         if (!(loudness > 0)) {
@@ -254,7 +258,7 @@ public final class VibrationListener {
     private static void itemLanded(ServerLevel level, TremorRuntime runtime, ItemEntity item,
                                    net.minecraft.world.phys.Vec3 pos) {
         double speed = -item.getDeltaMovement().y;
-        double loudness = SoundRules.itemLanding(TremorConfig.COMMON.itemLandLoudness.getAsDouble(), speed);
+        double loudness = SoundRules.itemLanding(TremorConfig.COMMON.itemLandLoudness.get(), speed);
         if (!(loudness > 0) || !wanted(level, runtime, pos)) {
             return;
         }
@@ -293,7 +297,7 @@ public final class VibrationListener {
         TremorEntity entity = runtime == null ? null : runtime.entity();
         if (entity != null) {
             Vec3 c = entity.crawler().position();
-            double range = TremorConfig.COMMON.hearingMaxDistance.getAsDouble() + RANGE_MARGIN;
+            double range = TremorConfig.COMMON.hearingMaxDistance.get() + RANGE_MARGIN;
             if (pos.distanceToSqr(c.x(), c.y(), c.z()) <= range * range) {
                 return true;
             }
@@ -350,11 +354,8 @@ public final class VibrationListener {
         return loudness;
     }
 
-    private static ResourceLocation key(Holder<GameEvent> event) {
-        if (event instanceof Holder.Reference<GameEvent> reference) {
-            return reference.key().location();
-        }
-        return event.unwrapKey().map(ResourceKey::location).orElse(null);
+    private static ResourceLocation key(GameEvent event) {
+        return BuiltInRegistries.GAME_EVENT.getKey(event);
     }
 
     /** The path for the minecraft namespace, else the full id. */
@@ -369,15 +370,12 @@ public final class VibrationListener {
     /** Share of a projectile's landing loudness a snowball makes (it is soft). */
     static final double SNOWBALL_SHARE = 0.4;
 
-    /** The enchantment that muffles the steps of whoever wears it on the feet (SPEC 15, stage 5). */
-    public static final ResourceKey<Enchantment> MUFFLED_STEPS = ResourceKey.create(Registries.ENCHANTMENT,
-            ResourceLocation.fromNamespaceAndPath(Tremor.MODID, "muffled_steps"));
-
-    /** Whether {@code player}'s boots have {@link #MUFFLED_STEPS}: its steps and landings are much quieter. */
+    /**
+     * Whether {@code player}'s boots have {@link TremorItems#MUFFLED_STEPS} (SPEC 15, stage 5): its steps and landings
+     * are much quieter.
+     */
     static boolean muffled(Player player) {
-        Holder<Enchantment> holder = player.level().registryAccess().registryOrThrow(Registries.ENCHANTMENT)
-                .getHolder(MUFFLED_STEPS).orElse(null);
-        return holder != null
-                && EnchantmentHelper.getItemEnchantmentLevel(holder, player.getItemBySlot(EquipmentSlot.FEET)) > 0;
+        return EnchantmentHelper.getItemEnchantmentLevel(TremorItems.MUFFLED_STEPS.get(),
+                player.getItemBySlot(EquipmentSlot.FEET)) > 0;
     }
 }

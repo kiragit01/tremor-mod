@@ -26,6 +26,6 @@ public final class TremorTags {
     public static final TagKey<Block> RUSTLING = block("rustling");
 
     private static TagKey<Block> block(String path) {
-        return TagKey.create(Registries.BLOCK, ResourceLocation.fromNamespaceAndPath(Tremor.MODID, path));
+        return TagKey.create(Registries.BLOCK, new ResourceLocation(Tremor.MODID, path));
     }
 }

@@ -22,8 +22,10 @@ import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.Vec3;
 import tremor.Tremor;
 
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.UUID;
 
 /**
  * Holds the target of a swallowing in place (SPEC 9: "под игроком поднимается холм и затягивает его"): no walking,
@@ -58,16 +60,17 @@ final class Root {
     static final double TOLERANCE = 0.3;
 
     /** Id of the modifiers; the client knows a rooted player by it ({@code ClientRoot.ROOT_MODIFIER}: the same). */
-    private static final ResourceLocation ID = ResourceLocation.fromNamespaceAndPath(Tremor.MODID, "awakening_root");
+    private static final UUID ID = UUID.nameUUIDFromBytes((Tremor.MODID + ":awakening_root")
+            .getBytes(StandardCharsets.UTF_8));
     /** Multiplies the total by 1 + (-1) = 0, whatever other modifiers do (sprinting, speed effects). */
-    private static final AttributeModifier STILL = new AttributeModifier(ID, -1,
-            AttributeModifier.Operation.ADD_MULTIPLIED_TOTAL);
-    private static final List<Holder<Attribute>> ATTRIBUTES = List.of(Attributes.MOVEMENT_SPEED,
-            Attributes.JUMP_STRENGTH);
+    private static final AttributeModifier STILL = new AttributeModifier(ID, "Tremor awakening root", -1,
+            AttributeModifier.Operation.MULTIPLY_TOTAL);
+    /** Players have no jump strength in 1.20.1: {@code ClientRoot} drops the jump key of a rooted player instead. */
+    private static final List<Attribute> ATTRIBUTES = List.of(Attributes.MOVEMENT_SPEED);
 
     /** Id of the drag of the build-up ({@link #drag}), apart from the root's own modifiers. */
-    private static final ResourceLocation DRAG_ID = ResourceLocation.fromNamespaceAndPath(Tremor.MODID,
-            "awakening_drag");
+    private static final UUID DRAG_ID = UUID.nameUUIDFromBytes((Tremor.MODID + ":awakening_drag")
+            .getBytes(StandardCharsets.UTF_8));
 
     /** Between {@link #start} and {@link #release}. */
     private boolean rooted;
@@ -224,7 +227,7 @@ final class Root {
             return;
         }
         List<AttributeInstance> instances = new ArrayList<>(ATTRIBUTES.size());
-        for (Holder<Attribute> attribute : ATTRIBUTES) {
+        for (Attribute attribute : ATTRIBUTES) {
             AttributeInstance instance = player.getAttribute(attribute);
             if (instance != null) {
                 instances.add(instance);
@@ -244,22 +247,21 @@ final class Root {
             modify(dragged, DRAG_ID, null);
         }
         dragged = player;
-        modify(player, DRAG_ID, new AttributeModifier(DRAG_ID, -Mth.clamp(share, 0, 1),
-                AttributeModifier.Operation.ADD_MULTIPLIED_TOTAL));
+        modify(player, DRAG_ID, new AttributeModifier(DRAG_ID, "Tremor awakening drag",
+                -Mth.clamp(share, 0, 1), AttributeModifier.Operation.MULTIPLY_TOTAL));
     }
 
     /** Puts {@code modifier} (with {@code id}) on the movement speed and jump strength of {@code entity}; null removes. */
-    private static void modify(Entity entity, ResourceLocation id, AttributeModifier modifier) {
+    private static void modify(Entity entity, UUID id, AttributeModifier modifier) {
         if (!(entity instanceof LivingEntity living)) {
             return;
         }
-        for (Holder<Attribute> attribute : ATTRIBUTES) {
+        for (Attribute attribute : ATTRIBUTES) {
             AttributeInstance instance = living.getAttribute(attribute);
             if (instance != null) {
+                instance.removeModifier(id);
                 if (modifier != null) {
-                    instance.addOrUpdateTransientModifier(modifier);
-                } else {
-                    instance.removeModifier(id);
+                    instance.addTransientModifier(modifier);
                 }
             }
         }
@@ -269,13 +271,12 @@ final class Root {
         if (!(entity instanceof LivingEntity living)) {
             return;
         }
-        for (Holder<Attribute> attribute : ATTRIBUTES) {
+        for (Attribute attribute : ATTRIBUTES) {
             AttributeInstance instance = living.getAttribute(attribute);
             if (instance != null) {
+                instance.removeModifier(ID);
                 if (on) {
-                    instance.addOrUpdateTransientModifier(STILL);
-                } else {
-                    instance.removeModifier(ID);
+                    instance.addTransientModifier(STILL);
                 }
             }
         }

@@ -122,7 +122,7 @@ final class HollowSounds {
      */
     private static void beat(Minecraft mc, BlockPos node, double closeness, double muffle) {
         double x = node.getX() + 0.5, y = node.getY() + 0.5, z = node.getZ() + 0.5;
-        double distance = Math.sqrt(mc.getSoundManager().getListenerTransform().position().distanceToSqr(x, y, z));
+        double distance = Math.sqrt(Minecraft.getInstance().gameRenderer.getMainCamera().getPosition().distanceToSqr(x, y, z));
         double volume = HollowTone.beatVolume(TremorConfig.CLIENT.heartbeatVolume.get(), closeness, distance, muffle);
         if (volume > 0) {
             mc.getSoundManager().play(new SimpleSoundInstance(TremorSounds.PULSE.get().getLocation(),

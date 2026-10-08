@@ -1,6 +1,5 @@
 package tremor.block;
 
-import com.mojang.serialization.MapCodec;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.util.RandomSource;
@@ -21,7 +20,6 @@ import net.minecraft.world.level.block.state.BlockState;
  * glints faintly ({@link #animateTick}): a hint for one who searches the bottom closely, not to be seen from afar.
  */
 public final class RubbleCacheBlock extends Block implements EntityBlock {
-    public static final MapCodec<RubbleCacheBlock> CODEC = simpleCodec(RubbleCacheBlock::new);
     /**
      * One in this many of the client's random looks at the block shows a glint (vanilla looks at the blocks near the
      * player far more often): about every eight seconds to a player right by it, every half a minute or so ten blocks
@@ -34,18 +32,13 @@ public final class RubbleCacheBlock extends Block implements EntityBlock {
     }
 
     @Override
-    protected MapCodec<RubbleCacheBlock> codec() {
-        return CODEC;
-    }
-
-    @Override
     public BlockEntity newBlockEntity(BlockPos pos, BlockState state) {
         return new RubbleCacheBlockEntity(pos, state);
     }
 
     /** The block is going (broken, blown up, replaced): what it holds spills, on the server. */
     @Override
-    protected void onRemove(BlockState state, Level level, BlockPos pos, BlockState newState, boolean movedByPiston) {
+    public void onRemove(BlockState state, Level level, BlockPos pos, BlockState newState, boolean movedByPiston) {
         if (!level.isClientSide && !state.is(newState.getBlock())
                 && level.getBlockEntity(pos) instanceof RubbleCacheBlockEntity cache) {
             cache.spill(level, pos);

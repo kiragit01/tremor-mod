@@ -1,32 +1,28 @@
 package tremor;
 
-import net.neoforged.api.distmarker.Dist;
-import net.neoforged.bus.api.EventPriority;
-import net.neoforged.bus.api.IEventBus;
-import net.neoforged.fml.ModContainer;
-import net.neoforged.fml.common.Mod;
-import net.neoforged.neoforge.client.event.RenderGuiEvent;
-import net.neoforged.neoforge.client.gui.ConfigurationScreen;
-import net.neoforged.neoforge.client.gui.IConfigScreenFactory;
-import net.neoforged.neoforge.common.NeoForge;
+import net.minecraftforge.eventbus.api.EventPriority;
+import net.minecraftforge.eventbus.api.IEventBus;
+import net.minecraftforge.client.event.RenderGuiEvent;
+import net.minecraftforge.common.MinecraftForge;
 import tremor.client.ClientBlackout;
 import tremor.client.ClientTremor;
 import tremor.client.dev.AutoTest;
 import tremor.client.render.DeformationRenderer;
 import tremor.client.sound.RustleSound;
 
-@Mod(value = Tremor.MODID, dist = Dist.CLIENT)
+/** The client side of the mod; {@link Tremor} calls {@link #init} on a physical client only. */
 public final class TremorClient {
-    public TremorClient(IEventBus modBus, ModContainer container) {
-        container.registerExtensionPoint(IConfigScreenFactory.class, ConfigurationScreen::new);
+    private TremorClient() {
+    }
 
+    static void init(IEventBus modBus) {
         modBus.addListener(DeformationRenderer::onModelBakingCompleted);
         modBus.addListener(tremor.client.SeismographNeedle::onClientSetup);
-        modBus.addListener(tremor.client.hollow.SinkOverlay::onRegisterGuiLayers);
-        modBus.addListener(tremor.client.hollow.HollowTimeBar::onRegisterGuiLayers);
+        modBus.addListener(tremor.client.hollow.SinkOverlay::onRegisterGuiOverlays);
+        modBus.addListener(tremor.client.hollow.HollowTimeBar::onRegisterGuiOverlays);
         modBus.addListener(tremor.client.hollow.HollowSky::onRegisterDimensionEffects);
 
-        IEventBus game = NeoForge.EVENT_BUS;
+        IEventBus game = MinecraftForge.EVENT_BUS;
         game.addListener(DeformationRenderer::onRenderLevelStage);
         game.addListener(ClientTremor::onLoggingOut);
         game.addListener(DeformationRenderer::onLoggingOut);
@@ -52,7 +48,7 @@ public final class TremorClient {
         // After the pulse: the wake of its rings counts a ring passing under the player for the sounds that follow.
         game.addListener(tremor.client.hollow.HollowWake::onClientTick);
         // The black fog of the hollow, at the lowest priority (also when cancelled): over what other mods set.
-        game.addListener(EventPriority.LOWEST, true, net.neoforged.neoforge.client.event.ViewportEvent.RenderFog.class,
+        game.addListener(EventPriority.LOWEST, true, net.minecraftforge.client.event.ViewportEvent.RenderFog.class,
                 tremor.client.hollow.HollowFog::onRenderFog);
         game.addListener(EventPriority.LOWEST, tremor.client.hollow.HollowFog::onComputeFogColor);
         // No running in the hollow: the sprint key is let go before the player's tick, a sprint stopped after it
@@ -67,8 +63,6 @@ public final class TremorClient {
         game.addListener(tremor.client.sound.WorldSilence::onClientTick);
         // Lowest priority: the silence wraps the sound other mods settled on.
         game.addListener(EventPriority.LOWEST, tremor.client.sound.WorldSilence::onPlaySound);
-        game.addListener(EventPriority.NORMAL, true, net.neoforged.neoforge.client.event.SelectMusicEvent.class,
-                tremor.client.sound.WorldSilence::onSelectMusic);
         game.addListener(tremor.client.sound.WorldSilence::onLoggingOut);
         game.addListener(tremor.client.sound.WorldSilence::onLevelUnload);
         // Fired on the sound engine's thread.

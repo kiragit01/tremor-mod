@@ -2,8 +2,7 @@ package tremor.config;
 
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
-import net.neoforged.neoforge.common.ModConfigSpec;
-import net.neoforged.neoforge.common.TranslatableEnum;
+import net.minecraftforge.common.ForgeConfigSpec;
 import tremor.core.behavior.BehaviorParams;
 import tremor.core.behavior.Stage;
 import tremor.core.hearing.HearingParams;
@@ -24,105 +23,105 @@ public final class TremorConfig {
     }
 
     public static final class Common {
-        public final ModConfigSpec.DoubleValue amplitude;
-        public final ModConfigSpec.DoubleValue sigmaFront;
-        public final ModConfigSpec.DoubleValue sigmaBack;
-        public final ModConfigSpec.DoubleValue sigmaSide;
-        public final ModConfigSpec.DoubleValue trailLag;
-        public final ModConfigSpec.DoubleValue trailSigma;
-        public final ModConfigSpec.DoubleValue trailDepth;
-        public final ModConfigSpec.DoubleValue jitter;
+        public final ForgeConfigSpec.DoubleValue amplitude;
+        public final ForgeConfigSpec.DoubleValue sigmaFront;
+        public final ForgeConfigSpec.DoubleValue sigmaBack;
+        public final ForgeConfigSpec.DoubleValue sigmaSide;
+        public final ForgeConfigSpec.DoubleValue trailLag;
+        public final ForgeConfigSpec.DoubleValue trailSigma;
+        public final ForgeConfigSpec.DoubleValue trailDepth;
+        public final ForgeConfigSpec.DoubleValue jitter;
 
-        public final ModConfigSpec.IntValue maxDiveDepth;
-        public final ModConfigSpec.IntValue leapDormant;
-        public final ModConfigSpec.IntValue leapAlert;
-        public final ModConfigSpec.IntValue leapHunting;
-        public final ModConfigSpec.IntValue leapAwakening;
-        public final ModConfigSpec.IntValue leapFrenzy;
-        public final ModConfigSpec.DoubleValue diveCost;
-        public final ModConfigSpec.IntValue pathMaxNodes;
-        public final ModConfigSpec.IntValue pathNodesPerTick;
-        public final ModConfigSpec.DoubleValue speed;
-        public final ModConfigSpec.DoubleValue acceleration;
-        public final ModConfigSpec.DoubleValue normalSmoothing;
-        public final ModConfigSpec.DoubleValue amplitudeSmoothing;
-        public final ModConfigSpec.IntValue syncInterval;
-        public final ModConfigSpec.IntValue syncRange;
-        public final ModConfigSpec.IntValue cacheMaxAge;
+        public final ForgeConfigSpec.IntValue maxDiveDepth;
+        public final ForgeConfigSpec.IntValue leapDormant;
+        public final ForgeConfigSpec.IntValue leapAlert;
+        public final ForgeConfigSpec.IntValue leapHunting;
+        public final ForgeConfigSpec.IntValue leapAwakening;
+        public final ForgeConfigSpec.IntValue leapFrenzy;
+        public final ForgeConfigSpec.DoubleValue diveCost;
+        public final ForgeConfigSpec.IntValue pathMaxNodes;
+        public final ForgeConfigSpec.IntValue pathNodesPerTick;
+        public final ForgeConfigSpec.DoubleValue speed;
+        public final ForgeConfigSpec.DoubleValue acceleration;
+        public final ForgeConfigSpec.DoubleValue normalSmoothing;
+        public final ForgeConfigSpec.DoubleValue amplitudeSmoothing;
+        public final ForgeConfigSpec.IntValue syncInterval;
+        public final ForgeConfigSpec.IntValue syncRange;
+        public final ForgeConfigSpec.IntValue cacheMaxAge;
 
-        public final ModConfigSpec.DoubleValue hearingThreshold;
-        public final ModConfigSpec.DoubleValue hearingMaxDistance;
-        public final ModConfigSpec.DoubleValue hearingSampleStep;
-        public final ModConfigSpec.DoubleValue minConductivity;
-        public final ModConfigSpec.DoubleValue angerPerLoudness;
-        public final ModConfigSpec.DoubleValue explosionAngerBonus;
-        public final ModConfigSpec.IntValue retargetCooldownTicks;
-        public final ModConfigSpec.ConfigValue<List<? extends String>> loudness;
-        public final ModConfigSpec.DoubleValue sprintStepLoudness;
-        public final ModConfigSpec.DoubleValue mountStepLoudness;
-        public final ModConfigSpec.DoubleValue itemLandLoudness;
-        public final ModConfigSpec.DoubleValue fallLoudness;
-        public final ModConfigSpec.DoubleValue mobLoudnessFactor;
-        public final ModConfigSpec.DoubleValue mobAngerFactor;
-        public final ModConfigSpec.DoubleValue geophoneRange;
-        public final ModConfigSpec.DoubleValue seismographRange;
-        public final ModConfigSpec.DoubleValue muffledStepsFactor;
-        public final ModConfigSpec.IntValue shardsMin;
-        public final ModConfigSpec.IntValue shardsMax;
-        public final ModConfigSpec.DoubleValue frenzySpeedFactor;
-        public final ModConfigSpec.DoubleValue frenzyAmplitudeFactor;
-        public final ModConfigSpec.IntValue frenzyBuildupTicks;
-        public final ModConfigSpec.IntValue frenzySeconds;
-        public final ModConfigSpec.DoubleValue waterFactor;
-        public final ModConfigSpec.DoubleValue rustlingFactor;
-        public final ModConfigSpec.DoubleValue conductivityInsulating;
-        public final ModConfigSpec.DoubleValue conductivityWooden;
-        public final ModConfigSpec.DoubleValue conductivityGravelly;
-        public final ModConfigSpec.DoubleValue conductivitySandy;
-        public final ModConfigSpec.DoubleValue conductivityEarth;
-        public final ModConfigSpec.DoubleValue conductivityStony;
-        public final ModConfigSpec.DoubleValue conductivityFluid;
-        public final ModConfigSpec.DoubleValue conductivityAir;
+        public final ForgeConfigSpec.DoubleValue hearingThreshold;
+        public final ForgeConfigSpec.DoubleValue hearingMaxDistance;
+        public final ForgeConfigSpec.DoubleValue hearingSampleStep;
+        public final ForgeConfigSpec.DoubleValue minConductivity;
+        public final ForgeConfigSpec.DoubleValue angerPerLoudness;
+        public final ForgeConfigSpec.DoubleValue explosionAngerBonus;
+        public final ForgeConfigSpec.IntValue retargetCooldownTicks;
+        public final ForgeConfigSpec.ConfigValue<List<? extends String>> loudness;
+        public final ForgeConfigSpec.DoubleValue sprintStepLoudness;
+        public final ForgeConfigSpec.DoubleValue mountStepLoudness;
+        public final ForgeConfigSpec.DoubleValue itemLandLoudness;
+        public final ForgeConfigSpec.DoubleValue fallLoudness;
+        public final ForgeConfigSpec.DoubleValue mobLoudnessFactor;
+        public final ForgeConfigSpec.DoubleValue mobAngerFactor;
+        public final ForgeConfigSpec.DoubleValue geophoneRange;
+        public final ForgeConfigSpec.DoubleValue seismographRange;
+        public final ForgeConfigSpec.DoubleValue muffledStepsFactor;
+        public final ForgeConfigSpec.IntValue shardsMin;
+        public final ForgeConfigSpec.IntValue shardsMax;
+        public final ForgeConfigSpec.DoubleValue frenzySpeedFactor;
+        public final ForgeConfigSpec.DoubleValue frenzyAmplitudeFactor;
+        public final ForgeConfigSpec.IntValue frenzyBuildupTicks;
+        public final ForgeConfigSpec.IntValue frenzySeconds;
+        public final ForgeConfigSpec.DoubleValue waterFactor;
+        public final ForgeConfigSpec.DoubleValue rustlingFactor;
+        public final ForgeConfigSpec.DoubleValue conductivityInsulating;
+        public final ForgeConfigSpec.DoubleValue conductivityWooden;
+        public final ForgeConfigSpec.DoubleValue conductivityGravelly;
+        public final ForgeConfigSpec.DoubleValue conductivitySandy;
+        public final ForgeConfigSpec.DoubleValue conductivityEarth;
+        public final ForgeConfigSpec.DoubleValue conductivityStony;
+        public final ForgeConfigSpec.DoubleValue conductivityFluid;
+        public final ForgeConfigSpec.DoubleValue conductivityAir;
 
-        public final ModConfigSpec.DoubleValue alertAt;
-        public final ModConfigSpec.DoubleValue huntAt;
-        public final ModConfigSpec.DoubleValue awakenAt;
-        public final ModConfigSpec.DoubleValue hysteresis;
-        public final ModConfigSpec.DoubleValue decayPerSecond;
-        public final ModConfigSpec.DoubleValue quietAfterSeconds;
-        public final ModConfigSpec.DoubleValue quietDecayFactor;
-        public final ModConfigSpec.DoubleValue dormantReactLoudness;
-        public final ModConfigSpec.DoubleValue alertFreezeSeconds;
-        public final ModConfigSpec.DoubleValue alertListenFactor;
-        public final ModConfigSpec.DoubleValue netherSpeedFactor;
-        public final ModConfigSpec.DoubleValue netherAngerFactor;
-        public final ModConfigSpec.DoubleValue alertLoseInterestSeconds;
-        public final ModConfigSpec.DoubleValue huntSearchRadius;
-        public final ModConfigSpec.DoubleValue huntSearchSeconds;
-        public final ModConfigSpec.DoubleValue wanderPauseSeconds;
-        public final ModConfigSpec.DoubleValue wanderMinRadius;
-        public final ModConfigSpec.DoubleValue wanderMaxRadius;
-        public final ModConfigSpec.DoubleValue minWanderDistance;
-        public final ModConfigSpec.BooleanValue wanderKeepAway;
-        public final ModConfigSpec.DoubleValue transitionVolume;
-        private final EnumMap<Stage, ModConfigSpec.DoubleValue> stageSpeedFactors = new EnumMap<>(Stage.class);
-        private final EnumMap<Stage, ModConfigSpec.DoubleValue> stageAmplitudeFactors = new EnumMap<>(Stage.class);
-        public final ModConfigSpec.DoubleValue contactRadius;
-        public final ModConfigSpec.IntValue contactCooldownTicks;
-        public final ModConfigSpec.DoubleValue contactDamage;
-        public final ModConfigSpec.DoubleValue contactKnockback;
-        public final ModConfigSpec.DoubleValue contactLift;
-        public final ModConfigSpec.DoubleValue contactAnger;
-        public final ModConfigSpec.BooleanValue devourMobs;
-        public final ModConfigSpec.DoubleValue despawnPlayerDistance;
-        public final ModConfigSpec.DoubleValue despawnFarSeconds;
-        public final ModConfigSpec.DoubleValue despawnQuietSeconds;
+        public final ForgeConfigSpec.DoubleValue alertAt;
+        public final ForgeConfigSpec.DoubleValue huntAt;
+        public final ForgeConfigSpec.DoubleValue awakenAt;
+        public final ForgeConfigSpec.DoubleValue hysteresis;
+        public final ForgeConfigSpec.DoubleValue decayPerSecond;
+        public final ForgeConfigSpec.DoubleValue quietAfterSeconds;
+        public final ForgeConfigSpec.DoubleValue quietDecayFactor;
+        public final ForgeConfigSpec.DoubleValue dormantReactLoudness;
+        public final ForgeConfigSpec.DoubleValue alertFreezeSeconds;
+        public final ForgeConfigSpec.DoubleValue alertListenFactor;
+        public final ForgeConfigSpec.DoubleValue netherSpeedFactor;
+        public final ForgeConfigSpec.DoubleValue netherAngerFactor;
+        public final ForgeConfigSpec.DoubleValue alertLoseInterestSeconds;
+        public final ForgeConfigSpec.DoubleValue huntSearchRadius;
+        public final ForgeConfigSpec.DoubleValue huntSearchSeconds;
+        public final ForgeConfigSpec.DoubleValue wanderPauseSeconds;
+        public final ForgeConfigSpec.DoubleValue wanderMinRadius;
+        public final ForgeConfigSpec.DoubleValue wanderMaxRadius;
+        public final ForgeConfigSpec.DoubleValue minWanderDistance;
+        public final ForgeConfigSpec.BooleanValue wanderKeepAway;
+        public final ForgeConfigSpec.DoubleValue transitionVolume;
+        private final EnumMap<Stage, ForgeConfigSpec.DoubleValue> stageSpeedFactors = new EnumMap<>(Stage.class);
+        private final EnumMap<Stage, ForgeConfigSpec.DoubleValue> stageAmplitudeFactors = new EnumMap<>(Stage.class);
+        public final ForgeConfigSpec.DoubleValue contactRadius;
+        public final ForgeConfigSpec.IntValue contactCooldownTicks;
+        public final ForgeConfigSpec.DoubleValue contactDamage;
+        public final ForgeConfigSpec.DoubleValue contactKnockback;
+        public final ForgeConfigSpec.DoubleValue contactLift;
+        public final ForgeConfigSpec.DoubleValue contactAnger;
+        public final ForgeConfigSpec.BooleanValue devourMobs;
+        public final ForgeConfigSpec.DoubleValue despawnPlayerDistance;
+        public final ForgeConfigSpec.DoubleValue despawnFarSeconds;
+        public final ForgeConfigSpec.DoubleValue despawnQuietSeconds;
 
         public final Spawn spawn;
         public final Hollow hollow;
         public final Awakening awakening;
 
-        Common(ModConfigSpec.Builder b) {
+        Common(ForgeConfigSpec.Builder b) {
             BumpParams d = BumpParams.defaults();
             b.comment("Shape of the bump the entity pushes through the ground (SPEC 6.1). Lengths are in blocks.")
                     .translation(KEY + "shape").push("shape");
@@ -204,8 +203,7 @@ public final class TremorConfig {
             loudness = b.comment("Base loudness of vanilla game events, \"namespace:event=loudness\"; events not listed",
                             "(or 0) are ignored. Steps of sneaking players are never heard.")
                     .translation(KEY + "hearing.loudness")
-                    .defineListAllowEmpty("loudness", LoudnessTable.DEFAULTS, () -> "minecraft:step=0",
-                            LoudnessTable::isValid);
+                    .defineListAllowEmpty(List.of("loudness"), () -> LoudnessTable.DEFAULTS, LoudnessTable::isValid);
             sprintStepLoudness = b.comment("Loudness of a sprinting player's step (replaces the step loudness)")
                     .translation(KEY + "hearing.sprintStepLoudness")
                     .defineInRange("sprintStepLoudness", 8.0, 0.0, 1000.0);
@@ -402,14 +400,14 @@ public final class TremorConfig {
             awakening = new Awakening(b);
         }
 
-        private static ModConfigSpec.DoubleValue conductivity(ModConfigSpec.Builder b, String name, String comment,
+        private static ForgeConfigSpec.DoubleValue conductivity(ForgeConfigSpec.Builder b, String name, String comment,
                                                               double value) {
             return b.comment(comment).translation(KEY + "hearing.conductivity." + name)
                     .defineInRange(name, value, 0.0, 10.0);
         }
 
         /** The subsection {@code behavior.stages.<stage>}: its speed and amplitude factors. */
-        private void stage(ModConfigSpec.Builder b, Stage stage, String comment, double speed, double amplitude) {
+        private void stage(ForgeConfigSpec.Builder b, Stage stage, String comment, double speed, double amplitude) {
             String name = stage.name().toLowerCase(Locale.ROOT);
             b.comment(comment).translation(KEY + "behavior.stages." + name).push(name);
             stageSpeedFactors.put(stage, b.comment("Factor on movement.speed")
@@ -451,7 +449,7 @@ public final class TremorConfig {
             };
         }
 
-        private static ModConfigSpec.IntValue leap(ModConfigSpec.Builder b, String key, String when, int blocks) {
+        private static ForgeConfigSpec.IntValue leap(ForgeConfigSpec.Builder b, String key, String when, int blocks) {
             return b.comment("Longest gap of open air (blocks) the entity flings itself across to another surface "
                             + when + " (0 = none)")
                     .translation(KEY + "movement." + key).defineInRange(key, blocks, 0, 8);
@@ -484,34 +482,33 @@ public final class TremorConfig {
 
     /** Natural spawn (SPEC 11), section {@code spawn} of COMMON; read by {@link tremor.spawn.NaturalSpawner}. */
     public static final class Spawn {
-        public final ModConfigSpec.BooleanValue enabled;
-        public final ModConfigSpec.ConfigValue<List<? extends String>> dimensions;
-        public final ModConfigSpec.IntValue checkIntervalSeconds;
-        public final ModConfigSpec.DoubleValue baseChance;
-        public final ModConfigSpec.DoubleValue caveMultiplier;
-        public final ModConfigSpec.DoubleValue darkMultiplier;
-        public final ModConfigSpec.DoubleValue deepMultiplier;
-        public final ModConfigSpec.DoubleValue nightMultiplier;
-        public final ModConfigSpec.DoubleValue minDistance;
-        public final ModConfigSpec.DoubleValue maxDistance;
-        public final ModConfigSpec.DoubleValue routeHalfWidth;
-        public final ModConfigSpec.IntValue verticalRange;
-        public final ModConfigSpec.IntValue attempts;
-        public final ModConfigSpec.IntValue cooldownSeconds;
-        public final ModConfigSpec.IntValue graceSeconds;
-        public final ModConfigSpec.IntValue protectionRadius;
-        public final ModConfigSpec.BooleanValue allowPeaceful;
+        public final ForgeConfigSpec.BooleanValue enabled;
+        public final ForgeConfigSpec.ConfigValue<List<? extends String>> dimensions;
+        public final ForgeConfigSpec.IntValue checkIntervalSeconds;
+        public final ForgeConfigSpec.DoubleValue baseChance;
+        public final ForgeConfigSpec.DoubleValue caveMultiplier;
+        public final ForgeConfigSpec.DoubleValue darkMultiplier;
+        public final ForgeConfigSpec.DoubleValue deepMultiplier;
+        public final ForgeConfigSpec.DoubleValue nightMultiplier;
+        public final ForgeConfigSpec.DoubleValue minDistance;
+        public final ForgeConfigSpec.DoubleValue maxDistance;
+        public final ForgeConfigSpec.DoubleValue routeHalfWidth;
+        public final ForgeConfigSpec.IntValue verticalRange;
+        public final ForgeConfigSpec.IntValue attempts;
+        public final ForgeConfigSpec.IntValue cooldownSeconds;
+        public final ForgeConfigSpec.IntValue graceSeconds;
+        public final ForgeConfigSpec.IntValue protectionRadius;
+        public final ForgeConfigSpec.BooleanValue allowPeaceful;
 
-        Spawn(ModConfigSpec.Builder b) {
+        Spawn(ForgeConfigSpec.Builder b) {
             b.comment("Natural spawn: the entity appears by itself in the distance (SPEC 11)")
                     .translation(KEY + "spawn").push("spawn");
             enabled = b.comment("Whether the entity appears by itself")
                     .translation(KEY + "spawn.enabled").define("enabled", true);
             dimensions = b.comment("Dimensions it appears in, ids like minecraft:overworld")
                     .translation(KEY + "spawn.dimensions")
-                    .defineListAllowEmpty("dimensions", List.of("minecraft:overworld", "minecraft:the_nether"),
-                            () -> "minecraft:overworld",
-                            Spawn::isDimensionId);
+                    .defineListAllowEmpty(List.of("dimensions"),
+                            () -> List.of("minecraft:overworld", "minecraft:the_nether"), Spawn::isDimensionId);
             checkIntervalSeconds = b.comment("Every player in such a dimension gets a spawn check this often",
                             "(seconds); the checks of different players are spread over this time")
                     .translation(KEY + "spawn.checkIntervalSeconds")
@@ -562,16 +559,16 @@ public final class TremorConfig {
 
     /** The hollow (SPEC 9, 12), section {@code hollow} of COMMON; read by {@link tremor.hollow.HollowManager}. */
     public static final class Hollow {
-        public final ModConfigSpec.IntValue radius;
-        public final ModConfigSpec.IntValue below;
-        public final ModConfigSpec.IntValue above;
-        public final ModConfigSpec.DoubleValue budgetMillis;
-        public final ModConfigSpec.IntValue fadeTicks;
-        public final ModConfigSpec.IntValue settleTicks;
-        public final ModConfigSpec.IntValue maxEvents;
+        public final ForgeConfigSpec.IntValue radius;
+        public final ForgeConfigSpec.IntValue below;
+        public final ForgeConfigSpec.IntValue above;
+        public final ForgeConfigSpec.DoubleValue budgetMillis;
+        public final ForgeConfigSpec.IntValue fadeTicks;
+        public final ForgeConfigSpec.IntValue settleTicks;
+        public final ForgeConfigSpec.IntValue maxEvents;
         public final HollowLevel level;
 
-        Hollow(ModConfigSpec.Builder b) {
+        Hollow(ForgeConfigSpec.Builder b) {
             b.comment("The hollow: a copy of the terrain around a swallowed player in the dimension tremor:hollow,",
                             "where the Awakening is played out (SPEC 9)")
                     .translation(KEY + "hollow").push("hollow");
@@ -602,33 +599,33 @@ public final class TremorConfig {
      * ground), section {@code hollow.level} of COMMON; read by {@link tremor.hollow.level.HollowLevels}.
      */
     public static final class HollowLevel {
-        public final ModConfigSpec.DoubleValue budgetMillis;
-        public final ModConfigSpec.IntValue widenBelow;
-        public final ModConfigSpec.IntValue nodeMinDistance;
-        public final ModConfigSpec.IntValue nodeMaxDistance;
-        public final ModConfigSpec.DoubleValue nodeMinStraight;
-        public final ModConfigSpec.IntValue minDeadEnds;
-        public final ModConfigSpec.IntValue maxDeadEnds;
-        public final ModConfigSpec.IntValue graceSeconds;
-        public final ModConfigSpec.DoubleValue closeSpeed;
-        public final ModConfigSpec.DoubleValue noiseFactor;
-        public final ModConfigSpec.DoubleValue noiseSeconds;
-        public final ModConfigSpec.DoubleValue minRadius;
-        public final ModConfigSpec.DoubleValue lurePauseSeconds;
-        public final ModConfigSpec.DoubleValue lureCooldownSeconds;
-        public final ModConfigSpec.DoubleValue lureMinDistance;
-        public final ModConfigSpec.IntValue fillsPerTick;
-        public final ModConfigSpec.DoubleValue wallShiftSeconds;
-        public final ModConfigSpec.IntValue wallShifts;
-        public final ModConfigSpec.DoubleValue stillSeconds;
-        public final ModConfigSpec.DoubleValue sinkSeconds;
-        public final ModConfigSpec.DoubleValue breathSeconds;
-        public final ModConfigSpec.DoubleValue digFactor;
-        public final ModConfigSpec.DoubleValue recoverSeconds;
-        public final ModConfigSpec.IntValue beatSlowTicks;
-        public final ModConfigSpec.IntValue beatFastTicks;
+        public final ForgeConfigSpec.DoubleValue budgetMillis;
+        public final ForgeConfigSpec.IntValue widenBelow;
+        public final ForgeConfigSpec.IntValue nodeMinDistance;
+        public final ForgeConfigSpec.IntValue nodeMaxDistance;
+        public final ForgeConfigSpec.DoubleValue nodeMinStraight;
+        public final ForgeConfigSpec.IntValue minDeadEnds;
+        public final ForgeConfigSpec.IntValue maxDeadEnds;
+        public final ForgeConfigSpec.IntValue graceSeconds;
+        public final ForgeConfigSpec.DoubleValue closeSpeed;
+        public final ForgeConfigSpec.DoubleValue noiseFactor;
+        public final ForgeConfigSpec.DoubleValue noiseSeconds;
+        public final ForgeConfigSpec.DoubleValue minRadius;
+        public final ForgeConfigSpec.DoubleValue lurePauseSeconds;
+        public final ForgeConfigSpec.DoubleValue lureCooldownSeconds;
+        public final ForgeConfigSpec.DoubleValue lureMinDistance;
+        public final ForgeConfigSpec.IntValue fillsPerTick;
+        public final ForgeConfigSpec.DoubleValue wallShiftSeconds;
+        public final ForgeConfigSpec.IntValue wallShifts;
+        public final ForgeConfigSpec.DoubleValue stillSeconds;
+        public final ForgeConfigSpec.DoubleValue sinkSeconds;
+        public final ForgeConfigSpec.DoubleValue breathSeconds;
+        public final ForgeConfigSpec.DoubleValue digFactor;
+        public final ForgeConfigSpec.DoubleValue recoverSeconds;
+        public final ForgeConfigSpec.IntValue beatSlowTicks;
+        public final ForgeConfigSpec.IntValue beatFastTicks;
 
-        HollowLevel(ModConfigSpec.Builder b) {
+        HollowLevel(ForgeConfigSpec.Builder b) {
             b.comment("The level inside the hollow (SPEC 9): the node to destroy, the edges closing in, walls that",
                             "move, ground that pulls in a player who stands still")
                     .translation(KEY + "hollow.level").push("level");
@@ -716,22 +713,22 @@ public final class TremorConfig {
      * ({@link tremor.entity.TremorMind}).
      */
     public static final class Awakening {
-        public final ModConfigSpec.IntValue seekSeconds;
-        public final ModConfigSpec.DoubleValue reachDistance;
-        public final ModConfigSpec.DoubleValue searchRadius;
-        public final ModConfigSpec.DoubleValue radius;
-        public final ModConfigSpec.IntValue buildupSeconds;
-        public final ModConfigSpec.DoubleValue buildupDrag;
-        public final ModConfigSpec.IntValue swallowTicks;
-        public final ModConfigSpec.IntValue cooldownSeconds;
-        public final ModConfigSpec.IntValue emergeTicks;
-        public final ModConfigSpec.IntValue craterRadius;
-        public final ModConfigSpec.IntValue craterDepth;
-        public final ModConfigSpec.IntValue craterBlocksPerTick;
-        public final ModConfigSpec.DoubleValue craterBudgetMillis;
-        public final ModConfigSpec.BooleanValue lethal;
+        public final ForgeConfigSpec.IntValue seekSeconds;
+        public final ForgeConfigSpec.DoubleValue reachDistance;
+        public final ForgeConfigSpec.DoubleValue searchRadius;
+        public final ForgeConfigSpec.DoubleValue radius;
+        public final ForgeConfigSpec.IntValue buildupSeconds;
+        public final ForgeConfigSpec.DoubleValue buildupDrag;
+        public final ForgeConfigSpec.IntValue swallowTicks;
+        public final ForgeConfigSpec.IntValue cooldownSeconds;
+        public final ForgeConfigSpec.IntValue emergeTicks;
+        public final ForgeConfigSpec.IntValue craterRadius;
+        public final ForgeConfigSpec.IntValue craterDepth;
+        public final ForgeConfigSpec.IntValue craterBlocksPerTick;
+        public final ForgeConfigSpec.DoubleValue craterBudgetMillis;
+        public final ForgeConfigSpec.BooleanValue lethal;
 
-        Awakening(ModConfigSpec.Builder b) {
+        Awakening(ForgeConfigSpec.Builder b) {
             b.comment("The Awakening (SPEC 9): at the top of its anger the entity seeks a player, and once it has",
                             "reached one it becomes the whole area around that player; the player escapes by leaving",
                             "the zone in time, or the ground swallows the player into the hollow")
@@ -802,20 +799,19 @@ public final class TremorConfig {
     public static final int MAX_HEARING_SAMPLES = 128;
 
     /** How the deformation is drawn. */
-    public enum Style implements TranslatableEnum {
+    public enum Style {
         /** SPEC 6.3: whole block copies shifted along the normal, the gap filled with more copies. */
         BLOCKS,
         /** Every vertex shifted by the height at that vertex: one smooth continuous mound. */
         WARP;
 
-        @Override
         public Component getTranslatedName() {
             return Component.translatable(KEY + "render.style." + name().toLowerCase(Locale.ROOT));
         }
     }
 
     /** One switch for weaker computers: scales the work of the client's effects (see {@link Client#quality}). */
-    public enum Quality implements TranslatableEnum {
+    public enum Quality {
         /** A third of the block copies, half the distance, no fine tremble, no dust. */
         LOW(0.3, 0.5, false, false),
         /** Two thirds of the block copies, three quarters of the distance. */
@@ -835,28 +831,27 @@ public final class TremorConfig {
             this.dust = dust;
         }
 
-        @Override
         public Component getTranslatedName() {
             return Component.translatable(KEY + "render.quality." + name().toLowerCase(Locale.ROOT));
         }
     }
 
     public static final class Client {
-        public final ModConfigSpec.IntValue maxDeformedBlocks;
-        public final ModConfigSpec.IntValue awakeningMaxBlocks;
-        public final ModConfigSpec.IntValue renderDistance;
-        public final ModConfigSpec.BooleanValue jitter;
-        public final ModConfigSpec.EnumValue<Style> style;
-        public final ModConfigSpec.BooleanValue ripple;
-        public final ModConfigSpec.DoubleValue rippleAmplitude;
-        public final ModConfigSpec.BooleanValue rippleDust;
-        public final ModConfigSpec.DoubleValue hollowFogDistance;
-        public final ModConfigSpec.DoubleValue rustleVolume;
-        public final ModConfigSpec.DoubleValue silenceFloor;
-        public final ModConfigSpec.DoubleValue heartbeatVolume;
-        public final ModConfigSpec.DoubleValue humVolume;
-        public final ModConfigSpec.DoubleValue pullVolume;
-        public final ModConfigSpec.EnumValue<Quality> quality;
+        public final ForgeConfigSpec.IntValue maxDeformedBlocks;
+        public final ForgeConfigSpec.IntValue awakeningMaxBlocks;
+        public final ForgeConfigSpec.IntValue renderDistance;
+        public final ForgeConfigSpec.BooleanValue jitter;
+        public final ForgeConfigSpec.EnumValue<Style> style;
+        public final ForgeConfigSpec.BooleanValue ripple;
+        public final ForgeConfigSpec.DoubleValue rippleAmplitude;
+        public final ForgeConfigSpec.BooleanValue rippleDust;
+        public final ForgeConfigSpec.DoubleValue hollowFogDistance;
+        public final ForgeConfigSpec.DoubleValue rustleVolume;
+        public final ForgeConfigSpec.DoubleValue silenceFloor;
+        public final ForgeConfigSpec.DoubleValue heartbeatVolume;
+        public final ForgeConfigSpec.DoubleValue humVolume;
+        public final ForgeConfigSpec.DoubleValue pullVolume;
+        public final ForgeConfigSpec.EnumValue<Quality> quality;
 
         /** Block copies drawn per frame at most, by the quality. */
         public int deformedBlocks() {
@@ -883,7 +878,7 @@ public final class TremorConfig {
             return rippleDust.get() && quality.get().dust;
         }
 
-        Client(ModConfigSpec.Builder b) {
+        Client(ForgeConfigSpec.Builder b) {
             b.comment("Rendering quality of the ground deformation").translation(KEY + "render").push("render");
             quality = b.comment("One switch for weaker computers: LOW draws a third of the block copies within half the",
                             "distance, with no fine tremble and no dust; MEDIUM two thirds within three quarters;",
@@ -954,15 +949,15 @@ public final class TremorConfig {
     }
 
     public static final Common COMMON;
-    public static final ModConfigSpec COMMON_SPEC;
+    public static final ForgeConfigSpec COMMON_SPEC;
     public static final Client CLIENT;
-    public static final ModConfigSpec CLIENT_SPEC;
+    public static final ForgeConfigSpec CLIENT_SPEC;
 
     static {
-        ModConfigSpec.Builder common = new ModConfigSpec.Builder();
+        ForgeConfigSpec.Builder common = new ForgeConfigSpec.Builder();
         COMMON = new Common(common);
         COMMON_SPEC = common.build();
-        ModConfigSpec.Builder client = new ModConfigSpec.Builder();
+        ForgeConfigSpec.Builder client = new ForgeConfigSpec.Builder();
         CLIENT = new Client(client);
         CLIENT_SPEC = client.build();
     }

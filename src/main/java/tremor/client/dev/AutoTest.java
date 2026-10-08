@@ -1,8 +1,8 @@
 package tremor.client.dev;
 
 import java.nio.file.Path;
-import net.neoforged.bus.api.IEventBus;
-import net.neoforged.fml.loading.FMLPaths;
+import net.minecraftforge.eventbus.api.IEventBus;
+import net.minecraftforge.fml.loading.FMLPaths;
 import tremor.Tremor;
 
 /**

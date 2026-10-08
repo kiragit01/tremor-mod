@@ -7,7 +7,7 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.level.ChunkPos;
-import net.neoforged.neoforge.network.PacketDistributor;
+import tremor.network.TremorNetwork;
 import tremor.Tremor;
 import tremor.config.TremorConfig;
 import tremor.core.VoxelView;
@@ -279,7 +279,7 @@ public final class TremorRuntime {
         ticksSinceSync = 0;
         ticksSinceSave = 0;
         sendShape(entity);
-        PacketDistributor.sendToPlayersInDimension(level, state(entity));
+        TremorNetwork.sendToPlayersInDimension(level, state(entity));
         return entity;
     }
 
@@ -292,7 +292,7 @@ public final class TremorRuntime {
         resetRoute();
         mind = null;
         syncDue = false;
-        PacketDistributor.sendToPlayersInDimension(level, TremorStatePayload.absent(entity.instance(),
+        TremorNetwork.sendToPlayersInDimension(level, TremorStatePayload.absent(entity.instance(),
                 level.getGameTime()));
         return true;
     }
@@ -447,7 +447,7 @@ public final class TremorRuntime {
         double perceived = Hearing.perceived(view, vibration.source(), listener, vibration.loudness(),
                 vibration.footing(), vibration.foliage(view), params);
         if (mind(entity).listening()) {
-            perceived *= TremorConfig.COMMON.alertListenFactor.getAsDouble();
+            perceived *= TremorConfig.COMMON.alertListenFactor.get();
         }
         Stage stage = entity.stage();
         if (!(perceived >= params.threshold())) {
@@ -457,11 +457,11 @@ public final class TremorRuntime {
         entity.setLastHeard(new TremorEntity.Heard(vibration.source(), now, perceived, vibration.event()));
         data.setDirty();
         float before = entity.anger();
-        double angerShare = "mob".equals(vibration.note()) ? TremorConfig.COMMON.mobAngerFactor.getAsDouble() : 1;
+        double angerShare = "mob".equals(vibration.note()) ? TremorConfig.COMMON.mobAngerFactor.get() : 1;
         String reaction = mind(entity).heard(vibration.source(), perceived,
-                perceived * TremorConfig.COMMON.angerPerLoudness.getAsDouble() * angerShare
+                perceived * TremorConfig.COMMON.angerPerLoudness.get() * angerShare
                         * (level.dimension() == net.minecraft.world.level.Level.NETHER
-                        ? TremorConfig.COMMON.netherAngerFactor.getAsDouble() : 1)
+                        ? TremorConfig.COMMON.netherAngerFactor.get() : 1)
                         + vibration.angerBonus());
         return new Perception(listener, distance, perceived, true, entity.anger() - before, entity.anger(), stage,
                 entity.stage(), reaction);
@@ -550,7 +550,7 @@ public final class TremorRuntime {
      */
     void stageChanged(TremorEntity entity) {
         data.setDirty();
-        if (ticking || error == null && !paused && level.tickRateManager().runsNormally()
+        if (ticking || error == null && !paused
                 && movedAt != level.getGameTime()) {
             syncDue = true;
             return;
@@ -617,11 +617,11 @@ public final class TremorRuntime {
     public void sendTo(ServerPlayer player) {
         TremorEntity entity = data.entity();
         if (entity == null) {
-            PacketDistributor.sendToPlayer(player, TremorStatePayload.absent(data.lastInstance(), level.getGameTime()));
+            TremorNetwork.sendToPlayer(player, TremorStatePayload.absent(data.lastInstance(), level.getGameTime()));
             return;
         }
-        PacketDistributor.sendToPlayer(player, new TremorShapePayload(entity.instance(), entity.params().bumpParams()));
-        PacketDistributor.sendToPlayer(player, state(entity));
+        TremorNetwork.sendToPlayer(player, new TremorShapePayload(entity.instance(), entity.params().bumpParams()));
+        TremorNetwork.sendToPlayer(player, state(entity));
     }
 
     /** Called for every block that may have changed in the level (block update, explosion, piston). */
@@ -1226,7 +1226,7 @@ public final class TremorRuntime {
 
     private void sendShape(TremorEntity entity) {
         sentShape = entity.params().bumpParams();
-        PacketDistributor.sendToPlayersInDimension(level, new TremorShapePayload(entity.instance(), sentShape));
+        TremorNetwork.sendToPlayersInDimension(level, new TremorShapePayload(entity.instance(), sentShape));
     }
 
     private void sync(TremorEntity entity) {
@@ -1238,7 +1238,7 @@ public final class TremorRuntime {
         double range = TremorConfig.COMMON.syncRange.get();
         for (ServerPlayer player : level.players()) {
             if (player.distanceToSqr(p.x(), p.y(), p.z()) <= range * range) {
-                PacketDistributor.sendToPlayer(player, state);
+                TremorNetwork.sendToPlayer(player, state);
             }
         }
     }

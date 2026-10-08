@@ -1,8 +1,6 @@
 package tremor.network;
 
 import net.minecraft.network.FriendlyByteBuf;
-import net.minecraft.network.codec.StreamCodec;
-import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
 import net.minecraft.resources.ResourceLocation;
 import tremor.Tremor;
 import tremor.core.behavior.Stage;
@@ -24,23 +22,18 @@ import tremor.core.math.Vec3;
 public record TremorStatePayload(int instance, boolean present, long gameTime, Vec3 position, Vec3 normal,
                                  Vec3 forward, Vec3 velocity, float amplitude, float phase, Stage stage,
                                  int rippleAge)
-        implements CustomPacketPayload {
+        implements TremorPayload {
 
     /** {@link #rippleAge} when there is no ripple; also the largest age that is sent. */
     public static final int NO_RIPPLE = 0xFFFF;
-
-    public static final Type<TremorStatePayload> TYPE =
-            new Type<>(ResourceLocation.fromNamespaceAndPath(Tremor.MODID, "state"));
-
-    public static final StreamCodec<FriendlyByteBuf, TremorStatePayload> STREAM_CODEC =
-            StreamCodec.ofMember(TremorStatePayload::write, TremorStatePayload::read);
 
     public static TremorStatePayload absent(int instance, long gameTime) {
         return new TremorStatePayload(instance, false, gameTime, Vec3.ZERO, Vec3.UNIT_Y, Vec3.UNIT_X, Vec3.ZERO, 0, 0,
                 Stage.DORMANT, NO_RIPPLE);
     }
 
-    private void write(FriendlyByteBuf buf) {
+    @Override
+    public void write(FriendlyByteBuf buf) {
         buf.writeVarInt(instance);
         buf.writeBoolean(present);
         buf.writeVarLong(gameTime);
@@ -59,7 +52,7 @@ public record TremorStatePayload(int instance, boolean present, long gameTime, V
         buf.writeShort(Math.max(0, Math.min(NO_RIPPLE, rippleAge)));
     }
 
-    private static TremorStatePayload read(FriendlyByteBuf buf) {
+    static TremorStatePayload read(FriendlyByteBuf buf) {
         int instance = buf.readVarInt();
         boolean present = buf.readBoolean();
         long gameTime = buf.readVarLong();
@@ -86,10 +79,5 @@ public record TremorStatePayload(int instance, boolean present, long gameTime, V
 
     static Vec3 readVec(FriendlyByteBuf buf) {
         return new Vec3(buf.readFloat(), buf.readFloat(), buf.readFloat());
-    }
-
-    @Override
-    public Type<? extends CustomPacketPayload> type() {
-        return TYPE;
     }
 }

@@ -1,8 +1,6 @@
 package tremor.network;
 
 import net.minecraft.network.FriendlyByteBuf;
-import net.minecraft.network.codec.StreamCodec;
-import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
 import net.minecraft.resources.ResourceLocation;
 import tremor.Tremor;
 import tremor.core.math.Vec3;
@@ -17,15 +15,10 @@ import tremor.core.math.Vec3;
  * @param strength relative strength, 1 for a walking step (louder steps make stronger rings)
  */
 public record TremorStepRipplePayload(int event, Vec3 position, long gameTime, float strength)
-        implements CustomPacketPayload {
+        implements TremorPayload {
 
-    public static final Type<TremorStepRipplePayload> TYPE =
-            new Type<>(ResourceLocation.fromNamespaceAndPath(Tremor.MODID, "step_ripple"));
-
-    public static final StreamCodec<FriendlyByteBuf, TremorStepRipplePayload> STREAM_CODEC =
-            StreamCodec.ofMember(TremorStepRipplePayload::write, TremorStepRipplePayload::read);
-
-    private void write(FriendlyByteBuf buf) {
+    @Override
+    public void write(FriendlyByteBuf buf) {
         buf.writeVarInt(event);
         buf.writeDouble(position.x());
         buf.writeDouble(position.y());
@@ -34,13 +27,8 @@ public record TremorStepRipplePayload(int event, Vec3 position, long gameTime, f
         buf.writeFloat(strength);
     }
 
-    private static TremorStepRipplePayload read(FriendlyByteBuf buf) {
+    static TremorStepRipplePayload read(FriendlyByteBuf buf) {
         return new TremorStepRipplePayload(buf.readVarInt(),
                 new Vec3(buf.readDouble(), buf.readDouble(), buf.readDouble()), buf.readVarLong(), buf.readFloat());
-    }
-
-    @Override
-    public Type<? extends CustomPacketPayload> type() {
-        return TYPE;
     }
 }

@@ -7,16 +7,16 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.stream.Collectors;
-import net.neoforged.neoforge.common.ModConfigSpec;
+import net.minecraftforge.common.ForgeConfigSpec;
 import tremor.config.TremorConfig;
 
 /**
  * The values changed by the {@code config} steps of a run (see {@link Script}), looked up by their dotted path in
- * {@link TremorConfig#COMMON_SPEC} or {@link TremorConfig#CLIENT_SPEC} through {@link ModConfigSpec#getValues()}, so
+ * {@link TremorConfig#COMMON_SPEC} or {@link TremorConfig#CLIENT_SPEC} through {@link ForgeConfigSpec#getValues()}, so
  * entries added to the config later need no change here.
  * <p>
- * A change takes the way of an edit in NeoForge's config screen: {@link ModConfigSpec.ConfigValue#set} puts the value
- * into the loaded config and into the value's cache, then {@link ModConfigSpec#save()} writes the config file and
+ * A change takes the way of an edit in NeoForge's config screen: {@link ForgeConfigSpec.ConfigValue#set} puts the value
+ * into the loaded config and into the value's cache, then {@link ForgeConfigSpec#save()} writes the config file and
  * fires {@code ModConfigEvent.Reloading}. The client and the integrated server read the same spec objects (one JVM,
  * and common configs are not synced), so both see the new value on their next {@code get()}. {@code set} leaves the
  * cache of a value marked {@code worldRestart} or {@code gameRestart} alone; that cache is cleared too, so the running
@@ -35,7 +35,7 @@ final class ConfigOverrides {
     /** {@code true} while {@link #originals} is not empty; read without the lock. */
     private volatile boolean changed;
 
-    private record Original(Script.ConfigPath path, ModConfigSpec spec, ModConfigSpec.ConfigValue<Object> value,
+    private record Original(Script.ConfigPath path, ForgeConfigSpec spec, ForgeConfigSpec.ConfigValue<Object> value,
                             Object original) {
     }
 
@@ -47,23 +47,21 @@ final class ConfigOverrides {
      *                                  nothing has changed then
      */
     synchronized String apply(Script.ConfigPath path, String raw) {
-        ModConfigSpec spec = path.client() ? TremorConfig.CLIENT_SPEC : TremorConfig.COMMON_SPEC;
-        ModConfigSpec.ConfigValue<Object> value = lookup(spec, path);
+        ForgeConfigSpec spec = path.client() ? TremorConfig.CLIENT_SPEC : TremorConfig.COMMON_SPEC;
+        ForgeConfigSpec.ConfigValue<Object> value = lookup(spec, path);
         if (!spec.isLoaded()) {
             throw new IllegalArgumentException("the " + file(path) + " config is not loaded");
         }
-        Object old = value.getRaw();
+        Object old = value.get();
         Object parsed = Script.configValue(old, raw);
-        ModConfigSpec.ValueSpec valueSpec = value.getSpec();
+        ForgeConfigSpec.ValueSpec valueSpec = spec.getSpec().get(value.getPath());
         validate(path, valueSpec, parsed);
         originals.putIfAbsent(path.toString(), new Original(path, spec, value, old));
         changed = true;
         set(value, parsed);
         spec.save();
-        ModConfigSpec.RestartType restart = valueSpec.restartType();
         return "config " + path + ": " + format(old) + " -> " + format(parsed)
-                + (restart == ModConfigSpec.RestartType.NONE ? "" : " (applied at once although the spec asks for a "
-                + restart.name().toLowerCase(Locale.ROOT) + " restart)");
+                + (valueSpec.needsWorldRestart() ? " (applied at once although the spec asks for a world restart)" : "");
     }
 
     /**
@@ -71,10 +69,10 @@ final class ConfigOverrides {
      * Client thread, or through {@link #restoreBounded}. Failures are reported, never thrown.
      */
     synchronized void restore(Report report) {
-        Map<ModConfigSpec, String> touched = new LinkedHashMap<>();
+        Map<ForgeConfigSpec, String> touched = new LinkedHashMap<>();
         for (Original o : originals.values()) {
             try {
-                Object current = o.value().getRaw();
+                Object current = o.value().get();
                 set(o.value(), o.original());
                 touched.put(o.spec(), file(o.path()));
                 report.line("config " + o.path() + ": " + format(current) + " -> " + format(o.original())
@@ -119,7 +117,7 @@ final class ConfigOverrides {
 
     /** The value at {@code path} in {@code spec}; an error names the keys of the section that lacks one. */
     @SuppressWarnings("unchecked")
-    private static ModConfigSpec.ConfigValue<Object> lookup(ModConfigSpec spec, Script.ConfigPath path) {
+    private static ForgeConfigSpec.ConfigValue<Object> lookup(ForgeConfigSpec spec, Script.ConfigPath path) {
         Object entry = spec.getValues();
         List<String> keys = path.keys();
         for (int i = 0; i < keys.size(); i++) {
@@ -134,19 +132,19 @@ final class ConfigOverrides {
                         + " has no '" + keys.get(i) + "', only " + keysOf(section));
             }
         }
-        if (entry instanceof ModConfigSpec.ConfigValue<?> value) {
-            return (ModConfigSpec.ConfigValue<Object>) value;
+        if (entry instanceof ForgeConfigSpec.ConfigValue<?> value) {
+            return (ForgeConfigSpec.ConfigValue<Object>) value;
         }
         throw new IllegalArgumentException("config path '" + path + "' is a section, not a value; it has "
                 + keysOf((UnmodifiableConfig) entry));
     }
 
     /** Throws unless the spec accepts {@code value}; the message names the range or the allowed enum constants. */
-    private static void validate(Script.ConfigPath path, ModConfigSpec.ValueSpec spec, Object value) {
+    private static void validate(Script.ConfigPath path, ForgeConfigSpec.ValueSpec spec, Object value) {
         if (spec.test(value)) {
             return;
         }
-        ModConfigSpec.Range<?> range = spec.getRange();
+        ForgeConfigSpec.Range<?> range = spec.getRange();
         String reason;
         if (range != null) {
             reason = "out of range " + range;
@@ -159,15 +157,10 @@ final class ConfigOverrides {
         throw new IllegalArgumentException("invalid value " + format(value) + " for " + path + ": " + reason);
     }
 
-    /**
-     * {@code set} only updates the cache of a value that needs no restart; the cache of any other is cleared, so that
-     * its next {@code get()} reads the new value.
-     */
-    private static void set(ModConfigSpec.ConfigValue<Object> value, Object newValue) {
+    /** Sets the value; its cache is cleared, so that its next {@code get()} reads the new value from the config. */
+    private static void set(ForgeConfigSpec.ConfigValue<Object> value, Object newValue) {
         value.set(newValue);
-        if (value.getSpec().restartType() != ModConfigSpec.RestartType.NONE) {
-            value.clearCache();
-        }
+        value.clearCache();
     }
 
     private static String keysOf(UnmodifiableConfig section) {

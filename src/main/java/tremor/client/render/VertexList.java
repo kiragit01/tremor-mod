@@ -39,9 +39,8 @@ final class VertexList implements VertexConsumer {
     void emit(VertexConsumer out, float dx, float dy, float dz) {
         float[] d = data;
         for (int i = 0, o = 0; i < size; i++, o += STRIDE) {
-            out.addVertex(d[o] + dx, d[o + 1] + dy, d[o + 2] + dz, Float.floatToRawIntBits(d[o + 8]),
-                    d[o + 3], d[o + 4], OverlayTexture.NO_OVERLAY, Float.floatToRawIntBits(d[o + 9]),
-                    d[o + 5], d[o + 6], d[o + 7]);
+            put(out, d[o] + dx, d[o + 1] + dy, d[o + 2] + dz, Float.floatToRawIntBits(d[o + 8]), d[o + 3],
+                    d[o + 4], Float.floatToRawIntBits(d[o + 9]), d[o + 5], d[o + 6], d[o + 7]);
         }
     }
 
@@ -64,9 +63,8 @@ final class VertexList implements VertexConsumer {
                 float x = d[o] + (0.5f - d[o]) * pull;
                 float y = d[o + 1] + (0.5f - d[o + 1]) * pull;
                 float z = d[o + 2] + (0.5f - d[o + 2]) * pull;
-                out.addVertex(x + dx, y + dy, z + dz, scale(Float.floatToRawIntBits(d[o + 8]), factor), d[o + 3],
-                        d[o + 4], OverlayTexture.NO_OVERLAY, Float.floatToRawIntBits(d[o + 9]), -d[o + 5], -d[o + 6],
-                        -d[o + 7]);
+                put(out, x + dx, y + dy, z + dz, scale(Float.floatToRawIntBits(d[o + 8]), factor), d[o + 3],
+                        d[o + 4], Float.floatToRawIntBits(d[o + 9]), -d[o + 5], -d[o + 6], -d[o + 7]);
             }
         }
     }
@@ -83,15 +81,22 @@ final class VertexList implements VertexConsumer {
     void emitAt(VertexConsumer out, int i, float x, float y, float z) {
         int o = i * STRIDE;
         float[] d = data;
-        out.addVertex(x, y, z, Float.floatToRawIntBits(d[o + 8]), d[o + 3], d[o + 4], OverlayTexture.NO_OVERLAY,
-                Float.floatToRawIntBits(d[o + 9]), d[o + 5], d[o + 6], d[o + 7]);
+        put(out, x, y, z, Float.floatToRawIntBits(d[o + 8]), d[o + 3], d[o + 4], Float.floatToRawIntBits(d[o + 9]),
+                d[o + 5], d[o + 6], d[o + 7]);
+    }
+
+    /** One whole vertex through the bulk method (the fast path of a {@code BufferBuilder} in the block format). */
+    private static void put(VertexConsumer out, float x, float y, float z, int argb, float u, float v, int light,
+                            float normalX, float normalY, float normalZ) {
+        out.vertex(x, y, z, (argb >> 16 & 0xFF) / 255f, (argb >> 8 & 0xFF) / 255f, (argb & 0xFF) / 255f,
+                (argb >>> 24) / 255f, u, v, OverlayTexture.NO_OVERLAY, light, normalX, normalY, normalZ);
     }
 
     // ---- recording ----
 
     @Override
-    public void addVertex(float x, float y, float z, int color, float u, float v, int packedOverlay, int packedLight,
-                          float normalX, float normalY, float normalZ) {
+    public void vertex(float x, float y, float z, float red, float green, float blue, float alpha, float u, float v,
+                       int packedOverlay, int packedLight, float normalX, float normalY, float normalZ) {
         int o = grow();
         data[o] = x;
         data[o + 1] = y;
@@ -101,28 +106,29 @@ final class VertexList implements VertexConsumer {
         data[o + 5] = normalX;
         data[o + 6] = normalY;
         data[o + 7] = normalZ;
-        data[o + 8] = Float.intBitsToFloat(color);
+        data[o + 8] = Float.intBitsToFloat((int) (alpha * 255) << 24 | (int) (red * 255) << 16
+                | (int) (green * 255) << 8 | (int) (blue * 255));
         data[o + 9] = Float.intBitsToFloat(packedLight);
     }
 
     @Override
-    public VertexConsumer addVertex(float x, float y, float z) {
+    public VertexConsumer vertex(double x, double y, double z) {
         int o = grow();
-        data[o] = x;
-        data[o + 1] = y;
-        data[o + 2] = z;
+        data[o] = (float) x;
+        data[o + 1] = (float) y;
+        data[o + 2] = (float) z;
         data[o + 8] = Float.intBitsToFloat(-1);
         return this;
     }
 
     @Override
-    public VertexConsumer setColor(int red, int green, int blue, int alpha) {
+    public VertexConsumer color(int red, int green, int blue, int alpha) {
         data[last() + 8] = Float.intBitsToFloat(alpha << 24 | red << 16 | green << 8 | blue);
         return this;
     }
 
     @Override
-    public VertexConsumer setUv(float u, float v) {
+    public VertexConsumer uv(float u, float v) {
         int o = last();
         data[o + 3] = u;
         data[o + 4] = v;
@@ -130,23 +136,37 @@ final class VertexList implements VertexConsumer {
     }
 
     @Override
-    public VertexConsumer setUv1(int u, int v) {
+    public VertexConsumer overlayCoords(int u, int v) {
         return this; // overlay is not part of terrain vertices
     }
 
     @Override
-    public VertexConsumer setUv2(int u, int v) {
+    public VertexConsumer uv2(int u, int v) {
         data[last() + 9] = Float.intBitsToFloat(u & 0xFFFF | v << 16);
         return this;
     }
 
     @Override
-    public VertexConsumer setNormal(float normalX, float normalY, float normalZ) {
+    public VertexConsumer normal(float normalX, float normalY, float normalZ) {
         int o = last();
         data[o + 5] = normalX;
         data[o + 6] = normalY;
         data[o + 7] = normalZ;
         return this;
+    }
+
+    @Override
+    public void endVertex() {
+        // vertex(x, y, z) already made room for it
+    }
+
+    @Override
+    public void defaultColor(int red, int green, int blue, int alpha) {
+        // block models always give their colour
+    }
+
+    @Override
+    public void unsetDefaultColor() {
     }
 
     private int grow() {

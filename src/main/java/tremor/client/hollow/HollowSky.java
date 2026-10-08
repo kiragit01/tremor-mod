@@ -7,7 +7,7 @@ import net.minecraft.client.renderer.DimensionSpecialEffects;
 import net.minecraft.client.renderer.LightTexture;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.phys.Vec3;
-import net.neoforged.neoforge.client.event.RegisterDimensionSpecialEffectsEvent;
+import net.minecraftforge.client.event.RegisterDimensionSpecialEffectsEvent;
 import org.joml.Matrix4f;
 import tremor.Tremor;
 
@@ -22,7 +22,7 @@ import tremor.Tremor;
  */
 public final class HollowSky extends DimensionSpecialEffects {
     /** The effects' id, as the dimension type names them. */
-    public static final ResourceLocation ID = ResourceLocation.fromNamespaceAndPath(Tremor.MODID, "hollow");
+    public static final ResourceLocation ID = new ResourceLocation(Tremor.MODID, "hollow");
 
     private HollowSky() {
         super(Float.NaN, true, SkyType.NONE, false, false);
@@ -52,7 +52,7 @@ public final class HollowSky extends DimensionSpecialEffects {
 
     /** Draws no sky at all. */
     @Override
-    public boolean renderSky(ClientLevel level, int ticks, float partialTick, Matrix4f modelViewMatrix, Camera camera,
+    public boolean renderSky(ClientLevel level, int ticks, float partialTick, PoseStack poseStack, Camera camera,
                              Matrix4f projectionMatrix, boolean isFoggy, Runnable setupFog) {
         return true;
     }
@@ -60,7 +60,7 @@ public final class HollowSky extends DimensionSpecialEffects {
     /** Draws no clouds (their height is NaN as well). */
     @Override
     public boolean renderClouds(ClientLevel level, int ticks, float partialTick, PoseStack poseStack, double camX,
-                                double camY, double camZ, Matrix4f modelViewMatrix, Matrix4f projectionMatrix) {
+                                double camY, double camZ, Matrix4f projectionMatrix) {
         return true;
     }
 

@@ -1,5 +1,6 @@
 package tremor.core.motion;
 
+import tremor.core.math.Clamp;
 import java.util.Arrays;
 import java.util.Objects;
 
@@ -565,7 +566,7 @@ public final class Crawler {
         }
         double toDive = spline.nextDiveStart(progress) - progress;
         double lead = DIVE_LEAD * params.amplitudeSmoothingSeconds() * Math.max(speed, params.maxSpeed());
-        return lead > 0 ? Math.clamp(toDive / lead, 0, 1) : toDive > 0 ? 1 : 0;
+        return lead > 0 ? Clamp.clamp(toDive / lead, 0, 1) : toDive > 0 ? 1 : 0;
     }
 
     /**

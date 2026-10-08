@@ -1,5 +1,6 @@
 package tremor.client;
 
+import tremor.core.math.Clamp;
 import tremor.core.behavior.Stage;
 import tremor.core.math.Vec3;
 import tremor.core.shape.BumpFrame;
@@ -190,7 +191,7 @@ final class SnapshotPlayback {
     Sample sample(double gameTime, long nanos, double tickRate, boolean running) {
         double elapsed = 0;
         if (running && !Double.isNaN(clock)) {
-            elapsed = Math.clamp((nanos - clockNanos) * 1e-9 * tickRate, 0.0, MAX_FRAME_TICKS);
+            elapsed = Clamp.clamp((nanos - clockNanos) * 1e-9 * tickRate, 0.0, MAX_FRAME_TICKS);
         }
         clockNanos = nanos;
         measureArrivals(gameTime, nanos, tickRate, running);
@@ -217,7 +218,7 @@ final class SnapshotPlayback {
         if (Double.isNaN(latePeak)) {
             return base;
         }
-        return Math.clamp(spacing + latePeak + LATENESS_MARGIN, base, base + MAX_JITTER_DELAY);
+        return Clamp.clamp(spacing + latePeak + LATENESS_MARGIN, base, base + MAX_JITTER_DELAY);
     }
 
     /** Game time of the newest buffered snapshot; only meaningful if there is one. */
@@ -349,7 +350,7 @@ final class SnapshotPlayback {
             clock = target;
         } else {
             double error = target - (clock + elapsed);
-            clock += elapsed * (1 + CLOCK_GAIN * Math.clamp(error, -RESYNC_TICKS, RESYNC_TICKS));
+            clock += elapsed * (1 + CLOCK_GAIN * Clamp.clamp(error, -RESYNC_TICKS, RESYNC_TICKS));
         }
         return clock;
     }
@@ -364,7 +365,7 @@ final class SnapshotPlayback {
             if (!running || age > MAX_ARRIVAL_AGE) {
                 continue;
             }
-            double lateness = Math.clamp(gameTime - age * tickRate - arrivalTicks[i], -RESYNC_TICKS, RESYNC_TICKS);
+            double lateness = Clamp.clamp(gameTime - age * tickRate - arrivalTicks[i], -RESYNC_TICKS, RESYNC_TICKS);
             latePeak = Double.isNaN(latePeak) ? lateness : Math.max(lateness, latePeak - LATENESS_DECAY * spacing);
         }
         arrivals = 0;

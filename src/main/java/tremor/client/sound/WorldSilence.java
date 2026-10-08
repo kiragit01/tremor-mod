@@ -10,13 +10,12 @@ import net.minecraft.client.sounds.SoundEngine;
 import net.minecraft.client.sounds.SoundManager;
 import net.minecraft.sounds.SoundSource;
 import net.minecraft.util.Mth;
-import net.neoforged.neoforge.client.event.ClientPlayerNetworkEvent;
-import net.neoforged.neoforge.client.event.ClientTickEvent;
-import net.neoforged.neoforge.client.event.SelectMusicEvent;
-import net.neoforged.neoforge.client.event.sound.PlaySoundEvent;
-import net.neoforged.neoforge.client.event.sound.PlaySoundSourceEvent;
-import net.neoforged.neoforge.client.event.sound.PlayStreamingSourceEvent;
-import net.neoforged.neoforge.event.level.LevelEvent;
+import net.minecraftforge.client.event.ClientPlayerNetworkEvent;
+import net.minecraftforge.event.TickEvent;
+import net.minecraftforge.client.event.sound.PlaySoundEvent;
+import net.minecraftforge.client.event.sound.PlaySoundSourceEvent;
+import net.minecraftforge.client.event.sound.PlayStreamingSourceEvent;
+import net.minecraftforge.event.level.LevelEvent;
 import tremor.Tremor;
 import tremor.client.hollow.HollowSink;
 import tremor.config.TremorConfig;
@@ -68,6 +67,8 @@ public final class WorldSilence {
      * in NeoForge 1.21.1).
      */
     private static final String CHANNELS_FIELD = "instanceToChannel";
+    /** {@link #CHANNELS_FIELD} by its SRG name, as a release runs on Forge 1.20.1. */
+    private static final String CHANNELS_SRG = "f_120226_";
 
     private static ClientLevel owner;
     /** Whether the local player hears an Awakening (or is in a hollow) now, so the world is to be silent. */
@@ -85,8 +86,6 @@ public final class WorldSilence {
     private static Field channelsField;
     /** Whether some channel was turned down and may need to be set back. */
     private static boolean channelsTurned;
-    /** The track this silence stopped (it stays the music manager's current one for a few ticks). */
-    private static SoundInstance stoppedMusic;
     /**
      * Loops that were playing when the silence started and were played again as a {@link MutedSound} ({@link #adopt}),
      * or could not be, while the engine still holds them; by identity.
@@ -106,7 +105,10 @@ public final class WorldSilence {
      * (the engine sets their volume only when they start and when a volume setting changes, so this also puts the
      * silence back after such a change); vanilla's loops that were playing before are muted from now on.
      */
-    public static void onClientTick(ClientTickEvent.Post event) {
+    public static void onClientTick(TickEvent.ClientTickEvent event) {
+        if (event.phase != TickEvent.Phase.END) {
+            return;
+        }
         Minecraft mc = Minecraft.getInstance();
         if (mc.level != owner) {
             owner = mc.level;
@@ -160,20 +162,6 @@ public final class WorldSilence {
     /** Sound thread: a streamed sound that does not tick (music, a record) starts muted while the silence is on. */
     public static void onStreamStarted(PlayStreamingSourceEvent event) {
         start(event.getSound(), event.getChannel());
-    }
-
-    /**
-     * Game bus, cancelled events included: only if the channels cannot be reached (so the music cannot fade), stops
-     * the playing track once the silence starts; the music manager then waits its usual pause before the next one.
-     * The event is where the manager shows its current track.
-     */
-    public static void onSelectMusic(SelectMusicEvent event) {
-        SoundInstance playing = event.getPlayingMusic();
-        if (playing == null || playing == stoppedMusic || !silenced || channels() != null) {
-            return;
-        }
-        stoppedMusic = playing;
-        Minecraft.getInstance().getSoundManager().stop(playing);
     }
 
     public static void onLoggingOut(ClientPlayerNetworkEvent.LoggingOut event) {
@@ -281,7 +269,12 @@ public final class WorldSilence {
         if (!channelsResolved) {
             channelsResolved = true;
             try {
-                Field field = SoundEngine.class.getDeclaredField(CHANNELS_FIELD);
+                Field field;
+                try {
+                    field = SoundEngine.class.getDeclaredField(CHANNELS_FIELD);
+                } catch (NoSuchFieldException e) {
+                    field = SoundEngine.class.getDeclaredField(CHANNELS_SRG);
+                }
                 if (!Map.class.isAssignableFrom(field.getType())) {
                     throw new NoSuchFieldException(CHANNELS_FIELD + " is a " + field.getType().getName());
                 }
@@ -315,7 +308,6 @@ public final class WorldSilence {
         on = false;
         gain = 1;
         channelsTurned = false;
-        stoppedMusic = null;
         adopted.clear();
     }
 }

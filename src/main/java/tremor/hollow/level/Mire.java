@@ -198,7 +198,7 @@ final class Mire {
             long key = pos.asLong();
             Cell cell = cells.get(key);
             if (cell == null ? !Materials.softenable(level, pos, level.getBlockState(pos)) || owner.isNode(pos)
-                    : !level.getBlockState(pos).is(TremorBlocks.MIRE)) {
+                    : !level.getBlockState(pos).is(TremorBlocks.MIRE.get())) {
                 if (cell != null) {
                     // Something else changed it meanwhile: it is not ours any more.
                     cells.remove(key);
@@ -262,7 +262,7 @@ final class Mire {
                 continue;
             }
             BlockState now = level.getBlockState(pos);
-            if (cell.covering ? now.isAir() : now.is(TremorBlocks.MIRE)) {
+            if (cell.covering ? now.isAir() : now.is(TremorBlocks.MIRE.get())) {
                 level.setBlock(pos, cell.original, Materials.FLAGS);
             }
             it.remove();

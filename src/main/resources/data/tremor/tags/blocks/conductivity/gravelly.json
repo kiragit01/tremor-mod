@@ -3,6 +3,10 @@
     "minecraft:gravel",
     "minecraft:suspicious_gravel",
     {
+      "id": "#forge:gravel",
+      "required": false
+    },
+    {
       "id": "#c:gravels",
       "required": false
     }

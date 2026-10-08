@@ -95,7 +95,7 @@ import java.util.random.RandomGenerator;
 final class TremorMind {
     /** The damage type of a strike ({@code data/tremor/damage_type/tremor.json}). */
     static final ResourceKey<DamageType> DAMAGE_TYPE = ResourceKey.create(Registries.DAMAGE_TYPE,
-            ResourceLocation.fromNamespaceAndPath(Tremor.MODID, "tremor"));
+            new ResourceLocation(Tremor.MODID, "tremor"));
     /** The nearest player within this distance is the one wandering shows the bump to (SPEC 5.6). */
     static final double VIEWER_RANGE = 128;
     /** How far up and down from the entity a wander target is looked for in its column. */
@@ -274,12 +274,12 @@ final class TremorMind {
                 : base.amplitude() * TremorConfig.COMMON.amplitudeFactor(stage);
         double speed = base.maxSpeed() * TremorConfig.COMMON.speedFactor(stage)
                 * (level.dimension() == net.minecraft.world.level.Level.NETHER
-                ? TremorConfig.COMMON.netherSpeedFactor.getAsDouble() : 1);
+                ? TremorConfig.COMMON.netherSpeedFactor.get() : 1);
         double acceleration = base.acceleration();
         if (entity.frenzy()) {
-            amplitude *= TremorConfig.COMMON.frenzyAmplitudeFactor.getAsDouble();
-            speed *= TremorConfig.COMMON.frenzySpeedFactor.getAsDouble();
-            acceleration *= TremorConfig.COMMON.frenzySpeedFactor.getAsDouble();
+            amplitude *= TremorConfig.COMMON.frenzyAmplitudeFactor.get();
+            speed *= TremorConfig.COMMON.frenzySpeedFactor.get();
+            acceleration *= TremorConfig.COMMON.frenzySpeedFactor.get();
         }
         return new MotionParams(speed, acceleration,
                 base.normalSmoothingSeconds(), amplitude, base.amplitudeSmoothingSeconds());
@@ -513,18 +513,18 @@ final class TremorMind {
             return;
         }
         entity.setStage(stage);
-        float volume = (float) TremorConfig.COMMON.transitionVolume.getAsDouble();
+        float volume = TremorConfig.COMMON.transitionVolume.get().floatValue();
         switch (StageTransition.of(before, stage)) {
-            case RUMBLE -> play(TremorSounds.RUMBLE, skin(), volume, 1);
+            case RUMBLE -> play(TremorSounds.RUMBLE.get(), skin(), volume, 1);
             case CRACK -> {
-                play(TremorSounds.CRACK, skin(), volume, 1);
-                play(TremorSounds.RUMBLE, skin(), volume, LOW_PITCH);
+                play(TremorSounds.CRACK.get(), skin(), volume, 1);
+                play(TremorSounds.RUMBLE.get(), skin(), volume, LOW_PITCH);
             }
             case AWAKEN -> {
-                play(TremorSounds.AWAKEN, skin(), volume, 1);
+                play(TremorSounds.AWAKEN.get(), skin(), volume, 1);
                 awakenSoundAt = level.getGameTime();
             }
-            case SIGH -> play(TremorSounds.SIGH, skin(), volume, 1);
+            case SIGH -> play(TremorSounds.SIGH.get(), skin(), volume, 1);
             case NONE -> {
             }
         }
@@ -631,7 +631,7 @@ final class TremorMind {
         TremorConfig.Common config = TremorConfig.COMMON;
         Crawler crawler = entity.crawler();
         Vec3 skin = skin();
-        float damage = (float) config.contactDamage.getAsDouble();
+        float damage = config.contactDamage.get().floatValue();
         boolean hurt = false;
         if (damage > 0) {
             Holder<DamageType> type = level.registryAccess().registryOrThrow(Registries.DAMAGE_TYPE)
@@ -640,18 +640,18 @@ final class TremorMind {
                     skin.z())), damage);
         }
         Vec3 push = ContactZone.push(crawler.position(), crawler.normal(), crawler.forward(), feet);
-        Vec3 velocity = Strike.velocity(push, crawler.normal(), config.contactKnockback.getAsDouble(),
-                config.contactLift.getAsDouble(), player.getAttributeValue(Attributes.KNOCKBACK_RESISTANCE));
+        Vec3 velocity = Strike.velocity(push, crawler.normal(), config.contactKnockback.get(),
+                config.contactLift.get(), player.getAttributeValue(Attributes.KNOCKBACK_RESISTANCE));
         if (velocity.lengthSquared() > 0) {
             // Replaces the knockback of hurt(), which has not been sent yet (hurtMarked).
             player.setDeltaMovement(velocity.x(), velocity.y(), velocity.z());
             player.connection.send(new ClientboundSetEntityMotionPacket(player));
             player.hurtMarked = false;
         }
-        play(TremorSounds.STRIKE, feet, STRIKE_VOLUME, 1);
+        play(TremorSounds.STRIKE.get(), feet, STRIKE_VOLUME, 1);
         Tremor.LOGGER.debug("Tremor #{} strikes {} ({} damage{})", entity.instance(),
                 player.getGameProfile().getName(), damage, damage > 0 && !hurt ? ", not taken" : "");
-        addAnger(config.contactAnger.getAsDouble());
+        addAnger(config.contactAnger.get());
         if (entity.aiEnabled()) {
             brain.hear(feet, STRIKE_LOUDNESS);
         }
@@ -667,7 +667,7 @@ final class TremorMind {
         entity.setLeaving(true);
         leavingTicks = 0;
         runtime.dropTarget(entity);
-        play(TremorSounds.SIGH, skin(), (float) TremorConfig.COMMON.transitionVolume.getAsDouble(), 1);
+        play(TremorSounds.SIGH.get(), skin(), TremorConfig.COMMON.transitionVolume.get().floatValue(), 1);
     }
 
     /** Whether a player (not a spectator) is within {@code range} of the entity. */
@@ -751,7 +751,7 @@ final class TremorMind {
         return crawler.position().add(crawler.normal().scale(0.5));
     }
 
-    private void play(Holder<SoundEvent> sound, Vec3 at, float volume, float pitch) {
+    private void play(SoundEvent sound, Vec3 at, float volume, float pitch) {
         level.playSound(null, at.x(), at.y(), at.z(), sound, SoundSource.HOSTILE, volume, pitch);
     }
 

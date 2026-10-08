@@ -7,15 +7,15 @@ import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.level.ChunkPos;
 import net.minecraft.world.level.Level;
-import net.neoforged.neoforge.event.entity.player.PlayerEvent;
-import net.neoforged.neoforge.event.level.BlockEvent;
-import net.neoforged.neoforge.event.level.ChunkEvent;
-import net.neoforged.neoforge.event.level.ExplosionEvent;
-import net.neoforged.neoforge.event.level.LevelEvent;
-import net.neoforged.neoforge.event.level.PistonEvent;
-import net.neoforged.neoforge.event.server.ServerStoppingEvent;
-import net.neoforged.neoforge.event.tick.LevelTickEvent;
-import net.neoforged.neoforge.network.PacketDistributor;
+import net.minecraftforge.event.entity.player.PlayerEvent;
+import net.minecraftforge.event.level.BlockEvent;
+import net.minecraftforge.event.level.ChunkEvent;
+import net.minecraftforge.event.level.ExplosionEvent;
+import net.minecraftforge.event.level.LevelEvent;
+import net.minecraftforge.event.level.PistonEvent;
+import net.minecraftforge.event.server.ServerStoppingEvent;
+import net.minecraftforge.event.TickEvent;
+import tremor.network.TremorNetwork;
 import tremor.Tremor;
 import tremor.core.graph.SurfaceGraph;
 import tremor.network.TremorStatePayload;
@@ -99,7 +99,7 @@ public final class TremorManager {
         if (runtime != null) {
             runtime.sendTo(player);
         } else {
-            PacketDistributor.sendToPlayer(player, TremorStatePayload.absent(TremorSavedData.get(level).lastInstance(),
+            TremorNetwork.sendToPlayer(player, TremorStatePayload.absent(TremorSavedData.get(level).lastInstance(),
                     level.getGameTime()));
         }
     }
@@ -136,10 +136,13 @@ public final class TremorManager {
     }
 
     /** Not while the game is frozen ({@code /tick freeze}; {@code /tick step} still advances it). */
-    public static void onLevelTick(LevelTickEvent.Post event) {
-        if (!RUNTIMES.isEmpty() && event.getLevel() instanceof ServerLevel level) {
+    public static void onLevelTick(TickEvent.LevelTickEvent event) {
+        if (event.phase != TickEvent.Phase.END) {
+            return;
+        }
+        if (!RUNTIMES.isEmpty() && event.level instanceof ServerLevel level) {
             TremorRuntime runtime = runtime(level);
-            if (runtime != null && level.tickRateManager().runsNormally()) {
+            if (runtime != null) {
                 runtime.tick();
             }
         }

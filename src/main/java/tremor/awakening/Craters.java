@@ -21,8 +21,8 @@ import net.minecraft.world.level.chunk.LevelChunk;
 import net.minecraft.world.level.levelgen.Heightmap;
 import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
-import net.neoforged.neoforge.event.server.ServerStoppedEvent;
-import net.neoforged.neoforge.event.tick.ServerTickEvent;
+import net.minecraftforge.event.server.ServerStoppedEvent;
+import net.minecraftforge.event.TickEvent;
 import tremor.Tremor;
 import tremor.config.TremorConfig;
 import tremor.sound.TremorSounds;
@@ -210,7 +210,10 @@ public final class Craters {
      * first each tick (with several, each moves on). What follows a crater once it is dug (its {@code done}) is timed
      * apart from it.
      */
-    public static void onServerTick(ServerTickEvent.Post event) {
+    public static void onServerTick(TickEvent.ServerTickEvent event) {
+        if (event.phase != TickEvent.Phase.END) {
+            return;
+        }
         if (JOBS.isEmpty()) {
             return;
         }
@@ -595,14 +598,12 @@ public final class Craters {
         }
 
         /**
-         * The block at {@code pos} was changed without {@link Block#UPDATE_CLIENTS}: the clients are told, and the path
-         * finding forgets what it knew of the block, as {@code setBlock} with that flag does; but no mob plans its path
-         * again on the spot, which vanilla does for each mob whose path ends near the block (for a villager in the
+         * The block at {@code pos} was changed without {@link Block#UPDATE_CLIENTS}: the clients are told, as
+         * {@code setBlock} with that flag does; but no mob plans its path again on the spot, which vanilla does for each mob whose path ends near the block (for a villager in the
          * crater, 4 ms for one block): the mobs find out as they go, or fall in.
          */
         private void told(BlockPos pos) {
             level.getChunkSource().blockChanged(pos);
-            level.getPathTypeCache().invalidate(pos);
         }
 
         /**
@@ -735,7 +736,7 @@ public final class Craters {
 
         private void sound(net.minecraft.sounds.SoundEvent sound, Vec3 at, float pitch) {
             level.playSound(null, at.x, at.y, at.z, sound, SoundSource.HOSTILE,
-                    (float) TremorConfig.COMMON.transitionVolume.getAsDouble(), pitch);
+                    TremorConfig.COMMON.transitionVolume.get().floatValue(), pitch);
         }
 
         CraterRules.Cell cell(int x, int y, int z) {

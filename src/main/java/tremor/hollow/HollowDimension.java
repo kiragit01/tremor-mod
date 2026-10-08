@@ -17,7 +17,7 @@ import tremor.Tremor;
  */
 public final class HollowDimension {
     public static final ResourceKey<Level> KEY =
-            ResourceKey.create(Registries.DIMENSION, ResourceLocation.fromNamespaceAndPath(Tremor.MODID, "hollow"));
+            ResourceKey.create(Registries.DIMENSION, new ResourceLocation(Tremor.MODID, "hollow"));
 
     private HollowDimension() {
     }

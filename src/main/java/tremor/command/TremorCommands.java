@@ -18,7 +18,7 @@ import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.HitResult;
-import net.neoforged.neoforge.event.RegisterCommandsEvent;
+import net.minecraftforge.event.RegisterCommandsEvent;
 import tremor.awakening.AwakeningCommands;
 import tremor.awakening.AwakeningManager;
 import tremor.awakening.Craters;
@@ -376,7 +376,7 @@ public final class TremorCommands {
             return "nothing";
         }
         return String.format(Locale.ROOT, "%s at %s, perceived %.2f (threshold %.2f), %.1f s ago", heard.event(),
-                vec(heard.position()), heard.perceived(), TremorConfig.COMMON.hearingThreshold.getAsDouble(),
+                vec(heard.position()), heard.perceived(), TremorConfig.COMMON.hearingThreshold.get(),
                 (now - heard.gameTime()) / 20.0);
     }
 

@@ -1,6 +1,5 @@
 package tremor.item;
 
-import com.mojang.serialization.MapCodec;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.core.particles.BlockParticleOption;
@@ -27,7 +26,6 @@ import tremor.entity.TremorRuntime;
  * hears something its veins and lens glow and pulse (model {@code geophone_on}, light level 3) and it sheds dust. It checks every {@value #INTERVAL} ticks (a scheduled tick, kept with the chunk).
  */
 public class GeophoneBlock extends Block {
-    public static final MapCodec<GeophoneBlock> CODEC = simpleCodec(GeophoneBlock::new);
     public static final IntegerProperty POWER = BlockStateProperties.POWER;
     /** Ticks between two checks. */
     static final int INTERVAL = 10;
@@ -38,24 +36,19 @@ public class GeophoneBlock extends Block {
     }
 
     @Override
-    protected MapCodec<? extends Block> codec() {
-        return CODEC;
-    }
-
-    @Override
     protected void createBlockStateDefinition(StateDefinition.Builder<Block, BlockState> builder) {
         builder.add(POWER);
     }
 
     @Override
-    protected void onPlace(BlockState state, Level level, BlockPos pos, BlockState old, boolean moved) {
+    public void onPlace(BlockState state, Level level, BlockPos pos, BlockState old, boolean moved) {
         if (!level.isClientSide && !old.is(this)) {
             level.scheduleTick(pos, this, INTERVAL);
         }
     }
 
     @Override
-    protected void tick(BlockState state, ServerLevel level, BlockPos pos, RandomSource random) {
+    public void tick(BlockState state, ServerLevel level, BlockPos pos, RandomSource random) {
         TremorEntity entity = heard(level, pos);
         int power = entity == null ? 0 : Sensing.power(distance(entity, pos), range());
         if (power != state.getValue(POWER)) {
@@ -66,22 +59,22 @@ public class GeophoneBlock extends Block {
     }
 
     @Override
-    protected boolean isSignalSource(BlockState state) {
+    public boolean isSignalSource(BlockState state) {
         return true;
     }
 
     @Override
-    protected int getSignal(BlockState state, BlockGetter level, BlockPos pos, Direction direction) {
+    public int getSignal(BlockState state, BlockGetter level, BlockPos pos, Direction direction) {
         return state.getValue(POWER);
     }
 
     @Override
-    protected boolean hasAnalogOutputSignal(BlockState state) {
+    public boolean hasAnalogOutputSignal(BlockState state) {
         return true;
     }
 
     @Override
-    protected int getAnalogOutputSignal(BlockState state, Level level, BlockPos pos) {
+    public int getAnalogOutputSignal(BlockState state, Level level, BlockPos pos) {
         if (state.getValue(POWER) == 0 || !(level instanceof ServerLevel server)) {
             return 0;
         }
@@ -111,6 +104,6 @@ public class GeophoneBlock extends Block {
     }
 
     private static double range() {
-        return TremorConfig.COMMON.geophoneRange.getAsDouble();
+        return TremorConfig.COMMON.geophoneRange.get();
     }
 }

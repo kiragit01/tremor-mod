@@ -1,5 +1,8 @@
 package tremor.client.awakening;
 
+import java.nio.charset.StandardCharsets;
+import java.util.UUID;
+
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.player.Input;
 import net.minecraft.client.player.LocalPlayer;
@@ -9,9 +12,9 @@ import net.minecraft.world.entity.ai.attributes.AttributeModifier;
 import net.minecraft.world.entity.ai.attributes.Attributes;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.phys.Vec3;
-import net.neoforged.neoforge.client.event.ComputeFovModifierEvent;
-import net.neoforged.neoforge.client.event.MovementInputUpdateEvent;
-import net.neoforged.neoforge.event.tick.PlayerTickEvent;
+import net.minecraftforge.client.event.ComputeFovModifierEvent;
+import net.minecraftforge.client.event.MovementInputUpdateEvent;
+import net.minecraftforge.event.TickEvent;
 import tremor.Tremor;
 
 /**
@@ -32,8 +35,8 @@ import tremor.Tremor;
  */
 public final class ClientRoot {
     /** Id of the root's movement speed modifier ({@code tremor.awakening.Root}); keep the two the same. */
-    static final ResourceLocation ROOT_MODIFIER = ResourceLocation.fromNamespaceAndPath(Tremor.MODID,
-            "awakening_root");
+    static final UUID ROOT_MODIFIER = UUID.nameUUIDFromBytes((Tremor.MODID + ":awakening_root")
+            .getBytes(StandardCharsets.UTF_8));
 
     private ClientRoot() {
     }
@@ -42,7 +45,7 @@ public final class ClientRoot {
     public static void onComputeFovModifier(ComputeFovModifierEvent event) {
         Player player = event.getPlayer();
         AttributeInstance speed = player.getAttribute(Attributes.MOVEMENT_SPEED);
-        if (speed == null || !speed.hasModifier(ROOT_MODIFIER)) {
+        if (speed == null || speed.getModifier(ROOT_MODIFIER) == null) {
             return;
         }
         float fov = event.getFovModifier();
@@ -74,8 +77,11 @@ public final class ClientRoot {
      * Game bus, before the local player's tick: a rooted player on foot stops sprinting and loses its sideways
      * momentum (its fall, or its sinking, goes on).
      */
-    public static void onPlayerTickPre(PlayerTickEvent.Pre event) {
-        if (!(event.getEntity() instanceof LocalPlayer player) || !rooted(player) || player.isPassenger()) {
+    public static void onPlayerTickPre(TickEvent.PlayerTickEvent event) {
+        if (event.phase != TickEvent.Phase.START) {
+            return;
+        }
+        if (!(event.player instanceof LocalPlayer player) || !rooted(player) || player.isPassenger()) {
             return;
         }
         if (player.isSprinting()) {
@@ -90,23 +96,23 @@ public final class ClientRoot {
     /** Whether the player carries the root's movement speed modifier. */
     private static boolean rooted(Player player) {
         AttributeInstance speed = player.getAttribute(Attributes.MOVEMENT_SPEED);
-        return speed != null && speed.hasModifier(ROOT_MODIFIER);
+        return speed != null && speed.getModifier(ROOT_MODIFIER) != null;
     }
 
     /** The value the movement speed would have without the root's modifier. */
     private static double freeSpeed(AttributeInstance speed) {
         double add = 0, addMultipliedBase = 0, multipliedTotal = 1;
         for (AttributeModifier modifier : speed.getModifiers()) {
-            if (modifier.id().equals(ROOT_MODIFIER)) {
+            if (modifier.getId().equals(ROOT_MODIFIER)) {
                 continue;
             }
-            switch (modifier.operation()) {
-                case ADD_VALUE -> add += modifier.amount();
-                case ADD_MULTIPLIED_BASE -> addMultipliedBase += modifier.amount();
-                case ADD_MULTIPLIED_TOTAL -> multipliedTotal *= 1 + modifier.amount();
+            switch (modifier.getOperation()) {
+                case ADDITION -> add += modifier.getAmount();
+                case MULTIPLY_BASE -> addMultipliedBase += modifier.getAmount();
+                case MULTIPLY_TOTAL -> multipliedTotal *= 1 + modifier.getAmount();
             }
         }
-        return speed.getAttribute().value().sanitizeValue(
+        return speed.getAttribute().sanitizeValue(
                 RootFov.attributeValue(speed.getBaseValue(), add, addMultipliedBase, multipliedTotal));
     }
 }

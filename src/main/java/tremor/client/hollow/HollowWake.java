@@ -13,7 +13,7 @@ import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.util.Mth;
 import net.minecraft.util.RandomSource;
 import net.minecraft.world.level.block.state.BlockState;
-import net.neoforged.neoforge.client.event.ClientTickEvent;
+import net.minecraftforge.event.TickEvent;
 import tremor.config.TremorConfig;
 import tremor.core.math.Vec3;
 import tremor.core.shape.HollowParams;
@@ -36,7 +36,7 @@ import tremor.network.TremorHollowStatePayload;
  *     <li>as the crest runs under the player, a puff of dust at the player's feet, and a faint thump that
  *     {@code tremor.client.sound.HollowSounds} plays ({@link #passes}).</li>
  * </ul>
- * The clouds are vanilla's pale dust plume (the dust of a brushed or broken decorated pot), not chips of the block:
+ * The clouds are vanilla's poof (1.20.1 has no dust plume), not chips of the block:
  * the renderer already kicks those up along the rings, and in the black fog they are as dark as the ground they come
  * off, while a pale cloud stands out against it a few blocks away. Where there is no light to see even a pale cloud
  * by (a copied cave without torches), some of the clouds come with a dim glint drawn at full brightness
@@ -94,7 +94,10 @@ public final class HollowWake {
     }
 
     /** Stirs the surfaces along the crests within sight, and counts a ring running under the player. */
-    public static void onClientTick(ClientTickEvent.Post event) {
+    public static void onClientTick(TickEvent.ClientTickEvent event) {
+        if (event.phase != TickEvent.Phase.END) {
+            return;
+        }
         Minecraft mc = Minecraft.getInstance();
         ClientLevel level = mc.level;
         if (level != owner) {
@@ -201,7 +204,7 @@ public final class HollowWake {
             boolean openHere = open(level, pos);
             if (openAbove && !openHere) {
                 if (level.getBlockState(pos).isFaceSturdy(level, pos, Direction.UP)) {
-                    level.addParticle(ParticleTypes.DUST_PLUME, x, y + 1 + CLEARANCE, z, dirX * DRIFT, 0,
+                    level.addParticle(ParticleTypes.POOF, x, y + 1 + CLEARANCE, z, dirX * DRIFT, 0,
                             dirZ * DRIFT);
                     glint(level, x, y + 1 + CLEARANCE, z, dirX * DRIFT, 0, dirZ * DRIFT);
                 }
@@ -246,7 +249,7 @@ public final class HollowWake {
         Vec3 q = p.add(out);
         pos.set(Mth.floor(q.x()), Mth.floor(q.y()), Mth.floor(q.z()));
         if (open(level, pos)) {
-            level.addParticle(ParticleTypes.DUST_PLUME, q.x(), q.y(), q.z(), out.x() * DRIFT, out.y() * DRIFT,
+            level.addParticle(ParticleTypes.POOF, q.x(), q.y(), q.z(), out.x() * DRIFT, out.y() * DRIFT,
                     out.z() * DRIFT);
             glint(level, q.x(), q.y(), q.z(), out.x() * DRIFT, out.y() * DRIFT, out.z() * DRIFT);
         }
@@ -286,7 +289,7 @@ public final class HollowWake {
         for (int i = 0; i < count; i++) {
             double x = player.getX() + (random.nextDouble() * 2 - 1) * PUFF_SPREAD;
             double z = player.getZ() + (random.nextDouble() * 2 - 1) * PUFF_SPREAD;
-            level.addParticle(ParticleTypes.DUST_PLUME, x, below.getY() + 1 + CLEARANCE, z, dirX * DRIFT, 0,
+            level.addParticle(ParticleTypes.POOF, x, below.getY() + 1 + CLEARANCE, z, dirX * DRIFT, 0,
                     dirZ * DRIFT);
         }
     }

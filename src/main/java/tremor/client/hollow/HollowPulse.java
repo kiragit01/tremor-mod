@@ -3,7 +3,7 @@ package tremor.client.hollow;
 import net.minecraft.SharedConstants;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.multiplayer.ClientLevel;
-import net.neoforged.neoforge.client.event.ClientTickEvent;
+import net.minecraftforge.event.TickEvent;
 import tremor.core.shape.HollowParams;
 import tremor.core.shape.Ripple;
 import tremor.network.TremorHollowStatePayload;
@@ -52,7 +52,10 @@ public final class HollowPulse {
     }
 
     /** Advances the pulse to the level's game time, and forgets the beats whose rings have run out. */
-    public static void onClientTick(ClientTickEvent.Post tick) {
+    public static void onClientTick(TickEvent.ClientTickEvent tick) {
+        if (tick.phase != TickEvent.Phase.END) {
+            return;
+        }
         Minecraft mc = Minecraft.getInstance();
         ClientLevel level = mc.level;
         if (level != owner) {

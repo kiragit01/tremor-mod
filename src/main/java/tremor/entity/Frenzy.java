@@ -8,8 +8,8 @@ import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.sounds.SoundSource;
 import net.minecraft.world.entity.item.ItemEntity;
 import net.minecraft.world.level.block.state.BlockState;
-import net.neoforged.neoforge.event.entity.item.ItemTossEvent;
-import net.neoforged.neoforge.event.tick.LevelTickEvent;
+import net.minecraftforge.event.entity.item.ItemTossEvent;
+import net.minecraftforge.event.TickEvent;
 import tremor.Tremor;
 import tremor.awakening.AwakeningManager;
 import tremor.config.TremorConfig;
@@ -86,14 +86,17 @@ public final class Frenzy {
         }
         Vec3 at = entity.crawler().position();
         level.playSound(null, at.x(), at.y(), at.z(), tremor.sound.TremorSounds.AWAKEN.get(), SoundSource.HOSTILE,
-                (float) TremorConfig.COMMON.transitionVolume.getAsDouble(), 1.3F);
+                TremorConfig.COMMON.transitionVolume.get().floatValue(), 1.3F);
         Tremor.LOGGER.info("Tremor #{}: a frenzy over the shard {} dropped", entity.instance(),
                 player.getGameProfile().getName());
     }
 
     /** Leads the frenzy of every level on: the route after the shard or the player, the take, the end. */
-    public static void onLevelTick(LevelTickEvent.Post event) {
-        if (!(event.getLevel() instanceof ServerLevel level)) {
+    public static void onLevelTick(TickEvent.LevelTickEvent event) {
+        if (event.phase != TickEvent.Phase.END) {
+            return;
+        }
+        if (!(event.level instanceof ServerLevel level)) {
             return;
         }
         State state = FRENZIES.get(level);
