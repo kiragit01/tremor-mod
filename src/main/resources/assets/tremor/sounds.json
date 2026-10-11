@@ -2,105 +2,92 @@
   "entity.tremor.rumble": {
     "subtitle": "subtitles.tremor.rumble",
     "sounds": [
-      {"name": "minecraft:mob/warden/dig", "pitch": 0.6, "volume": 0.9},
-      {"name": "minecraft:ambient/cave/cave13", "pitch": 0.5}
+      "tremor:rumble_1",
+      "tremor:rumble_2"
     ]
   },
   "entity.tremor.crack": {
     "subtitle": "subtitles.tremor.crack",
     "sounds": [
-      {"name": "minecraft:block/deepslate/break1", "pitch": 0.5},
-      {"name": "minecraft:block/deepslate/break2", "pitch": 0.5},
-      {"name": "minecraft:block/deepslate/break3", "pitch": 0.5},
-      {"name": "minecraft:block/deepslate/break4", "pitch": 0.5}
+      "tremor:crack_1",
+      "tremor:crack_2",
+      "tremor:crack_3"
     ]
   },
   "entity.tremor.sigh": {
     "subtitle": "subtitles.tremor.sigh",
     "sounds": [
-      {"name": "minecraft:mob/warden/emerge", "pitch": 0.5, "volume": 0.7}
+      "tremor:sigh_1",
+      "tremor:sigh_2"
     ]
   },
   "entity.tremor.rustle": {
     "subtitle": "subtitles.tremor.rustle",
     "sounds": [
-      {"name": "minecraft:minecart/base", "attenuation_distance": 40}
+      {"name": "tremor:rustle", "attenuation_distance": 40}
     ]
   },
   "entity.tremor.strike": {
     "subtitle": "subtitles.tremor.strike",
     "sounds": [
-      {"name": "minecraft:random/explode1", "pitch": 0.5, "volume": 0.5},
-      {"name": "minecraft:block/deepslate/break2", "pitch": 0.5}
+      "tremor:strike_1",
+      "tremor:strike_2"
     ]
   },
   "entity.tremor.pulse": {
     "subtitle": "subtitles.tremor.pulse",
     "sounds": [
-      {"name": "minecraft:mob/warden/heartbeat_1", "pitch": 0.7},
-      {"name": "minecraft:mob/warden/heartbeat_2", "pitch": 0.7},
-      {"name": "minecraft:mob/warden/heartbeat_3", "pitch": 0.7},
-      {"name": "minecraft:mob/warden/heartbeat_4", "pitch": 0.7}
+      "tremor:pulse_1",
+      "tremor:pulse_2",
+      "tremor:pulse_3"
     ]
   },
   "entity.tremor.awaken": {
     "subtitle": "subtitles.tremor.awaken",
     "sounds": [
-      {"name": "minecraft:mob/warden/emerge", "pitch": 0.5}
+      "tremor:awaken"
     ]
   },
   "entity.tremor.release": {
     "subtitle": "subtitles.tremor.release",
     "sounds": [
-      {"name": "minecraft:mob/warden/death_1", "pitch": 0.5},
-      {"name": "minecraft:mob/warden/death_2", "pitch": 0.5}
+      "tremor:release"
     ]
   },
   "entity.tremor.hum": {
     "subtitle": "subtitles.tremor.hum",
     "sounds": [
-      {"name": "minecraft:ambient/nether/nether_wastes/ambience", "stream": true, "pitch": 0.5}
+      "tremor:hum"
     ]
   },
   "entity.tremor.pull": {
     "subtitle": "subtitles.tremor.pull",
     "sounds": [
-      {"name": "minecraft:block/mud/step1", "pitch": 0.65},
-      {"name": "minecraft:block/mud/step3", "pitch": 0.65},
-      {"name": "minecraft:block/mud/step5", "pitch": 0.65},
-      {"name": "minecraft:block/honeyblock/slide1", "pitch": 0.6},
-      {"name": "minecraft:block/honeyblock/slide3", "pitch": 0.6},
-      {"name": "minecraft:block/muddy_mangrove_roots/step2", "pitch": 0.6},
-      {"name": "minecraft:block/muddy_mangrove_roots/step4", "pitch": 0.6}
+      "tremor:pull_1",
+      "tremor:pull_2",
+      "tremor:pull_3"
     ]
   },
   "entity.tremor.thump": {
     "subtitle": "subtitles.tremor.thump",
     "sounds": [
-      {"name": "minecraft:mob/warden/step_1", "pitch": 0.6},
-      {"name": "minecraft:mob/warden/step_2", "pitch": 0.6},
-      {"name": "minecraft:mob/warden/step_3", "pitch": 0.6},
-      {"name": "minecraft:mob/warden/step_4", "pitch": 0.6}
+      "tremor:thump_1",
+      "tremor:thump_2",
+      "tremor:thump_3"
     ]
   },
   "entity.tremor.ripple": {
     "subtitle": "subtitles.tremor.ripple",
     "sounds": [
-      {"name": "minecraft:mob/warden/listening_1", "pitch": 0.6},
-      {"name": "minecraft:mob/warden/listening_2", "pitch": 0.6},
-      {"name": "minecraft:mob/warden/listening_3", "pitch": 0.6},
-      {"name": "minecraft:mob/warden/listening_4", "pitch": 0.6},
-      {"name": "minecraft:mob/warden/listening_5", "pitch": 0.6}
+      "tremor:ripple_1",
+      "tremor:ripple_2",
+      "tremor:ripple_3"
     ]
   },
   "entity.tremor.rage": {
     "subtitle": "subtitles.tremor.rage",
     "sounds": [
-      {"name": "minecraft:mob/warden/roar_1", "pitch": 0.55, "volume": 0.9},
-      {"name": "minecraft:mob/warden/roar_2", "pitch": 0.55, "volume": 0.9},
-      {"name": "minecraft:mob/warden/roar_3", "pitch": 0.55, "volume": 0.9},
-      {"name": "minecraft:mob/warden/roar_4", "pitch": 0.55, "volume": 0.9},
-      {"name": "minecraft:mob/warden/roar_5", "pitch": 0.55, "volume": 0.9}
+      "tremor:rage"
     ]
   }
 }
