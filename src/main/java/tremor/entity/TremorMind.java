@@ -115,11 +115,8 @@ final class TremorMind {
     static final double PASS_MARGIN = 2;
     /** ...where it is at most {@link AwakeningRules#REACH_HEIGHT} plus this above or below the player's feet. */
     static final double PASS_MARGIN_HEIGHT = 1;
-    /**
-     * An Awakening that starts this many ticks or fewer after the entity made the sound of rising to AWAKENING makes
-     * none of its own ({@link #awakenSounded}): the two would sound as one doubled.
-     */
-    static final int AWAKEN_SOUND_TICKS = 20;
+    /** Volume of the sound of a ring of ripples ({@link TremorSounds#RIPPLE}): heard up to 16 blocks times this away. */
+    static final float RIPPLE_VOLUME = 2;
     /** A leaving entity is removed once its bump is lower than this (blocks)... */
     static final double SUNK = 0.02;
     /** ...or this many ticks after it started leaving, whatever its bump does. */
@@ -151,8 +148,6 @@ final class TremorMind {
     /** A vibration was heard since the last tick (eventful for the despawn clock). */
     private boolean heardSinceTick;
     private int leavingTicks;
-    /** Game time the entity last made the sound of rising to AWAKENING ({@link #settle}), or Long.MIN_VALUE. */
-    private long awakenSoundAt = Long.MIN_VALUE;
 
     TremorMind(TremorRuntime runtime, TremorEntity entity) {
         this.runtime = runtime;
@@ -256,7 +251,9 @@ final class TremorMind {
                     order.wander());
             case FREEZE -> {
                 runtime.freeze(entity, order.point());
-                ripple.freeze(now, entity.crawler().diving());
+                if (ripple.freeze(now, entity.crawler().diving())) {
+                    play(TremorSounds.RIPPLE, skin(), RIPPLE_VOLUME, 1);
+                }
             }
             case NONE -> {
             }
@@ -416,15 +413,6 @@ final class TremorMind {
     }
 
     /**
-     * Whether the entity made the sound of rising to AWAKENING (SPEC 13) at most {@value #AWAKEN_SOUND_TICKS} ticks
-     * before game time {@code now} (by itself, by a command, or as an Awakening took it): an Awakening that starts now
-     * makes no sound of its own.
-     */
-    boolean awakenSounded(long now) {
-        return awakenSoundAt != Long.MIN_VALUE && now >= awakenSoundAt && now - awakenSoundAt <= AWAKEN_SOUND_TICKS;
-    }
-
-    /**
      * Whether a route the body has planned for a wander leg of the brain keeps away from the players
      * ({@link KeepAway#passesClear(Path)} with {@link #keepAway}): while the entity seeks, it passes none who can be
      * taken within reach; in any other stage every route does. One that does not is given up.
@@ -520,10 +508,8 @@ final class TremorMind {
                 play(TremorSounds.CRACK, skin(), volume, 1);
                 play(TremorSounds.RUMBLE, skin(), volume, LOW_PITCH);
             }
-            case AWAKEN -> {
-                play(TremorSounds.AWAKEN, skin(), volume, 1);
-                awakenSoundAt = level.getGameTime();
-            }
+            // A roar, heard far: the pull of an Awakening sounds when one starts, at the player it takes.
+            case AWAKEN -> play(TremorSounds.RAGE, skin(), volume, 1);
             case SIGH -> play(TremorSounds.SIGH, skin(), volume, 1);
             case NONE -> {
             }

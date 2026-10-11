@@ -479,9 +479,7 @@ public final class AwakeningManager {
 
     /**
      * Starts an Awakening for the target. The level's entity, if any, is taken (its stage change to AWAKENING, if it
-     * was not there yet, sounds). The start sounds at the centre, unless the entity made that sound just now
-     * ({@link TremorRuntime#awakenSounded}: rising as it is taken, or a moment before it reached the target, by a strike
-     * or a sound that topped its anger); not twice at once, which would sound as one doubled.
+     * was not there yet, sounds: a roar). The start sounds at the centre: the pull.
      */
     private static Awakening start(ServerLevel level, ServerPlayer target, boolean natural) {
         return start(level, target, natural, TremorConfig.COMMON.awakening.buildupSeconds.get() * 20);
@@ -512,7 +510,7 @@ public final class AwakeningManager {
         if (entity) {
             runtime.absorb();
         }
-        awakening.begin(!entity || !runtime.awakenSounded());
+        awakening.begin();
         return awakening;
     }
 
