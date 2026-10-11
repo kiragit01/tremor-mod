@@ -3,7 +3,6 @@ package tremor.awakening;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.nbt.CompoundTag;
-import net.minecraft.network.protocol.game.ClientboundStopSoundPacket;
 import net.minecraft.sounds.SoundSource;
 import net.minecraft.world.effect.MobEffectInstance;
 import net.minecraft.world.effect.MobEffects;
@@ -425,17 +424,13 @@ final class Awakening {
         }
         TremorAwakeningPayload ended = new TremorAwakeningPayload(id, center, (float) radius, Phase.ENDED, now, 0,
                 target, focus);
-        // Got away (or called off): the long sound of the start breaks off at once and no sigh follows, so nothing
-        // goes on rumbling after the player is out.
+        // Got away (or called off): the clients fade the long sound of the start out (ClientAwakening) and no sigh
+        // follows, so nothing goes on rumbling after the player is out.
         boolean quiet = why == End.ESCAPED || why == End.CANCELLED;
         for (UUID receiver : recipients) {
             ServerPlayer online = level.getServer().getPlayerList().getPlayer(receiver);
             if (online != null) {
                 TremorNetwork.sendToPlayer(online, ended);
-                if (quiet) {
-                    online.connection.send(new ClientboundStopSoundPacket(TremorSounds.AWAKEN.getId(),
-                            SoundSource.HOSTILE));
-                }
             }
         }
         recipients.clear();

@@ -3,6 +3,7 @@ package tremor.client.awakening;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.multiplayer.ClientLevel;
 import net.minecraftforge.client.event.ClientPlayerNetworkEvent;
+import tremor.sound.TremorSounds;
 import tremor.core.math.Vec3;
 import tremor.network.TremorAwakeningPayload;
 import tremor.network.TremorStepRipplePayload;
@@ -20,6 +21,8 @@ import java.util.UUID;
  * Everything is dropped on logout and when the client level changes.
  */
 public final class ClientAwakening {
+    /** Ticks the sound of the start of an Awakening takes to fade out when the player got away. */
+    private static final int PULL_FADE_TICKS = 10;
     /** Step ripples older than this (game ticks) are forgotten. */
     public static final int RIPPLE_MEMORY_TICKS = 100;
     /** At most this many step ripples are kept (the oldest go first). */
@@ -40,6 +43,10 @@ public final class ClientAwakening {
         adopt(Minecraft.getInstance().level);
         if (payload.phase() == TremorAwakeningPayload.Phase.ENDED) {
             if (state == null || state.id() == payload.id()) {
+                if (state != null && state.phase() == TremorAwakeningPayload.Phase.BUILDUP) {
+                    // Got away (or called off) during the build-up: the long sound of the start fades out.
+                    tremor.client.sound.SoundFades.fadeOut(TremorSounds.AWAKEN.getId(), PULL_FADE_TICKS);
+                }
                 state = null;
                 ripples.clear();
             }

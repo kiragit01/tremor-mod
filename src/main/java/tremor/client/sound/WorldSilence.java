@@ -265,7 +265,7 @@ public final class WorldSilence {
 
     /** The engine's map of playing sounds to their channels (read only on the main thread, like the engine). */
     @SuppressWarnings("unchecked")
-    private static Map<SoundInstance, ChannelAccess.ChannelHandle> channels() {
+    static Map<SoundInstance, ChannelAccess.ChannelHandle> channels() {
         if (!channelsResolved) {
             channelsResolved = true;
             try {
@@ -309,5 +309,6 @@ public final class WorldSilence {
         gain = 1;
         channelsTurned = false;
         adopted.clear();
+        SoundFades.clear();
     }
 }
