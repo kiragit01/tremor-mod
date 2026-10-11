@@ -402,15 +402,6 @@ public final class TremorRuntime {
     }
 
     /**
-     * Whether the entity made the sound of rising to AWAKENING just now ({@link TremorMind#awakenSounded}): an
-     * Awakening that starts now makes no sound of its own. False if there is none.
-     */
-    public boolean awakenSounded() {
-        TremorEntity entity = data.entity();
-        return entity != null && mind(entity).awakenSounded(level.getGameTime());
-    }
-
-    /**
      * Reaction to a vibration in the level (SPEC 7.2, 7.3, 8). Its perceived loudness at the entity is
      * {@link Hearing#perceived} over the live level (the leaves a rustling source rustles in do not damp it,
      * {@link Vibration#foliage}). From the threshold on it is heard: {@code lastHeard} is updated,

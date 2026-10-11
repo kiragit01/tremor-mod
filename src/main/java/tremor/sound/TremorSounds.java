@@ -17,6 +17,16 @@ public final class TremorSounds {
 
     /** Low rumble of the rock: the entity grows alert. */
     public static final RegistryObject<SoundEvent> RUMBLE = register("entity.tremor.rumble");
+    /**
+     * A listening entity sends a ring of ripples through the ground (SPEC 8, ALERT): one at the start of each ring, so
+     * the rings are heard as they are seen.
+     */
+    public static final RegistryObject<SoundEvent> RIPPLE = register("entity.tremor.ripple");
+    /**
+     * The entity rises to its peak, AWAKENING (SPEC 13): a roar heard far, wherever it is. The pull of an Awakening
+     * itself is {@link #AWAKEN}, at the player it takes.
+     */
+    public static final RegistryObject<SoundEvent> RAGE = register("entity.tremor.rage");
     /** Rock cracking: the entity starts hunting. */
     public static final RegistryObject<SoundEvent> CRACK = register("entity.tremor.crack");
     /** The ground "sighs": the entity calms down, or sinks away. */

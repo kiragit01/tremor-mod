@@ -1,0 +1,33 @@
+# The sounds of the bug fixes, seen as subtitles: a ring of a listening entity, and the roar of rising to AWAKENING
+# (the pull is only for an Awakening that starts). Needs showSubtitles:true in the options of the run.
+waitchunks
+cmd gamemode spectator
+cmd time set noon
+cmd tremor despawn
+cmd tremor awaken stop
+cmd tp @s 300.5 201.0 300.5 270 10
+wait 40
+waitchunks
+cmd fill 270 198 270 330 200 330 minecraft:stone
+cmd fill 270 201 270 330 206 330 minecraft:air
+cmd kill @e[type=!player]
+cmd gamemode survival
+cmd tremor spawn 318 200 300
+cmd tremor stage alert
+wait 40
+log --- a jump: the entity listens, a ring starts and sounds
+hold jump 8
+wait 6
+screenshot 10_ring
+cmd tremor info
+wait 60
+hold jump 8
+wait 6
+screenshot 11_ring_again
+log --- rising to AWAKENING: a roar
+cmd tremor anger 100
+wait 6
+screenshot 12_rage
+cmd tremor info
+cmd tremor despawn
+quit

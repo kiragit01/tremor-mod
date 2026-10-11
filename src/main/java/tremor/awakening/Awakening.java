@@ -215,17 +215,10 @@ final class Awakening {
         died = true;
     }
 
-    /**
-     * Sends the state to the players near and logs the start.
-     *
-     * @param sound marks the start by the AWAKEN sound at the centre (when no entity made it just now by rising to
-     *              AWAKENING: there was none, or it had been seeking in AWAKENING for more than a moment)
-     */
-    void begin(boolean sound) {
-        if (sound) {
-            level.playSound(null, center.x(), center.y(), center.z(), TremorSounds.AWAKEN.get(), SoundSource.HOSTILE,
-                    TremorConfig.COMMON.transitionVolume.get().floatValue(), 1);
-        }
+    /** Marks the start by the AWAKEN sound at the centre (the pull), sends the state to the players near and logs it. */
+    void begin() {
+        level.playSound(null, center.x(), center.y(), center.z(), TremorSounds.AWAKEN.get(), SoundSource.HOSTILE,
+                TremorConfig.COMMON.transitionVolume.get().floatValue(), 1);
         sync(true);
         Tremor.LOGGER.info(String.format(Locale.ROOT, "Awakening #%d in %s (%s) for %s: zone of %.0f blocks around %s, "
                         + "%.1f s to get out", id, level.dimension().location(), natural ? "natural" : "command",
