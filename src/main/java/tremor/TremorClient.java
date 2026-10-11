@@ -31,6 +31,7 @@ public final class TremorClient {
         game.addListener(ClientTremor::onLoggingOut);
         game.addListener(DeformationRenderer::onLoggingOut);
         game.addListener(RustleSound::onClientTick);
+        game.addListener(tremor.client.sound.SoundFades::onClientTick);
         game.addListener(RustleSound::onLoggingOut);
         game.addListener(ClientBlackout::onRenderFrame);
         // Lowest priority: the black goes above everything else drawn on the HUD.

@@ -1,5 +1,6 @@
-# The sounds of the bug fixes, seen as subtitles: a ring of a listening entity, and the roar of rising to AWAKENING
-# (the pull is only for an Awakening that starts). Needs showSubtitles:true in the options of the run.
+# The mod's sounds, seen as subtitles (needs showSubtitles:true in the options of the run): a ring of a listening
+# entity, the roar of rising to AWAKENING, an Awakening the player runs from (its pull fades out), then one that takes
+# the player into the hollow (heartbeat, thumps, the mire, the hum) and a won node (the release).
 waitchunks
 cmd gamemode spectator
 cmd time set noon
@@ -8,8 +9,8 @@ cmd tremor awaken stop
 cmd tp @s 300.5 201.0 300.5 270 10
 wait 40
 waitchunks
-cmd fill 270 198 270 330 200 330 minecraft:stone
-cmd fill 270 201 270 330 206 330 minecraft:air
+cmd fill 240 198 280 360 200 320 minecraft:stone
+cmd fill 240 201 280 360 206 320 minecraft:air
 cmd kill @e[type=!player]
 cmd gamemode survival
 cmd tremor spawn 318 200 300
@@ -29,5 +30,29 @@ cmd tremor anger 100
 wait 6
 screenshot 12_rage
 cmd tremor info
+log --- an Awakening run from: the pull fades out
+cmd tremor awaken stop
+cmd tremor despawn
+cmd tp @s 300.5 201.0 300.5 270 10
+config awakening.lethal false
+config awakening.craterRadius 0
+cmd tremor awaken
+wait 10
+screenshot 20_awaken
+hold forward+sprint+jump 150
+screenshot 21_escaped
+cmd tremor info
+log --- into the hollow, and out with a won node
+cmd tp @s 300.5 201.0 300.5 270 10
+config awakening.buildupSeconds 3
+cmd tremor awaken
+wait 220
+waitchunks
+hold left 40
+wait 40
+screenshot 30_hollow
+cmd tremor hollow outcome victory
+wait 60
+screenshot 40_released
 cmd tremor despawn
 quit
