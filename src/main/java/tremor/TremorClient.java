@@ -20,11 +20,13 @@ public final class TremorClient {
         modBus.addListener(tremor.client.SeismographNeedle::onClientSetup);
         modBus.addListener(tremor.client.hollow.SinkOverlay::onRegisterGuiOverlays);
         modBus.addListener(tremor.client.hollow.HollowTimeBar::onRegisterGuiOverlays);
+        modBus.addListener(tremor.client.DebugProbeHud::onRegisterGuiOverlays);
         modBus.addListener(tremor.client.hollow.HollowSky::onRegisterDimensionEffects);
 
         IEventBus game = MinecraftForge.EVENT_BUS;
         game.addListener(DeformationRenderer::onRenderLevelStage);
         game.addListener(ClientTremor::onLoggingOut);
+        game.addListener(tremor.client.DebugProbeHud::onLoggingOut);
         game.addListener(DeformationRenderer::onLoggingOut);
         game.addListener(RustleSound::onClientTick);
         game.addListener(tremor.client.sound.SoundFades::onClientTick);

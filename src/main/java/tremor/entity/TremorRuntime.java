@@ -379,6 +379,21 @@ public final class TremorRuntime {
     }
 
     /**
+     * The top speed of the entity now, blocks a second: its stage's, the dimension's, the depth's, a frenzy's
+     * (the debug probe); 0 without an entity.
+     */
+    public double cruiseSpeed() {
+        TremorEntity entity = data.entity();
+        return entity == null ? 0 : mind(entity).motion().maxSpeed();
+    }
+
+    /** Whether the entity listens now (ALERT, a ring under way): it hears louder ({@code alertListenFactor}). */
+    public boolean listening() {
+        TremorEntity entity = data.entity();
+        return entity != null && mind(entity).listening();
+    }
+
+    /**
      * Hands the entity to an Awakening (SPEC 9, {@link TremorMind#absorb}): it drops its target and stops (braking)
      * and from now on is the whole area rather than a bump, until it is removed. Nothing happens if it is taken
      * already. @throws IllegalStateException if there is no entity

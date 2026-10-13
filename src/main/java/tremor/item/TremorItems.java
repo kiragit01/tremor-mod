@@ -20,7 +20,8 @@ import tremor.Tremor;
  * The things made from the entity (SPEC 15, stage 5): the shard a destroyed node gives (one by default,
  * {@code tremor.awakening.Outcomes}), the seismograph (its needle points at the entity, client side
  * {@code tremor.client.SeismographNeedle}) and the geophone ({@link GeophoneBlock}); the "muffled steps" enchantment
- * ({@link MuffledStepsEnchantment}) comes only from its book's recipe. Registered by {@link Tremor}.
+ * ({@link MuffledStepsEnchantment}) comes only from its book's recipe. The debug probe is for operators (in the
+ * operator tab). Registered by {@link Tremor}.
  */
 public final class TremorItems {
     private static final DeferredRegister<Item> ITEMS = DeferredRegister.create(ForgeRegistries.ITEMS, Tremor.MODID);
@@ -30,6 +31,9 @@ public final class TremorItems {
             () -> new Item(new Item.Properties().rarity(Rarity.UNCOMMON)));
     public static final RegistryObject<Item> SEISMOGRAPH = ITEMS.register("seismograph",
             () -> new Item(new Item.Properties().stacksTo(1)));
+    /** Shows an operator who holds it what the entity is up to ({@code tremor.debug.DebugProbe}). */
+    public static final RegistryObject<Item> DEBUG_PROBE = ITEMS.register("debug_probe",
+            () -> new Item(new Item.Properties().stacksTo(1).rarity(Rarity.EPIC)));
     public static final RegistryObject<GeophoneBlock> GEOPHONE = BLOCKS.register("geophone",
             () -> new GeophoneBlock(BlockBehaviour.Properties.of()
                     .mapColor(MapColor.DEEPSLATE)
@@ -61,6 +65,8 @@ public final class TremorItems {
             event.accept(SEISMOGRAPH);
         } else if (event.getTabKey() == CreativeModeTabs.REDSTONE_BLOCKS) {
             event.accept(GEOPHONE_ITEM);
+        } else if (event.getTabKey() == CreativeModeTabs.OP_BLOCKS && event.hasPermissions()) {
+            event.accept(DEBUG_PROBE);
         }
     }
 }

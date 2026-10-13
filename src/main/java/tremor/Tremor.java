@@ -93,6 +93,9 @@ public final class Tremor {
         // After TremorManager's tick listener: draws the state of this tick.
         game.addListener(DebugParticles::onLevelTick);
         game.addListener(DebugParticles::onServerStopping);
+        game.addListener(tremor.debug.DebugProbe::onPlayerTick);
+        game.addListener(tremor.debug.DebugProbe::onPlayerLoggedOut);
+        game.addListener(tremor.debug.DebugProbe::onServerStopped);
         // The hollow (SPEC 9, 12): its events, and the rules inside it.
         game.addListener(HollowManager::onServerTick);
         game.addListener(HollowManager::onPlayerLoggedOut);

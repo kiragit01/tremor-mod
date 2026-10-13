@@ -22,6 +22,7 @@
   "tremor.configuration.items.frenzySeconds": "Бешенство стихает через (с)",
   "item.tremor.tremor_shard": "Осколок Тремора",
   "item.tremor.seismograph": "Сейсмограф",
+  "item.tremor.debug_probe": "Отладочный щуп Тремора",
   "block.tremor.geophone": "Геофон",
   "enchantment.tremor.muffled_steps": "Тихие шаги",
   "tremor.configuration.items": "Вещи из осколка",
@@ -226,5 +227,6 @@
   "subtitles.tremor.pull": "Чавкает земля",
   "subtitles.tremor.thump": "Земля глухо ухает",
   "subtitles.tremor.ripple": "Земля прислушивается",
-  "subtitles.tremor.rage": "Рычит порода"
+  "subtitles.tremor.rage": "Рычит порода",
+  "subtitles.tremor.escape": "Проносится воздух"
 }
