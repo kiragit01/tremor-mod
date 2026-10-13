@@ -1,0 +1,47 @@
+# Several tremors on a server (1.1.0), Alice (tools/mp-test.sh mp-multi-alice.txt mp-multi-bob.txt): she and Bob are
+# 700 blocks apart, more than spawn.spacing, and each gets a tremor of their own. Hers hears her and Bob's does not;
+# an Awakening for her takes her tremor only, which goes deep, while Bob's goes on. Chat marks keep them in step: each
+# side is waiting for a mark before the other one says it.
+waitchunks
+cmd difficulty easy
+cmd time set noon
+cmd gamerule doDaylightCycle false
+cmd gamemode spectator
+cmd fill -20 190 -20 19 199 19 minecraft:stone
+cmd fill -20 200 -20 19 210 19 minecraft:air
+cmd tp @s 0.5 200 0.5 0 10
+wait 40
+waitchunks
+cmd gamemode survival
+cmd item replace entity @s weapon.mainhand with tremor:debug_probe
+cmd tremor despawn all
+waitfor 6000 MARK bob-here
+log --- a tremor here
+cmd tremor spawn 10 200 0
+wait 40
+cmd say MARK alice-spawned
+waitfor 2400 MARK bob-spawned
+lookat 10.5 200 0.5
+wait 10
+screenshot a01_mine
+cmd tremor info
+log --- she sprints: hers hears her, Bob's does not
+look 0 10
+hold forward+sprint 30
+wait 10
+screenshot a02_heard
+cmd say MARK alice-walked
+waitfor 2400 MARK bob-checked
+log --- an Awakening for her takes her tremor only
+cmd tremor awaken
+wait 60
+cmd say MARK alice-awakening
+waitfor 2400 MARK bob-checked2
+cmd tremor awaken stop
+wait 60
+cmd say MARK alice-stopped
+wait 20
+cmd tremor info
+screenshot a03_after
+waitfor 2400 MARK bob-done
+quit
