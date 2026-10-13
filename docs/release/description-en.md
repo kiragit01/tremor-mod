@@ -34,7 +34,8 @@ And never, ever throw a shard on the ground.
 
 - Animals and monsters are not safe either.
 - It roams the Nether too, and it is angrier there.
-- Works in multiplayer (install on the server and on every client).
+- Made for servers too: every part of the world where players are can have a creature of its own (at least 500
+  blocks apart, up to 4 in a dimension, both configurable). Install on the server and on every client.
 - Works with Sodium and Iris. A quality preset (Low / Medium / High) keeps it smooth on weaker computers.
 - Everything is configurable: hearing, anger, the Awakening, the hollow, the crater, the tools.
 
