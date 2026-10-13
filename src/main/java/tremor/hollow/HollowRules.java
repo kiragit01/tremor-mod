@@ -362,8 +362,8 @@ public final class HollowRules {
 
     /**
      * What joins the hollow (not what is loaded with its chunks, nor what {@link HollowManager} moves): no lightning
-     * (the weather is the overworld's, and a copied biome can rain); a falling block of the copy drops nothing where it
-     * cannot land, one of the player's is followed to where it lands ({@link #onEntityLeaveLevel}); no mob (natural
+     * (the weather is the overworld's, and a copied biome can rain); a block of the copy does not fall
+     * ({@link #standsStill}), one of the player's is followed to where it lands ({@link #onEntityLeaveLevel}); no mob (natural
      * spawning is stopped above; this stops hatching, golems, endermites, commands), but a tamed creature of a player
      * is put at the place its owner comes back to ({@link #sendHome}). Spawn eggs and mobs in buckets are refused
      * before they are used ({@link #becomesEntity}).
@@ -380,6 +380,8 @@ public final class HollowRules {
             // Joins as it starts to fall, from the block's own position, still recorded until the end of the tick.
             if (HollowManager.isPlayerPlaced(level, falling.blockPosition())) {
                 falling.getPersistentData().putBoolean(PLAYERS_FALLING, true);
+            } else if (standsStill(level, falling)) {
+                event.setCanceled(true);
             } else {
                 falling.dropItem = false;
             }
@@ -389,6 +391,29 @@ public final class HollowRules {
             }
             event.setCanceled(true);
         }
+    }
+
+    /**
+     * The copy stands still: its sand, gravel, concrete powder, anvil or dripstone that starts to fall (a player broke
+     * the block under it, a light was put in the cell under it) is put back where it was, as the copy is written
+     * ({@link TerrainCopier#putBack}: nothing is scheduled, so it does not try again), and the falling block never
+     * joins. So nothing comes down into a tunnel and blocks it. False (it falls) if the cell does not hold what a fall
+     * leaves there, air or the water it stood in: a falling block not made by a fall.
+     */
+    private static boolean standsStill(ServerLevel level, FallingBlockEntity falling) {
+        BlockPos at = falling.blockPosition();
+        BlockState left = level.getBlockState(at);
+        if (!left.isAir() && !(left.getBlock() instanceof LiquidBlock)) {
+            return false;
+        }
+        BlockState state = falling.getBlockState();
+        if (state.hasProperty(net.minecraft.world.level.block.state.properties.BlockStateProperties.WATERLOGGED)
+                && left.getFluidState().is(Fluids.WATER)) {
+            state = state.setValue(net.minecraft.world.level.block.state.properties.BlockStateProperties.WATERLOGGED,
+                    true);
+        }
+        TerrainCopier.putBack(level, at, state);
+        return true;
     }
 
     /** A falling block of the player that landed is the player's where it landed. */
