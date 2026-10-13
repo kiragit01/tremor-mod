@@ -1,0 +1,76 @@
+# Before 1.1.0 goes out: the debug probe, the copy's sand and gravel standing still in the hollow, and the way out
+# through the light at the end of the escape tunnel (a white fade with a rush of air instead of black).
+waitchunks
+cmd gamemode spectator
+cmd time set noon
+cmd tremor despawn
+cmd tremor awaken stop
+cmd tp @s 300.5 201.0 300.5 270 10
+wait 40
+waitchunks
+cmd fill 240 198 280 360 200 320 minecraft:stone
+cmd fill 240 201 280 360 206 320 minecraft:air
+cmd gamemode survival
+log --- the debug probe
+cmd item replace entity @s weapon.mainhand with tremor:debug_probe
+cmd tremor spawn 320 201 300
+wait 40
+screenshot 01_probe
+hold forward+sprint 30
+wait 5
+screenshot 02_probe_steps
+cmd tremor despawn
+wait 10
+screenshot 03_probe_none
+cmd item replace entity @s weapon.mainhand with minecraft:air
+log --- the hollow, swallowed in a small room deep in rock (so the escape tunnel is a real tunnel)
+cmd gamemode spectator
+cmd fill 267 177 267 333 183 333 minecraft:stone
+cmd fill 267 184 267 333 190 333 minecraft:stone
+cmd fill 267 191 267 333 197 333 minecraft:stone
+cmd fill 267 198 267 333 204 333 minecraft:stone
+cmd fill 267 205 267 333 211 333 minecraft:stone
+cmd fill 267 212 267 333 218 333 minecraft:stone
+cmd fill 267 219 267 333 225 333 minecraft:stone
+cmd fill 297 201 297 304 204 304 minecraft:air
+cmd tp @s 300.5 201.0 300.5 270 10
+wait 20
+cmd gamemode survival
+config awakening.buildupSeconds 3
+config awakening.lethal false
+config awakening.craterRadius 0
+config hollow.level.breathSeconds 120
+cmd tremor awaken
+wait 220
+waitchunks
+cmd tremor hollow status
+log --- the copy's gravel and sand stand still over a hole
+cmd fill ~2 ~1 ~ ~2 ~4 ~ minecraft:air
+cmd setblock ~2 ~4 ~ minecraft:gravel
+cmd fill ~-2 ~1 ~ ~-2 ~4 ~ minecraft:air
+cmd setblock ~-2 ~4 ~ minecraft:sand
+wait 20
+cmd execute if block ~2 ~4 ~ minecraft:gravel
+cmd execute if block ~-2 ~4 ~ minecraft:sand
+cmd execute if entity @e[type=falling_block]
+log --- the light at the end of the way out, and out through the white
+cmd tremor hollow totunnel end
+hud off
+wait 15
+screenshot 10_glow
+hold forward 10
+screenshot 10_nearer
+log --- three blocks before the end is about where the player is out: a step more, and the white starts
+cmd tremor hollow totunnel end 3
+hold forward 8
+screenshot 11_white
+wait 8
+screenshot 12_white
+wait 30
+screenshot 13_back
+wait 30
+screenshot 14_back
+wait 60
+screenshot 15_out
+cmd data get entity @s Dimension
+quit

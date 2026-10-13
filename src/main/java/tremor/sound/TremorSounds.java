@@ -9,8 +9,8 @@ import net.minecraftforge.registries.DeferredRegister;
 import tremor.Tremor;
 
 /**
- * The mod's sound events (SPEC 13). For now they are placeholders that point at vanilla sound files
- * (assets/tremor/sounds.json); a resource pack can replace any of them by id.
+ * The mod's sound events (SPEC 13), with sounds of its own (assets/tremor/sounds.json; synthesised by
+ * {@code tools/sounds/synth.py}); a resource pack can replace any of them by id.
  */
 public final class TremorSounds {
     private static final DeferredRegister<SoundEvent> SOUNDS = DeferredRegister.create(Registries.SOUND_EVENT, Tremor.MODID);
@@ -39,6 +39,11 @@ public final class TremorSounds {
     public static final RegistryObject<SoundEvent> PULSE = register("entity.tremor.pulse");
     /** The awakening begins (stage 4). */
     public static final RegistryObject<SoundEvent> AWAKEN = register("entity.tremor.awaken");
+    /**
+     * A rush of air into the light: the player gets out of the hollow over its edge (SPEC 9 "Побег"), as the screen
+     * turns white ({@code tremor.client.ClientBlackout}); played by the client, so the move out does not cut it short.
+     */
+    public static final RegistryObject<SoundEvent> ESCAPE = register("entity.tremor.escape");
     /** The ground lets the player go: the node is destroyed, an Awakening won (SPEC 9 "Победа"). */
     public static final RegistryObject<SoundEvent> RELEASE = register("entity.tremor.release");
     /**

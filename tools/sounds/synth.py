@@ -340,8 +340,26 @@ def ripple(rng):
     return finish(presence(cave(x, rt=1.6, wet=0.4, lp=1400, rng=rng), 0.6))
 
 
+def escape(rng):
+    """Out into the light: a rush of air toward the opening, rising and brightening, the ground falling away behind,
+    gone as the screen turns white. Short and dry: the move out of the hollow stops every sound."""
+    n = samples(1.1)
+    k = np.arange(n) / (n - 1)
+    air = noise(n, -3, rng)
+    low = filt(air, lo=120, hi=600, order=2)
+    mid = filt(air, lo=500, hi=1800, order=2)
+    high = filt(air, lo=1500, hi=5000, order=2)
+    rush = (low / np.std(low) * (1 - k) ** 1.5 + mid / np.std(mid) * np.sin(np.pi * k) * 0.9
+            + high / np.std(high) * k ** 2 * 0.6) * swell(n, 0.75, 0.3)
+    behind = filt(noise(n, -6, rng), lo=25, hi=110, order=3) * swell(n, 0.15, 0.9)
+    x = rush * 0.8 + behind / np.std(behind) * 0.45
+    return finish(presence(cave(x, rt=0.5, wet=0.2, rng=rng), 0.3))
+
+
+#: New sounds go at the end: the seed of each comes from its place here.
 SOUNDS = {'rustle': rustle, 'rumble': rumble, 'crack': crack, 'pulse': pulse, 'thump': thump_sound, 'strike': strike,
-          'sigh': sigh, 'awaken': awaken, 'rage': rage, 'release': release, 'hum': hum, 'pull': pull, 'ripple': ripple}
+          'sigh': sigh, 'awaken': awaken, 'rage': rage, 'release': release, 'hum': hum, 'pull': pull, 'ripple': ripple,
+          'escape': escape}
 
 
 def write_wav(path, x):

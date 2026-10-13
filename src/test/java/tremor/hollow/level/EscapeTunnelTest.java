@@ -63,6 +63,29 @@ class EscapeTunnelTest {
     }
 
     @Test
+    void glowsAtItsEndAndDiesOutBeforeTheEntrance() {
+        for (long seed = 0; seed < 50; seed++) {
+            EscapeTunnel tunnel = EscapeTunnel.plan(rock(), 0.5, 0.5, 10, 31, seed, Set.of());
+            List<Long> feet = tunnel.carve().stream().filter(c -> CellKey.y(c) == 10).toList();
+            java.util.Map<Long, Integer> glow = tunnel.glow(0.5, 0.5, 10, 30);
+            assertFalse(glow.isEmpty());
+            for (java.util.Map.Entry<Long, Integer> light : glow.entrySet()) {
+                long cell = light.getKey();
+                assertTrue(tunnel.carve().contains(cell), "in the tunnel");
+                double r = Math.hypot(CellKey.x(cell), CellKey.z(cell));
+                assertTrue(r < 30 && r > 28, "at the end, short of where the player is out: " + r);
+                long feetCell = CellKey.of(CellKey.x(cell), 10, CellKey.z(cell));
+                int along = feet.indexOf(feetCell);
+                assertTrue(light.getValue() <= EscapeTunnel.GLOW && light.getValue() - 1 < along
+                        - EscapeTunnel.DARK_ENTRANCE + 1, "dies out before the entrance");
+            }
+        }
+        assertTrue(EscapeTunnel.plan(rock(), 0.5, 0.5, 10, 10, 1, Set.of()).glow(0.5, 0.5, 10, 9).isEmpty(),
+                "too short");
+        assertTrue(EscapeTunnel.NONE.glow(0.5, 0.5, 10, 30).isEmpty());
+    }
+
+    @Test
     void leavesTheWayToTheNodeAsItIs() {
         EscapeTunnel free = EscapeTunnel.plan(rock(), 0.5, 0.5, 10, 31, 11, Set.of());
         long crossing = free.carve().iterator().next();

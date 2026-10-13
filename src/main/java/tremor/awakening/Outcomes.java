@@ -51,7 +51,7 @@ import java.util.WeakHashMap;
  *   the Awakening goes EMERGING there ({@link Awakening#won}): the hill rises as high as the one that swallowed the
  *   player, the player is put into it while the screen is still dark and held there, the screen comes back on the
  *   view the player had as it went dark, and the hill settles and lets the player out; then the Awakening ends.</li>
- *   <li>{@link #edgeEscape}: the screen goes black, and the player fades out to a safe standing spot near the matching
+ *   <li>{@link #edgeEscape}: the screen goes white (the light of the way out), and the player fades out to a safe standing spot near the matching
  *   place of the real world with a way to the swallow point there, outside the footprint of the crater
  *   ({@link EdgeExits}, once the real chunks are loaded), alive and with everything; once the player is on the way
  *   out there, the crater opens at the swallow point all the same ({@link Craters}, without any items; none if
@@ -205,7 +205,7 @@ public final class Outcomes {
             return reached;
         }
         TremorNetwork.sendToPlayer(player, new TremorBlackoutPayload(true,
-                TremorConfig.COMMON.hollow.fadeTicks.get()));
+                TremorConfig.COMMON.hollow.fadeTicks.get(), true));
         MinecraftServer server = player.server;
         UUID id = player.getUUID();
         float yRot = player.getYRot();

@@ -6,6 +6,8 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.level.ChunkPos;
+import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.level.block.LightBlock;
 import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
 import tremor.network.TremorNetwork;
@@ -86,6 +88,10 @@ final class EventLevel {
     /** ...and every this many ticks while the player sinks by {@value #SINK_STEP} or more. */
     private static final int SINK_SYNC_TICKS = 2;
     private static final double SINK_STEP = 0.02;
+    /** ...and as soon as the player gets this much nearer to or further from the light of the way out. */
+    private static final double EXIT_STEP = 0.05;
+    /** How far along the escape tunnel the light of the way out shows through the fog (blocks off it). */
+    private static final double EXIT_REACH = 12;
     /** The node is looked for this often (ticks). */
     private static final int NODE_CHECK_TICKS = 20;
     /** {@code /tremor hollow walk} walks up to this many times the longest way planned ({@code nodeMaxDistance}). */
@@ -137,6 +143,9 @@ final class EventLevel {
     private LongSet way = new LongOpenHashSet();
     /** The one way out besides the node ({@link EscapeTunnel}); none in a nightmare. */
     private EscapeTunnel tunnel = EscapeTunnel.NONE;
+    /** The light at the end of the escape tunnel ({@link CellKey}, the cell at feet height), once written; or none. */
+    private long exitLight = NO_EXIT;
+    private static final long NO_EXIT = Long.MIN_VALUE;
     /** The network as planned; null until then. */
     private WayPlanner.Plan plan;
     /** The steps to the node it was planned for ({@code nodeMinDistance}..{@code nodeMaxDistance} then). */
@@ -163,6 +172,7 @@ final class EventLevel {
     private float sentSink;
     /** {@link #breath} last sent. */
     private float sentBreath = 1;
+    private float sentExit;
     private int sentBeat;
     private BlockPos sentNode;
     private long workNanos;
@@ -343,6 +353,15 @@ final class EventLevel {
         }
         carving = null;
         filling = null;
+        // The light at the end of the escape tunnel, in cells it carved.
+        tunnel.glow(centreX, centreZ, start.getY(), boxRadius - 1).forEach((cell, level) -> {
+            if (exitLight == NO_EXIT) {
+                exitLight = cell;
+            }
+            pos.set(cell);
+            hollow.setBlock(pos, Blocks.LIGHT.defaultBlockState().setValue(LightBlock.LEVEL, level), Materials.FLAGS);
+            changedChunks.add(ChunkPos.asLong(pos));
+        });
         BlockPos at = BlockPos.of(plan.node());
         // Only if the planning had nowhere to go at all would it be the player's own cell: then there is no node.
         if (!at.equals(start) && !at.equals(start.above())) {
@@ -412,7 +431,9 @@ final class EventLevel {
                 : "; an escape tunnel from " + text(BlockPos.of(tunnel.carve().iterator().next())) + ", "
                 + tunnel.carve().size() / 2 + " blocks long, " + tunnel.carve().stream()
                 .filter(cell -> !Materials.open(hollow.getBlockState(BlockPos.of(cell)))).count() + " of its "
-                + tunnel.carve().size() + " cells closed");
+                + tunnel.carve().size() + " cells closed, light at its end "
+                + tunnel.glow(centreX, centreZ, start.getY(), boxRadius - 1).values().stream().findFirst()
+                .map(String::valueOf).orElse("none"));
     }
 
     /** What the preparation changed, for the log and the status. */
@@ -718,20 +739,38 @@ final class EventLevel {
         float sink = (float) mire.sink();
         int beat = schedule.beatTicks();
         float breath = (float) breath();
+        float exit = (float) exit(player);
         long since = ticks - sentTick;
         if (!force && since < SYNC_TICKS && Objects.equals(shown, sentNode) && beat == sentBeat
                 && (since < SINK_SYNC_TICKS || Math.abs(sink - sentSink) < SINK_STEP)
-                && Math.ceil(breath * 10) == Math.ceil(sentBreath * 10)) {
+                && Math.ceil(breath * 10) == Math.ceil(sentBreath * 10)
+                && Math.abs(exit - sentExit) < EXIT_STEP && (exit == 0) == (sentExit == 0)) {
             return;
         }
         TremorNetwork.sendToPlayer(player, new TremorHollowStatePayload(id, true,
                 new tremor.core.math.Vec3(centreX, centreY, centreZ), (float) boxRadius, (float) schedule.radius(),
-                shown, beat, sink, breath, hollow.getGameTime()));
+                shown, beat, sink, breath, exit, hollow.getGameTime()));
         sentTick = ticks;
+        sentExit = exit;
         sentSink = sink;
         sentBreath = breath;
         sentBeat = beat;
         sentNode = shown;
+    }
+
+    /**
+     * How near the player is to the light at the end of the escape tunnel, while in the tunnel: 0 (elsewhere, or
+     * {@value #EXIT_REACH} blocks off it and more) .. 1 (at it). The client lifts the fog by it, so the way out shows
+     * as a light ahead; from outside the tunnel nothing of it shows.
+     */
+    private double exit(ServerPlayer player) {
+        BlockPos feet = player.blockPosition();
+        if (exitLight == NO_EXIT || !tunnel.carve().contains(CellKey.of(feet.getX(), feet.getY(), feet.getZ()))) {
+            return 0;
+        }
+        double distance = Math.sqrt(player.distanceToSqr(CellKey.x(exitLight) + 0.5, CellKey.y(exitLight) + 0.5,
+                CellKey.z(exitLight) + 0.5));
+        return Math.max(0, 1 - distance / EXIT_REACH);
     }
 
     private static int ticks(double seconds) {

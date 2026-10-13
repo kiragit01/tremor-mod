@@ -1,6 +1,9 @@
 package tremor.hollow.level;
 
+import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
+import java.util.List;
+import java.util.Map;
 import java.util.Random;
 import java.util.Set;
 
@@ -9,7 +12,8 @@ import java.util.Set;
  * start to the edge, in a random direction and gently winding. Nothing marks it, no ring comes from it: the player has
  * to come upon it, and without running there is no time to go along every wall. The closing never fills it (its cells
  * are kept open like the way to the node), so as the walls close in it is a dark hole in one of them; walking it to
- * the edge is the escape over the edge ({@link EventLevel}). Under every cell of it there is a floor. Plain Java.
+ * the edge is the escape over the edge ({@link EventLevel}). Under every cell of it there is a floor, and at its end
+ * a light ({@link #glow}): the way out shows only to whoever is already in it. Plain Java.
  *
  * @param carve cells to empty (feet and head, {@link CellKey}), in order from the start outward
  * @param floor cells to fill under it, where the copy had nothing to stand on
@@ -22,6 +26,10 @@ public record EscapeTunnel(Set<Long> carve, Set<Long> floor) {
     /** How far it winds sideways (blocks) and over what length (blocks per radian). */
     static final double WIND = 1.5;
     static final double WIND_LENGTH = 4;
+    /** Light level at the end of the tunnel, at most (a torch gives 14). */
+    static final int GLOW = 13;
+    /** Blocks of the tunnel from its entrance that its light never reaches: from the hollow it is a dark hole. */
+    static final int DARK_ENTRANCE = 5;
 
     /**
      * Plans the tunnel at the height of {@code startY} (the player's feet), from {@value #ENTRANCE} blocks off the
@@ -51,6 +59,36 @@ public record EscapeTunnel(Set<Long> carve, Set<Long> floor) {
             lastZ = z;
         }
         return new EscapeTunnel(carve, floor);
+    }
+
+    /**
+     * The light at the end of the tunnel: the cell at feet height ({@code startY}) and the one above it, in the last
+     * column of the tunnel short of {@code reach} blocks off the centre (where the player is out), so the player runs
+     * into the light. Its level drops a level a block back along the tunnel, and it is low enough to die out
+     * {@value #DARK_ENTRANCE} blocks short of the entrance at least. Cell ({@link CellKey}) to light level; empty if the
+     * tunnel is too short for any, or there is none.
+     */
+    public Map<Long, Integer> glow(double centreX, double centreZ, int startY, double reach) {
+        List<Long> feet = carve.stream().filter(cell -> CellKey.y(cell) == startY).toList();
+        int last = -1;
+        for (int i = 0; i < feet.size(); i++) {
+            long cell = feet.get(i);
+            if (Math.hypot(CellKey.x(cell) + 0.5 - centreX, CellKey.z(cell) + 0.5 - centreZ) < reach) {
+                last = i;
+            }
+        }
+        int level = Math.min(GLOW, last - DARK_ENTRANCE); // lights the level - 1 cells back along the tunnel
+        if (level < 1) {
+            return Map.of();
+        }
+        long end = feet.get(last);
+        Map<Long, Integer> glow = new LinkedHashMap<>();
+        glow.put(end, level);
+        long above = CellKey.of(CellKey.x(end), startY + 1, CellKey.z(end));
+        if (carve.contains(above)) {
+            glow.put(above, level);
+        }
+        return glow;
     }
 
     private static void add(VoxelGrid grid, int x, int y, int z, Set<Long> keep, Set<Long> carve, Set<Long> floor) {
