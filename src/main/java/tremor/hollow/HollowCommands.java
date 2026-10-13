@@ -44,8 +44,11 @@ public final class HollowCommands {
                 .then(Commands.literal("leave").executes(HollowCommands::leave))
                 .then(Commands.literal("status").executes(HollowCommands::status))
                 .then(Commands.literal("tonode").executes(HollowCommands::toNode))
-                .then(Commands.literal("totunnel").executes(ctx -> toTunnel(ctx, false))
-                        .then(Commands.literal("end").executes(ctx -> toTunnel(ctx, true))))
+                .then(Commands.literal("totunnel").executes(ctx -> toTunnel(ctx, -1))
+                        .then(Commands.literal("end").executes(ctx -> toTunnel(ctx, END_BLOCKS))
+                                .then(Commands.argument("blocks", IntegerArgumentType.integer(1, 1000))
+                                        .executes(ctx -> toTunnel(ctx, IntegerArgumentType.getInteger(ctx,
+                                                "blocks"))))))
                 .then(Commands.literal("walk").executes(ctx -> walk(ctx, 0))
                         .then(Commands.argument("steps", IntegerArgumentType.integer(0, 1000))
                                 .executes(ctx -> walk(ctx, IntegerArgumentType.getInteger(ctx, "steps")))));
@@ -68,7 +71,7 @@ public final class HollowCommands {
         HollowBox box = event.box();
         ctx.getSource().sendSuccess(() -> Component.literal(String.format(Locale.ROOT,
                 "Into the hollow: copying %d x %d x %d blocks into slot %d", box.sizeX(), box.sizeY(), box.sizeZ(),
-                event.slot())), true);
+                event.slot())), false);
         return 1;
     }
 
@@ -76,11 +79,15 @@ public final class HollowCommands {
      * Debug and autotests: moves the player inside the hollow to a free standing spot next to the node of their level,
      * facing it, so that the node can be broken at once.
      */
+    /** Blocks before the end of the escape tunnel {@code totunnel end} goes to. */
+    private static final int END_BLOCKS = 8;
+
     /**
-     * {@code /tremor hollow totunnel [end]}: to the entrance of the escape tunnel (or a few blocks before its end),
-     * facing along it.
+     * {@code /tremor hollow totunnel [end [blocks]]}: to the entrance of the escape tunnel, facing along it; or that
+     * many blocks before its end ({@value #END_BLOCKS} by default, in its light), facing the end.
      */
-    private static int toTunnel(CommandContext<CommandSourceStack> ctx, boolean end) throws CommandSyntaxException {
+    private static int toTunnel(CommandContext<CommandSourceStack> ctx, int fromEnd) throws CommandSyntaxException {
+        boolean end = fromEnd > 0;
         ServerPlayer player = ctx.getSource().getPlayerOrException();
         HollowEvent event = HollowManager.event(player);
         java.util.List<net.minecraft.core.BlockPos> tunnel = event == null ? java.util.List.of()
@@ -89,7 +96,7 @@ public final class HollowCommands {
             ctx.getSource().sendFailure(Component.literal("No escape tunnel: you are not in a hollow with one"));
             return 0;
         }
-        net.minecraft.core.BlockPos from = tunnel.get(end ? Math.max(0, tunnel.size() - 4) : 0);
+        net.minecraft.core.BlockPos from = tunnel.get(end ? Math.max(0, tunnel.size() - 1 - fromEnd) : 0);
         net.minecraft.core.BlockPos toward = tunnel.get(end ? tunnel.size() - 1 : Math.min(3, tunnel.size() - 1));
         float yaw = (float) Math.toDegrees(Math.atan2(-(toward.getX() - from.getX()), toward.getZ() - from.getZ()));
         player.teleportTo(player.serverLevel(), from.getX() + 0.5, from.getY(), from.getZ() + 0.5, yaw, 0);
@@ -139,7 +146,7 @@ public final class HollowCommands {
         player.teleportTo(level, x, y, z, yaw, pitch);
         net.minecraft.core.BlockPos to = best;
         ctx.getSource().sendSuccess(() -> Component.literal("Next to the node at " + node.toShortString()
-                + ", standing at " + to.toShortString()), true);
+                + ", standing at " + to.toShortString()), false);
         return 1;
     }
 
@@ -167,14 +174,14 @@ public final class HollowCommands {
             ctx.getSource().sendFailure(Component.literal(refusal.getMessage()));
             return 0;
         }
-        ctx.getSource().sendSuccess(() -> Component.literal("Out of the hollow"), true);
+        ctx.getSource().sendSuccess(() -> Component.literal("Out of the hollow"), false);
         return 1;
     }
 
     private static int restore(CommandContext<CommandSourceStack> ctx) {
         int ended = HollowManager.restore(ctx.getSource().getServer());
         ctx.getSource().sendSuccess(() -> Component.literal("Hollow restored: " + ended + " event"
-                + (ended == 1 ? "" : "s") + " ended, players moved back, slots being cleared"), true);
+                + (ended == 1 ? "" : "s") + " ended, players moved back, slots being cleared"), false);
         return ended;
     }
 

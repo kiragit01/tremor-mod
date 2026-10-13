@@ -152,8 +152,11 @@ public final class TremorCommands {
             throw NO_NODE.create();
         }
         Crawler crawler = entity.crawler();
+        // Only whoever ran it is told (no broadcast to other operators); the server log keeps it.
+        tremor.Tremor.LOGGER.info("{} spawned tremor #{} in {} at {}", source.getTextName(), entity.instance(),
+                source.getLevel().dimension().location(), voxel(VoxelPos.containing(crawler.position())));
         source.sendSuccess(() -> Component.literal(String.format(Locale.ROOT, "Tremor #%d spawned at %s, normal %s",
-                entity.instance(), voxel(VoxelPos.containing(crawler.position())), vec(crawler.normal()))), true);
+                entity.instance(), voxel(VoxelPos.containing(crawler.position())), vec(crawler.normal()))), false);
         return entity.instance();
     }
 
@@ -165,7 +168,7 @@ public final class TremorCommands {
             source.sendFailure(Component.literal(outcome.message()));
             return 0;
         }
-        source.sendSuccess(() -> Component.literal(outcome.message()), true);
+        source.sendSuccess(() -> Component.literal(outcome.message()), false);
         return outcome.entity().instance();
     }
 
@@ -173,7 +176,7 @@ public final class TremorCommands {
         if (!TremorManager.despawn(ctx.getSource().getLevel())) {
             throw NO_ENTITY.create();
         }
-        ctx.getSource().sendSuccess(() -> Component.literal("Tremor removed"), true);
+        ctx.getSource().sendSuccess(() -> Component.literal("Tremor removed"), false);
         return 1;
     }
 
@@ -192,7 +195,7 @@ public final class TremorCommands {
         double distance = entity.crawler().position().distance(VoxelPos.center(goal));
         source.sendSuccess(() -> Component.literal(String.format(Locale.ROOT,
                 "Tremor #%d heading for %s (%.1f blocks away), searching a path...",
-                entity.instance(), voxel(goal), distance)), true);
+                entity.instance(), voxel(goal), distance)), false);
         return 1;
     }
 
@@ -200,7 +203,7 @@ public final class TremorCommands {
         TremorRuntime runtime = requireRuntime(ctx.getSource());
         runtime.stop();
         ctx.getSource().sendSuccess(() -> Component.literal("Tremor #" + runtime.entity().instance()
-                + " stopped, no target"), true);
+                + " stopped, no target"), false);
         return 1;
     }
 
@@ -230,7 +233,7 @@ public final class TremorCommands {
         }
         double now = runtime.entity().params().get(param);
         ctx.getSource().sendSuccess(() -> Component.literal(String.format(Locale.ROOT, "Tremor #%d: %s = %s",
-                runtime.entity().instance(), param.id(), number(now))), true);
+                runtime.entity().instance(), param.id(), number(now))), false);
         return 1;
     }
 
@@ -238,7 +241,7 @@ public final class TremorCommands {
         TremorRuntime runtime = requireRuntime(ctx.getSource());
         runtime.resetParams();
         ctx.getSource().sendSuccess(() -> Component.literal("Tremor #" + runtime.entity().instance()
-                + ": parameters reset to the config values"), true);
+                + ": parameters reset to the config values"), false);
         return 1;
     }
 
@@ -342,7 +345,7 @@ public final class TremorCommands {
                 ": seeking a player for %d s", TremorConfig.COMMON.awakening.seekSeconds.get()) : "";
         ctx.getSource().sendSuccess(() -> Component.literal(String.format(Locale.ROOT,
                 "Tremor #%d: anger %.1f, stage %s%s", entity.instance(), entity.anger(),
-                entity.stage().name().toLowerCase(Locale.ROOT), seeking)), true);
+                entity.stage().name().toLowerCase(Locale.ROOT), seeking)), false);
         return entity.stage().ordinal();
     }
 
@@ -350,7 +353,7 @@ public final class TremorCommands {
         TremorRuntime runtime = requireRuntime(ctx.getSource());
         runtime.setAi(on);
         ctx.getSource().sendSuccess(() -> Component.literal("Tremor #" + runtime.entity().instance() + ": ai "
-                + (on ? "on" : "off (it only obeys goto and stop)")), true);
+                + (on ? "on" : "off (it only obeys goto and stop)")), false);
         return 1;
     }
 
