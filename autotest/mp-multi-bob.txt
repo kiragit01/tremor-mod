@@ -1,0 +1,37 @@
+# Several tremors on a server (1.1.0), Bob (tools/mp-test.sh mp-multi-alice.txt mp-multi-bob.txt): 700 blocks from
+# Alice, with a tremor of his own that does not hear her and is not taken by her Awakening.
+waitchunks
+cmd gamemode spectator
+cmd tp @s 700.5 205 0.5 0 10
+wait 60
+waitchunks
+cmd fill 680 190 -20 719 199 19 minecraft:stone
+cmd fill 680 200 -20 719 210 19 minecraft:air
+cmd tp @s 700.5 200 0.5 0 10
+wait 20
+cmd gamemode survival
+cmd item replace entity @s weapon.mainhand with tremor:debug_probe
+cmd say MARK bob-here
+waitfor 2400 MARK alice-spawned
+log --- a tremor here, 700 blocks from Alice's
+cmd tremor spawn 710 200 0
+wait 40
+cmd tremor info
+cmd say MARK bob-spawned
+waitfor 2400 MARK alice-walked
+lookat 710.5 200 0.5
+wait 10
+screenshot b02_not_heard
+cmd say MARK bob-checked
+waitfor 2400 MARK alice-awakening
+wait 10
+cmd tremor info
+screenshot b03_during
+cmd say MARK bob-checked2
+waitfor 2400 MARK alice-stopped
+wait 40
+cmd tremor info
+screenshot b04_after
+cmd say MARK bob-done
+wait 40
+quit
