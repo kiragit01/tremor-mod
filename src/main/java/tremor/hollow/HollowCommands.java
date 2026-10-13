@@ -44,6 +44,8 @@ public final class HollowCommands {
                 .then(Commands.literal("leave").executes(HollowCommands::leave))
                 .then(Commands.literal("status").executes(HollowCommands::status))
                 .then(Commands.literal("tonode").executes(HollowCommands::toNode))
+                .then(Commands.literal("totunnel").executes(ctx -> toTunnel(ctx, false))
+                        .then(Commands.literal("end").executes(ctx -> toTunnel(ctx, true))))
                 .then(Commands.literal("walk").executes(ctx -> walk(ctx, 0))
                         .then(Commands.argument("steps", IntegerArgumentType.integer(0, 1000))
                                 .executes(ctx -> walk(ctx, IntegerArgumentType.getInteger(ctx, "steps")))));
@@ -74,6 +76,28 @@ public final class HollowCommands {
      * Debug and autotests: moves the player inside the hollow to a free standing spot next to the node of their level,
      * facing it, so that the node can be broken at once.
      */
+    /**
+     * {@code /tremor hollow totunnel [end]}: to the entrance of the escape tunnel (or a few blocks before its end),
+     * facing along it.
+     */
+    private static int toTunnel(CommandContext<CommandSourceStack> ctx, boolean end) throws CommandSyntaxException {
+        ServerPlayer player = ctx.getSource().getPlayerOrException();
+        HollowEvent event = HollowManager.event(player);
+        java.util.List<net.minecraft.core.BlockPos> tunnel = event == null ? java.util.List.of()
+                : HollowLevels.tunnel(event);
+        if (tunnel.size() < 2 || !HollowDimension.is(player.serverLevel())) {
+            ctx.getSource().sendFailure(Component.literal("No escape tunnel: you are not in a hollow with one"));
+            return 0;
+        }
+        net.minecraft.core.BlockPos from = tunnel.get(end ? Math.max(0, tunnel.size() - 4) : 0);
+        net.minecraft.core.BlockPos toward = tunnel.get(end ? tunnel.size() - 1 : Math.min(3, tunnel.size() - 1));
+        float yaw = (float) Math.toDegrees(Math.atan2(-(toward.getX() - from.getX()), toward.getZ() - from.getZ()));
+        player.teleportTo(player.serverLevel(), from.getX() + 0.5, from.getY(), from.getZ() + 0.5, yaw, 0);
+        ctx.getSource().sendSuccess(() -> Component.literal("At the escape tunnel " + from.toShortString() + ", "
+                + tunnel.size() + " blocks to the edge"), false);
+        return tunnel.size();
+    }
+
     private static int toNode(CommandContext<CommandSourceStack> ctx) throws CommandSyntaxException {
         ServerPlayer player = ctx.getSource().getPlayerOrException();
         HollowEvent event = HollowManager.event(player);
