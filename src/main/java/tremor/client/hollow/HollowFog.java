@@ -27,9 +27,39 @@ import tremor.network.TremorHollowStatePayload;
  * ({@code ChunkShaderFogComponent} reads {@code RenderSystem.getShaderFogStart/End/Shape/Color} every frame); Sodium's
  * fog occlusion then skips the terrain beyond the fog, which is black anyway. Lava and powder snow keep their own
  * colour. Render thread only.
+ * <p>
+ * Near the end of the escape tunnel the light of the way out shows through it ({@link TremorHollowStatePayload#exit}):
+ * the fog draws back to {@value #EXIT_FAR} blocks, starts further out and turns into a pale haze, more so the nearer
+ * the light, so the player sees light ahead down the tunnel and runs into it (the screen then turns white,
+ * {@code tremor.client.ClientBlackout}).
  */
 public final class HollowFog {
+    /** Where the fog ends at the light of the way out (blocks)... */
+    private static final double EXIT_FAR = 16;
+    /** ...and where it starts, as a share of that: the tunnel close by stays clear, the haze is ahead. */
+    private static final double EXIT_NEAR_SHARE = 0.4;
+    /** The colour of the haze at the light of the way out: daylight, a little warm. */
+    private static final float EXIT_RED = 0.88f;
+    private static final float EXIT_GREEN = 0.87f;
+    private static final float EXIT_BLUE = 0.82f;
+    /** How fast the fog follows the light (the state comes a few times a second): time constant, seconds. */
+    private static final double EXIT_EASE_SECONDS = 0.3;
+    /** The light of the way out as the fog shows it now, 0..1, eased. */
+    private static double exit;
+    private static long exitNanos;
+
     private HollowFog() {
+    }
+
+    /** The light of the way out as the fog shows it this frame: the state's, followed smoothly. */
+    private static double exit() {
+        TremorHollowStatePayload state = ClientHollow.state();
+        double target = state == null ? 0 : state.exit();
+        long now = System.nanoTime();
+        double seconds = exitNanos == 0 ? 1 : Math.min(1, (now - exitNanos) / 1e9);
+        exitNanos = now;
+        exit += (target - exit) * (1 - Math.exp(-seconds / EXIT_EASE_SECONDS));
+        return exit;
     }
 
     /** Sets the fog of the hollow (or keeps a thicker one) for the terrain and the sky. */
@@ -38,9 +68,11 @@ public final class HollowFog {
         if (!inFog(mc)) {
             return;
         }
-        float far = (float) Math.min(far(), event.getFarPlaneDistance());
+        double light = exit();
+        float far = (float) Math.min(far() + (EXIT_FAR - far()) * light, event.getFarPlaneDistance());
+        double near = FogCurve.near(far, event.getNearPlaneDistance());
         event.setFarPlaneDistance(far);
-        event.setNearPlaneDistance((float) FogCurve.near(far, event.getNearPlaneDistance()));
+        event.setNearPlaneDistance((float) (near + (far * EXIT_NEAR_SHARE - near) * light));
         event.setFogShape(FogShape.SPHERE);
         event.setCanceled(true);
     }
@@ -55,9 +87,10 @@ public final class HollowFog {
         if (fluid == FogType.LAVA || fluid == FogType.POWDER_SNOW) {
             return;
         }
-        event.setRed(0);
-        event.setGreen(0);
-        event.setBlue(0);
+        float haze = (float) Math.pow(exit(), 1.5);
+        event.setRed(EXIT_RED * haze);
+        event.setGreen(EXIT_GREEN * haze);
+        event.setBlue(EXIT_BLUE * haze);
     }
 
     /** Whether the local player is in the hollow's fog: in its dimension, and not a spectator. */

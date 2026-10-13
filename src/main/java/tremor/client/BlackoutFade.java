@@ -96,6 +96,11 @@ final class BlackoutFade {
         }
     }
 
+    /** Whether the fade is to black (or stays black), not back to clear. */
+    boolean target() {
+        return dark;
+    }
+
     /** Clear at once and target clear; the clock keeps running. */
     void clear() {
         set(false, 0);

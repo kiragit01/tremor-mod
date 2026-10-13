@@ -227,7 +227,8 @@ public final class HollowManager {
                 if (HollowDimension.is(player.level())) {
                     storeWayBack(player, event.exit());
                 }
-                blackout(player, true, TremorConfig.COMMON.hollow.fadeTicks.get());
+                PacketDistributor.sendToPlayer(player, new TremorBlackoutPayload(true,
+                        TremorConfig.COMMON.hollow.fadeTicks.get(), escaped(event)));
             }
             default -> throw new Refusal(player.getGameProfile().getName() + " is on the way out already");
         }
@@ -574,9 +575,17 @@ public final class HollowManager {
         return new AABB(box.minX(), box.minY(), box.minZ(), box.maxX() + 1, box.maxY() + 1, box.maxZ() + 1);
     }
 
+    /** Whether {@code event} is an escape over the edge: its screen goes white, not black. */
+    private static boolean escaped(HollowEvent event) {
+        return event.outcome() == HollowOutcome.EDGE_ESCAPE;
+    }
+
     private static void blackout(ServerPlayer player, boolean dark, int fadeTicks) {
         PacketDistributor.sendToPlayer(player, new TremorBlackoutPayload(dark, fadeTicks));
     }
+
+    /** How many times longer the screen takes to come back from the white of an escape than from black. */
+    private static final int ESCAPE_FADE_BACK = 3;
 
     private static int fadeTicks() {
         return TremorConfig.COMMON.hollow.fadeTicks.get();
@@ -805,7 +814,8 @@ public final class HollowManager {
             event.readyTicks = clientReady(player) ? event.readyTicks + 1 : 0;
             if (event.readyTicks > TremorConfig.COMMON.hollow.settleTicks.get()
                     || now - event.phaseStartTick >= MAX_DARK_TICKS) {
-                blackout(player, false, fadeTicks());
+                // Out of the light of the way out, slowly, as from a bright day.
+                blackout(player, false, !entering && escaped(event) ? fadeTicks() * ESCAPE_FADE_BACK : fadeTicks());
                 if (entering) {
                     event.setPhase(HollowEvent.Phase.INSIDE, now);
                     data.setDirty();

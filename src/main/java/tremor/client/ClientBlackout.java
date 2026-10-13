@@ -4,12 +4,17 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.screens.ReceivingLevelScreen;
 import net.minecraft.client.renderer.RenderType;
+import net.minecraft.client.resources.sounds.SimpleSoundInstance;
+import net.minecraft.client.resources.sounds.SoundInstance;
+import net.minecraft.sounds.SoundSource;
 import net.neoforged.neoforge.client.event.ClientPlayerNetworkEvent;
 import net.neoforged.neoforge.client.event.RenderFrameEvent;
 import net.neoforged.neoforge.client.event.RenderGuiEvent;
 import net.neoforged.neoforge.client.event.ScreenEvent;
 import tremor.Tremor;
+import tremor.config.TremorConfig;
 import tremor.network.TremorBlackoutPayload;
+import tremor.sound.TremorSounds;
 
 /**
  * Screen blackout around moves into and out of the hollow (SPEC 9: the player is swallowed, the screen goes dark, the
@@ -29,16 +34,38 @@ import tremor.network.TremorBlackoutPayload;
  * phase). The player is never left in the dark by a server that does not lift it: it is cleared at once while the
  * player is dead (on the death screen) and on the respawn after a death, and it lifts by itself after a minute of
  * running clock without a payload ({@link BlackoutFade#FAILSAFE_TICKS}).
+ * <p>
+ * The way out over the edge of the hollow ({@link TremorBlackoutPayload#white}) is white instead: the player runs into
+ * the light with a rush of air ({@link TremorSounds#ESCAPE}) and comes back into the real world as from a bright day.
  */
 public final class ClientBlackout {
     private static final BlackoutFade fade = new BlackoutFade();
+    /** The blackout is the white of the way out, not black; set by every fade out, kept by the fade back. */
+    private static boolean white;
 
     private ClientBlackout() {
     }
 
     public static void accept(TremorBlackoutPayload payload) {
-        advance(Minecraft.getInstance());
+        Minecraft mc = Minecraft.getInstance();
+        advance(mc);
+        if (payload.dark()) {
+            if (payload.white() && !(white && fade.target())) {
+                rush(mc);
+            }
+            white = payload.white();
+        }
         fade.set(payload.dark(), payload.fadeTicks());
+    }
+
+    /**
+     * The rush of air of the way out, once as the white starts: at the listener, not at a place in the hollow, and
+     * short, so it is over before the move out of the hollow stops every sound.
+     */
+    private static void rush(Minecraft mc) {
+        mc.getSoundManager().play(new SimpleSoundInstance(TremorSounds.ESCAPE.get().getLocation(), SoundSource.HOSTILE,
+                TremorConfig.COMMON.transitionVolume.get().floatValue(), 1, SoundInstance.createUnseededRandom(), false,
+                0, SoundInstance.Attenuation.NONE, 0, 0, 0, true));
     }
 
     /**
@@ -119,7 +146,8 @@ public final class ClientBlackout {
         int alpha = (int) Math.round(fade.opacity() * 255);
         if (alpha > 0) {
             // As vanilla's sleep overlay: no depth test, so it covers whatever was drawn before it.
-            graphics.fill(RenderType.guiOverlay(), 0, 0, graphics.guiWidth(), graphics.guiHeight(), alpha << 24);
+            graphics.fill(RenderType.guiOverlay(), 0, 0, graphics.guiWidth(), graphics.guiHeight(),
+                    alpha << 24 | (white ? 0xFFFFFF : 0));
         }
     }
 }
