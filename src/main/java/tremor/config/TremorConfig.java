@@ -95,6 +95,11 @@ public final class TremorConfig {
         public final ForgeConfigSpec.DoubleValue alertListenFactor;
         public final ForgeConfigSpec.DoubleValue netherSpeedFactor;
         public final ForgeConfigSpec.DoubleValue netherAngerFactor;
+        public final ForgeConfigSpec.IntValue depthShallowY;
+        public final ForgeConfigSpec.IntValue depthDeepY;
+        public final ForgeConfigSpec.DoubleValue depthSpeedFactor;
+        public final ForgeConfigSpec.DoubleValue depthAngerFactor;
+        public final ForgeConfigSpec.DoubleValue depthHearingFactor;
         public final ForgeConfigSpec.DoubleValue alertLoseInterestSeconds;
         public final ForgeConfigSpec.DoubleValue huntSearchRadius;
         public final ForgeConfigSpec.DoubleValue huntSearchSeconds;
@@ -316,6 +321,22 @@ public final class TremorConfig {
             netherAngerFactor = b.comment("...and a heard sound angers it this many times as much")
                     .translation(KEY + "behavior.netherAngerFactor")
                     .defineInRange("netherAngerFactor", 1.5, 0.1, 5.0);
+            depthShallowY = b.comment("Deeper underground it is fiercer (not in the Nether, which has the factors above):",
+                            "no effect at or above this height...")
+                    .translation(KEY + "behavior.depthShallowY")
+                    .defineInRange("depthShallowY", 40, -64, 320);
+            depthDeepY = b.comment("...all of it at or below this one, in a straight line between")
+                    .translation(KEY + "behavior.depthDeepY")
+                    .defineInRange("depthDeepY", -40, -64, 320);
+            depthSpeedFactor = b.comment("At full depth its speed is this many times what the stage gives...")
+                    .translation(KEY + "behavior.depthSpeedFactor")
+                    .defineInRange("depthSpeedFactor", 1.25, 0.1, 5.0);
+            depthAngerFactor = b.comment("...a heard sound angers it this many times as much...")
+                    .translation(KEY + "behavior.depthAngerFactor")
+                    .defineInRange("depthAngerFactor", 1.5, 0.1, 5.0);
+            depthHearingFactor = b.comment("...and sounds reach it this many times as loud (it hears from farther)")
+                    .translation(KEY + "behavior.depthHearingFactor")
+                    .defineInRange("depthHearingFactor", 1.5, 0.1, 5.0);
             transitionVolume = b.comment("Volume of the stage change sounds; heard up to 16 blocks times this away")
                     .translation(KEY + "behavior.transitionVolume")
                     .defineInRange("transitionVolume", 3.0, 0.0, 16.0);
@@ -437,6 +458,19 @@ public final class TremorConfig {
          * Longest gap of open space (blocks) the entity flings itself across between two surfaces in {@code stage}
          * ({@code frenzy}: in a frenzy over a dropped shard).
          */
+        /**
+         * The factor of {@code full} at height {@code y} in {@code level} for how deep it is
+         * ({@code behavior.depth*}): 1 at or above {@code depthShallowY}, {@code full} at or below
+         * {@code depthDeepY}; 1 in the Nether, which has its own factors.
+         */
+        public double depth(net.minecraft.world.level.Level level, double y, ForgeConfigSpec.DoubleValue full) {
+            if (level.dimension() == net.minecraft.world.level.Level.NETHER) {
+                return 1;
+            }
+            return tremor.core.behavior.Depth.factor(full.get(),
+                    tremor.core.behavior.Depth.share(y, depthShallowY.get(), depthDeepY.get()));
+        }
+
         public int leap(Stage stage, boolean frenzy) {
             if (frenzy) {
                 return leapFrenzy.get();
