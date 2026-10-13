@@ -110,6 +110,8 @@ public final class TremorRuntime {
 
     private final ServerLevel level;
     private final TremorSavedData data;
+    /** This runtime's entity (one of the level's), or null once it is gone. */
+    private TremorEntity entity;
     private final SectionTrackingView tracked;
     private final VoxelCache cache;
     private SurfaceGraph graph;
@@ -164,15 +166,16 @@ public final class TremorRuntime {
     private int costCount;
     private int costIndex;
 
-    TremorRuntime(ServerLevel level, TremorSavedData data) {
+    /** @param entity one of the level's entities, or null for a runtime that is to {@link #spawn} one */
+    TremorRuntime(ServerLevel level, TremorSavedData data, TremorEntity entity) {
         this.level = level;
         this.data = data;
+        this.entity = entity;
         this.live = new LevelVoxelView(level);
         this.tracked = new SectionTrackingView(level);
         this.cache = new VoxelCache(tracked);
         this.lastTerrainReset = level.getGameTime();
         cache.setTime(lastTerrainReset);
-        TremorEntity entity = data.entity();
         this.graph = new SurfaceGraph(cache, entity != null
                 ? entity.params().maxDiveDepth() : TremorConfig.COMMON.maxDiveDepth.get());
         // The route is not saved: an entity loaded on its way somewhere plans a new one.
@@ -183,9 +186,9 @@ public final class TremorRuntime {
         return level;
     }
 
-    /** The level's entity, or null. */
+    /** This runtime's entity, or null once it is gone. */
     public TremorEntity entity() {
-        return data.entity();
+        return entity;
     }
 
     public SurfaceGraph graph() {
@@ -247,7 +250,7 @@ public final class TremorRuntime {
 
     /** The node the entity is at (nearest within {@value #NODE_RADIUS} blocks), or {@link SurfaceGraph#NO_NODE}. */
     public long currentNode() {
-        TremorEntity entity = data.entity();
+        TremorEntity entity = this.entity;
         if (entity == null) {
             return SurfaceGraph.NO_NODE;
         }
@@ -261,7 +264,7 @@ public final class TremorRuntime {
     }
 
     /**
-     * Replaces the level's entity (if any) by a new one standing at the centre of {@code node} with the smoothed
+     * Replaces this runtime's entity (if any) by a new one standing at the centre of {@code node} with the smoothed
      * normal there, and sends its shape and state to every player in the dimension.
      *
      * @param natural spawned by the world, not by a command: it despawns by itself (SPEC 11)
@@ -269,7 +272,14 @@ public final class TremorRuntime {
     public TremorEntity spawn(long node, boolean natural) {
         beginPass();
         int x = VoxelPos.x(node), y = VoxelPos.y(node), z = VoxelPos.z(node);
+        TremorEntity old = this.entity;
+        if (old != null) {
+            data.remove(old, level.getGameTime());
+            TremorNetwork.sendToPlayersInDimension(level,
+                    TremorStatePayload.absent(old.instance(), level.getGameTime()));
+        }
         TremorEntity entity = data.spawn(VoxelPos.center(node), graph.normal(x, y, z), natural, level.getGameTime());
+        this.entity = entity;
         resetRoute();
         pursuit.reset();
         error = null;
@@ -285,10 +295,12 @@ public final class TremorRuntime {
 
     /** Removes the entity; every player in the dimension is told it is gone. Returns false if there was none. */
     public boolean despawn() {
-        TremorEntity entity = data.remove(level.getGameTime());
+        TremorEntity entity = this.entity;
         if (entity == null) {
             return false;
         }
+        data.remove(entity, level.getGameTime());
+        this.entity = null;
         resetRoute();
         mind = null;
         syncDue = false;
@@ -307,7 +319,7 @@ public final class TremorRuntime {
      * @return false if there is no entity or it is not near any node (the terrain under it changed)
      */
     public boolean moveTo(long goal, UUID requester) {
-        TremorEntity entity = data.entity();
+        TremorEntity entity = this.entity;
         if (entity == null) {
             return false;
         }
@@ -326,7 +338,7 @@ public final class TremorRuntime {
      * mid-dive at the far end of the dive ({@link #halt}). Returns false if there is no entity.
      */
     public boolean stop() {
-        TremorEntity entity = data.entity();
+        TremorEntity entity = this.entity;
         if (entity == null) {
             return false;
         }
@@ -383,13 +395,13 @@ public final class TremorRuntime {
      * (the debug probe); 0 without an entity.
      */
     public double cruiseSpeed() {
-        TremorEntity entity = data.entity();
+        TremorEntity entity = this.entity;
         return entity == null ? 0 : mind(entity).motion().maxSpeed();
     }
 
     /** Whether the entity listens now (ALERT, a ring under way): it hears louder ({@code alertListenFactor}). */
     public boolean listening() {
-        TremorEntity entity = data.entity();
+        TremorEntity entity = this.entity;
         return entity != null && mind(entity).listening();
     }
 
@@ -412,7 +424,7 @@ public final class TremorRuntime {
 
     /** Whether an Awakening took the entity ({@link #absorb}); false if there is none. */
     public boolean absorbed() {
-        TremorEntity entity = data.entity();
+        TremorEntity entity = this.entity;
         return entity != null && mind(entity).absorbed();
     }
 
@@ -427,7 +439,7 @@ public final class TremorRuntime {
      * paused (its chunk is not loaded), or the source is beyond the hearing distance
      */
     public Perception hear(Vibration vibration) {
-        TremorEntity entity = data.entity();
+        TremorEntity entity = this.entity;
         if (entity == null || error != null || paused) {
             return null;
         }
@@ -623,7 +635,7 @@ public final class TremorRuntime {
 
     /** Sends the shape and the state of the entity (or that there is none) to a player entering the dimension. */
     public void sendTo(ServerPlayer player) {
-        TremorEntity entity = data.entity();
+        TremorEntity entity = this.entity;
         if (entity == null) {
             TremorNetwork.sendToPlayer(player, TremorStatePayload.absent(data.lastInstance(), level.getGameTime()));
             return;
@@ -634,7 +646,7 @@ public final class TremorRuntime {
 
     /** Called for every block that may have changed in the level (block update, explosion, piston). */
     void blockChanged(BlockPos pos) {
-        if (data.entity() != null && tracked.wasRead(pos.getX(), pos.getY(), pos.getZ())) {
+        if (this.entity != null && tracked.wasRead(pos.getX(), pos.getY(), pos.getZ())) {
             pendingChanges.add(pos.asLong());
         }
     }
@@ -644,20 +656,20 @@ public final class TremorRuntime {
      * be read yet, so the chunk is only noted; {@link #processChanges} reads its sections again once it is readable.
      */
     void chunkLoaded(int chunkX, int chunkZ) {
-        if (data.entity() != null && tracked.wasReadInColumn(chunkX, chunkZ)) {
+        if (this.entity != null && tracked.wasReadInColumn(chunkX, chunkZ)) {
             pendingChunks.add(ChunkPos.asLong(chunkX, chunkZ));
         }
     }
 
     /** Before an orderly shutdown: make sure the latest position is written. */
     void markDirty() {
-        if (data.entity() != null) {
+        if (this.entity != null) {
             data.setDirty();
         }
     }
 
     void tick() {
-        TremorEntity entity = data.entity();
+        TremorEntity entity = this.entity;
         if (entity == null || error != null) {
             return;
         }
@@ -677,7 +689,7 @@ public final class TremorRuntime {
 
     /**
      * Keeps the server alive: a command's entity freezes until it is respawned or despawned; a naturally spawned one
-     * is removed (while it exists, no other entity spawns naturally in the dimension).
+     * is removed (while it exists, no other entity spawns naturally near it).
      */
     private void fail(TremorEntity entity, RuntimeException e) {
         error = e.toString();
@@ -686,7 +698,7 @@ public final class TremorRuntime {
         Tremor.LOGGER.error("Tremor #{} in {} stopped after an error{}", entity.instance(),
                 level.dimension().location(), entity.natural() ? "; it is removed" : "", e);
         if (entity.natural()) {
-            TremorManager.despawn(level);
+            TremorManager.despawn(this);
         }
     }
 
@@ -709,7 +721,7 @@ public final class TremorRuntime {
         if (!live.isKnown(floor(p.x()), floor(p.y()), floor(p.z()))) {
             paused = true;
             if (mind(entity).pausedTick()) {
-                TremorManager.despawn(level);
+                TremorManager.despawn(this);
             } else if (syncDue) {
                 // A stage change while the level ticked: the crawler stands still while paused, so this position is
                 // the one of this game time.
@@ -742,7 +754,7 @@ public final class TremorRuntime {
         }
         if (mind.afterMove(now)) {
             Tremor.LOGGER.info("Tremor #{} in {} is gone", entity.instance(), level.dimension().location());
-            TremorManager.despawn(level);
+            TremorManager.despawn(this);
             return;
         }
 
@@ -1124,7 +1136,7 @@ public final class TremorRuntime {
         } else if (pathActive) {
             // The rest of the route, the dive the crawler is in (also on a lead-in, which has no nodes), and a route
             // that starts once the crawler has braked.
-            Crawler crawler = data.entity().crawler();
+            Crawler crawler = this.entity.crawler();
             PathSpline spline = crawler.spline();
             Path pending = crawler.pendingPath();
             if (spline != null) {
@@ -1276,7 +1288,7 @@ public final class TremorRuntime {
     }
 
     private TremorEntity requireEntity() {
-        TremorEntity entity = data.entity();
+        TremorEntity entity = this.entity;
         if (entity == null) {
             throw new IllegalStateException("no tremor in " + level.dimension().location());
         }

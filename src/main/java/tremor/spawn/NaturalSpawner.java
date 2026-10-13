@@ -45,9 +45,11 @@ import java.util.function.Predicate;
  * In each level of the configured dimensions every player gets a spawn check every {@code checkIntervalSeconds},
  * the players spread over that time, the first check {@code graceSeconds} after the player entered the level
  * ({@link CheckSchedule}). A check rolls only for a living player in survival or adventure mode, outside peaceful
- * difficulty (unless allowed), in a level without an entity and without a running Awakening
- * ({@link AwakeningManager#runs}: it would take a new entity at once), past the cooldown after the last natural one
- * left ({@link Cooldown}) and past the long pause after the last Awakening ({@link #awakeningCooldown}). With the
+ * difficulty (unless allowed), with no entity within {@code spawn.spacing} (horizontally; the level may have several,
+ * one for each part of the world where players are), fewer than {@code spawn.maxEntities} in the level, no Awakening
+ * running within the spacing ({@link AwakeningManager#runsNear}: it would take a new entity at once), and past the
+ * pauses around the player ({@link #pauseLeft}): the cooldown after a natural one left within the spacing and the long
+ * pause after an Awakening ended within it. With the
  * probability {@link SpawnRules#chance} for the player's {@link #conditions} it spawns a natural entity on a surface
  * point {@code minDistance}..{@link #maxDistance} away that the player sees or will pass
  * ({@link SurfacePicker#spawnPoint}, the player's way from {@link Heading}), outside the {@link #protection} zones.
@@ -153,9 +155,9 @@ public final class NaturalSpawner {
 
     /**
      * {@code /tremor spawn natural}: the spawn point search for the player at once and, if it finds one, a natural
-     * entity there. Ignores the chance, the cooldown, the game mode, the difficulty, the dimension list and an entity
-     * already in the level (it is replaced, as by {@code /tremor spawn}); the distances, the protection zones and the
-     * view distance apply.
+     * entity there. Ignores the chance, the pauses, the game mode, the difficulty, the dimension list, the number of
+     * entities and one within {@code spawn.spacing} of the point (it is replaced, as by {@code /tremor spawn}); the
+     * distances, the protection zones and the view distance apply.
      */
     public static Outcome spawnNow(ServerPlayer player) {
         ServerLevel level = player.serverLevel();
@@ -191,12 +193,19 @@ public final class NaturalSpawner {
     }
 
     /**
-     * Ticks left of the natural spawn pause after the last Awakening of the level ended (SPEC 9: the entity went deep,
-     * a long cooldown; {@code awakening.cooldownSeconds}); 0 if there is none.
+     * Ticks left at {@code x, z} of the natural spawn pause of {@code kind} ({@link SpawnPauses}): after a natural
+     * entity left within {@code spawn.spacing} ({@code spawn.cooldownSeconds}), or after an Awakening ended within it
+     * (SPEC 9: the entity went deep, a long cooldown; {@code awakening.cooldownSeconds}); 0 if there is none.
      */
-    public static long awakeningCooldown(ServerLevel level) {
-        return Cooldown.remaining(level.getGameTime(), TremorSavedData.get(level).lastAwakeningEnd(),
-                (long) TremorConfig.COMMON.awakening.cooldownSeconds.get() * TICKS_PER_SECOND);
+    public static long pauseLeft(ServerLevel level, double x, double z, SpawnPauses.Kind kind) {
+        return TremorSavedData.get(level).pauses().left(kind, x, z, TremorConfig.COMMON.spawn.spacing.get(),
+                level.getGameTime(), pauseTicks(kind));
+    }
+
+    /** How long a pause of {@code kind} lasts (ticks). */
+    private static long pauseTicks(SpawnPauses.Kind kind) {
+        return (long) (kind == SpawnPauses.Kind.LEFT ? TremorConfig.COMMON.spawn.cooldownSeconds.get()
+                : TremorConfig.COMMON.awakening.cooldownSeconds.get()) * TICKS_PER_SECOND;
     }
 
     /**
@@ -242,7 +251,7 @@ public final class NaturalSpawner {
             return;
         }
         BlockPos pos = blockPos(pick.node());
-        TremorEntity entity = TremorManager.spawn(level, pos, true);
+        TremorEntity entity = TremorManager.spawn(level, pos, true, false);
         if (entity == null) {
             debug(level, player, "spawn point " + pos.toShortString() + " is no surface node any more");
             return;
@@ -269,22 +278,35 @@ public final class NaturalSpawner {
         if (level.getDifficulty() == Difficulty.PEACEFUL && !config.allowPeaceful.get()) {
             return "peaceful difficulty";
         }
-        TremorRuntime runtime = TremorManager.runtime(level);
-        if (runtime != null && runtime.entity() != null) {
-            return "tremor #" + runtime.entity().instance() + " is in the dimension";
+        double spacing = config.spacing.get();
+        List<TremorRuntime> runtimes = TremorManager.runtimes(level);
+        for (TremorRuntime runtime : runtimes) {
+            TremorEntity entity = runtime.entity();
+            double away = entity == null ? Double.POSITIVE_INFINITY
+                    : TremorManager.horizontal(entity, player.getX(), player.getZ());
+            if (away < spacing) {
+                return String.format(Locale.ROOT, "tremor #%d is %.0f blocks away (spawn.spacing %.0f)",
+                        entity.instance(), away, spacing);
+            }
         }
-        if (AwakeningManager.runs(level)) {
-            return "an Awakening runs in the dimension";
+        if (runtimes.size() >= config.maxEntities.get()) {
+            return String.format(Locale.ROOT, "%d tremors in the dimension (spawn.maxEntities %d)", runtimes.size(),
+                    config.maxEntities.get());
         }
-        long left = Cooldown.remaining(now, TremorSavedData.get(level).lastNaturalDespawn(),
-                (long) config.cooldownSeconds.get() * TICKS_PER_SECOND);
+        if (AwakeningManager.runsNear(level, player.getX(), player.getZ(), spacing)) {
+            return String.format(Locale.ROOT, "an Awakening runs within %.0f blocks", spacing);
+        }
+        TremorSavedData.get(level).forgetPausesOver(now, pauseTicks(SpawnPauses.Kind.LEFT),
+                pauseTicks(SpawnPauses.Kind.AWAKENING));
+        long left = pauseLeft(level, player.getX(), player.getZ(), SpawnPauses.Kind.LEFT);
         if (left > 0) {
-            return String.format(Locale.ROOT, "cooldown, %.0f s left", (double) left / TICKS_PER_SECOND);
+            return String.format(Locale.ROOT, "cooldown after a tremor left within %.0f blocks, %.0f s left",
+                    spacing, (double) left / TICKS_PER_SECOND);
         }
-        long deep = awakeningCooldown(level);
+        long deep = pauseLeft(level, player.getX(), player.getZ(), SpawnPauses.Kind.AWAKENING);
         if (deep > 0) {
-            return String.format(Locale.ROOT, "gone deep after an Awakening, %.0f s left",
-                    (double) deep / TICKS_PER_SECOND);
+            return String.format(Locale.ROOT, "gone deep after an Awakening within %.0f blocks, %.0f s left",
+                    spacing, (double) deep / TICKS_PER_SECOND);
         }
         return null;
     }

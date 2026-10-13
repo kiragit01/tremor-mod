@@ -91,9 +91,9 @@ public class GeophoneBlock extends Block {
         }
     }
 
-    /** The entity of the level, if it is within range of {@code pos}; null otherwise. */
+    /** The level's entity nearest to {@code pos}, if it is within range; null otherwise. */
     private static TremorEntity heard(ServerLevel level, BlockPos pos) {
-        TremorRuntime runtime = TremorManager.runtime(level);
+        TremorRuntime runtime = TremorManager.nearest(level, pos.getX() + 0.5, pos.getY() + 0.5, pos.getZ() + 0.5);
         TremorEntity entity = runtime == null ? null : runtime.entity();
         return entity != null && distance(entity, pos) < range() ? entity : null;
     }

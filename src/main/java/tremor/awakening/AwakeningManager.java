@@ -38,7 +38,7 @@ import java.util.UUID;
  * Runs the Awakenings (SPEC 9; stage 4b: the real-world part): at most one per level, each an {@link Awakening}.
  * Event handlers are registered by {@link tremor.Tremor}; server thread only.
  * <ul>
- *   <li><b>Start by itself</b> (SPEC 8 AWAKENING, 9 phase 1): in AWAKENING the level's entity seeks a player (it goes
+ *   <li><b>Start by itself</b> (SPEC 8 AWAKENING, 9 phase 1): in AWAKENING an entity seeks a player (it goes
  *   for the sounds it hears, faster than hunting, {@link tremor.core.behavior.Seeking}). Each tick after its move,
  *   while it seeks (not leaving, no Awakening running, not in the hollow), the Awakening starts once its bump has
  *   reached a player ({@link AwakeningRules#reaches}: within {@code awakening.reachDistance} horizontally and
@@ -53,11 +53,14 @@ import java.util.UUID;
  *   player who is not a spectator (also in adventure mode), with or without an entity; {@code /tremor awaken stop}
  *   ({@link #stop}) calls it off and gets a swallowed target out of the hollow again (a defeat decided there takes
  *   nobody then, {@link Outcomes}).</li>
- *   <li><b>The entity</b>: while an Awakening runs in its level, the level's entity (also one spawned meanwhile, by a
- *   command: natural spawns wait, {@link #runs}) is taken by it ({@link TremorRuntime#absorb}): it is the whole area
- *   now, not a bump. Every end makes it go deep ({@link TremorManager#goDeep}): removed, natural spawns of the
- *   dimension paused for {@code awakening.cooldownSeconds}. Awakenings are not saved: an entity loaded as taken by
- *   one goes deep at once ({@link TremorManager#onLevelLoad}).</li>
+ *   <li><b>The entity</b>: a level may have several (one for each part of the world where players are), and runs one
+ *   Awakening at a time; another entity that reaches its player meanwhile seeks on until it calms down. An Awakening
+ *   takes its own entity ({@link TremorRuntime#absorb}): the one that reached the target, or for a command's the
+ *   nearest within {@code spawn.spacing} of the target, also one that comes there meanwhile (a command's spawn;
+ *   natural spawns wait near it, {@link #runsNear}): it is the whole area now, not a bump. Every end makes it go deep
+ *   ({@link TremorManager#goDeep}): removed, natural spawns within the spacing paused for
+ *   {@code awakening.cooldownSeconds}. Awakenings are not saved: an entity loaded as taken by one goes deep at once
+ *   ({@link TremorManager#onLevelLoad}).</li>
  *   <li><b>The hollow</b>: a swallowed target's Awakening ends by the outcome of the level in there
  *   ({@link Outcomes}: a victory makes it EMERGING first, once the hill is due, {@link Awakening#won}, and SETTLING
  *   when the victor's event in the hollow ends; a defeat ends it once carried out) or with the target's event in the
@@ -81,14 +84,13 @@ public final class AwakeningManager {
     /** Id of the next Awakening; ids are never reused while the server runs. */
     private static int nextId = 1;
 
-    /** What is kept for a level: its Awakening and whom its entity heard last. */
+    /** What is kept for a level: its Awakening and whom each of its entities heard last. */
     private static final class LevelState {
         final ServerLevel level;
         /** The running Awakening, or null. */
         Awakening awakening;
-        /** The player whose vibration the entity heard last, and that entity's instance; null before. */
-        UUID lastHeard;
-        int lastHeardInstance;
+        /** The player whose vibration each entity heard last, by its instance. */
+        final Map<Integer, UUID> lastHeard = new HashMap<>();
 
         LevelState(ServerLevel level) {
             this.level = level;
@@ -134,7 +136,7 @@ public final class AwakeningManager {
             throw new Refusal("Awakening #" + running.id + " for " + running.targetName + " runs in "
                     + level.dimension().location() + " already");
         }
-        return start(level, target, false);
+        return start(level, target, false, nearest(level, target.getX(), target.getZ()));
     }
 
     /**
@@ -156,18 +158,27 @@ public final class AwakeningManager {
         return awakening;
     }
 
-    /** Whether an Awakening runs in the level (natural spawns wait meanwhile, see {@link NaturalSpawner}). */
+    /** Whether an Awakening runs in the level. */
     public static boolean runs(ServerLevel level) {
         return running(level) != null;
     }
 
     /**
-     * {@code /tremor info}: the level's Awakening (phase, time left, target, zone) and the natural spawn pause after
-     * the last one; null if there is neither.
+     * Whether an Awakening runs in the level within {@code reach} blocks (horizontally) of {@code x, z} (natural spawns
+     * wait there meanwhile, see {@link NaturalSpawner}: it would take a new entity at once).
      */
-    public static String describe(ServerLevel level) {
+    public static boolean runsNear(ServerLevel level, double x, double z, double reach) {
         Awakening awakening = running(level);
-        long pause = NaturalSpawner.awakeningCooldown(level);
+        return awakening != null && Math.hypot(awakening.center.x() - x, awakening.center.z() - z) <= reach;
+    }
+
+    /**
+     * {@code /tremor info} and the debug probe: the level's Awakening (phase, time left, target, zone) and the
+     * natural spawn pause after one at {@code x, z}; null if there is neither.
+     */
+    public static String describe(ServerLevel level, double x, double z) {
+        Awakening awakening = running(level);
+        long pause = NaturalSpawner.pauseLeft(level, x, z, tremor.spawn.SpawnPauses.Kind.AWAKENING);
         if (awakening == null && pause == 0) {
             return null;
         }
@@ -176,7 +187,7 @@ public final class AwakeningManager {
             lines.add(awakening.describe(level.getGameTime()));
         }
         if (pause > 0) {
-            lines.add(String.format(Locale.ROOT, "Gone deep after an Awakening: no natural spawn for %.0f s",
+            lines.add(String.format(Locale.ROOT, "Gone deep after an Awakening near here: no natural spawn for %.0f s",
                     pause / 20.0));
         }
         return String.join("\n", lines);
@@ -200,25 +211,26 @@ public final class AwakeningManager {
     }
 
     /**
-     * A vibration in the level, as the hearing evaluated it ({@link tremor.hearing.VibrationListener}): if the entity
-     * heard it, its player is the one heard last (the target an Awakening starting by itself prefers); a running
-     * Awakening rings it out over the ground ({@link Awakening#vibration}).
+     * An entity of the level evaluated a vibration ({@link tremor.hearing.VibrationListener}): if it heard it, its
+     * player is the one it heard last (the target an Awakening it starts by itself prefers).
      *
      * @param player     the player behind it, or null (a mob, an item, a projectile...)
-     * @param perception what the entity made of it, or null if it was not evaluated
+     * @param perception what the entity made of it
      */
-    public static void vibration(ServerLevel level, Vibration vibration, Player player, Perception perception) {
+    public static void heard(ServerLevel level, TremorEntity entity, Player player, Perception perception) {
+        if (player != null && perception.heard()) {
+            state(level, true).lastHeard.put(entity.instance(), player.getUUID());
+        }
+    }
+
+    /**
+     * A vibration in the level: a running Awakening rings it out over the ground ({@link Awakening#vibration}).
+     *
+     * @param player the player behind it, or null (a mob, an item, a projectile...)
+     */
+    public static void vibration(ServerLevel level, Vibration vibration, Player player) {
         if (player == null) {
             return;
-        }
-        if (perception != null && perception.heard()) {
-            TremorRuntime runtime = TremorManager.runtime(level);
-            TremorEntity entity = runtime == null ? null : runtime.entity();
-            if (entity != null) {
-                LevelState state = state(level, true);
-                state.lastHeard = player.getUUID();
-                state.lastHeardInstance = entity.instance();
-            }
         }
         Awakening awakening = running(level);
         if (awakening != null) {
@@ -236,17 +248,21 @@ public final class AwakeningManager {
         if (!(event.level instanceof ServerLevel level)) {
             return;
         }
-        TremorRuntime runtime = TremorManager.runtime(level);
-        TremorEntity entity = runtime == null ? null : runtime.entity();
         Awakening awakening = running(level);
         if (awakening != null) {
-            if (entity != null) {
-                runtime.absorb();
+            TremorRuntime own = own(level, awakening);
+            if (own != null) {
+                own.absorb();
             }
             awakening.tick(level.getGameTime());
-        } else if (entity != null && entity.stage() == Stage.AWAKENING && !entity.leaving() && !entity.absorbed()
-                && !HollowDimension.is(level)) {
-            awakenBy(level, entity);
+        } else if (!HollowDimension.is(level)) {
+            for (TremorRuntime runtime : TremorManager.runtimes(level)) {
+                TremorEntity entity = runtime.entity();
+                if (entity != null && entity.stage() == Stage.AWAKENING && !entity.leaving() && !entity.absorbed()
+                        && awakenBy(level, runtime, entity)) {
+                    break; // one at a time
+                }
+            }
         }
     }
 
@@ -441,10 +457,50 @@ public final class AwakeningManager {
     }
 
     /**
-     * The level's entity seeks in AWAKENING without an Awakening: once its bump has reached a player who can be taken
-     * ({@link AwakeningRules#chooseTarget}), the Awakening starts for that player.
+     * The entity of a running Awakening: its own, or while it has none (a command's with none near, or its own gone)
+     * the nearest within {@code spawn.spacing} of its centre, which it takes from now on; null if there is none.
      */
-    private static void awakenBy(ServerLevel level, TremorEntity entity) {
+    private static TremorRuntime own(ServerLevel level, Awakening awakening) {
+        if (awakening.entity != 0) {
+            TremorRuntime own = TremorManager.byInstance(level, awakening.entity);
+            if (own != null) {
+                return own;
+            }
+            awakening.entity = 0;
+        }
+        TremorRuntime near = nearest(level, awakening.center.x(), awakening.center.z());
+        if (near != null) {
+            awakening.entity = near.entity().instance();
+        }
+        return near;
+    }
+
+    /**
+     * The entity of the part of the world around {@code x, z}: the nearest within {@code spawn.spacing}
+     * (horizontally) that no Awakening has taken; null if there is none.
+     */
+    private static TremorRuntime nearest(ServerLevel level, double x, double z) {
+        TremorRuntime nearest = null;
+        double best = TremorConfig.COMMON.spawn.spacing.get();
+        for (TremorRuntime runtime : TremorManager.runtimes(level)) {
+            TremorEntity entity = runtime.entity();
+            if (entity != null && !entity.absorbed()) {
+                double away = TremorManager.horizontal(entity, x, z);
+                if (away <= best) {
+                    best = away;
+                    nearest = runtime;
+                }
+            }
+        }
+        return nearest;
+    }
+
+    /**
+     * An entity seeks in AWAKENING without an Awakening in the level: once its bump has reached a player who can be
+     * taken ({@link AwakeningRules#chooseTarget}), the Awakening starts for that player with it. Returns whether it
+     * did.
+     */
+    private static boolean awakenBy(ServerLevel level, TremorRuntime runtime, TremorEntity entity) {
         Vec3 bump = entity.crawler().position();
         double reach = TremorConfig.COMMON.awakening.reachDistance.get();
         List<AwakeningRules.Candidate> candidates = new ArrayList<>();
@@ -455,10 +511,10 @@ public final class AwakeningManager {
             }
         }
         if (candidates.isEmpty()) {
-            return;
+            return false;
         }
         LevelState state = state(level, false);
-        UUID lastHeard = state != null && state.lastHeardInstance == entity.instance() ? state.lastHeard : null;
+        UUID lastHeard = state == null ? null : state.lastHeard.get(entity.instance());
         UUID chosen = AwakeningRules.chooseTarget(lastHeard, bump, candidates, reach);
         ServerPlayer target = chosen == null ? null : level.getServer().getPlayerList().getPlayer(chosen);
         if (target != null) {
@@ -466,8 +522,10 @@ public final class AwakeningManager {
                             + "AWAKENING", entity.instance(), level.dimension().location(),
                     target.getGameProfile().getName(), AwakeningRules.horizontalDistance(bump, new Vec3(target.getX(),
                             target.getY(), target.getZ()))));
-            start(level, target, true);
+            start(level, target, true, runtime);
+            return true;
         }
+        return false;
     }
 
     /**
@@ -481,11 +539,11 @@ public final class AwakeningManager {
     }
 
     /**
-     * Starts an Awakening for the target. The level's entity, if any, is taken (its stage change to AWAKENING, if it
-     * was not there yet, sounds: a roar). The start sounds at the centre: the pull.
+     * Starts an Awakening for the target with {@code entity} (null: none). It is taken (its stage change to
+     * AWAKENING, if it was not there yet, sounds: a roar). The start sounds at the centre: the pull.
      */
-    private static Awakening start(ServerLevel level, ServerPlayer target, boolean natural) {
-        return start(level, target, natural, TremorConfig.COMMON.awakening.buildupSeconds.get() * 20);
+    private static Awakening start(ServerLevel level, ServerPlayer target, boolean natural, TremorRuntime entity) {
+        return start(level, target, natural, TremorConfig.COMMON.awakening.buildupSeconds.get() * 20, entity);
     }
 
     /**
@@ -493,25 +551,25 @@ public final class AwakeningManager {
      * starts for them with a build-up of only {@code items.frenzyBuildupTicks}, there is no running from it. False if
      * it cannot start (the target dead, a spectator, in the hollow, or an Awakening already runs in the level).
      */
-    public static boolean frenzy(ServerPlayer target) {
+    public static boolean frenzy(ServerPlayer target, TremorRuntime entity) {
         ServerLevel level = target.serverLevel();
         if (!target.isAlive() || target.isSpectator() || HollowManager.event(target) != null
                 || HollowDimension.is(level) || running(level) != null) {
             return false;
         }
         tremor.hollow.Nightmare.mark(target.getUUID());
-        start(level, target, false, Math.max(1, TremorConfig.COMMON.frenzyBuildupTicks.get()));
+        start(level, target, false, Math.max(1, TremorConfig.COMMON.frenzyBuildupTicks.get()), entity);
         return true;
     }
 
-    private static Awakening start(ServerLevel level, ServerPlayer target, boolean natural, int buildupTicks) {
+    private static Awakening start(ServerLevel level, ServerPlayer target, boolean natural, int buildupTicks,
+                                   TremorRuntime entity) {
         TremorConfig.Awakening config = TremorConfig.COMMON.awakening;
         Awakening awakening = new Awakening(nextId++, level, target, natural, config.radius.get(), buildupTicks);
         state(level, true).awakening = awakening;
-        TremorRuntime runtime = TremorManager.runtime(level);
-        boolean entity = runtime != null && runtime.entity() != null;
-        if (entity) {
-            runtime.absorb();
+        if (entity != null && entity.entity() != null) {
+            awakening.entity = entity.entity().instance();
+            entity.absorb();
         }
         awakening.begin();
         return awakening;

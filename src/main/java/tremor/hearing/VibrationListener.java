@@ -100,8 +100,8 @@ public final class VibrationListener {
         if (!(event.getLevel() instanceof ServerLevel level)) {
             return;
         }
-        TremorRuntime runtime = TremorManager.runtime(level);
-        if (!hasEntity(runtime) && !AwakeningManager.listens(level) && !HollowLevels.listens(level)) {
+        List<TremorRuntime> runtimes = TremorManager.runtimes(level);
+        if (!hasEntity(runtimes) && !AwakeningManager.listens(level) && !HollowLevels.listens(level)) {
             return;
         }
         GameEvent.Context context = event.getContext();
@@ -115,7 +115,7 @@ public final class VibrationListener {
         boolean landing = type == GameEvent.HIT_GROUND;
         if (cause instanceof ItemEntity item) {
             if (landing) {
-                itemLanded(level, runtime, item, pos);
+                itemLanded(level, runtimes, item, pos);
             }
             return;
         }
@@ -130,14 +130,14 @@ public final class VibrationListener {
             if (cause instanceof AbstractHorse horse && SoundRules.isDamagingFall(horse.fallDistance,
                     SAFE_FALL_DISTANCE, 1)) {
                 // No fall event for horses; the damage multiplier of the block it lands on is not known here.
-                fall(level, runtime, horse, horse.fallDistance);
+                fall(level, runtimes, horse, horse.fallDistance);
                 return;
             }
             drop = String.format(Locale.ROOT, "%.1f blocks", cause.fallDistance);
         }
         ResourceLocation id = key(event.getVanillaEvent());
         double base = id == null ? 0 : table().getDouble(id);
-        if (!(base > 0) || !wanted(level, runtime, pos)) {
+        if (!(base > 0) || !wanted(level, runtimes, pos)) {
             return;
         }
         TremorConfig.Common config = TremorConfig.COMMON;
@@ -145,7 +145,7 @@ public final class VibrationListener {
         String name = name(id);
         if (type == GameEvent.EXPLODE) {
             Contact contact = Contact.ofBlast(view, pos);
-            emit(level, runtime, new Vibration(name, contact.point(), base, contact.footing(),
+            emit(level, runtimes, new Vibration(name, contact.point(), base, contact.footing(),
                     config.explosionAngerBonus.get().floatValue(), null), cause);
             return;
         }
@@ -194,7 +194,7 @@ public final class VibrationListener {
         } else {
             contact = Contact.ofEntity(view, cause, false);
         }
-        emit(level, runtime, new Vibration(name, contact.point(), loudness, contact.footing(), 0,
+        emit(level, runtimes, new Vibration(name, contact.point(), loudness, contact.footing(), 0,
                 join(join(note, drop), contact.note()), contact.rustling()), cause);
     }
 
@@ -208,8 +208,8 @@ public final class VibrationListener {
         if (!(entity.level() instanceof ServerLevel level) || entity.isSpectator()) {
             return;
         }
-        TremorRuntime runtime = TremorManager.runtime(level);
-        if (!hasEntity(runtime) && !AwakeningManager.listens(level) && !HollowLevels.listens(level)) {
+        List<TremorRuntime> runtimes = TremorManager.runtimes(level);
+        if (!hasEntity(runtimes) && !AwakeningManager.listens(level) && !HollowLevels.listens(level)) {
             return;
         }
         if (LAST_FALL.isMarked(entity.getRootVehicle().getId(), level.getGameTime())) {
@@ -220,14 +220,14 @@ public final class VibrationListener {
                 event.getDamageMultiplier())) {
             return; // no fall damage: an ordinary landing
         }
-        fall(level, runtime, entity, distance);
+        fall(level, runtimes, entity, distance);
     }
 
     /**
      * A fall with fall damage of {@code entity} or of the vehicle it rides: heard from the ground under the root
      * vehicle, and that landing is marked as heard.
      */
-    private static void fall(ServerLevel level, TremorRuntime runtime, LivingEntity entity, float distance) {
+    private static void fall(ServerLevel level, List<TremorRuntime> runtimes, LivingEntity entity, float distance) {
         TremorConfig.Common config = TremorConfig.COMMON;
         double loudness = SoundRules.fall(config.fallLoudness.get(), distance);
         String note = null;
@@ -242,11 +242,11 @@ public final class VibrationListener {
         }
         Entity root = entity.getRootVehicle();
         LAST_FALL.mark(root.getId(), level.getGameTime());
-        if (!wanted(level, runtime, root.position())) {
+        if (!wanted(level, runtimes, root.position())) {
             return;
         }
         Contact contact = Contact.ofEntity(new LevelVoxelView(level), root, true);
-        emit(level, runtime, new Vibration("fall", contact.point(), loudness, contact.footing(), 0,
+        emit(level, runtimes, new Vibration("fall", contact.point(), loudness, contact.footing(), 0,
                 join(join(note, String.format(Locale.ROOT, "%.1f blocks", distance)), contact.note()),
                 contact.rustling()), entity);
     }
@@ -255,15 +255,15 @@ public final class VibrationListener {
      * An item's {@code hit_ground}: posted inside {@code Entity.move} before the landing zeroes the vertical motion, so
      * the motion is still the impact speed.
      */
-    private static void itemLanded(ServerLevel level, TremorRuntime runtime, ItemEntity item,
+    private static void itemLanded(ServerLevel level, List<TremorRuntime> runtimes, ItemEntity item,
                                    net.minecraft.world.phys.Vec3 pos) {
         double speed = -item.getDeltaMovement().y;
         double loudness = SoundRules.itemLanding(TremorConfig.COMMON.itemLandLoudness.get(), speed);
-        if (!(loudness > 0) || !wanted(level, runtime, pos)) {
+        if (!(loudness > 0) || !wanted(level, runtimes, pos)) {
             return;
         }
         Contact contact = Contact.ofEntity(new LevelVoxelView(level), item, true);
-        emit(level, runtime, new Vibration("item_land", contact.point(), loudness, contact.footing(), 0,
+        emit(level, runtimes, new Vibration("item_land", contact.point(), loudness, contact.footing(), 0,
                 join(String.format(Locale.ROOT, "%.2f b/t", speed), contact.note()), contact.rustling()), item);
     }
 
@@ -274,32 +274,38 @@ public final class VibrationListener {
      *
      * @param cause what made it, or null
      */
-    private static void emit(ServerLevel level, TremorRuntime runtime, Vibration vibration, Entity cause) {
-        Perception perception = runtime == null ? null : runtime.hear(vibration);
-        if (perception != null) {
-            DebugParticles.hearing(level, vibration, perception);
-            tremor.debug.DebugProbe.heard(playerBehind(cause), vibration, perception);
+    /** Every entity of the level within hearing distance evaluates it; the Awakening and the hollow get it once. */
+    private static void emit(ServerLevel level, List<TremorRuntime> runtimes, Vibration vibration, Entity cause) {
+        Player player = playerBehind(cause);
+        for (TremorRuntime runtime : runtimes) {
+            Perception perception = runtime.hear(vibration);
+            TremorEntity entity = runtime.entity();
+            if (perception != null && entity != null) {
+                DebugParticles.hearing(level, vibration, perception);
+                tremor.debug.DebugProbe.heard(player, vibration, perception);
+                AwakeningManager.heard(level, entity, player, perception);
+            }
         }
-        AwakeningManager.vibration(level, vibration, playerBehind(cause), perception);
-        HollowLevels.vibration(level, vibration, playerBehind(cause));
+        AwakeningManager.vibration(level, vibration, player);
+        HollowLevels.vibration(level, vibration, player);
     }
 
-    private static boolean hasEntity(TremorRuntime runtime) {
-        return runtime != null && runtime.entity() != null;
+    private static boolean hasEntity(List<TremorRuntime> runtimes) {
+        return !runtimes.isEmpty();
     }
 
     /**
-     * Whether a source at {@code pos} concerns anybody: the level's entity, if the source is within its hearing
+     * Whether a source at {@code pos} concerns anybody: an entity of the level, if the source is within its hearing
      * distance (plus a margin), the level's Awakening, if the source lies in its zone
      * ({@link AwakeningManager#listens(ServerLevel, double, double)}), or a level of the hollow playing there
      * ({@link HollowLevels#listens}: the whole hollow listens).
      */
-    private static boolean wanted(ServerLevel level, TremorRuntime runtime, net.minecraft.world.phys.Vec3 pos) {
-        TremorEntity entity = runtime == null ? null : runtime.entity();
-        if (entity != null) {
-            Vec3 c = entity.crawler().position();
-            double range = TremorConfig.COMMON.hearingMaxDistance.get() + RANGE_MARGIN;
-            if (pos.distanceToSqr(c.x(), c.y(), c.z()) <= range * range) {
+    private static boolean wanted(ServerLevel level, List<TremorRuntime> runtimes, net.minecraft.world.phys.Vec3 pos) {
+        double range = TremorConfig.COMMON.hearingMaxDistance.get() + RANGE_MARGIN;
+        for (TremorRuntime runtime : runtimes) {
+            TremorEntity entity = runtime.entity();
+            Vec3 c = entity == null ? null : entity.crawler().position();
+            if (c != null && pos.distanceToSqr(c.x(), c.y(), c.z()) <= range * range) {
                 return true;
             }
         }

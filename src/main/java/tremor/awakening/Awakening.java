@@ -123,6 +123,11 @@ final class Awakening {
     final boolean natural;
     final Vec3 center;
     final double radius;
+    /**
+     * Instance number of its entity, taken by it ({@link AwakeningManager}), which goes deep at the end; 0 while it
+     * has none.
+     */
+    int entity;
     /** Game time it started at. */
     final long startTime;
 
@@ -438,10 +443,10 @@ final class Awakening {
             level.playSound(null, focus.x(), focus.y(), focus.z(), TremorSounds.SIGH.get(), SoundSource.HOSTILE,
                     TremorConfig.COMMON.transitionVolume.get().floatValue(), 1);
         }
-        boolean entity = TremorManager.goDeep(level);
+        boolean entity = TremorManager.goDeep(level, this.entity, center.x(), center.z());
         Tremor.LOGGER.info(String.format(Locale.ROOT, "Awakening #%d in %s ended (%s) after %.1f s: %s; %s, no "
                         + "natural spawn for %d s", id, level.dimension().location(), why.id(),
-                seconds(now - startTime), detail, entity ? "the tremor went deep" : "no tremor there",
+                seconds(now - startTime), detail, entity ? "tremor #" + this.entity + " went deep" : "no tremor",
                 TremorConfig.COMMON.awakening.cooldownSeconds.get()));
     }
 

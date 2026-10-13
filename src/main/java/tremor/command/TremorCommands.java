@@ -45,10 +45,12 @@ import java.util.Locale;
 import java.util.UUID;
 
 /**
- * {@code /tremor ...} debug commands (SPEC 14.1), op level 2:
+ * {@code /tremor ...} debug commands (SPEC 14.1), op level 2. A dimension may have several entities (one for each part
+ * of the world where players are); the commands act on the one nearest to where they run:
  * <ul>
- *   <li>{@code spawn [pos]}, {@code spawn natural} (a natural spawn for the player at once, SPEC 11),
- *   {@code despawn}, {@code goto [pos]} (without a position: the block looked at, else the feet; heard sounds do
+ *   <li>{@code spawn [pos]} (in place of an entity within {@code spawn.spacing} of the place, else one more),
+ *   {@code spawn natural} (a natural spawn for the player at once, SPEC 11), {@code despawn [all]},
+ *   {@code goto [pos]} (without a position: the block looked at, else the feet; heard sounds do
  *   not replace it until it is reached), {@code stop} (forget the target, goto or sound), {@code info} (also the
  *   Awakening of the dimension, and the natural spawn pause after one, with or without an entity);</li>
  *   <li>{@code set} lists the parameters, {@code set <param> <value>} overrides one for the entity,
@@ -94,7 +96,8 @@ public final class TremorCommands {
                         .then(Commands.literal("natural").executes(TremorCommands::spawnNatural))
                         .then(Commands.argument("pos", BlockPosArgument.blockPos())
                                 .executes(ctx -> spawn(ctx, BlockPosArgument.getBlockPos(ctx, "pos")))))
-                .then(Commands.literal("despawn").executes(TremorCommands::despawn))
+                .then(Commands.literal("despawn").executes(ctx -> despawn(ctx, false))
+                        .then(Commands.literal("all").executes(ctx -> despawn(ctx, true))))
                 .then(Commands.literal("goto")
                         .executes(ctx -> goTo(ctx, null))
                         .then(Commands.argument("pos", BlockPosArgument.blockPos())
@@ -155,8 +158,10 @@ public final class TremorCommands {
         // Only whoever ran it is told (no broadcast to other operators); the server log keeps it.
         tremor.Tremor.LOGGER.info("{} spawned tremor #{} in {} at {}", source.getTextName(), entity.instance(),
                 source.getLevel().dimension().location(), voxel(VoxelPos.containing(crawler.position())));
-        source.sendSuccess(() -> Component.literal(String.format(Locale.ROOT, "Tremor #%d spawned at %s, normal %s",
-                entity.instance(), voxel(VoxelPos.containing(crawler.position())), vec(crawler.normal()))), false);
+        int count = TremorManager.runtimes(source.getLevel()).size();
+        source.sendSuccess(() -> Component.literal(String.format(Locale.ROOT, "Tremor #%d spawned at %s, normal %s; "
+                        + "%d in the dimension", entity.instance(), voxel(VoxelPos.containing(crawler.position())),
+                vec(crawler.normal()), count)), false);
         return entity.instance();
     }
 
@@ -172,11 +177,22 @@ public final class TremorCommands {
         return outcome.entity().instance();
     }
 
-    private static int despawn(CommandContext<CommandSourceStack> ctx) throws CommandSyntaxException {
-        if (!TremorManager.despawn(ctx.getSource().getLevel())) {
-            throw NO_ENTITY.create();
+    /** {@code /tremor despawn [all]}: the nearest entity, or every one of the dimension. */
+    private static int despawn(CommandContext<CommandSourceStack> ctx, boolean all) throws CommandSyntaxException {
+        CommandSourceStack source = ctx.getSource();
+        if (all) {
+            int removed = TremorManager.despawnAll(source.getLevel());
+            if (removed == 0) {
+                throw NO_ENTITY.create();
+            }
+            source.sendSuccess(() -> Component.literal(removed + (removed == 1 ? " tremor" : " tremors") + " removed"),
+                    false);
+            return removed;
         }
-        ctx.getSource().sendSuccess(() -> Component.literal("Tremor removed"), false);
+        TremorRuntime runtime = requireRuntime(source);
+        int instance = runtime.entity().instance();
+        TremorManager.despawn(runtime);
+        source.sendSuccess(() -> Component.literal("Tremor #" + instance + " removed"), false);
         return 1;
     }
 
@@ -252,10 +268,12 @@ public final class TremorCommands {
      */
     private static int info(CommandContext<CommandSourceStack> ctx) throws CommandSyntaxException {
         CommandSourceStack source = ctx.getSource();
-        String described = AwakeningManager.describe(source.getLevel());
+        String described = AwakeningManager.describe(source.getLevel(), source.getPosition().x,
+                source.getPosition().z);
         String craters = Craters.describe(source.getLevel());
         String awakening = described == null ? craters : craters == null ? described : described + "\n" + craters;
-        TremorRuntime runtime = TremorManager.runtime(source.getLevel());
+        TremorRuntime runtime = TremorManager.nearest(source.getLevel(), source.getPosition().x,
+                source.getPosition().y, source.getPosition().z);
         if (runtime == null || runtime.entity() == null) {
             if (awakening == null) {
                 throw NO_ENTITY.create();
@@ -317,6 +335,15 @@ public final class TremorCommands {
         if (runtime.error() != null) {
             text.append("\nStopped after an error: ").append(runtime.error());
         }
+        for (TremorRuntime other : TremorManager.runtimes(source.getLevel())) {
+            TremorEntity more = other.entity();
+            if (other != runtime && more != null) {
+                Vec3 at = more.crawler().position();
+                text.append(String.format(Locale.ROOT, "\nAlso tremor #%d: %s, %.0f blocks away, at %s",
+                        more.instance(), more.stage().name().toLowerCase(Locale.ROOT),
+                        Math.sqrt(source.getPosition().distanceToSqr(at.x(), at.y(), at.z())), vec(at)));
+            }
+        }
         if (awakening != null) {
             text.append('\n').append(awakening);
         }
@@ -365,8 +392,10 @@ public final class TremorCommands {
         return 1;
     }
 
+    /** The entity nearest to where the command runs (a dimension may have several). */
     private static TremorRuntime requireRuntime(CommandSourceStack source) throws CommandSyntaxException {
-        TremorRuntime runtime = TremorManager.runtime(source.getLevel());
+        TremorRuntime runtime = TremorManager.nearest(source.getLevel(), source.getPosition().x,
+                source.getPosition().y, source.getPosition().z);
         if (runtime == null || runtime.entity() == null) {
             throw NO_ENTITY.create();
         }

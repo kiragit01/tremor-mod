@@ -530,6 +530,8 @@ public final class TremorConfig {
         public final ForgeConfigSpec.IntValue verticalRange;
         public final ForgeConfigSpec.IntValue attempts;
         public final ForgeConfigSpec.IntValue cooldownSeconds;
+        public final ForgeConfigSpec.IntValue spacing;
+        public final ForgeConfigSpec.IntValue maxEntities;
         public final ForgeConfigSpec.IntValue graceSeconds;
         public final ForgeConfigSpec.IntValue protectionRadius;
         public final ForgeConfigSpec.BooleanValue allowPeaceful;
@@ -572,9 +574,17 @@ public final class TremorConfig {
                     .translation(KEY + "spawn.verticalRange").defineInRange("verticalRange", 24, 0, 128);
             attempts = b.comment("Candidate points tried per spawn (each costs a column scan and a line of sight)")
                     .translation(KEY + "spawn.attempts").defineInRange("attempts", 48, 1, 1024);
-            cooldownSeconds = b.comment("No natural spawn in a dimension for this long after a naturally spawned",
-                            "entity left it (seconds)")
+            cooldownSeconds = b.comment("No natural spawn within spacing of where a naturally spawned entity left, for",
+                            "this long after (seconds)")
                     .translation(KEY + "spawn.cooldownSeconds").defineInRange("cooldownSeconds", 600, 0, 86400);
+            spacing = b.comment("A dimension can have several entities, one for each part of the world where players",
+                            "are: none appears by itself within this distance (blocks) of another one, nor of where",
+                            "one has just left or gone deep after an Awakening. A command spawn this near another",
+                            "replaces it")
+                    .translation(KEY + "spawn.spacing").defineInRange("spacing", 500, 64, 100000);
+            maxEntities = b.comment("At most this many entities appear by themselves in a dimension at once (1: one",
+                            "for the whole dimension, as before 1.1.0)")
+                    .translation(KEY + "spawn.maxEntities").defineInRange("maxEntities", 4, 1, 64);
             graceSeconds = b.comment("A player's first spawn check comes this long after the player enters the",
                             "dimension: joining, the server starting, changing dimension (seconds)")
                     .translation(KEY + "spawn.graceSeconds").defineInRange("graceSeconds", 60, 0, 3600);
@@ -799,8 +809,8 @@ public final class TremorConfig {
             swallowTicks = b.comment("How long the hill rises under the rooted player before the screen goes dark",
                             "(ticks)")
                     .translation(KEY + "awakening.swallowTicks").defineInRange("swallowTicks", 50, 1, 600);
-            cooldownSeconds = b.comment("After an Awakening the entity has gone deep: no natural spawn in the",
-                            "dimension for this long (seconds)")
+            cooldownSeconds = b.comment("After an Awakening the entity has gone deep: no natural spawn within",
+                            "spawn.spacing of it for this long (seconds)")
                     .translation(KEY + "awakening.cooldownSeconds")
                     .defineInRange("cooldownSeconds", 3600, 0, 604800);
             emergeTicks = b.comment("After a victory: how long the hill at the swallow point rises (the first fifth)",
