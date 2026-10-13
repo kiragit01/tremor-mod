@@ -11,15 +11,17 @@ import tremor.core.shape.BumpParams;
 import tremor.network.TremorShapePayload;
 import tremor.network.TremorStatePayload;
 
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Iterator;
+import java.util.List;
 import java.util.Map;
 
 /**
  * Client view of the entities in the current dimension: the latest server snapshots of each (by instance), interpolated
  * for rendering and sound. A dimension may have several entities, {@code spawn.spacing} apart: the client hears of
- * those within the server's sync range, and the one nearest to the camera is the one drawn, heard rustling and shown
- * by the seismograph ({@link #renderState}, {@link #presence}). Main (render) thread only.
+ * those within the server's sync range and draws them all ({@link #renderStates}); the one nearest to the camera is
+ * heard rustling and shown by the seismograph ({@link #presence}). Main (render) thread only.
  * <p>
  * Everything received belongs to the level it arrived in and is dropped when the player logs out or the client
  * level changes (another dimension). Interpolation and its timing: {@link SnapshotPlayback}.
@@ -67,32 +69,33 @@ public final class ClientTremor {
     }
 
     /**
-     * The state this frame of the entity nearest to the camera, or null if there is none (or nothing known yet).
-     * Whether any of it is high enough to be drawn is up to the caller. Call once per frame (the renderer does, also
-     * when it draws nothing): this advances every playback and updates {@link #presence()}.
+     * The state this frame of every entity known (whose shape has come too), the nearest to the camera first; empty if
+     * there is none. Whether any of it is high enough to be drawn is up to the caller. Call once per frame (the
+     * renderer does, also when it draws nothing): this advances every playback and updates {@link #presence()}.
      *
      * @param partialTick partial game tick of the frame
      */
-    public static RenderState renderState(ClientLevel level, float partialTick) {
+    public static List<RenderState> renderStates(ClientLevel level, float partialTick) {
         if (level == null) {
             presence = null;
-            return null;
+            return List.of();
         }
         adopt(level);
         TickRateManager rates = level.tickRateManager();
         boolean running = rates.runsNormally() && !Minecraft.getInstance().isPaused();
-        return nearest(level.getGameTime() + partialTick, rates.tickrate(), running);
+        return states(level.getGameTime() + partialTick, rates.tickrate(), running);
     }
 
     /**
      * Advances every playback to {@code gameTime} (one whose states stopped coming is dropped), sets {@link #presence}
-     * to the entity nearest to the camera and returns its render state (null if there is none, or its shape is not
-     * known).
+     * to the entity nearest to the camera and returns the render states of all whose shape is known, nearest first.
      */
-    private static RenderState nearest(double gameTime, double tickRate, boolean running) {
+    private static List<RenderState> states(double gameTime, double tickRate, boolean running) {
         long nanos = System.nanoTime();
         net.minecraft.world.phys.Vec3 camera = Minecraft.getInstance().gameRenderer.getMainCamera().getPosition();
         Vec3 eye = new Vec3(camera.x, camera.y, camera.z);
+        List<RenderState> states = new ArrayList<>();
+        List<Double> distances = new ArrayList<>();
         SnapshotPlayback.Sample best = null;
         int bestInstance = 0;
         double bestDistance = Double.POSITIVE_INFINITY;
@@ -111,15 +114,20 @@ public final class ClientTremor {
                 best = sample;
                 bestInstance = entry.getKey();
             }
+            BumpParams shape = shapes.get(entry.getKey());
+            if (shape != null) {
+                int at = 0;
+                while (at < distances.size() && distances.get(at) <= distance) {
+                    at++;
+                }
+                distances.add(at, distance);
+                states.add(at, new RenderState(sample.frame(), shape.withAmplitude(sample.amplitude()),
+                        shape.amplitude(), sample.phase(), entry.getKey(), sample.stage(), sample.rippleAge()));
+            }
         }
         presence = best == null ? null : new Presence(best.frame().center(), running ? best.velocity() : Vec3.ZERO,
                 best.amplitude(), best.stage(), bestInstance);
-        BumpParams shape = best == null ? null : shapes.get(bestInstance);
-        if (shape == null) {
-            return null;
-        }
-        return new RenderState(best.frame(), shape.withAmplitude(best.amplitude()), shape.amplitude(), best.phase(),
-                bestInstance, best.stage(), best.rippleAge());
+        return states;
     }
 
     /**
