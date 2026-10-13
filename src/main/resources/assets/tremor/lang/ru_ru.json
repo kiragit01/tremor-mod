@@ -10,6 +10,7 @@
   "tremor.configuration.behavior.depthSpeedFactor": "Скорость на глубине (x)",
   "tremor.configuration.behavior.depthAngerFactor": "Злость на глубине (x)",
   "tremor.configuration.behavior.depthHearingFactor": "Слух на глубине (x)",
+  "tremor.configuration.hollow.playerLight": "Свет вокруг игрока в Изнанке",
   "tremor.configuration.movement.leapDormant": "Прыжок через воздух, спокойна (блоки)",
   "tremor.configuration.movement.leapAlert": "Прыжок через воздух, настороже (блоки)",
   "tremor.configuration.movement.leapHunting": "Прыжок через воздух, охота (блоки)",

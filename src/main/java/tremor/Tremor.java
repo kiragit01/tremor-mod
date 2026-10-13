@@ -62,6 +62,10 @@ public final class Tremor {
         game.addListener(tremor.hollow.HollowDigging::onPlace);
         game.addListener(tremor.hollow.HollowDigging::onPlayerTick);
         game.addListener(tremor.hollow.HollowDigging::onChangedDimension);
+        game.addListener(tremor.hollow.HollowLight::onPlayerTick);
+        game.addListener(tremor.hollow.HollowLight::onChangedDimension);
+        game.addListener(tremor.hollow.HollowLight::onPlayerLoggedOut);
+        game.addListener(tremor.hollow.HollowLight::onServerStopped);
 
         game.addListener(TremorManager::onLevelLoad);
         game.addListener(TremorManager::onLevelUnload);
