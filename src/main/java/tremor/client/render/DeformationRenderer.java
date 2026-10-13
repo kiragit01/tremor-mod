@@ -54,8 +54,9 @@ import java.util.Map;
 
 /**
  * Additive client-side deformation (SPEC 6.3): the world is never touched; instead copies of the affected surface
- * blocks are drawn pushed out along the surface normal, following the entity's bump as {@link ClientTremor}
- * interpolates it, and, while one runs, the ground ripple of an ALERT freeze (SPEC 8) around it ({@link HeightField}),
+ * blocks are drawn pushed out along the surface normal, following the bump of every entity {@link ClientTremor} knows
+ * of as it interpolates them (a dimension may have several; where two cover a voxel their heights add), and, while one
+ * runs, the ground ripple of an ALERT freeze (SPEC 8) around it ({@link HeightField}),
  * fading with the bump ({@link Ripple#visibility}). While an Awakening runs in the real world (SPEC 9, phase 1), the
  * ground of its whole zone moves too ({@link AwakeningGround}): it breathes, rings run out from steps, a hill rises
  * under the swallowed player, and after a victory in the hollow the hill the player comes out of rises and settles;
@@ -192,8 +193,12 @@ public final class DeformationRenderer {
 
     /** Columns (baked or not yet) by packed position, reused across collections, the bump's and the zone's alike. */
     private static final Map<Long, Column> columns = new HashMap<>();
-    /** Columns of the bump's last collection. */
-    private static final List<Column> active = new ArrayList<>();
+    /** The bump of each entity known to the client, by its instance: its collection. */
+    private static final Map<Integer, Bump> bumps = new HashMap<>();
+    /** This frame's bumps with something to draw, nearest first; a column's {@link Column#bumps} bits are their places. */
+    private static final List<Bump> frameBumps = new ArrayList<>();
+    /** Bumps drawn at once at most (the bits of {@link Column#bumps}). */
+    private static final int MAX_BUMPS = 64;
     /** This frame's columns with a height: the bump's, then the zone's in view not already among them. */
     private static final List<Column> frameColumns = new ArrayList<>();
     /** This frame's columns with a visible height that are not baked yet, then those baked ahead. */
@@ -214,12 +219,6 @@ public final class DeformationRenderer {
 
     private static ClientLevel boundLevel;
     private static boolean modelsChanged;
-    private static boolean collected;
-    private static boolean recollect;
-    private static double collectX, collectY, collectZ;
-    private static Vec3 collectNormal = Vec3.UNIT_Y;
-    private static double collectRadius;
-    private static long collectTick;
     private static long nextValidateTick;
     private static long nextLightTick;
     /** Where the next {@link #validate} of a large drawn set starts. */
@@ -246,6 +245,20 @@ public final class DeformationRenderer {
     private static int frameVertices;
     private static long pendingNanos;
 
+    /** The voxels one entity's bump may raise, as last collected, and where and when they were. */
+    private static final class Bump {
+        /** Columns of the last collection. */
+        final List<Column> active = new ArrayList<>();
+        boolean collected;
+        boolean recollect;
+        double collectX, collectY, collectZ;
+        Vec3 collectNormal = Vec3.UNIT_Y;
+        double collectRadius;
+        long collectTick;
+        /** This frame's height field; null while it draws nothing. */
+        HeightField field;
+    }
+
     private DeformationRenderer() {
     }
 
@@ -257,7 +270,8 @@ public final class DeformationRenderer {
     /** Drops everything that references the old level. */
     public static void reset() {
         columns.clear();
-        active.clear();
+        bumps.clear();
+        frameBumps.clear();
         frameColumns.clear();
         pending.clear();
         drawn.clear();
@@ -268,7 +282,6 @@ public final class DeformationRenderer {
         HollowGround.reset();
         source.clear();
         boundLevel = null;
-        collected = false;
         frameReady = false;
         probe.set(null, 0, 0);
     }
@@ -329,9 +342,8 @@ public final class DeformationRenderer {
         if (modelsChanged) {
             modelsChanged = false;
             columns.clear();
-            active.clear();
+            bumps.clear();
             zone.clear();
-            collected = false;
         }
         long tick = level.getGameTime();
         if (due(tick, nextEvictTick, EVICT_INTERVAL)) {
@@ -345,22 +357,30 @@ public final class DeformationRenderer {
         camX = cam.x;
         camY = cam.y;
         camZ = cam.z;
-        HeightField bump = bump(level, partialTick, tick);
+        bumps(level, partialTick, tick);
         GroundField ground = ground(level, (double) tick + partialTick, partialTick, tick);
-        if (bump == null && ground == null) {
+        if (frameBumps.isEmpty() && ground == null) {
             return false;
         }
 
         frameStamp++;
         frameColumns.clear();
-        if (bump != null) {
-            for (int i = 0, n = active.size(); i < n; i++) {
-                Column col = active.get(i);
-                col.stamp = frameStamp;
-                col.inBump = true;
-                col.inZone = false;
-                col.h = bump.at(col.cx, col.cy, col.cz);
-                frameColumns.add(col);
+        for (int b = 0; b < frameBumps.size(); b++) {
+            Bump bump = frameBumps.get(b);
+            for (int i = 0, n = bump.active.size(); i < n; i++) {
+                Column col = bump.active.get(i);
+                double h = bump.field.at(col.cx, col.cy, col.cz);
+                if (col.stamp != frameStamp) {
+                    col.stamp = frameStamp;
+                    col.inBump = true;
+                    col.inZone = false;
+                    col.bumps = 1L << b;
+                    col.h = h;
+                    frameColumns.add(col);
+                } else {
+                    col.bumps |= 1L << b; // under two bumps at once: the heights add
+                    col.h += h;
+                }
             }
         }
         if (ground != null) {
@@ -373,14 +393,20 @@ public final class DeformationRenderer {
             }
         }
         bakePending(level, ground);
-        boolean bumpRipple = bump != null && bump.ripple() != null;
+        boolean bumpRipple = false;
+        for (Bump bump : frameBumps) {
+            bumpRipple |= bump.field.ripple() != null;
+        }
         boolean rings = ground != null && !ground.rings().isEmpty();
         boolean heaves = ground != null && !ground.heaves().isEmpty();
         if ((bumpRipple || rings || heaves) && tick != dustTick && TremorConfig.CLIENT.drawDust()) {
             // Once per game tick (per frame below 20 fps); none while the game time stands still, like the ripples.
             dustTick = tick;
-            if (bumpRipple) {
-                spawnDust(level, bump.frame(), bump.ripple(), bump.rippleAge());
+            for (Bump bump : frameBumps) {
+                HeightField field = bump.field;
+                if (field.ripple() != null) {
+                    spawnDust(level, bump.active, field.frame(), field.ripple(), field.rippleAge());
+                }
             }
             if (rings) {
                 spawnRingDust(level, ground);
@@ -414,7 +440,7 @@ public final class DeformationRenderer {
         }
         if (frameWarp) {
             for (int i = 0, n = drawn.size(); i < n; i++) {
-                warpCorners(drawn.get(i), bump, ground);
+                warpCorners(drawn.get(i), ground);
             }
         }
         if (due(tick, nextValidateTick, VALIDATE_INTERVAL)) {
@@ -426,14 +452,35 @@ public final class DeformationRenderer {
     }
 
     /**
-     * The entity's bump this frame, with the ground ripple of an ALERT freeze while one runs, its voxels collected;
-     * null if there is no entity, nothing of it is high enough to draw, or it is too far from the camera.
+     * This frame's bumps ({@link #frameBumps}): of every entity known, the bump with the ground ripple of an ALERT
+     * freeze while one runs, its voxels collected; not one that has nothing high enough to draw or is too far from the
+     * camera. The collections of the entities gone are dropped.
      */
-    private static HeightField bump(ClientLevel level, float partialTick, long tick) {
-        ClientTremor.RenderState state = ClientTremor.renderState(level, partialTick);
-        if (state == null) {
-            return null;
+    private static void bumps(ClientLevel level, float partialTick, long tick) {
+        frameBumps.clear();
+        List<ClientTremor.RenderState> states = ClientTremor.renderStates(level, partialTick);
+        java.util.Set<Integer> known = new java.util.HashSet<>();
+        for (ClientTremor.RenderState state : states) {
+            known.add(state.instance());
+            if (frameBumps.size() < MAX_BUMPS) {
+                Bump bump = bumps.computeIfAbsent(state.instance(), instance -> new Bump());
+                bump.field = bump(level, state, bump, frameBumps.isEmpty(), tick);
+                if (bump.field != null) {
+                    frameBumps.add(bump);
+                }
+            }
         }
+        bumps.keySet().retainAll(known);
+    }
+
+    /**
+     * The bump of {@code state} this frame, with the ground ripple of an ALERT freeze while one runs, its voxels
+     * collected into {@code bump}; null if nothing of it is high enough to draw, or it is too far from the camera.
+     *
+     * @param nearest the entity nearest to the camera, whose centre the frame statistics follow
+     */
+    private static HeightField bump(ClientLevel level, ClientTremor.RenderState state, Bump bump, boolean nearest,
+                                    long tick) {
         BumpFrame frame = state.frame();
         BumpParams params = state.params();
         RippleParams ripple = runningRipple(state.rippleAgeSeconds(),
@@ -442,7 +489,9 @@ public final class DeformationRenderer {
             return null; // dived (or inverted), and its ripple is gone with it, or there is none
         }
         Vec3 c = frame.center();
-        RenderStats.recordCenter(c.x(), c.y(), c.z(), System.nanoTime());
+        if (nearest) {
+            RenderStats.recordCenter(c.x(), c.y(), c.z(), System.nanoTime());
+        }
         double range = TremorConfig.CLIENT.deformationDistance();
         double ox = c.x() - camX, oy = c.y() - camY, oz = c.z() - camZ;
         if (ox * ox + oy * oy + oz * oz > range * range) {
@@ -450,9 +499,9 @@ public final class DeformationRenderer {
         }
         SurfaceCollector.Options options = SurfaceCollector.Options.forParams(params);
         double radius = RenderReach.collectRadius(params, ripple, REACH_SLACK, options.normalBand(), RADIUS_STEP);
-        if (needsCollect(frame, radius, tick)) {
-            collect(level, frame, new SurfaceCollector.Options(radius, options.normalBand(), options.minNormalDot()),
-                    tick);
+        if (needsCollect(bump, frame, radius, tick)) {
+            collect(level, bump, frame, new SurfaceCollector.Options(radius, options.normalBand(),
+                    options.minNormalDot()), tick);
         }
         return new HeightField(params, frame, state.timeSeconds(), TremorConfig.CLIENT.drawJitter(), ripple,
                 state.rippleAgeSeconds());
@@ -540,12 +589,16 @@ public final class DeformationRenderer {
     }
 
     /** Warp style: the height at the 8 corners of the voxel, from the fields that cover it this frame. */
-    private static void warpCorners(Column col, HeightField bump, GroundField ground) {
+    private static void warpCorners(Column col, GroundField ground) {
         for (int k = 0; k < 8; k++) {
             double x = col.x + (k & 1), y = col.y + (k >> 1 & 1), z = col.z + (k >> 2 & 1);
             double h = 0;
             if (col.inBump) {
-                h += bump.at(x, y, z);
+                for (int b = 0; b < frameBumps.size(); b++) {
+                    if ((col.bumps & 1L << b) != 0) {
+                        h += frameBumps.get(b).field.at(x, y, z);
+                    }
+                }
             }
             if (col.inZone) {
                 h += ground.at(x, y, z);
@@ -563,7 +616,8 @@ public final class DeformationRenderer {
      * rings read where raised copies of a block over the same block show only as thin seams: {@link RippleDust#count}
      * particles on the open faces of random collected voxels on the front circle ({@link #kickUpDust}).
      */
-    private static void spawnDust(ClientLevel level, BumpFrame frame, RippleParams ripple, double ageSeconds) {
+    private static void spawnDust(ClientLevel level, List<Column> active, BumpFrame frame, RippleParams ripple,
+                                  double ageSeconds) {
         int count = RippleDust.count(ripple, ageSeconds, dustShare(), level.random.nextDouble());
         if (count == 0) {
             return;
@@ -703,40 +757,42 @@ public final class DeformationRenderer {
     }
 
     /** @param radius collection radius this frame needs, see {@link RenderReach#collectRadius} */
-    private static boolean needsCollect(BumpFrame frame, double radius, long tick) {
-        if (!collected || recollect || tick - collectTick >= RECOLLECT_INTERVAL || tick < collectTick) {
+    private static boolean needsCollect(Bump bump, BumpFrame frame, double radius, long tick) {
+        if (!bump.collected || bump.recollect || tick - bump.collectTick >= RECOLLECT_INTERVAL
+                || tick < bump.collectTick) {
             return true;
         }
         Vec3 c = frame.center();
-        double dx = c.x() - collectX, dy = c.y() - collectY, dz = c.z() - collectZ;
+        double dx = c.x() - bump.collectX, dy = c.y() - bump.collectY, dz = c.z() - bump.collectZ;
         return dx * dx + dy * dy + dz * dz > RECOLLECT_DISTANCE * RECOLLECT_DISTANCE
-                || frame.normal().dot(collectNormal) < RECOLLECT_NORMAL_COS
-                || radius > collectRadius || radius < collectRadius - RADIUS_SHRINK;
+                || frame.normal().dot(bump.collectNormal) < RECOLLECT_NORMAL_COS
+                || radius > bump.collectRadius || radius < bump.collectRadius - RADIUS_SHRINK;
     }
 
     /**
      * Finds the voxels the bump may raise now. New ones are not baked here but once they rise above the threshold
      * ({@link #bakePending}).
      */
-    private static void collect(ClientLevel level, BumpFrame frame, SurfaceCollector.Options options, long tick) {
+    private static void collect(ClientLevel level, Bump bump, BumpFrame frame, SurfaceCollector.Options options,
+                                long tick) {
         source.begin(level);
         voxels.setTime(tick);
-        refreshSections(frame.center(), options.radius(), tick);
+        refreshSections(bump, frame.center(), options.radius(), tick);
         List<SurfacePoint> points = SurfaceCollector.collect(voxels, frame, options);
 
-        active.clear();
+        bump.active.clear();
         for (SurfacePoint p : points) {
-            active.add(column(p, tick));
+            bump.active.add(column(p, tick));
         }
         Vec3 c = frame.center();
-        collectX = c.x();
-        collectY = c.y();
-        collectZ = c.z();
-        collectNormal = frame.normal();
-        collectRadius = options.radius();
-        collectTick = tick;
-        collected = true;
-        recollect = false;
+        bump.collectX = c.x();
+        bump.collectY = c.y();
+        bump.collectZ = c.z();
+        bump.collectNormal = frame.normal();
+        bump.collectRadius = options.radius();
+        bump.collectTick = tick;
+        bump.collected = true;
+        bump.recollect = false;
     }
 
     /** The column of a collected surface voxel (the bump's or the zone's), made or refreshed, used at {@code tick}. */
@@ -758,9 +814,9 @@ public final class DeformationRenderer {
 
     /**
      * Keeps the cached terrain around the bump fresh: sections older than {@link #SECTION_MAX_AGE} are re-read, a share
-     * of them per collection; sections the bump has left are dropped once they are that old.
+     * of them per collection; sections every bump has left are dropped once they are that old.
      */
-    private static void refreshSections(Vec3 center, double radius, long tick) {
+    private static void refreshSections(Bump bump, Vec3 center, double radius, long tick) {
         int reach = (int) Math.ceil(radius) + NORMAL_REACH + 1;
         int bx = (int) Math.floor(center.x()), by = (int) Math.floor(center.y()), bz = (int) Math.floor(center.z());
         int x0 = bx - reach >> 4, x1 = bx + reach >> 4;
@@ -785,6 +841,9 @@ public final class DeformationRenderer {
             long key = entry.getKey();
             int sx = VoxelPos.x(key), sy = VoxelPos.y(key), sz = VoxelPos.z(key);
             boolean inside = sx >= x0 && sx <= x1 && sy >= y0 && sy <= y1 && sz >= z0 && sz <= z1;
+            if (!inside && usedByAnother(bump, sx, sy, sz)) {
+                continue; // in use around another bump: its own collections keep it fresh
+            }
             if (!inside) {
                 voxels.invalidate(sx << 4, sy << 4, sz << 4);
                 it.remove();
@@ -795,6 +854,22 @@ public final class DeformationRenderer {
             }
         }
         voxels.expire(SECTION_EXPIRE);
+    }
+
+    /** Whether the section lies around another bump's last collection, as {@link #refreshSections} spans them. */
+    private static boolean usedByAnother(Bump bump, int sx, int sy, int sz) {
+        for (Bump other : bumps.values()) {
+            if (other != bump && other.collected) {
+                int reach = (int) Math.ceil(other.collectRadius) + NORMAL_REACH + 1;
+                int bx = (int) Math.floor(other.collectX), by = (int) Math.floor(other.collectY);
+                int bz = (int) Math.floor(other.collectZ);
+                if (sx >= bx - reach >> 4 && sx <= bx + reach >> 4 && sy >= by - reach >> 4 && sy <= by + reach >> 4
+                        && sz >= bz - reach >> 4 && sz <= bz + reach >> 4) {
+                    return true;
+                }
+            }
+        }
+        return false;
     }
 
     /**
@@ -866,7 +941,9 @@ public final class DeformationRenderer {
                 // The surface around it changed too: re-read the terrain there and collect again.
                 voxels.invalidateBox(col.x - NORMAL_REACH, col.y - NORMAL_REACH, col.z - NORMAL_REACH,
                         col.x + NORMAL_REACH, col.y + NORMAL_REACH, col.z + NORMAL_REACH);
-                recollect = true;
+                for (Bump bump : bumps.values()) {
+                    bump.recollect = true;
+                }
                 if (col.inZone) {
                     zone.requestRescan();
                 }

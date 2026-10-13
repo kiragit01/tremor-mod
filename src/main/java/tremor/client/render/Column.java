@@ -37,6 +37,8 @@ final class Column {
     int stamp;
     /** Whether the height of the bump and that of the Awakening zone count for the column in that frame. */
     boolean inBump, inZone;
+    /** Which of this frame's bumps cover it (while {@link #inBump}), by their place in the frame: bit 0 the first. */
+    long bumps;
     double h;
     /** h at the 8 corners of the voxel, for the warp style. Index: x + 2y + 4z. */
     final double[] corners = new double[8];
