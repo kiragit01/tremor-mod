@@ -13,6 +13,7 @@ that crawls through grass, stone and the walls of caves, rising and falling as i
 - When it grows wary it freezes and sends rings of ripples across the ground: it is listening. Move now, and it knows
   where you are.
 - Hunting, it is fast. Angered to the peak, it does not stop until it reaches you, or loses you.
+- The deeper you dig, the fiercer it gets: deep underground it hears better, angers faster and moves quicker.
 
 ## The Awakening
 
