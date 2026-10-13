@@ -1,0 +1,187 @@
+package tremor.debug;
+
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Locale;
+import java.util.Map;
+import java.util.UUID;
+
+import net.minecraft.core.BlockPos;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.level.Level;
+import net.neoforged.neoforge.event.entity.player.PlayerEvent;
+import net.neoforged.neoforge.event.server.ServerStoppedEvent;
+import net.neoforged.neoforge.event.tick.PlayerTickEvent;
+import net.neoforged.neoforge.network.PacketDistributor;
+import tremor.awakening.AwakeningManager;
+import tremor.awakening.Craters;
+import tremor.config.TremorConfig;
+import tremor.core.behavior.DespawnClock;
+import tremor.core.math.Vec3;
+import tremor.core.motion.Crawler;
+import tremor.entity.TremorEntity;
+import tremor.entity.TremorManager;
+import tremor.entity.TremorRuntime;
+import tremor.hearing.Perception;
+import tremor.hearing.Vibration;
+import tremor.item.TremorItems;
+import tremor.network.TremorDebugPayload;
+import tremor.spawn.NaturalSpawner;
+
+/**
+ * The debug probe ({@code tremor:debug_probe}, SPEC 14.1): while an operator holds it (either hand), a few lines at
+ * the top left of the screen tell what the tremor of the dimension is up to ({@code tremor.client.DebugProbeHud}): its
+ * stage and anger, where it is and how fast it goes, the depth factors where it is (the deeper, the fiercer), what it
+ * does and what it heard last, how it heard the holder's latest sound (loudness, footing, distance, how loud at it,
+ * the anger that added), whether it despawns, the natural spawn for the holder without one, and the Awakening. Sent
+ * every {@value #INTERVAL} ticks while held; holding it changes nothing. Operators only (permission level 2), like the
+ * {@code /tremor} commands; it is in the operator tab of the creative inventory.
+ */
+public final class DebugProbe {
+    /** Ticks between two updates of the lines. */
+    private static final int INTERVAL = 5;
+    /** How long the holder's latest sound stays on the probe (ticks). */
+    private static final int OWN_SOUND_TICKS = 200;
+    /** Longest the behaviour line gets (characters). */
+    private static final int BEHAVIOUR_LENGTH = 110;
+    /** The latest sound of each holder the entity evaluated. */
+    private static final Map<UUID, Sound> SOUNDS = new HashMap<>();
+
+    private record Sound(long time, Vibration vibration, Perception perception) {
+    }
+
+    private DebugProbe() {
+    }
+
+    /** Whether {@code player} holds the probe in either hand. */
+    public static boolean holding(Player player) {
+        return player.getMainHandItem().is(TremorItems.DEBUG_PROBE.get())
+                || player.getOffhandItem().is(TremorItems.DEBUG_PROBE.get());
+    }
+
+    /** Whether {@code player} may use it: an operator (level 2), as for the commands. */
+    private static boolean allowed(ServerPlayer player) {
+        return player.hasPermissions(2);
+    }
+
+    /** The entity evaluated a sound of {@code player} (null: of nobody's); kept for a holder of the probe. */
+    public static void heard(Player player, Vibration vibration, Perception perception) {
+        if (player instanceof ServerPlayer server && holding(server)) {
+            SOUNDS.put(server.getUUID(), new Sound(server.level().getGameTime(), vibration, perception));
+        }
+    }
+
+    /** Game bus: the lines to a holder, every {@value #INTERVAL} ticks. */
+    public static void onPlayerTick(PlayerTickEvent.Post event) {
+        if (!(event.getEntity() instanceof ServerPlayer player) || player.tickCount % INTERVAL != 0) {
+            return;
+        }
+        if (!holding(player)) {
+            SOUNDS.remove(player.getUUID());
+        } else if (allowed(player)) {
+            PacketDistributor.sendToPlayer(player, new TremorDebugPayload(lines(player)));
+        }
+    }
+
+    public static void onPlayerLoggedOut(PlayerEvent.PlayerLoggedOutEvent event) {
+        SOUNDS.remove(event.getEntity().getUUID());
+    }
+
+    public static void onServerStopped(ServerStoppedEvent event) {
+        SOUNDS.clear();
+    }
+
+    /** What the probe shows {@code player}. */
+    static List<String> lines(ServerPlayer player) {
+        ServerLevel level = player.serverLevel();
+        long now = level.getGameTime();
+        List<String> lines = new ArrayList<>();
+        TremorRuntime runtime = TremorManager.runtime(level);
+        TremorEntity entity = runtime == null ? null : runtime.entity();
+        if (entity == null) {
+            lines.add("No tremor in " + level.dimension().location());
+            lines.add(NaturalSpawner.describe(player));
+        } else {
+            entity(lines, player, runtime, entity, now);
+        }
+        Sound sound = SOUNDS.get(player.getUUID());
+        if (sound != null && now - sound.time() <= OWN_SOUND_TICKS) {
+            own(lines, sound, now);
+        }
+        String awakening = AwakeningManager.describe(level);
+        String craters = Craters.describe(level);
+        for (String text : new String[]{awakening, craters}) {
+            if (text != null) {
+                lines.addAll(List.of(text.split("\n")));
+            }
+        }
+        return lines;
+    }
+
+    private static void entity(List<String> lines, ServerPlayer player, TremorRuntime runtime, TremorEntity entity,
+                               long now) {
+        TremorConfig.Common config = TremorConfig.COMMON;
+        ServerLevel level = player.serverLevel();
+        Crawler crawler = entity.crawler();
+        Vec3 at = crawler.position();
+        lines.add(String.format(Locale.ROOT, "Tremor #%d: %s, anger %.1f of %.0f%s%s%s%s", entity.instance(),
+                entity.stage().name().toLowerCase(Locale.ROOT), entity.anger(), TremorEntity.MAX_ANGER,
+                runtime.listening() ? ", listening" : "", entity.frenzy() ? ", frenzy" : "",
+                entity.aiEnabled() ? "" : ", ai off", runtime.isPaused() ? ", paused (not loaded)" : ""));
+        lines.add(String.format(Locale.ROOT, "%.1f blocks from you, at %d %d %d%s; speed %.2f of %.2f b/s",
+                Math.sqrt(player.distanceToSqr(at.x(), at.y(), at.z())), floor(at.x()), floor(at.y()),
+                floor(at.z()), crawler.diving() ? ", diving" : "", crawler.speed(), runtime.cruiseSpeed()));
+        if (level.dimension() == Level.NETHER) {
+            lines.add("Depth: no part in the Nether (its own factors)");
+        } else {
+            double share = tremor.core.behavior.Depth.share(at.y(), config.depthShallowY.get(),
+                    config.depthDeepY.get());
+            lines.add(String.format(Locale.ROOT, "Depth at y %.0f: %.0f%% (hearing ×%.2f, anger ×%.2f, speed ×%.2f)",
+                    at.y(), share * 100, config.depth(level, at.y(), config.depthHearingFactor),
+                    config.depth(level, at.y(), config.depthAngerFactor),
+                    config.depth(level, at.y(), config.depthSpeedFactor)));
+        }
+        String behaviour = runtime.behavior();
+        lines.add("Does: " + (behaviour.length() > BEHAVIOUR_LENGTH
+                ? behaviour.substring(0, BEHAVIOUR_LENGTH - 3) + "..." : behaviour));
+        BlockPos target = entity.target();
+        lines.add("Target: " + (target == null ? "none" : target.toShortString() + " ("
+                + entity.targetKind().name().toLowerCase(Locale.ROOT) + ")"));
+        TremorEntity.Heard heard = entity.lastHeard();
+        lines.add(heard == null ? "Heard: nothing yet" : String.format(Locale.ROOT,
+                "Heard: %s at %d %d %d, %.3f loud, %.1f s ago", heard.event(), floor(heard.position().x()),
+                floor(heard.position().y()), floor(heard.position().z()), heard.perceived(),
+                (now - heard.gameTime()) / 20.0));
+        if (entity.natural()) {
+            DespawnClock clock = entity.despawnClock();
+            lines.add(String.format(Locale.ROOT, "Natural%s: no player near %.0f of %.0f s, quiet %.0f of %.0f s",
+                    entity.leaving() ? ", leaving" : "", clock.farSeconds(), config.despawnFarSeconds.get(),
+                    clock.quietSeconds(), config.despawnQuietSeconds.get()));
+        } else {
+            lines.add("Spawned by a command: does not despawn by itself");
+        }
+    }
+
+    /** How the entity heard the holder's latest sound. */
+    private static void own(List<String> lines, Sound sound, long now) {
+        Vibration vibration = sound.vibration();
+        Perception perception = sound.perception();
+        lines.add(String.format(Locale.ROOT, "Your %s %.1f s ago: loudness %.1f%s, footing %.2f, %.1f blocks",
+                vibration.event(), (now - sound.time()) / 20.0, vibration.loudness(),
+                vibration.note() == null ? "" : " (" + vibration.note() + ")", vibration.footing(),
+                perception.distance()));
+        double threshold = TremorConfig.COMMON.hearingParams().threshold();
+        lines.add(perception.heard()
+                ? String.format(Locale.ROOT, "  heard %.3f loud (threshold %.3f): anger %+.2f, %s",
+                perception.perceived(), threshold, perception.angerAdded(), perception.reaction())
+                : String.format(Locale.ROOT, "  %.3f loud: not heard (threshold %.3f)", perception.perceived(),
+                threshold));
+    }
+
+    private static int floor(double value) {
+        return (int) Math.floor(value);
+    }
+}

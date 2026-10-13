@@ -196,6 +196,24 @@ public final class NaturalSpawner {
                 (long) TremorConfig.COMMON.awakening.cooldownSeconds.get() * TICKS_PER_SECOND);
     }
 
+    /**
+     * For the debug probe ({@code tremor.debug.DebugProbe}): whether the natural spawn checks of {@code player} roll
+     * now and at what chance, or why not.
+     */
+    public static String describe(ServerPlayer player) {
+        ServerLevel level = player.serverLevel();
+        if (!allowed(level)) {
+            return "Natural spawn: off in this dimension";
+        }
+        String skipped = skipReason(level, player, level.getGameTime());
+        if (skipped != null) {
+            return "Natural spawn: none (" + skipped + ")";
+        }
+        SpawnRules.Conditions conditions = conditions(level, player);
+        return String.format(Locale.ROOT, "Natural spawn: chance %.3f every %d s (%s)", chance(conditions),
+                TremorConfig.COMMON.spawn.checkIntervalSeconds.get(), names(conditions));
+    }
+
     /** One due check of a player at {@code now}; {@code previous} is where it was at the last one (or null). */
     private static void check(ServerLevel level, ServerPlayer player, Vec3 feet, Vec3 previous, long now) {
         String skipped = skipReason(level, player, now);

@@ -274,6 +274,7 @@ public final class VibrationListener {
         Perception perception = runtime == null ? null : runtime.hear(vibration);
         if (perception != null) {
             DebugParticles.hearing(level, vibration, perception);
+            tremor.debug.DebugProbe.heard(playerBehind(cause), vibration, perception);
         }
         AwakeningManager.vibration(level, vibration, playerBehind(cause), perception);
         HollowLevels.vibration(level, vibration, playerBehind(cause));
