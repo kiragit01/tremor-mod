@@ -26,8 +26,9 @@ import java.util.UUID;
 /**
  * The frenzy over a dropped shard (the user's wish: a shard thrown on the ground drives the entity mad). A player
  * tosses a {@code tremor:tremor_shard}: the entity of that part of the world (the nearest within
- * {@code spawn.spacing}; or one that rises some {@value #SPAWN_DISTANCE} blocks away if there is none) roars and rushes
- * to the shard, much faster and taller than when HUNTING
+ * {@code spawn.spacing}; or one that rises some {@value #SPAWN_DISTANCE} blocks away if there is none and the
+ * dimension has fewer than {@code spawn.maxEntities}, else the nearest from however far; none if an Awakening has
+ * taken the one near) roars and rushes to the shard, much faster and taller than when HUNTING
  * ({@code items.frenzySpeedFactor}, {@code frenzyAmplitudeFactor}, {@link TremorEntity#frenzy}), its brain idle; it
  * takes the shard in, then rushes on to the player who dropped it, following them; reaching them starts an Awakening
  * with a build-up too short to run from ({@link AwakeningManager#frenzy}). A frenzy that has not reached the player
@@ -70,11 +71,20 @@ public final class Frenzy {
         }
         TremorRuntime runtime = TremorManager.nearest(level, player.getX(), player.getY(), player.getZ());
         TremorEntity entity = runtime == null ? null : runtime.entity();
-        if (entity == null || entity.absorbed() || entity.leaving()
-                || TremorManager.horizontal(entity, player.getX(), player.getZ())
-                > TremorConfig.COMMON.spawn.spacing.get()) {
-            entity = rise(level, player);
-            runtime = entity == null ? null : TremorManager.byInstance(level, entity.instance());
+        boolean near = entity != null && TremorManager.horizontal(entity, player.getX(), player.getZ())
+                <= TremorConfig.COMMON.spawn.spacing.get();
+        if (near && entity.absorbed()) {
+            return; // an Awakening has this part of the world already
+        }
+        if (entity == null || entity.leaving() || !near) {
+            // One leaving near is replaced by the risen one; else a new one only below the cap (it counts, and it
+            // leaves by itself as a natural one does), and at the cap the nearest comes from however far.
+            if (near || TremorManager.runtimes(level).size() < TremorConfig.COMMON.spawn.maxEntities.get()) {
+                entity = rise(level, player);
+                runtime = entity == null ? null : TremorManager.byInstance(level, entity.instance());
+            } else if (entity == null || entity.absorbed() || entity.leaving()) {
+                return;
+            }
         }
         if (entity == null || runtime == null) {
             return;
@@ -179,8 +189,8 @@ public final class Frenzy {
     }
 
     /**
-     * An entity rises some way off the player, to answer the shard (in place of one leaving near there); null if there
-     * is no ground for one.
+     * An entity rises some way off the player, to answer the shard (in place of one leaving near there); it spawned
+     * naturally as far as leaving goes: it despawns by itself. Null if there is no ground for one.
      */
     private static TremorEntity rise(ServerLevel level, ServerPlayer player) {
         double yaw = level.getRandom().nextDouble() * Math.PI * 2;
@@ -188,7 +198,7 @@ public final class Frenzy {
             double a = yaw + attempt * Math.PI / 4;
             BlockPos at = BlockPos.containing(player.getX() + SPAWN_DISTANCE * Math.cos(a), player.getY(),
                     player.getZ() + SPAWN_DISTANCE * Math.sin(a));
-            TremorEntity entity = TremorManager.spawn(level, at, false);
+            TremorEntity entity = TremorManager.spawn(level, at, true);
             if (entity != null) {
                 return entity;
             }
