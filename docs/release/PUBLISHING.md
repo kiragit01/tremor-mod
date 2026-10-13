@@ -2,7 +2,7 @@
 
 Обе площадки на английском: все поля заполняй по-английски. Русский можно добавить блоком в конце полного описания.
 
-Файл мода: `build/libs/tremor-1.0.0.jar` (собрать: `./gradlew build`).
+Файл мода: `build/libs/tremor-neoforge-1.21.1-<версия>.jar` (собрать: `./gradlew build`).
 Иконка: `docs/release/icon-512.png` (512×512).
 Полное описание: `docs/release/description-en.md` (русское — `description-ru.md`).
 
@@ -41,7 +41,7 @@
 | Loaders | `NeoForge` |
 | Game versions | `1.21.1` |
 | Dependencies | нет |
-| Files | `tremor-1.0.0.jar` (primary) |
+| Files | `tremor-neoforge-1.21.1-<версия>.jar` (primary) |
 | Changelog | см. ниже |
 
 Changelog:
@@ -78,7 +78,7 @@ First public release.
 
 | Поле | Значение |
 |---|---|
-| File | `tremor-1.0.0.jar` |
+| File | `tremor-neoforge-1.21.1-<версия>.jar` |
 | Display name | `Tremor 1.0.0` |
 | Release type | `Beta` или `Release` |
 | Game version | `1.21.1` |
