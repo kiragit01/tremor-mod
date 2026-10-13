@@ -83,7 +83,7 @@ public final class AwakeningCommands {
         ctx.getSource().sendSuccess(() -> Component.literal(String.format(Locale.ROOT,
                 "Crater #%d opens at %s: radius %d, depth %d, %d blocks per tick (/tremor info shows it)", id,
                 at.toShortString(), config.craterRadius.get(), config.craterDepth.get(),
-                config.craterBlocksPerTick.get())), true);
+                config.craterBlocksPerTick.get())), false);
         return id;
     }
 
@@ -117,7 +117,7 @@ public final class AwakeningCommands {
             ctx.getSource().sendFailure(Component.literal(refusal.getMessage()));
             return 0;
         }
-        ctx.getSource().sendSuccess(() -> Component.literal(message), true);
+        ctx.getSource().sendSuccess(() -> Component.literal(message), false);
         return 1;
     }
 
@@ -135,7 +135,7 @@ public final class AwakeningCommands {
                 awakening.id, awakening.targetName, awakening.radius, awakening.center.x(), awakening.center.y(),
                 awakening.center.z(), awakening.phaseSeconds(), adventure ? ". Note: " + awakening.targetName
                         + " is in adventure mode, so in the hollow the node cannot be broken nor the ground dug: only "
-                        + "the edge is a way out (a natural Awakening never takes such a player)" : "")), true);
+                        + "the edge is a way out (a natural Awakening never takes such a player)" : "")), false);
         return awakening.id;
     }
 
@@ -146,7 +146,7 @@ public final class AwakeningCommands {
             return 0;
         }
         ctx.getSource().sendSuccess(() -> Component.literal("Awakening #" + awakening.id + " for "
-                + awakening.targetName + " stopped"), true);
+                + awakening.targetName + " stopped"), false);
         return awakening.id;
     }
 
