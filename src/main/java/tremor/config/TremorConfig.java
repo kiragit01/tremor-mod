@@ -625,8 +625,9 @@ public final class TremorConfig {
             maxEvents = b.comment("Events in the hollow at the same time (one player each)")
                     .translation(KEY + "hollow.maxEvents").defineInRange("maxEvents", 8, 1, 64);
             playerLight = b.comment("Light level around a player in the hollow (a torch gives 14): enough to make out the",
-                            "walls next to them without one; 0 for none")
-                    .translation(KEY + "hollow.playerLight").defineInRange("playerLight", 4, 0, 15);
+                            "walls next to them without one; 0 for none. Shader packs show a faint light each their own",
+                            "way, some far darker than vanilla")
+                    .translation(KEY + "hollow.playerLight").defineInRange("playerLight", 3, 0, 15);
             level = new HollowLevel(b);
             b.pop();
         }
