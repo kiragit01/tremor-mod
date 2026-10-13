@@ -399,6 +399,14 @@ public final class TremorRuntime {
         return entity == null ? 0 : mind(entity).motion().maxSpeed();
     }
 
+    /** Another entity came too near: this one gives way to {@code other} ({@link TremorMind#yieldTo}). */
+    void yieldTo(TremorEntity other) {
+        TremorEntity entity = this.entity;
+        if (entity != null) {
+            mind(entity).yieldTo(other.crawler().position(), other.instance());
+        }
+    }
+
     /** Whether the entity listens now (ALERT, a ring under way): it hears louder ({@code alertListenFactor}). */
     public boolean listening() {
         TremorEntity entity = this.entity;

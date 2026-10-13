@@ -532,6 +532,7 @@ public final class TremorConfig {
         public final ForgeConfigSpec.IntValue cooldownSeconds;
         public final ForgeConfigSpec.IntValue spacing;
         public final ForgeConfigSpec.IntValue maxEntities;
+        public final ForgeConfigSpec.IntValue crowdDistance;
         public final ForgeConfigSpec.IntValue graceSeconds;
         public final ForgeConfigSpec.IntValue protectionRadius;
         public final ForgeConfigSpec.BooleanValue allowPeaceful;
@@ -585,6 +586,10 @@ public final class TremorConfig {
             maxEntities = b.comment("At most this many entities appear by themselves in a dimension at once (1: one",
                             "for the whole dimension, as before 1.1.0)")
                     .translation(KEY + "spawn.maxEntities").defineInRange("maxEntities", 4, 1, 64);
+            crowdDistance = b.comment("Two entities that come this near each other (blocks, horizontally) do not stay",
+                            "so: the calmer one gives way, turning away, calming down and sinking into the ground;",
+                            "0 = off")
+                    .translation(KEY + "spawn.crowdDistance").defineInRange("crowdDistance", 100, 0, 10000);
             graceSeconds = b.comment("A player's first spawn check comes this long after the player enters the",
                             "dimension: joining, the server starting, changing dimension (seconds)")
                     .translation(KEY + "spawn.graceSeconds").defineInRange("graceSeconds", 60, 0, 3600);

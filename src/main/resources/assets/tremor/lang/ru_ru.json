@@ -162,6 +162,7 @@
   "tremor.configuration.spawn.cooldownSeconds": "Перерыв после ухода (с)",
   "tremor.configuration.spawn.spacing": "Расстояние между тварями (блоки)",
   "tremor.configuration.spawn.maxEntities": "Тварей в измерении, не больше",
+  "tremor.configuration.spawn.crowdDistance": "Ближе этого одна тварь уступает (блоки)",
   "tremor.configuration.spawn.graceSeconds": "Отсрочка после входа (с)",
   "tremor.configuration.spawn.protectionRadius": "Защита вокруг спавна и кроватей",
   "tremor.configuration.spawn.allowPeaceful": "И на мирной сложности",
