@@ -135,6 +135,8 @@ final class EventLevel {
     private boolean nodeBroken;
     /** The open cells of the way to the node: never filled, never moved into. */
     private LongSet way = new LongOpenHashSet();
+    /** The one way out besides the node ({@link EscapeTunnel}); none in a nightmare. */
+    private EscapeTunnel tunnel = EscapeTunnel.NONE;
     /** The network as planned; null until then. */
     private WayPlanner.Plan plan;
     /** The steps to the node it was planned for ({@code nodeMinDistance}..{@code nodeMaxDistance} then). */
@@ -284,6 +286,9 @@ final class EventLevel {
         }
         plan = planner.plan();
         planner = null;
+        if (!nightmare) {
+            tunnel = EscapeTunnel.plan(grid, centreX, centreZ, start.getY(), boxRadius, seed, plan.fill());
+        }
         grid = null;
         Set<Long> carve = new LinkedHashSet<>();
         Set<Long> fill = new LinkedHashSet<>();
@@ -296,9 +301,18 @@ final class EventLevel {
         fill.removeAll(plan.carve());
         carve.addAll(plan.carve());
         fill.addAll(plan.fill());
+        // The escape tunnel goes through whatever is there; its floor never closes a cell another way leaves open.
+        fill.removeAll(tunnel.carve());
+        carve.addAll(tunnel.carve());
+        for (long cell : tunnel.floor()) {
+            if (!carve.contains(cell)) {
+                fill.add(cell);
+            }
+        }
         carving = carve.stream().mapToLong(Long::longValue).toArray();
         filling = fill.stream().mapToLong(Long::longValue).toArray();
         way = new LongOpenHashSet(plan.way());
+        way.addAll(tunnel.carve());
         stage = Stage.WRITE;
     }
 
@@ -393,7 +407,12 @@ final class EventLevel {
                 nodeBroken ? " (destroyed)" : "", length, plan.straight(), plan.clearance(),
                 plan.covered() ? ", under the ground" : ", NOT under the ground (nowhere deep enough)",
                 plan.stuck() == 0 ? "" : ", STUCK: " + plan.stuck() + " places walked to without a way on to it",
-                throat, plan.branches(), plan.fromStart(), plan.decoys(), way.size(), plan.tries());
+                throat, plan.branches(), plan.fromStart(), plan.decoys(), way.size(), plan.tries())
+                + (nightmare ? "; no escape tunnel (a nightmare)" : tunnel.carve().isEmpty() ? "; NO escape tunnel"
+                : "; an escape tunnel from " + text(BlockPos.of(tunnel.carve().iterator().next())) + ", "
+                + tunnel.carve().size() / 2 + " blocks long, " + tunnel.carve().stream()
+                .filter(cell -> !Materials.open(hollow.getBlockState(BlockPos.of(cell)))).count() + " of its "
+                + tunnel.carve().size() + " cells closed");
     }
 
     /** What the preparation changed, for the log and the status. */
@@ -520,6 +539,11 @@ final class EventLevel {
             TremorNetwork.sendToPlayer(player, TremorHollowStatePayload.inactive(id,
                     player.level().getGameTime()));
         }
+    }
+
+    /** The cells of the escape tunnel at the player's feet, from its entrance to the edge; empty if there is none. */
+    java.util.List<BlockPos> tunnel() {
+        return tunnel.carve().stream().filter(cell -> CellKey.y(cell) == start.getY()).map(BlockPos::of).toList();
     }
 
     /** Where the node is, or null while there is none (not placed yet, broken, or the level failed). */

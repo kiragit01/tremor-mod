@@ -1,0 +1,39 @@
+# The escape tunnel of the hollow: it is there, the closing leaves it open, and walking it to the edge gets the player
+# out (the escape over the edge).
+waitchunks
+cmd gamemode spectator
+cmd time set noon
+cmd tremor despawn
+cmd tremor awaken stop
+cmd tp @s 300.5 201.0 300.5 270 10
+wait 40
+waitchunks
+cmd fill 240 198 280 360 200 320 minecraft:stone
+cmd fill 240 201 280 360 206 320 minecraft:air
+cmd gamemode survival
+config awakening.buildupSeconds 3
+config awakening.lethal false
+config awakening.craterRadius 0
+config hollow.level.breathSeconds 120
+cmd tremor awaken
+wait 220
+waitchunks
+cmd tremor hollow status
+log --- let the closing run a while (moving, or the mire takes the player)
+hold left 100
+hold right 100
+hold left 100
+hold right 100
+cmd tremor hollow status
+cmd tremor hollow totunnel
+wait 10
+screenshot 10_tunnel
+hold forward 60
+screenshot 11_in_the_tunnel
+log --- to near its end, and out over the edge
+cmd tremor hollow totunnel end
+hold forward 60
+wait 60
+cmd data get entity @s Dimension
+screenshot 12_out
+quit
