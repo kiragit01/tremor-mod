@@ -85,7 +85,8 @@ import java.util.random.RandomGenerator;
  * or nothing happened (no heard sound, stage DORMANT) for {@code quietSeconds} ({@link DespawnClock}), the entity
  * drops its target and its bump sinks; once it is down (or after {@value #MAX_LEAVING_TICKS} ticks) the runtime
  * removes it. While its chunk is not loaded the clock runs on, and the runtime removes it at once when it is due
- * ({@link #pausedTick}).</li>
+ * ({@link #pausedTick}). Any entity leaves when another came too near and this one gives way ({@link #yieldTo}): it
+ * turns away and crawls off as its bump goes down, more slowly.</li>
  * <li><b>Awakening</b> (SPEC 9; {@link #absorb}): taken by an Awakening, the entity is the whole area rather than a
  * bump: its brain is suspended, the anger stays at the top, the bump sinks, it strikes nobody, does not leave by
  * itself and hears nothing ({@code awakening}). Until it is removed: every Awakening ends with that
@@ -121,6 +122,10 @@ final class TremorMind {
     static final double SUNK = 0.02;
     /** ...or this many ticks after it started leaving, whatever its bump does. */
     static final int MAX_LEAVING_TICKS = 200;
+    /** An entity giving way to another sinks over this long (s), crawling off the other... */
+    static final double YIELD_SECONDS = 6;
+    /** ...towards a point this far off (blocks), away from the other. */
+    static final double YIELD_DISTANCE = 24;
     /** How loud a struck player is to the brain: louder than anything heard, so it goes straight for the player. */
     static final double STRIKE_LOUDNESS = 10;
     private static final float STRIKE_VOLUME = 1.5f;
@@ -148,6 +153,8 @@ final class TremorMind {
     /** A vibration was heard since the last tick (eventful for the despawn clock). */
     private boolean heardSinceTick;
     private int leavingTicks;
+    /** Ticks it has been giving way to another entity ({@link #yieldTo}), or -1 if it is not. Not saved. */
+    private int yieldTicks = -1;
 
     TremorMind(TremorRuntime runtime, TremorEntity entity) {
         this.runtime = runtime;
@@ -262,14 +269,17 @@ final class TremorMind {
 
     /**
      * This tick's motion: the entity's parameters with the stage's speed and bump height (SPEC 5.5, 8); the bump of a
-     * leaving entity, or of one taken by an Awakening, sinks to nothing.
+     * leaving entity, or of one taken by an Awakening, sinks to nothing (slowly while it gives way to another, at the
+     * speed of a hunt).
      */
     MotionParams motion() {
         MotionParams base = entity.params().motionParams();
         Stage stage = meter.stage();
-        double amplitude = entity.leaving() || entity.absorbed() ? 0
-                : base.amplitude() * TremorConfig.COMMON.amplitudeFactor(stage);
-        double speed = base.maxSpeed() * TremorConfig.COMMON.speedFactor(stage)
+        boolean yielding = yieldTicks >= 0;
+        double amplitude = entity.absorbed() || entity.leaving() && !yielding ? 0
+                : base.amplitude() * TremorConfig.COMMON.amplitudeFactor(stage) * (yielding ? yieldShare() : 1);
+        // Giving way, it hurries off whatever its stage.
+        double speed = base.maxSpeed() * TremorConfig.COMMON.speedFactor(yielding ? Stage.HUNTING : stage)
                 * (level.dimension() == net.minecraft.world.level.Level.NETHER
                 ? TremorConfig.COMMON.netherSpeedFactor.getAsDouble() : 1)
                 * TremorConfig.COMMON.depth(level, entity.crawler().position().y(),
@@ -296,6 +306,9 @@ final class TremorMind {
             return false; // the Awakening removes it
         }
         if (entity.leaving()) {
+            if (yieldTicks >= 0) {
+                yieldTicks++;
+            }
             return Math.abs(entity.crawler().amplitude()) < SUNK || ++leavingTicks >= MAX_LEAVING_TICKS;
         }
         Stage stage = meter.stage();
@@ -433,7 +446,7 @@ final class TremorMind {
             return "awakening: it is the whole area, not a bump";
         }
         if (entity.leaving()) {
-            return "leaving";
+            return yieldTicks >= 0 ? "giving way to another tremor: turning away and sinking" : "leaving";
         }
         if (entity.frenzy()) {
             return "frenzy: going for the shard or for whoever dropped it";
@@ -656,6 +669,43 @@ final class TremorMind {
         leavingTicks = 0;
         runtime.dropTarget(entity);
         play(TremorSounds.SIGH, skin(), (float) TremorConfig.COMMON.transitionVolume.getAsDouble(), 1);
+    }
+
+    /**
+     * Another entity came too near ({@code spawn.crowdDistance}, {@link TremorManager}): this one gives way. As when
+     * leaving, it drops what it was after, hears nothing more and strikes nobody, and the ground sighs; it turns away
+     * from {@code other} (entity number {@code instance}) and hurries off, its bump going down over
+     * {@value #YIELD_SECONDS} s until it is under the ground, and is gone. Not saved as such: one saved meanwhile is
+     * just leaving after a load.
+     */
+    void yieldTo(Vec3 other, int instance) {
+        if (entity.leaving() || entity.absorbed()) {
+            return;
+        }
+        Vec3 at = entity.crawler().position();
+        double dx = at.x() - other.x();
+        double dz = at.z() - other.z();
+        double length = Math.hypot(dx, dz);
+        Tremor.LOGGER.info(String.format(Locale.ROOT, "Tremor #%d in %s gives way to tremor #%d, %.0f blocks off: it "
+                + "turns away and sinks", entity.instance(), level.dimension().location(), instance, length));
+        entity.setLeaving(true);
+        leavingTicks = 0;
+        yieldTicks = 0;
+        runtime.dropTarget(entity);
+        if (length < 1e-6) {
+            double angle = level.random.nextDouble() * 2 * Math.PI;
+            dx = Math.cos(angle);
+            dz = Math.sin(angle);
+            length = 1;
+        }
+        runtime.brainGo(entity, new Vec3(at.x() + dx / length * YIELD_DISTANCE, at.y(),
+                at.z() + dz / length * YIELD_DISTANCE), TremorEntity.TargetKind.ROAM, 0, false);
+        play(TremorSounds.SIGH, skin(), (float) TremorConfig.COMMON.transitionVolume.getAsDouble(), 1);
+    }
+
+    /** How far up the bump of an entity giving way still is: 1 as it starts, 0 after {@value #YIELD_SECONDS} s. */
+    private double yieldShare() {
+        return Math.max(0, 1 - yieldTicks / (YIELD_SECONDS * 20));
     }
 
     /** Whether a player (not a spectator) is within {@code range} of the entity. */

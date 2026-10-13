@@ -1,0 +1,36 @@
+# Two tremors near each other (1.1.0): both bumps are drawn at once; and with spawn.crowdDistance on, one gives way:
+# it turns away from the other, hurries off and sinks into the ground over a few seconds, and is gone.
+waitchunks
+cmd gamemode spectator
+cmd time set noon
+cmd tremor despawn all
+cmd tremor awaken stop
+cmd tp @s 300.5 201.0 300.5 270 10
+wait 40
+waitchunks
+cmd fill 240 198 280 360 200 320 minecraft:stone
+cmd fill 240 201 280 360 206 320 minecraft:air
+config spawn.spacing 64
+config spawn.crowdDistance 0
+log --- two tremors 76 blocks apart, nobody giving way: both drawn
+cmd tremor spawn 262 201 300
+cmd tremor spawn 338 201 300
+cmd tp @s 300.5 214 268.5
+lookat 300.5 200 300.5
+hud off
+wait 60
+screenshot 01_two
+cmd tremor info
+log --- crowding on: the younger, as calm, gives way
+config spawn.crowdDistance 100
+wait 25
+screenshot 02_yield_start
+wait 40
+screenshot 03_yield_mid
+wait 40
+screenshot 04_yield_late
+wait 60
+screenshot 05_gone
+hud on
+cmd tremor info
+quit

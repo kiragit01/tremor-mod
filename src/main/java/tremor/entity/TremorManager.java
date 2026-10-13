@@ -17,6 +17,7 @@ import net.neoforged.neoforge.event.server.ServerStoppingEvent;
 import net.neoforged.neoforge.event.tick.LevelTickEvent;
 import tremor.Tremor;
 import tremor.config.TremorConfig;
+import tremor.core.behavior.Crowding;
 import tremor.core.graph.SurfaceGraph;
 import tremor.core.math.Vec3;
 import java.util.ArrayList;
@@ -26,12 +27,15 @@ import java.util.Map;
 
 /**
  * Keeps one {@link TremorRuntime} per entity of each server level (several to a level since 1.1.0: one for each part
- * of the world where players are, {@code spawn.spacing} apart), and routes game events to them. Event handlers are
- * registered on the game bus by {@link tremor.Tremor}. Server thread only.
+ * of the world where players are, {@code spawn.spacing} apart; two that come near each other do not stay so,
+ * {@link #crowd}), and routes game events to them. Event handlers are registered on the game bus by
+ * {@link tremor.Tremor}. Server thread only.
  */
 public final class TremorManager {
     /** A piston moves at most 12 blocks plus its head. */
     private static final int PISTON_REACH = 13;
+    /** Game ticks between two looks for entities too near each other ({@link #crowd}). */
+    private static final int CROWD_INTERVAL = 20;
 
     private static final Map<ResourceKey<Level>, List<TremorRuntime>> RUNTIMES = new HashMap<>();
 
@@ -212,6 +216,37 @@ public final class TremorManager {
             for (TremorRuntime runtime : runtimes(level)) {
                 runtime.tick();
             }
+            if (level.getGameTime() % CROWD_INTERVAL == 0) {
+                crowd(runtimes(level));
+            }
+        }
+    }
+
+    /**
+     * Entities do not stay near each other: of two within {@code spawn.crowdDistance} of each other (horizontally),
+     * one gives way, turning away and sinking into the ground ({@link Crowding}, {@link TremorRuntime#yieldTo}). Held
+     * by something else, one stays: an Awakening took it, a frenzy drives it, its brain is off or it follows a
+     * {@code goto}.
+     */
+    private static void crowd(List<TremorRuntime> runtimes) {
+        if (runtimes.size() < 2) {
+            return;
+        }
+        List<Crowding.Entity> entities = new ArrayList<>();
+        Map<Integer, TremorRuntime> byInstance = new HashMap<>();
+        for (TremorRuntime runtime : runtimes) {
+            TremorEntity entity = runtime.entity();
+            if (entity != null) {
+                Vec3 at = entity.crawler().position();
+                boolean held = entity.absorbed() || entity.frenzy() || !entity.aiEnabled()
+                        || entity.targetKind() == TremorEntity.TargetKind.MANUAL;
+                entities.add(new Crowding.Entity(entity.instance(), at.x(), at.z(), entity.anger(), entity.natural(),
+                        held, entity.leaving()));
+                byInstance.put(entity.instance(), runtime);
+            }
+        }
+        for (Crowding.Yield yield : Crowding.yields(entities, TremorConfig.COMMON.spawn.crowdDistance.get())) {
+            byInstance.get(yield.instance()).yieldTo(byInstance.get(yield.to()).entity());
         }
     }
 

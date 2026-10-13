@@ -131,9 +131,10 @@ public final class DebugProbe {
         ServerLevel level = player.serverLevel();
         Crawler crawler = entity.crawler();
         Vec3 at = crawler.position();
-        lines.add(String.format(Locale.ROOT, "Tremor #%d: %s, anger %.1f of %.0f%s%s%s%s", entity.instance(),
+        lines.add(String.format(Locale.ROOT, "Tremor #%d: %s, anger %.1f of %.0f%s%s%s%s%s", entity.instance(),
                 entity.stage().name().toLowerCase(Locale.ROOT), entity.anger(), TremorEntity.MAX_ANGER,
-                runtime.listening() ? ", listening" : "", entity.frenzy() ? ", frenzy" : "",
+                entity.leaving() ? ", leaving" : "", runtime.listening() ? ", listening" : "",
+                entity.frenzy() ? ", frenzy" : "",
                 entity.aiEnabled() ? "" : ", ai off", runtime.isPaused() ? ", paused (not loaded)" : ""));
         lines.add(String.format(Locale.ROOT, "%.1f blocks from you, at %d %d %d%s; speed %.2f of %.2f b/s",
                 Math.sqrt(player.distanceToSqr(at.x(), at.y(), at.z())), floor(at.x()), floor(at.y()),
