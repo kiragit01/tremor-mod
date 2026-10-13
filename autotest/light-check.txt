@@ -1,0 +1,37 @@
+# The light around a player in the hollow (hollow.playerLight): it follows the head, and goes with the player.
+waitchunks
+cmd gamemode spectator
+cmd time set noon
+cmd tremor despawn
+cmd tremor awaken stop
+cmd tp @s 300.5 201.0 300.5 270 10
+wait 40
+waitchunks
+cmd fill 240 198 280 360 200 320 minecraft:stone
+cmd fill 240 201 280 360 206 320 minecraft:air
+cmd gamemode survival
+config awakening.buildupSeconds 3
+config awakening.lethal false
+config awakening.craterRadius 0
+cmd tremor awaken
+wait 220
+waitchunks
+cmd tremor hollow status
+cmd tp @s ~ ~ ~ 0 40
+config hollow.playerLight 0
+wait 10
+screenshot 10_light_0
+config hollow.playerLight 3
+wait 10
+screenshot 11_light_3
+config hollow.playerLight 6
+wait 10
+screenshot 12_light_6
+cmd execute at @s if block ~ ~1 ~ minecraft:light
+hold left 30
+wait 4
+cmd execute at @s if block ~ ~1 ~ minecraft:light
+cmd tremor hollow outcome victory
+wait 120
+cmd data get entity @s Dimension
+quit

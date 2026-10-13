@@ -603,6 +603,7 @@ public final class TremorConfig {
         public final ModConfigSpec.IntValue fadeTicks;
         public final ModConfigSpec.IntValue settleTicks;
         public final ModConfigSpec.IntValue maxEvents;
+        public final ModConfigSpec.IntValue playerLight;
         public final HollowLevel level;
 
         Hollow(ModConfigSpec.Builder b) {
@@ -626,6 +627,9 @@ public final class TremorConfig {
                     .translation(KEY + "hollow.settleTicks").defineInRange("settleTicks", 10, 0, 200);
             maxEvents = b.comment("Events in the hollow at the same time (one player each)")
                     .translation(KEY + "hollow.maxEvents").defineInRange("maxEvents", 8, 1, 64);
+            playerLight = b.comment("Light level around a player in the hollow (a torch gives 14): enough to make out the",
+                            "walls next to them without one; 0 for none")
+                    .translation(KEY + "hollow.playerLight").defineInRange("playerLight", 4, 0, 15);
             level = new HollowLevel(b);
             b.pop();
         }

@@ -10,6 +10,7 @@
   "tremor.configuration.behavior.depthSpeedFactor": "Speed at full depth (x)",
   "tremor.configuration.behavior.depthAngerFactor": "Anger at full depth (x)",
   "tremor.configuration.behavior.depthHearingFactor": "Hearing at full depth (x)",
+  "tremor.configuration.hollow.playerLight": "Light around a player in the hollow",
   "tremor.configuration.movement.leapDormant": "Leap across, dormant (blocks)",
   "tremor.configuration.movement.leapAlert": "Leap across, alert (blocks)",
   "tremor.configuration.movement.leapHunting": "Leap across, hunting (blocks)",
