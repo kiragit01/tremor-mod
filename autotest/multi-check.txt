@@ -1,0 +1,52 @@
+# Several tremors in one dimension (1.1.0): one for each part of the world, spawn.spacing (500) apart. A command spawn
+# near one replaces it, one far off is one more; the commands and the probe take the nearest; an Awakening takes only
+# the tremor of its part of the world, which goes deep, and pauses the natural spawn there only.
+waitchunks
+cmd gamemode spectator
+cmd time set noon
+cmd tremor despawn all
+cmd tremor awaken stop
+cmd tp @s 300.5 201.0 300.5 270 10
+wait 40
+waitchunks
+cmd fill 240 198 280 360 200 320 minecraft:stone
+cmd fill 240 201 280 360 206 320 minecraft:air
+cmd gamemode survival
+cmd item replace entity @s weapon.mainhand with tremor:debug_probe
+log --- one here, then another spawn near it replaces it
+cmd tremor spawn 320 201 300
+wait 20
+cmd tremor spawn 315 201 305
+wait 20
+cmd tremor info
+log --- one more 700 blocks off
+cmd gamemode spectator
+cmd tp @s 1000.5 201.0 300.5 270 10
+wait 60
+waitchunks
+cmd fill 940 198 280 1060 200 320 minecraft:stone
+cmd fill 940 201 280 1060 206 320 minecraft:air
+cmd gamemode survival
+cmd tremor spawn 1020 201 300
+wait 20
+cmd tremor info
+screenshot 01_far
+log --- back at the first: the near one is drawn and on the probe
+cmd tp @s 300.5 201.0 300.5 270 10
+wait 60
+waitchunks
+screenshot 02_near
+log --- an Awakening here takes only this one; called off, it goes deep, the far one stays
+config awakening.buildupSeconds 30
+cmd tremor awaken
+wait 40
+cmd tremor info
+cmd tremor awaken stop
+wait 40
+cmd tremor info
+screenshot 03_after
+log --- despawn the nearest, then all
+cmd tremor despawn
+cmd tremor info
+cmd tremor despawn all
+quit

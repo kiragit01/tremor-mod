@@ -160,6 +160,8 @@
   "tremor.configuration.spawn.verticalRange": "Vertical search range",
   "tremor.configuration.spawn.attempts": "Candidate points per spawn",
   "tremor.configuration.spawn.cooldownSeconds": "Cooldown after leaving (s)",
+  "tremor.configuration.spawn.spacing": "Spacing between entities (blocks)",
+  "tremor.configuration.spawn.maxEntities": "Entities per dimension at most",
   "tremor.configuration.spawn.graceSeconds": "Grace after entering (s)",
   "tremor.configuration.spawn.protectionRadius": "Protection around spawn and beds",
   "tremor.configuration.spawn.allowPeaceful": "Also in peaceful",

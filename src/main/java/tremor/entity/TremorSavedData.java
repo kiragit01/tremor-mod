@@ -1,18 +1,26 @@
 package tremor.entity;
 
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
+
 import net.minecraft.core.HolderLookup;
 import net.minecraft.nbt.CompoundTag;
+import net.minecraft.nbt.ListTag;
 import net.minecraft.nbt.Tag;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.level.saveddata.SavedData;
 import tremor.Tremor;
 import tremor.core.math.Vec3;
+import tremor.spawn.SpawnPauses;
 
 /**
- * Per-dimension saved state ({@code data/tremor.dat} of the dimension): at most one entity (SPEC 4), the counter its
- * instance numbers come from, which only ever grows so clients can tell a respawned entity from the old one, when a
- * naturally spawned entity was last removed (for the natural spawn cooldown, SPEC 11), and when the last Awakening
- * ended (the entity went deep: the long cooldown of SPEC 9).
+ * Per-dimension saved state ({@code data/tremor.dat} of the dimension): its entities (SPEC 4; several since 1.1.0,
+ * one for each part of the world where players are, {@code spawn.spacing} apart), the counter their instance numbers
+ * come from, which only ever grows so clients can tell a respawned entity from the old one, and where the natural
+ * spawn pauses ({@link SpawnPauses}): around where a naturally spawned entity left (SPEC 11) and where one went deep
+ * after an Awakening (the long cooldown of SPEC 9). A save of before 1.1.0 (one entity, pauses without a place) is
+ * read as well.
  */
 public final class TremorSavedData extends SavedData {
     public static final String NAME = Tremor.MODID;
@@ -20,9 +28,8 @@ public final class TremorSavedData extends SavedData {
             new SavedData.Factory<>(TremorSavedData::new, TremorSavedData::load);
 
     private int lastInstance;
-    private TremorEntity entity;
-    private long lastNaturalDespawn = Long.MIN_VALUE;
-    private long lastAwakeningEnd = Long.MIN_VALUE;
+    private final List<TremorEntity> entities = new ArrayList<>();
+    private final SpawnPauses pauses = new SpawnPauses();
 
     private TremorSavedData() {
     }
@@ -32,9 +39,9 @@ public final class TremorSavedData extends SavedData {
         return level.getDataStorage().computeIfAbsent(FACTORY, NAME);
     }
 
-    /** The entity of the dimension, or null. */
-    public TremorEntity entity() {
-        return entity;
+    /** The entities of the dimension, in the order they appeared. */
+    public List<TremorEntity> entities() {
+        return Collections.unmodifiableList(entities);
     }
 
     /** Instance number of the most recently spawned entity (0 if there never was one). */
@@ -42,82 +49,113 @@ public final class TremorSavedData extends SavedData {
         return lastInstance;
     }
 
-    /**
-     * Game time of the last removal of a naturally spawned entity (it left, was despawned or replaced), or
-     * {@link Long#MIN_VALUE} if there never was one.
-     */
-    public long lastNaturalDespawn() {
-        return lastNaturalDespawn;
+    /** Where natural spawns pause; changes go through {@link #remove} and {@link #awakeningEnded}. */
+    public SpawnPauses pauses() {
+        return pauses;
     }
 
-    /**
-     * Game time the last Awakening of the dimension ended (SPEC 9: the entity goes deep, a long cooldown), or
-     * {@link Long#MIN_VALUE} if there never was one.
-     */
-    public long lastAwakeningEnd() {
-        return lastAwakeningEnd;
+    /** Forgets the pauses that are over at {@code now}, each kind lasting as long as given (ticks). */
+    public void forgetPausesOver(long now, long leftTicks, long awakeningTicks) {
+        if (pauses.forgetOver(SpawnPauses.Kind.LEFT, now, leftTicks)
+                | pauses.forgetOver(SpawnPauses.Kind.AWAKENING, now, awakeningTicks)) {
+            setDirty();
+        }
     }
 
-    /** An Awakening ended at {@code gameTime}: the natural spawn pause after it starts now. */
-    public void awakeningEnded(long gameTime) {
-        lastAwakeningEnd = gameTime;
+    /** An Awakening at {@code x, z} ended at {@code gameTime}: natural spawns around it pause from now on. */
+    public void awakeningEnded(double x, double z, long gameTime) {
+        pauses.add(new SpawnPauses.Pause(SpawnPauses.Kind.AWAKENING, x, z, gameTime));
         setDirty();
     }
 
     /**
-     * Replaces the entity (if any; a removal at {@code gameTime}) by a new one with the next instance number.
+     * A new entity with the next instance number.
      *
      * @param natural spawned by the world (SPEC 11) rather than by a command
      */
     public TremorEntity spawn(Vec3 position, Vec3 normal, boolean natural, long gameTime) {
-        remove(gameTime);
-        entity = new TremorEntity(++lastInstance, position, normal, natural);
+        TremorEntity entity = new TremorEntity(++lastInstance, position, normal, natural);
+        entities.add(entity);
+        setDirty();
         return entity;
     }
 
-    /** Removes the entity at {@code gameTime}; returns it, or null if there was none. */
-    public TremorEntity remove(long gameTime) {
-        TremorEntity removed = entity;
-        if (removed != null && removed.natural()) {
-            lastNaturalDespawn = gameTime;
+    /**
+     * Removes {@code entity} at {@code gameTime}; one that spawned naturally leaves a pause of natural spawns around
+     * where it was. False if it was not one of the dimension's.
+     */
+    public boolean remove(TremorEntity entity, long gameTime) {
+        if (!entities.remove(entity)) {
+            return false;
         }
-        entity = null;
+        if (entity.natural()) {
+            Vec3 at = entity.crawler().position();
+            pauses.add(new SpawnPauses.Pause(SpawnPauses.Kind.LEFT, at.x(), at.z(), gameTime));
+        }
         setDirty();
-        return removed;
+        return true;
     }
 
     @Override
     public CompoundTag save(CompoundTag tag, HolderLookup.Provider registries) {
         tag.putInt("lastInstance", lastInstance);
-        if (lastNaturalDespawn != Long.MIN_VALUE) {
-            tag.putLong("lastNaturalDespawn", lastNaturalDespawn);
+        ListTag list = new ListTag();
+        for (TremorEntity entity : entities) {
+            list.add(entity.save());
         }
-        if (lastAwakeningEnd != Long.MIN_VALUE) {
-            tag.putLong("lastAwakeningEnd", lastAwakeningEnd);
+        tag.put("entities", list);
+        ListTag paused = new ListTag();
+        for (SpawnPauses.Pause pause : pauses.all()) {
+            CompoundTag p = new CompoundTag();
+            p.putString("kind", pause.kind().name());
+            p.putDouble("x", pause.x());
+            p.putDouble("z", pause.z());
+            p.putLong("time", pause.gameTime());
+            paused.add(p);
         }
-        if (entity != null) {
-            tag.put("entity", entity.save());
-        }
+        tag.put("pauses", paused);
         return tag;
     }
 
     private static TremorSavedData load(CompoundTag tag, HolderLookup.Provider registries) {
         TremorSavedData data = new TremorSavedData();
         data.lastInstance = tag.getInt("lastInstance");
+        // Before 1.1.0: one entity, and the two pauses without a place.
         if (tag.contains("lastNaturalDespawn", Tag.TAG_LONG)) {
-            data.lastNaturalDespawn = tag.getLong("lastNaturalDespawn");
+            data.pauses.add(new SpawnPauses.Pause(SpawnPauses.Kind.LEFT, Double.NaN, Double.NaN,
+                    tag.getLong("lastNaturalDespawn")));
         }
         if (tag.contains("lastAwakeningEnd", Tag.TAG_LONG)) {
-            data.lastAwakeningEnd = tag.getLong("lastAwakeningEnd");
+            data.pauses.add(new SpawnPauses.Pause(SpawnPauses.Kind.AWAKENING, Double.NaN, Double.NaN,
+                    tag.getLong("lastAwakeningEnd")));
         }
         if (tag.contains("entity", Tag.TAG_COMPOUND)) {
+            data.read(tag.getCompound("entity"));
+        }
+        ListTag list = tag.getList("entities", Tag.TAG_COMPOUND);
+        for (int i = 0; i < list.size(); i++) {
+            data.read(list.getCompound(i));
+        }
+        ListTag paused = tag.getList("pauses", Tag.TAG_COMPOUND);
+        for (int i = 0; i < paused.size(); i++) {
+            CompoundTag p = paused.getCompound(i);
             try {
-                data.entity = TremorEntity.load(tag.getCompound("entity"));
-                data.lastInstance = Math.max(data.lastInstance, data.entity.instance());
-            } catch (RuntimeException e) {
-                Tremor.LOGGER.error("Dropping an unreadable tremor entity", e);
+                data.pauses.add(new SpawnPauses.Pause(SpawnPauses.Kind.valueOf(p.getString("kind")), p.getDouble("x"),
+                        p.getDouble("z"), p.getLong("time")));
+            } catch (IllegalArgumentException e) {
+                Tremor.LOGGER.warn("Dropping an unreadable natural spawn pause {}", p);
             }
         }
         return data;
+    }
+
+    private void read(CompoundTag tag) {
+        try {
+            TremorEntity entity = TremorEntity.load(tag);
+            entities.add(entity);
+            lastInstance = Math.max(lastInstance, entity.instance());
+        } catch (RuntimeException e) {
+            Tremor.LOGGER.error("Dropping an unreadable tremor entity", e);
+        }
     }
 }

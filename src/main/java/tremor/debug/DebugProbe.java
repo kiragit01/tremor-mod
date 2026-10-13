@@ -33,12 +33,12 @@ import tremor.spawn.NaturalSpawner;
 
 /**
  * The debug probe ({@code tremor:debug_probe}, SPEC 14.1): while an operator holds it (either hand), a few lines at
- * the top left of the screen tell what the tremor of the dimension is up to ({@code tremor.client.DebugProbeHud}): its
+ * the top left of the screen tell what the nearest tremor is up to ({@code tremor.client.DebugProbeHud}): its
  * stage and anger, where it is and how fast it goes, the depth factors where it is (the deeper, the fiercer), what it
  * does and what it heard last, how it heard the holder's latest sound (loudness, footing, distance, how loud at it,
- * the anger that added), whether it despawns, the natural spawn for the holder without one, and the Awakening. Sent
- * every {@value #INTERVAL} ticks while held; holding it changes nothing. Operators only (permission level 2), like the
- * {@code /tremor} commands; it is in the operator tab of the creative inventory.
+ * the anger that added), whether it despawns, how many there are, the natural spawn for the holder, and the
+ * Awakening. Sent every {@value #INTERVAL} ticks while held; holding it changes nothing. Operators only (permission
+ * level 2), like the {@code /tremor} commands; it is in the operator tab of the creative inventory.
  */
 public final class DebugProbe {
     /** Ticks between two updates of the lines. */
@@ -99,19 +99,23 @@ public final class DebugProbe {
         ServerLevel level = player.serverLevel();
         long now = level.getGameTime();
         List<String> lines = new ArrayList<>();
-        TremorRuntime runtime = TremorManager.runtime(level);
+        TremorRuntime runtime = TremorManager.nearest(level, player.getX(), player.getY(), player.getZ());
         TremorEntity entity = runtime == null ? null : runtime.entity();
         if (entity == null) {
             lines.add("No tremor in " + level.dimension().location());
-            lines.add(NaturalSpawner.describe(player));
         } else {
             entity(lines, player, runtime, entity, now);
         }
+        int count = TremorManager.runtimes(level).size();
+        if (count > 1) {
+            lines.add(String.format(Locale.ROOT, "%d tremors in the dimension (this is the nearest)", count));
+        }
+        lines.add(NaturalSpawner.describe(player));
         Sound sound = SOUNDS.get(player.getUUID());
         if (sound != null && now - sound.time() <= OWN_SOUND_TICKS) {
             own(lines, sound, now);
         }
-        String awakening = AwakeningManager.describe(level);
+        String awakening = AwakeningManager.describe(level, player.getX(), player.getZ());
         String craters = Craters.describe(level);
         for (String text : new String[]{awakening, craters}) {
             if (text != null) {

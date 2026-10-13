@@ -25,8 +25,9 @@ import java.util.UUID;
 
 /**
  * The frenzy over a dropped shard (the user's wish: a shard thrown on the ground drives the entity mad). A player
- * tosses a {@code tremor:tremor_shard}: the level's entity (or one that rises some {@value #SPAWN_DISTANCE} blocks
- * away if there is none) roars and rushes to the shard, much faster and taller than when HUNTING
+ * tosses a {@code tremor:tremor_shard}: the entity of that part of the world (the nearest within
+ * {@code spawn.spacing}; or one that rises some {@value #SPAWN_DISTANCE} blocks away if there is none) roars and rushes
+ * to the shard, much faster and taller than when HUNTING
  * ({@code items.frenzySpeedFactor}, {@code frenzyAmplitudeFactor}, {@link TremorEntity#frenzy}), its brain idle; it
  * takes the shard in, then rushes on to the player who dropped it, following them; reaching them starts an Awakening
  * with a build-up too short to run from ({@link AwakeningManager#frenzy}). A frenzy that has not reached the player
@@ -45,6 +46,7 @@ public final class Frenzy {
     private enum Goal { SHARD, PLAYER }
 
     private static final class State {
+        TremorRuntime runtime;
         ItemEntity shard;
         UUID player;
         Goal goal = Goal.SHARD;
@@ -66,16 +68,19 @@ public final class Frenzy {
                 || FRENZIES.containsKey(level) || player.isSpectator()) {
             return;
         }
-        TremorRuntime runtime = TremorManager.runtime(level);
+        TremorRuntime runtime = TremorManager.nearest(level, player.getX(), player.getY(), player.getZ());
         TremorEntity entity = runtime == null ? null : runtime.entity();
-        if (entity == null || entity.absorbed() || entity.leaving()) {
+        if (entity == null || entity.absorbed() || entity.leaving()
+                || TremorManager.horizontal(entity, player.getX(), player.getZ())
+                > TremorConfig.COMMON.spawn.spacing.get()) {
             entity = rise(level, player);
-            runtime = TremorManager.runtime(level);
+            runtime = entity == null ? null : TremorManager.byInstance(level, entity.instance());
         }
         if (entity == null || runtime == null) {
             return;
         }
         State state = new State();
+        state.runtime = runtime;
         state.shard = item;
         state.player = player.getUUID();
         state.started = level.getGameTime();
@@ -100,8 +105,8 @@ public final class Frenzy {
         if (state == null) {
             return;
         }
-        TremorRuntime runtime = TremorManager.runtime(level);
-        TremorEntity entity = runtime == null ? null : runtime.entity();
+        TremorRuntime runtime = state.runtime;
+        TremorEntity entity = runtime.entity();
         ServerPlayer player = level.getServer().getPlayerList().getPlayer(state.player);
         long now = level.getGameTime();
         if (entity == null || entity.absorbed() || entity.leaving()) {
@@ -138,7 +143,7 @@ public final class Frenzy {
         if (horizontal(at, player.getX(), player.getZ()) <= reach && Math.abs(at.y() - player.getY()) <= 5) {
             entity.setFrenzy(false);
             FRENZIES.remove(level);
-            if (!AwakeningManager.frenzy(player)) {
+            if (!AwakeningManager.frenzy(player, runtime)) {
                 Tremor.LOGGER.info("Tremor #{}: the frenzy reached {}, but no Awakening could start",
                         entity.instance(), player.getGameProfile().getName());
             }
@@ -173,7 +178,10 @@ public final class Frenzy {
         shard.discard();
     }
 
-    /** An entity rises some way off the player, to answer the shard; null if there is no ground for one. */
+    /**
+     * An entity rises some way off the player, to answer the shard (in place of one leaving near there); null if there
+     * is no ground for one.
+     */
     private static TremorEntity rise(ServerLevel level, ServerPlayer player) {
         double yaw = level.getRandom().nextDouble() * Math.PI * 2;
         for (int attempt = 0; attempt < 8; attempt++) {

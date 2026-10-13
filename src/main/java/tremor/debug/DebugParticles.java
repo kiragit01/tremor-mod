@@ -42,7 +42,8 @@ import java.util.UUID;
  * Particles inside rock (dive segments and edges) are only visible in spectator mode.
  * <p>
  * The {@link DebugView#HEARING} view is event-driven instead ({@link #hearing}): every player in the level who enabled
- * it sees every vibration the entity evaluates, wherever the player is.
+ * it sees every vibration an entity evaluates, wherever the player is. With several entities in the level, each player
+ * sees the other views of the one nearest to them.
  */
 public final class DebugParticles {
     public static final int INTERVAL = 4;
@@ -96,18 +97,21 @@ public final class DebugParticles {
         if (VIEWS.isEmpty() || !(event.getLevel() instanceof ServerLevel level) || level.getGameTime() % INTERVAL != 0) {
             return;
         }
-        TremorRuntime runtime = TremorManager.runtime(level);
-        TremorEntity entity = runtime == null ? null : runtime.entity();
-        if (entity == null || runtime.isPaused() || runtime.error() != null) {
-            return;
-        }
-        Vec3 c = entity.crawler().position();
-        Map<DebugView, List<Dot>> dots = new EnumMap<>(DebugView.class);
+        // Each player sees the views of the entity nearest to them, within RANGE.
+        Map<TremorRuntime, Map<DebugView, List<Dot>>> built = new HashMap<>();
         for (ServerPlayer player : level.players()) {
             EnumSet<DebugView> views = VIEWS.get(player.getUUID());
-            if (views == null || player.distanceToSqr(c.x(), c.y(), c.z()) > RANGE * RANGE) {
+            TremorRuntime runtime = views == null ? null
+                    : TremorManager.nearest(level, player.getX(), player.getY(), player.getZ());
+            TremorEntity entity = runtime == null ? null : runtime.entity();
+            if (entity == null || runtime.isPaused() || runtime.error() != null) {
                 continue;
             }
+            Vec3 c = entity.crawler().position();
+            if (player.distanceToSqr(c.x(), c.y(), c.z()) > RANGE * RANGE) {
+                continue;
+            }
+            Map<DebugView, List<Dot>> dots = built.computeIfAbsent(runtime, r -> new EnumMap<>(DebugView.class));
             for (DebugView view : views) {
                 if (view == DebugView.HEARING) {
                     continue; // drawn per vibration
