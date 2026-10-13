@@ -271,7 +271,9 @@ final class TremorMind {
                 : base.amplitude() * TremorConfig.COMMON.amplitudeFactor(stage);
         double speed = base.maxSpeed() * TremorConfig.COMMON.speedFactor(stage)
                 * (level.dimension() == net.minecraft.world.level.Level.NETHER
-                ? TremorConfig.COMMON.netherSpeedFactor.getAsDouble() : 1);
+                ? TremorConfig.COMMON.netherSpeedFactor.getAsDouble() : 1)
+                * TremorConfig.COMMON.depth(level, entity.crawler().position().y(),
+                TremorConfig.COMMON.depthSpeedFactor);
         double acceleration = base.acceleration();
         if (entity.frenzy()) {
             amplitude *= TremorConfig.COMMON.frenzyAmplitudeFactor.getAsDouble();

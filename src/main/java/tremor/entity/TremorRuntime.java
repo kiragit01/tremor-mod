@@ -436,7 +436,8 @@ public final class TremorRuntime {
             return null; // its chunk unloaded since the last tick
         }
         double perceived = Hearing.perceived(view, vibration.source(), listener, vibration.loudness(),
-                vibration.footing(), vibration.foliage(view), params);
+                vibration.footing(), vibration.foliage(view), params)
+                * TremorConfig.COMMON.depth(level, listener.y(), TremorConfig.COMMON.depthHearingFactor);
         if (mind(entity).listening()) {
             perceived *= TremorConfig.COMMON.alertListenFactor.getAsDouble();
         }
@@ -453,6 +454,7 @@ public final class TremorRuntime {
                 perceived * TremorConfig.COMMON.angerPerLoudness.getAsDouble() * angerShare
                         * (level.dimension() == net.minecraft.world.level.Level.NETHER
                         ? TremorConfig.COMMON.netherAngerFactor.getAsDouble() : 1)
+                        * TremorConfig.COMMON.depth(level, listener.y(), TremorConfig.COMMON.depthAngerFactor)
                         + vibration.angerBonus());
         return new Perception(listener, distance, perceived, true, entity.anger() - before, entity.anger(), stage,
                 entity.stage(), reaction);

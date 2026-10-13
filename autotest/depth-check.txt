@@ -1,0 +1,31 @@
+# Fiercer the deeper it is (behavior.depth*): the same steps at the same distance, heard with no depth and at full
+# depth (the band moved above the floor, so it needs no deep terrain in the test world).
+waitchunks
+cmd gamemode spectator
+cmd time set noon
+cmd tremor despawn
+cmd tremor awaken stop
+cmd tp @s 300.5 201.0 300.5 270 10
+wait 40
+waitchunks
+cmd fill 240 198 280 360 200 320 minecraft:stone
+cmd fill 240 201 280 360 206 320 minecraft:air
+cmd gamemode survival
+cmd tremor spawn 320 200 300
+cmd tremor ai off
+cmd tremor debug hearing on
+log --- steps at the surface (y 201)
+hold forward 20
+wait 10
+cmd tremor despawn
+log --- the same steps "deep down": the depth band moved above the floor (y 201 counts as full depth)
+config behavior.depthShallowY 300
+config behavior.depthDeepY 250
+cmd tp @s 300.5 201.0 300.5 270 10
+cmd tremor spawn 320 200 300
+cmd tremor ai off
+hold forward 20
+wait 10
+cmd tremor debug hearing off
+cmd tremor despawn
+quit

@@ -46,6 +46,8 @@
 | `stages.*.speedFactor` | Скорость по стадиям |
 | `wanderKeepAway` | Держит ли дистанцию от игроков на охоте |
 | `netherSpeedFactor`, `netherAngerFactor` | Насколько она злее в аду |
+| `depthShallowY`, `depthDeepY` | Чем глубже под землёй, тем она злее: выше первой высоты эффекта нет, ниже второй — он полный (в аду не действует) |
+| `depthSpeedFactor`, `depthAngerFactor`, `depthHearingFactor` | Во сколько раз на полной глубине она быстрее, сильнее злится от звука и лучше слышит |
 | `contact.damage`, `contact.devourMobs` | Урон при ударе; поглощает ли мобов |
 
 ## Пробуждение (`awakening`)
