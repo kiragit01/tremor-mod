@@ -27,6 +27,11 @@ import tremor.config.TremorConfig;
 public final class HollowLight {
     /** Ticks between two moves of a light. */
     private static final int INTERVAL = 2;
+    /**
+     * Sent to the clients, but no neighbour is told: a light block is replaceable, so sand or gravel over the head of
+     * a player in a low tunnel, told of it, would fall through it onto the player.
+     */
+    private static final int FLAGS = Block.UPDATE_CLIENTS | Block.UPDATE_KNOWN_SHAPE;
     /** Where each player's light is, by player. */
     private static final Map<UUID, BlockPos> LIGHTS = new HashMap<>();
 
@@ -57,7 +62,7 @@ public final class HollowLight {
         if (head == null || head.equals(old) && level.getBlockState(head).equals(wanted)) {
             return;
         }
-        level.setBlock(head, wanted, Block.UPDATE_CLIENTS);
+        level.setBlock(head, wanted, FLAGS);
         LIGHTS.put(server.getUUID(), head);
         if (old != null && !old.equals(head)) {
             clear(level, old);
@@ -96,7 +101,7 @@ public final class HollowLight {
 
     private static void clear(ServerLevel level, BlockPos pos) {
         if (level.isLoaded(pos) && level.getBlockState(pos).is(Blocks.LIGHT)) {
-            level.setBlock(pos, Blocks.AIR.defaultBlockState(), Block.UPDATE_CLIENTS);
+            level.setBlock(pos, Blocks.AIR.defaultBlockState(), FLAGS);
         }
     }
 }

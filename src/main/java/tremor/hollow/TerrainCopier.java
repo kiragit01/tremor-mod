@@ -241,6 +241,40 @@ final class TerrainCopier {
     }
 
     /**
+     * Puts {@code state} into the cell at {@code pos} the way the copy is written (see the class comment): straight into
+     * the chunk section, without {@code onPlace}, so nothing is scheduled (sand put back over a hole does not try to fall
+     * again); the heightmaps and the light follow, and the clients get it. For a cell with neither a block entity nor a
+     * point of interest, before or after.
+     */
+    public static void putBack(ServerLevel level, BlockPos pos, BlockState state) {
+        LevelChunk chunk = level.getChunkSource().getChunkNow(pos.getX() >> 4, pos.getZ() >> 4);
+        if (chunk == null) {
+            return;
+        }
+        LevelChunkSection section = chunk.getSection(chunk.getSectionIndex(pos.getY()));
+        boolean wasEmpty = section.hasOnlyAir();
+        int x = pos.getX() & 15;
+        int z = pos.getZ() & 15;
+        BlockState old = section.setBlockState(x, pos.getY() & 15, z, state);
+        if (old == state) {
+            return;
+        }
+        for (Heightmap.Types type : HEIGHTMAPS) {
+            chunk.getOrCreateHeightmapUnprimed(type).update(x, pos.getY(), z, state);
+        }
+        ThreadedLevelLightEngine light = level.getChunkSource().getLightEngine();
+        if (wasEmpty && !section.hasOnlyAir()) {
+            light.updateSectionStatus(SectionPos.of(pos), false);
+        }
+        if (LightEngine.hasDifferentLightProperties(chunk, pos, old, state)) {
+            chunk.getSkyLightSources().update(chunk, x, pos.getY(), z);
+            light.checkBlock(pos);
+        }
+        chunk.setUnsaved(true);
+        level.getChunkSource().blockChanged(pos);
+    }
+
+    /**
      * The point of interest at {@code pos} becomes {@code type} (none if empty), as {@code ServerLevel.onBlockStateChange}
      * does it, but from what is registered there: a block of an earlier copy may not be.
      */
