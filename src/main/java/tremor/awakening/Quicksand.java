@@ -21,7 +21,6 @@ import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.shapes.VoxelShape;
 import tremor.Tremor;
-import tremor.block.MireBlock;
 import tremor.block.QuicksandBlockEntity;
 import tremor.block.TremorBlocks;
 import tremor.config.TremorConfig;
@@ -397,19 +396,16 @@ public final class Quicksand {
                 if (!ALL.contains(this)) {
                     ALL.add(this);
                 }
+                level.setBlock(pos, TremorBlocks.QUICKSAND.get().defaultBlockState(), FLAGS);
             } else if (!now.is(TremorBlocks.QUICKSAND.get())) {
                 cells.remove(key);
                 TremorSavedData.get(level).quicksandRestored(key);
                 break;
             }
-            if (softness > cell.softness) {
-                boolean placed = cell.softness == 0;
+            if (softness > cell.softness && level.getBlockEntity(pos) instanceof QuicksandBlockEntity entity) {
+                // The block entity, not the state: the clients draw it as it was, and the chunk is not rebuilt.
                 cell.softness = softness;
-                level.setBlock(pos, TremorBlocks.QUICKSAND.get().defaultBlockState().setValue(MireBlock.SOFTNESS,
-                        softness), FLAGS);
-                if (placed && level.getBlockEntity(pos) instanceof QuicksandBlockEntity entity) {
-                    entity.setOriginal(cell.original); // the clients draw it as it was
-                }
+                entity.set(cell.original, softness);
             }
         }
     }
