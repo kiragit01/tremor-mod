@@ -125,7 +125,7 @@ final class HollowSounds {
         double distance = Math.sqrt(mc.getSoundManager().getListenerTransform().position().distanceToSqr(x, y, z));
         double volume = HollowTone.beatVolume(TremorConfig.CLIENT.heartbeatVolume.get(), closeness, distance, muffle);
         if (volume > 0) {
-            mc.getSoundManager().play(new SimpleSoundInstance(TremorSounds.PULSE.get().getLocation(),
+            mc.getSoundManager().play(new SimpleSoundInstance(TremorSounds.PULSE.getId(),
                     AwakeningSounds.SOURCE, (float) volume, (float) HollowTone.beatPitch(closeness),
                     SoundInstance.createUnseededRandom(), false, 0, SoundInstance.Attenuation.NONE, x, y, z, false));
         }
@@ -139,7 +139,7 @@ final class HollowSounds {
     private static void thump(Minecraft mc, double strength, double muffle) {
         double volume = HollowTone.thumpVolume(TremorConfig.CLIENT.heartbeatVolume.get(), strength, muffle);
         if (volume > 0) {
-            mc.getSoundManager().play(new SimpleSoundInstance(TremorSounds.THUMP.get().getLocation(),
+            mc.getSoundManager().play(new SimpleSoundInstance(TremorSounds.THUMP.getId(),
                     AwakeningSounds.SOURCE, (float) volume, 1, SoundInstance.createUnseededRandom(), false, 0,
                     SoundInstance.Attenuation.NONE, 0, -1, 0, true));
         }
@@ -149,7 +149,7 @@ final class HollowSounds {
     private static void squelch(Minecraft mc, double sink) {
         double volume = HollowTone.pullVolume(TremorConfig.CLIENT.pullVolume.get(), sink);
         if (volume > 0) {
-            mc.getSoundManager().play(new SimpleSoundInstance(TremorSounds.PULL.get().getLocation(),
+            mc.getSoundManager().play(new SimpleSoundInstance(TremorSounds.PULL.getId(),
                     AwakeningSounds.SOURCE, (float) volume, (float) HollowTone.pullPitch(sink),
                     SoundInstance.createUnseededRandom(), false, 0, SoundInstance.Attenuation.NONE, 0, 0, 0, true));
         }

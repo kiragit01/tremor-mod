@@ -63,7 +63,7 @@ public final class ClientBlackout {
      * short, so it is over before the move out of the hollow stops every sound.
      */
     private static void rush(Minecraft mc) {
-        mc.getSoundManager().play(new SimpleSoundInstance(TremorSounds.ESCAPE.get().getLocation(), SoundSource.HOSTILE,
+        mc.getSoundManager().play(new SimpleSoundInstance(TremorSounds.ESCAPE.getId(), SoundSource.HOSTILE,
                 TremorConfig.COMMON.transitionVolume.get().floatValue(), 1, SoundInstance.createUnseededRandom(), false,
                 0, SoundInstance.Attenuation.NONE, 0, 0, 0, true));
     }

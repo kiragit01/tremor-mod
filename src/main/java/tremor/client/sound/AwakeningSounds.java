@@ -138,7 +138,7 @@ public final class AwakeningSounds {
     private static void beat(Minecraft mc, double tension) {
         double volume = AwakeningTone.beatVolume(TremorConfig.CLIENT.heartbeatVolume.get(), tension);
         if (volume > 0) {
-            mc.getSoundManager().play(new SimpleSoundInstance(TremorSounds.PULSE.get().getLocation(), SOURCE,
+            mc.getSoundManager().play(new SimpleSoundInstance(TremorSounds.PULSE.getId(), SOURCE,
                     (float) volume, (float) AwakeningTone.beatPitch(tension), SoundInstance.createUnseededRandom(),
                     false, 0, SoundInstance.Attenuation.NONE, 0, 0, 0, true));
         }
@@ -150,7 +150,7 @@ public final class AwakeningSounds {
      * awakening needs a deeper sound file.
      */
     private static void awaken(Minecraft mc, Vec3 focus) {
-        mc.getSoundManager().play(new SimpleSoundInstance(TremorSounds.AWAKEN.get().getLocation(), SOURCE,
+        mc.getSoundManager().play(new SimpleSoundInstance(TremorSounds.AWAKEN.getId(), SOURCE,
                 AWAKEN_VOLUME, 1, SoundInstance.createUnseededRandom(), false, 0, SoundInstance.Attenuation.NONE,
                 focus.x(), focus.y(), focus.z(), false));
     }
@@ -171,7 +171,7 @@ public final class AwakeningSounds {
         }
         rumbled = state.id();
         Vec3 focus = state.focus();
-        mc.getSoundManager().play(new SimpleSoundInstance(TremorSounds.RUMBLE.get().getLocation(), SOURCE,
+        mc.getSoundManager().play(new SimpleSoundInstance(TremorSounds.RUMBLE.getId(), SOURCE,
                 EMERGE_VOLUME, 1, SoundInstance.createUnseededRandom(), false, 0, SoundInstance.Attenuation.LINEAR,
                 focus.x(), focus.y(), focus.z(), false));
     }
