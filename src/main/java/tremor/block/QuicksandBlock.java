@@ -18,7 +18,6 @@ import net.minecraft.world.level.block.SoundType;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.state.BlockBehaviour;
 import net.minecraft.world.level.block.state.BlockState;
-import net.minecraft.world.level.block.state.StateDefinition;
 import net.minecraft.world.level.material.FluidState;
 import net.minecraft.world.level.pathfinder.PathComputationType;
 import net.minecraft.world.phys.Vec3;
@@ -29,7 +28,8 @@ import tremor.hollow.level.SinkTracker;
 
 /**
  * {@code tremor:quicksand}, the ground of an ambush's quicksand in the real world ({@code tremor.awakening.Quicksand}):
- * it gives way and holds as the soft ground of the hollow ({@link MireBlock}: {@link MireBlock#SOFTNESS}, a creature in
+ * it gives way and holds as the soft ground of the hollow ({@link MireBlock}: in 32nds, the softness kept by its block
+ * entity rather than its state, so that the chunk is not rebuilt as it gives way; a creature in
  * it held as in a cobweb, only less), but it looks like the block it was, which it remembers
  * ({@link QuicksandBlockEntity}): it has no model of its own, the client draws that block in its place
  * ({@code tremor.client.QuicksandRenderer}), and steps on it sound and dust as on that block. A player sinks into the
@@ -54,18 +54,12 @@ public final class QuicksandBlock extends Block implements EntityBlock {
 
     public QuicksandBlock(BlockBehaviour.Properties properties) {
         super(properties);
-        registerDefaultState(stateDefinition.any().setValue(MireBlock.SOFTNESS, 0));
     }
 
     /** The block the quicksand at {@code pos} was, as it looks; air if unknown (not sent yet). */
     public static BlockState original(BlockGetter level, BlockPos pos) {
         return level.getBlockEntity(pos) instanceof QuicksandBlockEntity entity ? entity.original()
                 : Blocks.AIR.defaultBlockState();
-    }
-
-    @Override
-    protected void createBlockStateDefinition(StateDefinition.Builder<Block, BlockState> builder) {
-        builder.add(MireBlock.SOFTNESS);
     }
 
     @Override
@@ -82,7 +76,8 @@ public final class QuicksandBlock extends Block implements EntityBlock {
     @Override
     public VoxelShape getCollisionShape(BlockState state, BlockGetter level, BlockPos pos,
                                            CollisionContext context) {
-        return SHAPES[state.getValue(MireBlock.SOFTNESS)];
+        return level.getBlockEntity(pos) instanceof QuicksandBlockEntity entity ? SHAPES[entity.softness()]
+                : Shapes.block();
     }
 
     /** Things placed on it hold as on the block it was. */

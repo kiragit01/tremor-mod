@@ -93,6 +93,7 @@ public final class TremorBlocks {
                     .strength(0.5F, BLAST_PROOF)
                     .sound(SoundType.MUD)
                     .noOcclusion()
+                    .dynamicShape()
                     .pushReaction(PushReaction.BLOCK)
                     .noLootTable()
                     .isValidSpawn((state, level, pos, type) -> false)
