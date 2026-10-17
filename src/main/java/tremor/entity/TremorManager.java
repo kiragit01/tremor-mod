@@ -200,6 +200,15 @@ public final class TremorManager {
         }
     }
 
+    /** Game bus: a player broke a block; an entity lying in wait there is enraged ({@link TremorRuntime#groundBroken}). */
+    public static void onBlockBreak(BlockEvent.BreakEvent event) {
+        if (event.getLevel() instanceof ServerLevel level && event.getPlayer() instanceof ServerPlayer player) {
+            for (TremorRuntime runtime : runtimes(level)) {
+                runtime.groundBroken(event.getPos(), player);
+            }
+        }
+    }
+
     public static void onLevelUnload(LevelEvent.Unload event) {
         if (event.getLevel() instanceof ServerLevel level) {
             List<TremorRuntime> runtimes = RUNTIMES.get(level.dimension());

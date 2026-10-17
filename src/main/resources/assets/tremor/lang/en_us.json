@@ -176,6 +176,7 @@
   "tremor.configuration.hollow.maxEvents": "Events at the same time",
   "block.tremor.heart_node": "Heart Node",
   "block.tremor.mire": "Mire",
+  "block.tremor.quicksand": "Quicksand",
   "block.tremor.rubble_cache": "Rubble Cache",
   "tremor.configuration.hollow.level": "The level inside",
   "tremor.configuration.hollow.level.budgetMillis": "Server time per tick (ms)",

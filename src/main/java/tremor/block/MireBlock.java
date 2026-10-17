@@ -27,7 +27,7 @@ import tremor.hollow.level.SinkTracker;
  * It neither suffocates nor drops anything; the level turns it back into the copied block once the player is off it.
  */
 public final class MireBlock extends Block {
-    /** How much of the block has given way, in eighths: 0 (holds like the block it was) .. 8 (holds nothing). */
+    /** How much of the block has given way, in 32nds: 0 (holds like the block it was) .. 32 (holds nothing). */
     public static final IntegerProperty SOFTNESS = IntegerProperty.create("softness", 0, SinkTracker.MAX_SOFTNESS);
     /**
      * The motion multiplier inside: powder snow's {@code (0.9, 1.5, 0.9)} slowed down sideways (cobweb: 0.25). Up stays

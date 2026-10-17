@@ -22,6 +22,7 @@ import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.shapes.VoxelShape;
 import tremor.Tremor;
 import tremor.block.MireBlock;
+import tremor.block.QuicksandBlockEntity;
 import tremor.block.TremorBlocks;
 import tremor.config.TremorConfig;
 import tremor.core.math.Vec3;
@@ -39,9 +40,10 @@ import java.util.Set;
 
 /**
  * The quicksand of an ambush ({@link tremor.core.behavior.Ambush}), in the real world, out of real blocks for a moment
- * (the user's idea): around each player an entity lying in wait has caught, the ground turns into {@code tremor:mire}
- * (mud that gives way in eighths and holds whoever is in it, {@link MireBlock}) and gives way deeper and deeper: a pit
- * where the entity lay in wait, as wide as stepping in springs it and a little more, deepest in the middle
+ * (the user's idea): where an entity lying in wait has caught a player, the ground turns into {@code tremor:quicksand}
+ * ({@link tremor.block.QuicksandBlock}: it gives way in 32nds of a block and holds whoever is in it, as the hollow's
+ * soft ground,
+ * but it looks like the block it was) and gives way deeper and deeper: a pit where the entity lay in wait, as wide as stepping in springs it and a little more, deepest in the middle
  * ({@link #depth}, {@link #deepest}). The player sinks, slowly, as into quicksand, and every creature in the mud is taken
  * under ({@link Devour}). For the first {@code ambush.escapeSeconds} the player may still get out: caught at the edge,
  * one who backs out at once reaches the firm ground (in mud a player walks about 0.8 of a block a second, sprints and
@@ -67,7 +69,7 @@ public final class Quicksand {
     static final double LAST_DEPTH = 2.2;
     /** All of the mud gives way at least this much (blocks): it holds whoever is in it, up to its edge. */
     static final double EDGE_DEPTH = 0.15;
-    /** Deepest a column ever gives way: three layers, the last eighth of the third one holding. */
+    /** Deepest a column ever gives way: three layers, the last 32nd of the third one holding. */
     static final double MAX_DEPTH = LAYERS - 1.0 / SinkTracker.MAX_SOFTNESS;
     /** The mud reaches this much (blocks) beyond where stepping in springs the ambush, while the player may get out... */
     static final double MARGIN = 0.5;
@@ -192,8 +194,8 @@ public final class Quicksand {
     /** Whether a block may turn into mud and back: solid, no block entity, no fluid, breakable, none of ours. */
     static boolean softenable(ServerLevel level, BlockPos pos, BlockState state) {
         return !state.hasBlockEntity() && state.getFluidState().isEmpty() && state.getDestroySpeed(level, pos) >= 0
-                && !state.getCollisionShape(level, pos).isEmpty() && !state.is(TremorBlocks.MIRE.get())
-                && !state.is(TremorBlocks.HEART_NODE.get());
+                && !state.getCollisionShape(level, pos).isEmpty() && !state.is(TremorBlocks.QUICKSAND.get())
+                && !state.is(TremorBlocks.MIRE.get()) && !state.is(TremorBlocks.HEART_NODE.get());
     }
 
     /** How high the collision of the block at {@code pos} reaches (blocks; 0 if it has none). */
@@ -271,7 +273,7 @@ public final class Quicksand {
             return false;
         }
         BlockPos under = BlockPos.containing(player.getX(), player.getY() - 0.2, player.getZ());
-        return !level.getBlockState(under).is(TremorBlocks.MIRE.get())
+        return !level.getBlockState(under).is(TremorBlocks.QUICKSAND.get())
                 && Math.hypot(player.getX() - focus.x(), player.getZ() - focus.z()) >= MOVED;
     }
 
@@ -341,7 +343,7 @@ public final class Quicksand {
                     entity.teleportTo(entity.getX(), cell.surface, entity.getZ());
                 }
             }
-            if (level.getBlockState(pos).is(TremorBlocks.MIRE.get())) {
+            if (level.getBlockState(pos).is(TremorBlocks.QUICKSAND.get())) {
                 level.setBlock(pos, cell.original, FLAGS);
                 if (pos.getY() == cell.surface - 1) {
                     level.sendParticles(new BlockParticleOption(ParticleTypes.BLOCK, cell.original),
@@ -395,15 +397,19 @@ public final class Quicksand {
                 if (!ALL.contains(this)) {
                     ALL.add(this);
                 }
-            } else if (!now.is(TremorBlocks.MIRE.get())) {
+            } else if (!now.is(TremorBlocks.QUICKSAND.get())) {
                 cells.remove(key);
                 TremorSavedData.get(level).quicksandRestored(key);
                 break;
             }
             if (softness > cell.softness) {
+                boolean placed = cell.softness == 0;
                 cell.softness = softness;
-                level.setBlock(pos, TremorBlocks.MIRE.get().defaultBlockState().setValue(MireBlock.SOFTNESS, softness),
-                        FLAGS);
+                level.setBlock(pos, TremorBlocks.QUICKSAND.get().defaultBlockState().setValue(MireBlock.SOFTNESS,
+                        softness), FLAGS);
+                if (placed && level.getBlockEntity(pos) instanceof QuicksandBlockEntity entity) {
+                    entity.setOriginal(cell.original); // the clients draw it as it was
+                }
             }
         }
     }
@@ -417,8 +423,8 @@ public final class Quicksand {
                 center.y() + 1, center.z() + radius);
         for (Mob mob : level.getEntitiesOfClass(Mob.class, box, m -> Devour.takeable(level, m))) {
             BlockPos under = BlockPos.containing(mob.getX(), mob.getY() - 0.2, mob.getZ());
-            if (level.getBlockState(under).is(TremorBlocks.MIRE.get())
-                    || level.getBlockState(under.above()).is(TremorBlocks.MIRE.get())) {
+            if (level.getBlockState(under).is(TremorBlocks.QUICKSAND.get())
+                    || level.getBlockState(under.above()).is(TremorBlocks.QUICKSAND.get())) {
                 Devour.take(level, mob);
             }
         }
@@ -465,7 +471,8 @@ public final class Quicksand {
         for (Iterator<Map.Entry<Long, BlockState>> it = left.entrySet().iterator(); it.hasNext(); ) {
             Map.Entry<Long, BlockState> entry = it.next();
             pos.set(entry.getKey());
-            if (level.getBlockState(pos).is(TremorBlocks.MIRE.get())) {
+            BlockState now = level.getBlockState(pos);
+            if (now.is(TremorBlocks.QUICKSAND.get()) || now.is(TremorBlocks.MIRE.get())) {
                 level.setBlock(pos, entry.getValue(), FLAGS);
                 restored++;
             }
