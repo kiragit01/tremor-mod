@@ -407,7 +407,7 @@ public final class TremorConfig {
                     .translation(KEY + "items.shardsMax").defineInRange("shardsMax", 1, 0, 64);
             frenzySpeedFactor = b.comment("A dropped shard drives the entity into a frenzy: it rushes to the shard, takes",
                             "it in and rushes on to whoever dropped it. Its speed is this many times its HUNTING speed...")
-                    .translation(KEY + "items.frenzySpeedFactor").defineInRange("frenzySpeedFactor", 3.0, 1.0, 10.0);
+                    .translation(KEY + "items.frenzySpeedFactor").defineInRange("frenzySpeedFactor", 4.5, 1.0, 10.0);
             frenzyAmplitudeFactor = b.comment("...and its bump this many times taller")
                     .translation(KEY + "items.frenzyAmplitudeFactor")
                     .defineInRange("frenzyAmplitudeFactor", 1.7, 1.0, 5.0);
