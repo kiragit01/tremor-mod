@@ -63,8 +63,9 @@ import java.util.UUID;
  *   and {@code stop});</li>
  *   <li>{@code debug <path|normals|graph|hearing> <on|off>} toggles particles (hearing: also the action bar) for the
  *   player.</li>
- *   <li>{@code route <add [pos]|listen [pos]|undo|clear|list|go|loop|stop>}: a route for filming, see
- *   {@link tremor.entity.Routes}.</li>
+ *   <li>{@code route <add [pos]|listen [pos]|undo|clear|list|go|loop|stop|show [on|off]>}: a route for filming, see
+ *   {@link tremor.entity.Routes}; {@code hold [on|off]} holds the look of the tremor (its anger) without one;
+ *   {@code probe [pin|unpin|toggle]} keeps the panel of the debug probe without it in hand; {@code ai toggle}.</li>
  *   <li>{@code hollow <enter|leave|status>} and {@code restore}: the hollow, see {@link HollowCommands}.</li>
  *   <li>{@code awaken [player]} and {@code awaken stop}: the Awakening, see {@link AwakeningCommands}.</li>
  *   <li>{@code hollow outcome <victory|edge|defeat>}: ends the level inside the hollow for the player, see
@@ -121,9 +122,13 @@ public final class TremorCommands {
                 .then(stage())
                 .then(Commands.literal("ai")
                         .then(Commands.literal("on").executes(ctx -> ai(ctx, true)))
-                        .then(Commands.literal("off").executes(ctx -> ai(ctx, false))))
+                        .then(Commands.literal("off").executes(ctx -> ai(ctx, false)))
+                        .then(Commands.literal("toggle").executes(ctx -> ai(ctx,
+                                !requireRuntime(ctx.getSource()).entity().aiEnabled()))))
                 .then(debug())
                 .then(route())
+                .then(probe())
+                .then(hold())
                 .then(HollowCommands.hollow())
                 .then(HollowCommands.restore())
                 // Merged into the hollow branch above: hollow outcome <victory|edge|defeat>.
@@ -166,7 +171,52 @@ public final class TremorCommands {
                 .then(Commands.literal("list").executes(TremorCommands::routeList))
                 .then(Commands.literal("go").executes(ctx -> routeGo(ctx, false)))
                 .then(Commands.literal("loop").executes(ctx -> routeGo(ctx, true)))
-                .then(Commands.literal("stop").executes(TremorCommands::routeStop));
+                .then(Commands.literal("stop").executes(TremorCommands::routeStop))
+                .then(Commands.literal("show").executes(ctx -> routeShow(ctx, null))
+                        .then(Commands.literal("on").executes(ctx -> routeShow(ctx, true)))
+                        .then(Commands.literal("off").executes(ctx -> routeShow(ctx, false))));
+    }
+
+    /** {@code route show [on|off]}: the route and the lure points as particles, for whoever runs it. */
+    private static int routeShow(CommandContext<CommandSourceStack> ctx, Boolean on) {
+        boolean shown = Routes.show(routeOwner(ctx.getSource()), on);
+        ctx.getSource().sendSuccess(() -> Component.literal(shown ? "Route and lure points shown"
+                : "Route and lure points hidden"), false);
+        return shown ? 1 : 0;
+    }
+
+    /** {@code /tremor probe [pin|unpin|toggle]}: the panel of the debug probe stays without it in hand, or not. */
+    private static LiteralArgumentBuilder<CommandSourceStack> probe() {
+        return Commands.literal("probe")
+                .executes(ctx -> probePin(ctx, null))
+                .then(Commands.literal("pin").executes(ctx -> probePin(ctx, true)))
+                .then(Commands.literal("unpin").executes(ctx -> probePin(ctx, false)))
+                .then(Commands.literal("toggle").executes(ctx -> probePin(ctx, null)));
+    }
+
+    private static int probePin(CommandContext<CommandSourceStack> ctx, Boolean on) throws CommandSyntaxException {
+        boolean pinned = tremor.debug.DebugProbe.pin(ctx.getSource().getPlayerOrException(), on);
+        ctx.getSource().sendSuccess(() -> Component.literal(pinned ? "Tremor panel pinned"
+                : "Tremor panel shown only with the probe in hand"), false);
+        return pinned ? 1 : 0;
+    }
+
+    /** {@code /tremor hold [on|off]}: the look of the nearest tremor (its anger) stays as it is, or not. */
+    private static LiteralArgumentBuilder<CommandSourceStack> hold() {
+        return Commands.literal("hold")
+                .executes(ctx -> hold(ctx, null))
+                .then(Commands.literal("on").executes(ctx -> hold(ctx, true)))
+                .then(Commands.literal("off").executes(ctx -> hold(ctx, false)));
+    }
+
+    private static int hold(CommandContext<CommandSourceStack> ctx, Boolean on) throws CommandSyntaxException {
+        TremorRuntime runtime = requireRuntime(ctx.getSource());
+        boolean held = on != null ? on : !runtime.angerHeld();
+        runtime.holdAnger(held);
+        int instance = runtime.entity().instance();
+        ctx.getSource().sendSuccess(() -> Component.literal("Tremor #" + instance + (held
+                ? ": look held (its anger stays as it is)" : ": look free (its anger changes again)")), false);
+        return held ? 1 : 0;
     }
 
     private static UUID routeOwner(CommandSourceStack source) {

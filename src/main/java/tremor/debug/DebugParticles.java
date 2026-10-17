@@ -291,7 +291,8 @@ public final class DebugParticles {
         return n.isNearZero() ? Vec3.UNIT_Y : n;
     }
 
-    private static DustParticleOptions dust(float r, float g, float b, float scale) {
+    /** Dust of the colour ({@code r, g, b} in 0..1) and size, as the debug views draw. */
+    public static DustParticleOptions dust(float r, float g, float b, float scale) {
         return new DustParticleOptions(new Vector3f(r, g, b), scale);
     }
 

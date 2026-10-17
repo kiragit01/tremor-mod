@@ -37,6 +37,25 @@ public final class Routes {
     private static final Map<UUID, List<Point>> LAID = new HashMap<>();
     /** The routes being crawled, by the runtime of the entity crawling. */
     private static final Map<TremorRuntime, Run> RUNS = new HashMap<>();
+    /** Operators who see their route and the points the tremors are lured to, as particles. */
+    private static final java.util.Set<UUID> SHOWN = new java.util.HashSet<>();
+    /** Game ticks between two drawings of what is shown. */
+    private static final int SHOW_INTERVAL = 10;
+    /** Particles drawn for one operator at most, per drawing. */
+    private static final int MAX_SHOWN = 400;
+    /** How far from the operator the lure points of the tremors show (blocks). */
+    private static final double LURE_RANGE = 160;
+    // Particles that glow by themselves, so the route shows in a dark cave as well as by day.
+    private static final net.minecraft.core.particles.ParticleOptions POINT =
+            net.minecraft.core.particles.ParticleTypes.WAX_OFF;
+    private static final net.minecraft.core.particles.ParticleOptions LISTEN =
+            net.minecraft.core.particles.ParticleTypes.SCRAPE;
+    private static final net.minecraft.core.particles.ParticleOptions NEXT =
+            net.minecraft.core.particles.ParticleTypes.WAX_ON;
+    private static final net.minecraft.core.particles.ParticleOptions LINE =
+            net.minecraft.core.particles.ParticleTypes.ELECTRIC_SPARK;
+    private static final net.minecraft.core.particles.ParticleOptions LURE =
+            net.minecraft.core.particles.ParticleTypes.FLAME;
 
     private static final class Run {
         final UUID owner;
@@ -112,6 +131,27 @@ public final class Routes {
         return true;
     }
 
+    /** Shows the route of {@code owner} and the lure points, or stops (null: the other way round); returns which. */
+    public static boolean show(UUID owner, Boolean on) {
+        boolean shown = on != null ? on : !SHOWN.contains(owner);
+        if (shown) {
+            SHOWN.add(owner);
+        } else {
+            SHOWN.remove(owner);
+        }
+        return shown;
+    }
+
+    /** How the route of {@code runtime}'s entity goes, for the panel of the probe; null if it crawls none. */
+    public static String describe(TremorRuntime runtime) {
+        Run run = RUNS.get(runtime);
+        if (run == null) {
+            return null;
+        }
+        return String.format(java.util.Locale.ROOT, "Route: %s point %d of %d%s", run.waitTicks > 0 ? "listening at"
+                : "going to", run.index + 1, run.points.size(), run.loop ? ", round and round" : ", once");
+    }
+
     /** Whether {@code runtime}'s entity crawls a route. */
     public static boolean running(TremorRuntime runtime) {
         return RUNS.containsKey(runtime);
@@ -130,9 +170,12 @@ public final class Routes {
 
     /** After the entity's tick: every route of the level goes on. */
     public static void onLevelTick(LevelTickEvent.Post event) {
-        if (RUNS.isEmpty() || !(event.getLevel() instanceof ServerLevel level)
+        if (RUNS.isEmpty() && SHOWN.isEmpty() || !(event.getLevel() instanceof ServerLevel level)
                 || !level.tickRateManager().runsNormally()) {
             return;
+        }
+        if (!SHOWN.isEmpty() && level.getGameTime() % SHOW_INTERVAL == 0) {
+            draw(level);
         }
         for (Iterator<Map.Entry<TremorRuntime, Run>> it = RUNS.entrySet().iterator(); it.hasNext(); ) {
             Map.Entry<TremorRuntime, Run> entry = it.next();
@@ -154,6 +197,66 @@ public final class Routes {
     public static void onServerStopped(ServerStoppedEvent event) {
         RUNS.clear();
         LAID.clear();
+        SHOWN.clear();
+    }
+
+    /**
+     * To each operator who asked for it ({@link #show}), in their level: their route (each point a column of white
+     * glow, a listening point teal, the one a tremor heads for orange; the way between them a line of sparks) and the
+     * points the tremors near them are lured to by {@code /tremor goto} (a column of flames).
+     */
+    private static void draw(ServerLevel level) {
+        for (ServerPlayer player : level.players()) {
+            if (!SHOWN.contains(player.getUUID())) {
+                continue;
+            }
+            int[] budget = {MAX_SHOWN};
+            List<Point> points = LAID.getOrDefault(player.getUUID(), List.of());
+            BlockPos heading = null;
+            for (Map.Entry<TremorRuntime, Run> entry : RUNS.entrySet()) {
+                if (entry.getValue().owner.equals(player.getUUID()) && entry.getKey().level() == level) {
+                    heading = entry.getValue().points.get(entry.getValue().index).pos();
+                }
+            }
+            for (int i = 0; i < points.size(); i++) {
+                Point point = points.get(i);
+                column(level, player, point.pos(), point.pos().equals(heading) ? NEXT
+                        : point.listen() ? LISTEN : POINT, 3, budget);
+                if (i + 1 < points.size()) {
+                    line(level, player, point.pos(), points.get(i + 1).pos(), budget);
+                }
+            }
+            for (TremorRuntime runtime : TremorManager.runtimes(level)) {
+                TremorEntity entity = runtime.entity();
+                BlockPos target = entity == null ? null : entity.target();
+                if (target != null && entity.targetKind() == TremorEntity.TargetKind.MANUAL && !RUNS.containsKey(runtime)
+                        && player.distanceToSqr(target.getX(), target.getY(), target.getZ()) < LURE_RANGE * LURE_RANGE) {
+                    column(level, player, target, LURE, 4, budget);
+                }
+            }
+        }
+    }
+
+    /** A column of {@code height} particles over the block at {@code pos}. */
+    private static void column(ServerLevel level, ServerPlayer player, BlockPos pos,
+                               net.minecraft.core.particles.ParticleOptions dust, int height, int[] budget) {
+        for (int k = 0; k < height && budget[0]-- > 0; k++) {
+            level.sendParticles(player, dust, true, pos.getX() + 0.5, pos.getY() + 1.3 + 0.5 * k, pos.getZ() + 0.5, 1,
+                    0, 0, 0, 0);
+        }
+    }
+
+    /** A line of sparks a block apart from one point to the next. */
+    private static void line(ServerLevel level, ServerPlayer player, BlockPos from, BlockPos to, int[] budget) {
+        double dx = to.getX() - from.getX();
+        double dy = to.getY() - from.getY();
+        double dz = to.getZ() - from.getZ();
+        int steps = (int) Math.ceil(Math.sqrt(dx * dx + dy * dy + dz * dz));
+        for (int k = 1; k < steps && budget[0]-- > 0; k++) {
+            double t = (double) k / steps;
+            level.sendParticles(player, LINE, true, from.getX() + 0.5 + dx * t, from.getY() + 1.2 + dy * t,
+                    from.getZ() + 0.5 + dz * t, 1, 0, 0, 0, 0);
+        }
     }
 
     /** One tick of a route; returns why it is over, or null while it goes on. */

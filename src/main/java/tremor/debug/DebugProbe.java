@@ -47,6 +47,8 @@ public final class DebugProbe {
     private static final int OWN_SOUND_TICKS = 200;
     /** Longest the behaviour line gets (characters). */
     private static final int BEHAVIOUR_LENGTH = 110;
+    /** Operators whose panel stays without the probe in hand ({@code /tremor probe pin}). */
+    private static final java.util.Set<UUID> PINNED = new java.util.HashSet<>();
     /** The latest sound of each holder the entity evaluated. */
     private static final Map<UUID, Sound> SOUNDS = new HashMap<>();
 
@@ -67,9 +69,25 @@ public final class DebugProbe {
         return player.hasPermissions(2);
     }
 
-    /** The entity evaluated a sound of {@code player} (null: of nobody's); kept for a holder of the probe. */
+    /** Pins the panel of {@code player} or takes it down (null: the other way round); returns which. */
+    public static boolean pin(ServerPlayer player, Boolean on) {
+        boolean pinned = on != null ? on : !PINNED.contains(player.getUUID());
+        if (pinned) {
+            PINNED.add(player.getUUID());
+        } else {
+            PINNED.remove(player.getUUID());
+        }
+        return pinned;
+    }
+
+    /** Whether {@code player} sees the panel: holding the probe, or with it pinned. */
+    private static boolean shown(Player player) {
+        return holding(player) || PINNED.contains(player.getUUID());
+    }
+
+    /** The entity evaluated a sound of {@code player} (null: of nobody's); kept while the player sees the panel. */
     public static void heard(Player player, Vibration vibration, Perception perception) {
-        if (player instanceof ServerPlayer server && holding(server)) {
+        if (player instanceof ServerPlayer server && shown(server)) {
             SOUNDS.put(server.getUUID(), new Sound(server.level().getGameTime(), vibration, perception));
         }
     }
@@ -79,7 +97,7 @@ public final class DebugProbe {
         if (!(event.getEntity() instanceof ServerPlayer player) || player.tickCount % INTERVAL != 0) {
             return;
         }
-        if (!holding(player)) {
+        if (!shown(player)) {
             SOUNDS.remove(player.getUUID());
         } else if (allowed(player)) {
             PacketDistributor.sendToPlayer(player, new TremorDebugPayload(lines(player)));
@@ -92,6 +110,7 @@ public final class DebugProbe {
 
     public static void onServerStopped(ServerStoppedEvent event) {
         SOUNDS.clear();
+        PINNED.clear();
     }
 
     /** What the probe shows {@code player}. */
@@ -148,6 +167,12 @@ public final class DebugProbe {
                     at.y(), share * 100, config.depth(level, at.y(), config.depthHearingFactor),
                     config.depth(level, at.y(), config.depthAngerFactor),
                     config.depth(level, at.y(), config.depthSpeedFactor)));
+        }
+        String route = tremor.entity.Routes.describe(runtime);
+        if (route != null) {
+            lines.add(route);
+        } else if (runtime.angerHeld()) {
+            lines.add("Look held (/tremor hold)");
         }
         String behaviour = runtime.behavior();
         lines.add("Does: " + (behaviour.length() > BEHAVIOUR_LENGTH

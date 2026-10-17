@@ -29,9 +29,9 @@ public final class TremorItems {
             new Item.Properties().rarity(Rarity.UNCOMMON));
     public static final DeferredItem<Item> SEISMOGRAPH = ITEMS.registerSimpleItem("seismograph",
             new Item.Properties().stacksTo(1));
-    /** Shows an operator who holds it what the entity is up to ({@code tremor.debug.DebugProbe}). */
-    public static final DeferredItem<Item> DEBUG_PROBE = ITEMS.registerSimpleItem("debug_probe",
-            new Item.Properties().stacksTo(1).rarity(Rarity.EPIC));
+    /** The operator's multitool: what the entity is up to, and filming it ({@link DebugProbeItem}). */
+    public static final DeferredItem<DebugProbeItem> DEBUG_PROBE = ITEMS.registerItem("debug_probe",
+            DebugProbeItem::new, new Item.Properties().stacksTo(1).rarity(Rarity.EPIC));
     public static final DeferredBlock<GeophoneBlock> GEOPHONE = BLOCKS.registerBlock("geophone", GeophoneBlock::new,
             BlockBehaviour.Properties.of()
                     .mapColor(MapColor.DEEPSLATE)
