@@ -18,16 +18,16 @@ import tremor.item.DebugProbeItem;
 /**
  * The debug probe as an operator's multitool on the client ({@link DebugProbeItem}): a right click acts where the
  * player looks (up to {@value #RANGE} blocks), by the mode chosen in its menu ({@link ProbeScreen}); a right click while
- * sneaking opens the menu; a key (unbound at first) pins or hides the panel of the probe. Every action is one of the
- * {@code /tremor} commands, run as the player, so the server checks the permission and answers as for a typed command.
- * Main thread only.
+ * sneaking opens the menu; a key (unbound at first) hides the panel of the probe or shows it again. Every action is
+ * one of the {@code /tremor} commands, run as the player, so the server checks the permission and answers as for a
+ * typed command. Main thread only.
  */
 public final class ProbeTool {
     /** How far a right click reaches (blocks). */
     static final double RANGE = 192;
     /** Ticks between two actions of a held right click (the game repeats it every 4 ticks). */
     private static final int REPEAT_TICKS = 10;
-    /** Pins the panel of the probe or hides it, whatever is in hand. */
+    /** Hides the panel of the probe, or shows it again where it was, whatever is in hand. */
     static final KeyMapping PANEL = new KeyMapping("key.tremor.probe_panel", InputConstants.UNKNOWN.getValue(),
             "key.categories.tremor");
 
@@ -45,7 +45,36 @@ public final class ProbeTool {
         }
     }
 
+    /** Where the panel of the probe shows, as last asked of the server, which forgets it too when the player leaves. */
+    enum Panel {
+        /** With the probe in hand ({@code /tremor probe unpin}). */
+        HELD("unpin"),
+        /** Also without it ({@code /tremor probe pin}). */
+        PINNED("pin"),
+        /** Not at all ({@code /tremor probe hide}). */
+        HIDDEN("hide");
+
+        private final String command;
+
+        Panel(String command) {
+            this.command = command;
+        }
+
+        Component label() {
+            return Component.translatable("tremor.probe.button.panel." + name().toLowerCase(Locale.ROOT));
+        }
+
+        Panel next() {
+            return values()[(ordinal() + 1) % values().length];
+        }
+    }
+
     static Mode mode = Mode.LURE;
+    static Panel panel = Panel.HELD;
+    /** Whether the short answers of the server go above the hotbar rather than into the chat. */
+    static boolean quiet;
+    /** Where the panel showed before the key hid it. */
+    private static Panel shownBefore = Panel.HELD;
     private static long lastUse = Long.MIN_VALUE / 2;
 
     private ProbeTool() {
@@ -61,7 +90,7 @@ public final class ProbeTool {
 
     public static void onClientTick(ClientTickEvent.Post event) {
         while (PANEL.consumeClick()) {
-            command("tremor probe toggle");
+            panel(panel == Panel.HIDDEN ? shownBefore : Panel.HIDDEN);
         }
     }
 
@@ -95,6 +124,28 @@ public final class ProbeTool {
             case ROUTE -> "tremor route add " + at;
             case LISTEN -> "tremor route listen " + at;
         });
+    }
+
+    /** Shows the panel of the probe {@code where} ({@code /tremor probe unpin|pin|hide}). */
+    static void panel(Panel where) {
+        if (where == Panel.HIDDEN && panel != Panel.HIDDEN) {
+            shownBefore = panel;
+        }
+        panel = where;
+        command("tremor probe " + where.command);
+    }
+
+    /** Puts the short answers of the server above the hotbar, or back into the chat ({@code /tremor probe quiet}). */
+    static void quiet(boolean on) {
+        quiet = on;
+        command("tremor probe quiet " + (on ? "on" : "off"));
+    }
+
+    /** Leaving a world or a server: the panel and the answers as at first, as the server has them then. */
+    static void forget() {
+        panel = Panel.HELD;
+        shownBefore = Panel.HELD;
+        quiet = false;
     }
 
     /** Runs {@code /command} as the player. */

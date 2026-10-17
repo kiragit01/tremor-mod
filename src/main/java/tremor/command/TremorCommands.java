@@ -8,6 +8,7 @@ import com.mojang.brigadier.context.CommandContext;
 import com.mojang.brigadier.exceptions.CommandSyntaxException;
 import com.mojang.brigadier.exceptions.DynamicCommandExceptionType;
 import com.mojang.brigadier.exceptions.SimpleCommandExceptionType;
+import net.minecraft.commands.CommandSource;
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.commands.Commands;
 import net.minecraft.commands.SharedSuggestionProvider;
@@ -33,6 +34,7 @@ import tremor.core.path.Path;
 import tremor.core.path.PathSearch;
 import tremor.core.path.PathSpline;
 import tremor.debug.DebugParticles;
+import tremor.debug.DebugProbe;
 import tremor.debug.DebugView;
 import tremor.entity.Param;
 import tremor.entity.TremorEntity;
@@ -44,6 +46,7 @@ import tremor.spawn.NaturalSpawner;
 
 import java.util.Locale;
 import java.util.UUID;
+import java.util.function.Supplier;
 
 /**
  * {@code /tremor ...} debug commands (SPEC 14.1), op level 2. A dimension may have several entities (one for each part
@@ -65,7 +68,9 @@ import java.util.UUID;
  *   player.</li>
  *   <li>{@code route <add [pos]|listen [pos]|undo|clear|list|go|loop|stop|show [on|off]>}: a route for filming, see
  *   {@link tremor.entity.Routes}; {@code hold [on|off]} holds the look of the tremor (its anger) without one;
- *   {@code probe [pin|unpin|toggle]} keeps the panel of the debug probe without it in hand; {@code ai toggle}.</li>
+ *   {@code probe <pin|unpin|hide>} shows the panel of the debug probe also without it in hand, only with it, or not
+ *   at all; {@code probe quiet [on|off]} puts the short answers above the hotbar ({@link #answer});
+ *   {@code ai toggle}.</li>
  *   <li>{@code hollow <enter|leave|status>} and {@code restore}: the hollow, see {@link HollowCommands}.</li>
  *   <li>{@code awaken [player]} and {@code awaken stop}: the Awakening, see {@link AwakeningCommands}.</li>
  *   <li>{@code hollow outcome <victory|edge|defeat>}: ends the level inside the hollow for the player, see
@@ -180,25 +185,43 @@ public final class TremorCommands {
     /** {@code route show [on|off]}: the route and the lure points as particles, for whoever runs it. */
     private static int routeShow(CommandContext<CommandSourceStack> ctx, Boolean on) {
         boolean shown = Routes.show(routeOwner(ctx.getSource()), on);
-        ctx.getSource().sendSuccess(() -> Component.literal(shown ? "Route and lure points shown"
-                : "Route and lure points hidden"), false);
+        answer(ctx.getSource(), () -> Component.literal(shown ? "Route and lure points shown"
+                : "Route and lure points hidden"));
         return shown ? 1 : 0;
     }
 
-    /** {@code /tremor probe [pin|unpin|toggle]}: the panel of the debug probe stays without it in hand, or not. */
+    /**
+     * {@code /tremor probe <pin|unpin|hide>}: the panel of the debug probe also without it in hand, only with it, or
+     * not at all; {@code /tremor probe quiet [on|off]}: the short answers of the commands above the hotbar, not in
+     * the chat.
+     */
     private static LiteralArgumentBuilder<CommandSourceStack> probe() {
         return Commands.literal("probe")
-                .executes(ctx -> probePin(ctx, null))
-                .then(Commands.literal("pin").executes(ctx -> probePin(ctx, true)))
-                .then(Commands.literal("unpin").executes(ctx -> probePin(ctx, false)))
-                .then(Commands.literal("toggle").executes(ctx -> probePin(ctx, null)));
+                .then(Commands.literal("pin").executes(ctx -> probePanel(ctx, DebugProbe.Panel.PINNED)))
+                .then(Commands.literal("unpin").executes(ctx -> probePanel(ctx, DebugProbe.Panel.HELD)))
+                .then(Commands.literal("hide").executes(ctx -> probePanel(ctx, DebugProbe.Panel.HIDDEN)))
+                .then(Commands.literal("quiet").executes(ctx -> probeQuiet(ctx, null))
+                        .then(Commands.literal("on").executes(ctx -> probeQuiet(ctx, true)))
+                        .then(Commands.literal("off").executes(ctx -> probeQuiet(ctx, false))));
     }
 
-    private static int probePin(CommandContext<CommandSourceStack> ctx, Boolean on) throws CommandSyntaxException {
-        boolean pinned = tremor.debug.DebugProbe.pin(ctx.getSource().getPlayerOrException(), on);
-        ctx.getSource().sendSuccess(() -> Component.literal(pinned ? "Tremor panel pinned"
-                : "Tremor panel shown only with the probe in hand"), false);
-        return pinned ? 1 : 0;
+    private static int probePanel(CommandContext<CommandSourceStack> ctx, DebugProbe.Panel panel)
+            throws CommandSyntaxException {
+        DebugProbe.panel(ctx.getSource().getPlayerOrException(), panel);
+        answer(ctx.getSource(), () -> Component.literal(switch (panel) {
+            case HELD -> "Tremor panel shown with the probe in hand";
+            case PINNED -> "Tremor panel pinned: shown without the probe in hand too";
+            case HIDDEN -> "Tremor panel hidden (/tremor probe unpin shows it again)";
+        }));
+        return panel.ordinal();
+    }
+
+    private static int probeQuiet(CommandContext<CommandSourceStack> ctx, Boolean on) throws CommandSyntaxException {
+        boolean quiet = DebugProbe.quiet(ctx.getSource().getPlayerOrException(), on);
+        answer(ctx.getSource(), () -> Component.literal(quiet
+                ? "Short tremor answers above the hotbar, not in the chat (/tremor probe quiet off)"
+                : "Tremor answers in the chat"));
+        return quiet ? 1 : 0;
     }
 
     /** {@code /tremor hold [on|off]}: the look of the nearest tremor (its anger) stays as it is, or not. */
@@ -214,8 +237,8 @@ public final class TremorCommands {
         boolean held = on != null ? on : !runtime.angerHeld();
         runtime.holdAnger(held);
         int instance = runtime.entity().instance();
-        ctx.getSource().sendSuccess(() -> Component.literal("Tremor #" + instance + (held
-                ? ": look held (its anger stays as it is)" : ": look free (its anger changes again)")), false);
+        answer(ctx.getSource(), () -> Component.literal("Tremor #" + instance + (held
+                ? ": look held (its anger stays as it is)" : ": look free (its anger changes again)")));
         return held ? 1 : 0;
     }
 
@@ -228,20 +251,20 @@ public final class TremorCommands {
         CommandSourceStack source = ctx.getSource();
         BlockPos pos = requested != null ? requested : lookTarget(source);
         int count = Routes.add(routeOwner(source), pos, listen);
-        source.sendSuccess(() -> Component.literal(String.format(Locale.ROOT, "Route point %d: %s%s", count,
-                pos.toShortString(), listen ? ", it stops and listens there" : "")), false);
+        answer(source, () -> Component.literal(String.format(Locale.ROOT, "Route point %d: %s%s", count,
+                pos.toShortString(), listen ? ", it stops and listens there" : "")));
         return count;
     }
 
     private static int routeUndo(CommandContext<CommandSourceStack> ctx) {
         int left = Routes.undo(routeOwner(ctx.getSource()));
-        ctx.getSource().sendSuccess(() -> Component.literal("Last route point taken away, " + left + " left"), false);
+        answer(ctx.getSource(), () -> Component.literal("Last route point taken away, " + left + " left"));
         return left;
     }
 
     private static int routeClear(CommandContext<CommandSourceStack> ctx) {
         Routes.clear(routeOwner(ctx.getSource()));
-        ctx.getSource().sendSuccess(() -> Component.literal("Route cleared"), false);
+        answer(ctx.getSource(), () -> Component.literal("Route cleared"));
         return 1;
     }
 
@@ -269,9 +292,9 @@ public final class TremorCommands {
             return 0;
         }
         int count = Routes.laid(routeOwner(source)).size();
-        source.sendSuccess(() -> Component.literal(String.format(Locale.ROOT, "Tremor #%d crawls the route of %d "
+        answer(source, () -> Component.literal(String.format(Locale.ROOT, "Tremor #%d crawls the route of %d "
                         + "points %s; its own decisions are off and its look held (/tremor route stop)",
-                runtime.entity().instance(), count, loop ? "round and round" : "once")), false);
+                runtime.entity().instance(), count, loop ? "round and round" : "once")));
         return count;
     }
 
@@ -282,8 +305,8 @@ public final class TremorCommands {
             ctx.getSource().sendFailure(Component.literal("Tremor #" + instance + " crawls no route"));
             return 0;
         }
-        ctx.getSource().sendSuccess(() -> Component.literal("Tremor #" + instance + " stops its route and is itself "
-                + "again"), false);
+        answer(ctx.getSource(), () -> Component.literal("Tremor #" + instance + " stops its route and is itself "
+                + "again"));
         return 1;
     }
 
@@ -298,9 +321,9 @@ public final class TremorCommands {
         tremor.Tremor.LOGGER.info("{} spawned tremor #{} in {} at {}", source.getTextName(), entity.instance(),
                 source.getLevel().dimension().location(), voxel(VoxelPos.containing(crawler.position())));
         int count = TremorManager.runtimes(source.getLevel()).size();
-        source.sendSuccess(() -> Component.literal(String.format(Locale.ROOT, "Tremor #%d spawned at %s, normal %s; "
+        answer(source, () -> Component.literal(String.format(Locale.ROOT, "Tremor #%d spawned at %s, normal %s; "
                         + "%d in the dimension", entity.instance(), voxel(VoxelPos.containing(crawler.position())),
-                vec(crawler.normal()), count)), false);
+                vec(crawler.normal()), count)));
         return entity.instance();
     }
 
@@ -312,7 +335,7 @@ public final class TremorCommands {
             source.sendFailure(Component.literal(outcome.message()));
             return 0;
         }
-        source.sendSuccess(() -> Component.literal(outcome.message()), false);
+        answer(source, () -> Component.literal(outcome.message()));
         return outcome.entity().instance();
     }
 
@@ -324,14 +347,13 @@ public final class TremorCommands {
             if (removed == 0) {
                 throw NO_ENTITY.create();
             }
-            source.sendSuccess(() -> Component.literal(removed + (removed == 1 ? " tremor" : " tremors") + " removed"),
-                    false);
+            answer(source, () -> Component.literal(removed + (removed == 1 ? " tremor" : " tremors") + " removed"));
             return removed;
         }
         TremorRuntime runtime = requireRuntime(source);
         int instance = runtime.entity().instance();
         TremorManager.despawn(runtime);
-        source.sendSuccess(() -> Component.literal("Tremor #" + instance + " removed"), false);
+        answer(source, () -> Component.literal("Tremor #" + instance + " removed"));
         return 1;
     }
 
@@ -348,17 +370,17 @@ public final class TremorCommands {
         }
         TremorEntity entity = runtime.entity();
         double distance = entity.crawler().position().distance(VoxelPos.center(goal));
-        source.sendSuccess(() -> Component.literal(String.format(Locale.ROOT,
+        answer(source, () -> Component.literal(String.format(Locale.ROOT,
                 "Tremor #%d heading for %s (%.1f blocks away), searching a path...",
-                entity.instance(), voxel(goal), distance)), false);
+                entity.instance(), voxel(goal), distance)));
         return 1;
     }
 
     private static int stop(CommandContext<CommandSourceStack> ctx) throws CommandSyntaxException {
         TremorRuntime runtime = requireRuntime(ctx.getSource());
         runtime.stop();
-        ctx.getSource().sendSuccess(() -> Component.literal("Tremor #" + runtime.entity().instance()
-                + " stopped, no target"), false);
+        answer(ctx.getSource(), () -> Component.literal("Tremor #" + runtime.entity().instance()
+                + " stopped, no target"));
         return 1;
     }
 
@@ -387,16 +409,16 @@ public final class TremorCommands {
             throw BAD_VALUE.create(e.getMessage());
         }
         double now = runtime.entity().params().get(param);
-        ctx.getSource().sendSuccess(() -> Component.literal(String.format(Locale.ROOT, "Tremor #%d: %s = %s",
-                runtime.entity().instance(), param.id(), number(now))), false);
+        answer(ctx.getSource(), () -> Component.literal(String.format(Locale.ROOT, "Tremor #%d: %s = %s",
+                runtime.entity().instance(), param.id(), number(now))));
         return 1;
     }
 
     private static int resetParams(CommandContext<CommandSourceStack> ctx) throws CommandSyntaxException {
         TremorRuntime runtime = requireRuntime(ctx.getSource());
         runtime.resetParams();
-        ctx.getSource().sendSuccess(() -> Component.literal("Tremor #" + runtime.entity().instance()
-                + ": parameters reset to the config values"), false);
+        answer(ctx.getSource(), () -> Component.literal("Tremor #" + runtime.entity().instance()
+                + ": parameters reset to the config values"));
         return 1;
     }
 
@@ -509,17 +531,17 @@ public final class TremorCommands {
     private static int reportAnger(CommandContext<CommandSourceStack> ctx, TremorEntity entity) {
         String seeking = entity.stage() == Stage.AWAKENING && !entity.absorbed() ? String.format(Locale.ROOT,
                 ": seeking a player for %d s", TremorConfig.COMMON.awakening.seekSeconds.get()) : "";
-        ctx.getSource().sendSuccess(() -> Component.literal(String.format(Locale.ROOT,
+        answer(ctx.getSource(), () -> Component.literal(String.format(Locale.ROOT,
                 "Tremor #%d: anger %.1f, stage %s%s", entity.instance(), entity.anger(),
-                entity.stage().name().toLowerCase(Locale.ROOT), seeking)), false);
+                entity.stage().name().toLowerCase(Locale.ROOT), seeking)));
         return entity.stage().ordinal();
     }
 
     private static int ai(CommandContext<CommandSourceStack> ctx, boolean on) throws CommandSyntaxException {
         TremorRuntime runtime = requireRuntime(ctx.getSource());
         runtime.setAi(on);
-        ctx.getSource().sendSuccess(() -> Component.literal("Tremor #" + runtime.entity().instance() + ": ai "
-                + (on ? "on" : "off (it only obeys goto and stop)")), false);
+        answer(ctx.getSource(), () -> Component.literal("Tremor #" + runtime.entity().instance() + ": ai "
+                + (on ? "on" : "off (it only obeys goto and stop)")));
         return 1;
     }
 
@@ -527,8 +549,43 @@ public final class TremorCommands {
             throws CommandSyntaxException {
         ServerPlayer player = ctx.getSource().getPlayerOrException();
         DebugParticles.set(player, view, on);
-        ctx.getSource().sendSuccess(() -> Component.literal("Tremor debug " + view.id() + (on ? " on" : " off")), false);
+        answer(ctx.getSource(), () -> Component.literal("Tremor debug " + view.id() + (on ? " on" : " off")));
         return 1;
+    }
+
+    /**
+     * A short answer to whoever ran the command: in the chat, or above the hotbar for an operator who wants it quiet
+     * ({@code /tremor probe quiet}: the clicks of the multitool do not fill the chat). Long readouts (info, lists) and
+     * failures always go to the chat.
+     */
+    private static void answer(CommandSourceStack source, Supplier<Component> message) {
+        if (source.getEntity() instanceof ServerPlayer player && DebugProbe.quiet(player)) {
+            source = source.withSource(new ActionBar(player));
+        }
+        source.sendSuccess(message, false);
+    }
+
+    /** Where {@link #answer} puts a quiet answer: above the hotbar of the player. */
+    private record ActionBar(ServerPlayer player) implements CommandSource {
+        @Override
+        public void sendSystemMessage(Component message) {
+            player.displayClientMessage(message, true);
+        }
+
+        @Override
+        public boolean acceptsSuccess() {
+            return player.acceptsSuccess();
+        }
+
+        @Override
+        public boolean acceptsFailure() {
+            return player.acceptsFailure();
+        }
+
+        @Override
+        public boolean shouldInformAdmins() {
+            return false;
+        }
     }
 
     /** The entity nearest to where the command runs (a dimension may have several). */

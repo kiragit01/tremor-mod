@@ -16,12 +16,12 @@ import tremor.network.TremorDebugPayload;
 
 /**
  * The lines of the debug probe ({@code tremor.debug.DebugProbe}) at the top left of the screen, on a dim backing like
- * vanilla's debug screen, while the server keeps sending them (the probe in hand, or the panel pinned), and a line on
- * what the multitool does while it is in hand ({@link ProbeTool}); not while the debug screen (F3) is open or the HUD
- * is hidden. Main thread only.
+ * vanilla's debug screen, while the server keeps sending them (the probe in hand, or the panel pinned; not when it is
+ * hidden), with a line on what the multitool does while it is in hand ({@link ProbeTool}); not while the debug screen
+ * (F3) is open or the HUD is hidden. Main thread only.
  */
 public final class DebugProbeHud {
-    /** Lines older than this are not shown (the server stopped sending: no permission, or the probe put away). */
+    /** Lines older than this are not shown (the server stopped sending: the probe put away, or no permission). */
     private static final long STALE_NANOS = 1_000_000_000L;
     private static final int MARGIN = 2;
     private static final int LINE_HEIGHT = 10;
@@ -41,6 +41,7 @@ public final class DebugProbeHud {
 
     public static void onLoggingOut(ClientPlayerNetworkEvent.LoggingOut event) {
         lines = List.of();
+        ProbeTool.forget();
     }
 
     public static void onRegisterGuiLayers(RegisterGuiLayersEvent event) {
@@ -54,6 +55,9 @@ public final class DebugProbeHud {
         if (mc.options.hideGui || mc.getDebugOverlay().showDebugScreen() || player == null) {
             return;
         }
+        if (lines.isEmpty() || System.nanoTime() - receivedNanos > STALE_NANOS) {
+            return; // nothing of late: the probe put away, the panel hidden (sent empty), or no permission
+        }
         boolean held = player.getMainHandItem().is(TremorItems.DEBUG_PROBE.get())
                 || player.getOffhandItem().is(TremorItems.DEBUG_PROBE.get());
         List<String> shown = new java.util.ArrayList<>();
@@ -61,12 +65,7 @@ public final class DebugProbeHud {
             shown.add(net.minecraft.network.chat.Component.translatable("tremor.probe.hint", ProbeTool.mode.label())
                     .getString());
         }
-        if (System.nanoTime() - receivedNanos <= STALE_NANOS) {
-            shown.addAll(lines);
-        }
-        if (shown.isEmpty()) {
-            return;
-        }
+        shown.addAll(lines);
         Font font = mc.font;
         int widest = 0;
         for (String line : shown) {

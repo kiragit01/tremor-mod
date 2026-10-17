@@ -37,8 +37,10 @@ import tremor.spawn.NaturalSpawner;
  * stage and anger, where it is and how fast it goes, the depth factors where it is (the deeper, the fiercer), what it
  * does and what it heard last, how it heard the holder's latest sound (loudness, footing, distance, how loud at it,
  * the anger that added), whether it despawns, how many there are, the natural spawn for the holder, and the
- * Awakening. Sent every {@value #INTERVAL} ticks while held; holding it changes nothing. Operators only (permission
- * level 2), like the {@code /tremor} commands; it is in the operator tab of the creative inventory.
+ * Awakening. Sent every {@value #INTERVAL} ticks while held (or also without it, or never: {@link Panel}); holding it
+ * changes nothing. Operators only (permission level 2), like the {@code /tremor} commands; it is in the operator tab
+ * of the creative inventory. An operator may also have the short answers of the commands above the hotbar rather
+ * than in the chat ({@link #quiet(Player)}), so that the clicks of the multitool do not fill it.
  */
 public final class DebugProbe {
     /** Ticks between two updates of the lines. */
@@ -47,12 +49,24 @@ public final class DebugProbe {
     private static final int OWN_SOUND_TICKS = 200;
     /** Longest the behaviour line gets (characters). */
     private static final int BEHAVIOUR_LENGTH = 110;
-    /** Operators whose panel stays without the probe in hand ({@code /tremor probe pin}). */
-    private static final java.util.Set<UUID> PINNED = new java.util.HashSet<>();
+    /** Where the panel shows for whoever changed it ({@code /tremor probe pin|hide}); others: {@link Panel#HELD}. */
+    private static final Map<UUID, Panel> PANELS = new HashMap<>();
+    /** Operators who want the short answers of the commands above the hotbar ({@code /tremor probe quiet}). */
+    private static final java.util.Set<UUID> QUIET = new java.util.HashSet<>();
     /** The latest sound of each holder the entity evaluated. */
     private static final Map<UUID, Sound> SOUNDS = new HashMap<>();
 
     private record Sound(long time, Vibration vibration, Perception perception) {
+    }
+
+    /** Where the panel shows ({@code /tremor probe unpin|pin|hide}); an operator's choice lasts until they leave. */
+    public enum Panel {
+        /** While the probe is in hand (at first). */
+        HELD,
+        /** Also without it in hand. */
+        PINNED,
+        /** Not at all, the probe in hand or not. */
+        HIDDEN
     }
 
     private DebugProbe() {
@@ -69,20 +83,39 @@ public final class DebugProbe {
         return player.hasPermissions(2);
     }
 
-    /** Pins the panel of {@code player} or takes it down (null: the other way round); returns which. */
-    public static boolean pin(ServerPlayer player, Boolean on) {
-        boolean pinned = on != null ? on : !PINNED.contains(player.getUUID());
-        if (pinned) {
-            PINNED.add(player.getUUID());
+    /** Where the panel of {@code player} shows from now on; if that is nowhere now, it goes at once. */
+    public static void panel(ServerPlayer player, Panel panel) {
+        if (panel == Panel.HELD) {
+            PANELS.remove(player.getUUID());
         } else {
-            PINNED.remove(player.getUUID());
+            PANELS.put(player.getUUID(), panel);
         }
-        return pinned;
+        if (!shown(player)) {
+            // An empty panel: gone now, not once the last lines get stale.
+            PacketDistributor.sendToPlayer(player, new TremorDebugPayload(List.of()));
+        }
     }
 
-    /** Whether {@code player} sees the panel: holding the probe, or with it pinned. */
+    /** Makes the answers to {@code player} quiet or not (null: the other way round); returns which. */
+    public static boolean quiet(ServerPlayer player, Boolean on) {
+        boolean quiet = on != null ? on : !QUIET.contains(player.getUUID());
+        if (quiet) {
+            QUIET.add(player.getUUID());
+        } else {
+            QUIET.remove(player.getUUID());
+        }
+        return quiet;
+    }
+
+    /** Whether the short answers of the commands go above the hotbar of {@code player}, not into the chat. */
+    public static boolean quiet(Player player) {
+        return QUIET.contains(player.getUUID());
+    }
+
+    /** Whether {@code player} sees the panel: pinned, or holding the probe unless it is hidden. */
     private static boolean shown(Player player) {
-        return holding(player) || PINNED.contains(player.getUUID());
+        Panel panel = PANELS.getOrDefault(player.getUUID(), Panel.HELD);
+        return panel == Panel.PINNED || panel == Panel.HELD && holding(player);
     }
 
     /** The entity evaluated a sound of {@code player} (null: of nobody's); kept while the player sees the panel. */
@@ -106,11 +139,15 @@ public final class DebugProbe {
 
     public static void onPlayerLoggedOut(PlayerEvent.PlayerLoggedOutEvent event) {
         SOUNDS.remove(event.getEntity().getUUID());
+        // The client forgets them too on leaving (tremor.client.ProbeTool#forget).
+        PANELS.remove(event.getEntity().getUUID());
+        QUIET.remove(event.getEntity().getUUID());
     }
 
     public static void onServerStopped(ServerStoppedEvent event) {
         SOUNDS.clear();
-        PINNED.clear();
+        PANELS.clear();
+        QUIET.clear();
     }
 
     /** What the probe shows {@code player}. */

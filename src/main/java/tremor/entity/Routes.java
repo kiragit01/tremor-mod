@@ -314,7 +314,8 @@ public final class Routes {
     private static void tell(ServerLevel level, UUID owner, String message) {
         ServerPlayer player = level.getServer().getPlayerList().getPlayer(owner);
         if (player != null) {
-            player.sendSystemMessage(Component.literal(message));
+            // Above the hotbar for an operator who wants it quiet (/tremor probe quiet).
+            player.displayClientMessage(Component.literal(message), tremor.debug.DebugProbe.quiet(player));
         }
     }
 }

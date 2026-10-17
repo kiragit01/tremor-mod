@@ -1,5 +1,7 @@
 # The debug probe as a multitool: a right click lures the nearest tremor to the block looked at; the route shows on the
-# ground; the panel can be pinned without the probe in hand and taken down; sneak + right click opens the menu.
+# ground; the panel can be pinned without the probe in hand and taken down; quiet, a click's answer goes above the
+# hotbar and not into the chat; the panel hides with the probe in hand and shows again; sneak + right click opens the
+# menu.
 waitchunks
 cmd gamemode spectator
 cmd time set noon
@@ -40,10 +42,24 @@ screenshot 03_pinned
 cmd tremor probe unpin
 wait 30
 screenshot 04_unpinned
-log --- sneak + right click opens the menu
+log --- quiet: a click's answer above the hotbar, not in the chat
+cmd tremor probe quiet on
 cmd item replace entity @s weapon.mainhand with tremor:debug_probe
 wait 5
+lookat 470.5 200.5 296.5
+hold use 2
+wait 5
+screenshot 05_quiet
+cmd tremor probe quiet off
+log --- the panel hidden with the probe in hand, then shown again
+cmd tremor probe hide
+wait 15
+screenshot 06_hidden
+cmd tremor probe unpin
+wait 15
+screenshot 07_shown_again
+log --- sneak + right click opens the menu
 hold sneak+use 2
 wait 10
-screenshot 05_menu
+screenshot 08_menu
 quit
