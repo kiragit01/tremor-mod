@@ -65,6 +65,9 @@ public final class Tremor {
         game.addListener(TremorManager::onLevelLoad);
         game.addListener(TremorManager::onLevelUnload);
         game.addListener(TremorManager::onLevelTick);
+        // After the entities' tick: the routes for filming go on.
+        game.addListener(tremor.entity.Routes::onLevelTick);
+        game.addListener(tremor.entity.Routes::onServerStopped);
         game.addListener(tremor.entity.Devour::onLevelTick);
         game.addListener(tremor.entity.Frenzy::onItemToss);
         game.addListener(tremor.entity.Frenzy::onLevelTick);

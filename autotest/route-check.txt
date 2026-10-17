@@ -1,0 +1,31 @@
+# A route for filming (/tremor route): the nearest tremor crawls the points in order, stops to listen at a listening
+# point (a ring of ripples), keeps the look it was given (hunting) all along, and is itself again when it is done.
+waitchunks
+cmd gamemode spectator
+cmd time set noon
+cmd tremor despawn all
+cmd tremor awaken stop
+cmd tp @s 300.5 201.0 300.5 270 10
+wait 40
+waitchunks
+cmd fill 240 198 280 360 200 320 minecraft:stone
+cmd fill 240 201 280 360 206 320 minecraft:air
+cmd tremor spawn 262 201 300
+wait 20
+cmd tremor stage hunting
+cmd tremor route clear
+cmd tremor route add 282 201 292
+cmd tremor route listen 300 201 310
+cmd tremor route add 332 201 300
+cmd tremor route list
+cmd tremor route go
+cmd tp @s 300.5 216 272.5
+lookat 300.5 200 300.5
+hud off
+wait 120
+screenshot 01_route
+cmd tremor info
+waitfor 700 Route done
+cmd tremor info
+screenshot 02_end
+quit

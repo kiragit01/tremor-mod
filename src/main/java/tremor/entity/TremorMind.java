@@ -153,6 +153,8 @@ final class TremorMind {
     /** A vibration was heard since the last tick (eventful for the despawn clock). */
     private boolean heardSinceTick;
     private int leavingTicks;
+    /** Its anger is held where it is (a route for filming, {@link Routes}): it neither decays nor grows. Not saved. */
+    private boolean angerHeld;
     /** Ticks it has been giving way to another entity ({@link #yieldTo}), or -1 if it is not. Not saved. */
     private int yieldTicks = -1;
 
@@ -196,6 +198,9 @@ final class TremorMind {
             return "awakening";
         }
         heardSinceTick = true;
+        if (angerHeld) {
+            return "anger held (a route)";
+        }
         addAnger(anger);
         if (entity.frenzy()) {
             return "frenzy";
@@ -234,7 +239,9 @@ final class TremorMind {
             return; // its anger no longer matters, or it stays at the top
         }
         Stage before = entity.stage();
-        if (meter.stage() == Stage.AWAKENING) {
+        if (angerHeld) {
+            // A route for filming: its look stays as it was set.
+        } else if (meter.stage() == Stage.AWAKENING) {
             seeking.stage(Stage.AWAKENING); // running since the entity got there (settle)
             if (seeking.tick(TremorRuntime.TICK_SECONDS, TremorConfig.COMMON.awakening.seekSeconds.get())) {
                 calmDown();
@@ -386,6 +393,25 @@ final class TremorMind {
     }
 
     /** {@code /tremor ai on|off}: switched back on, the brain starts afresh (it heard nothing meanwhile). */
+    /** Holds the anger where it is, or lets it go again ({@link #angerHeld}). */
+    void holdAnger(boolean held) {
+        angerHeld = held;
+    }
+
+    /**
+     * A listening stop of a route ({@link Routes}): it stands where it is and sends a ring of ripples through the
+     * ground, with its sound, as when it freezes to listen (SPEC 8 ALERT); none while it dives or one still runs.
+     */
+    void listenNow() {
+        long now = level.getGameTime();
+        Vec3 at = entity.crawler().position();
+        Vec3 ahead = entity.crawler().forward();
+        runtime.freeze(entity, new Vec3(at.x() + ahead.x(), at.y() + ahead.y(), at.z() + ahead.z()));
+        if (ripple.freeze(now, entity.crawler().diving())) {
+            play(TremorSounds.RIPPLE, skin(), RIPPLE_VOLUME, 1);
+        }
+    }
+
     void setAi(boolean on) {
         if (on && !entity.aiEnabled()) {
             brain = newBrain();
