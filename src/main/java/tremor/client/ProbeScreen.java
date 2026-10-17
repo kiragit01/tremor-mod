@@ -11,8 +11,9 @@ import net.minecraft.network.chat.Component;
 /**
  * The menu of the debug probe ({@link ProbeTool}): what a right click does, the look of the nearest tremor (its stage,
  * held or not), its speed, its route for filming (play once, round and round, stop, undo, clear), and what is shown
- * (the route and the lure points on the ground, the panel pinned, its own decisions on or off). Each button runs one of
- * the {@code /tremor} commands; the server answers in the chat. The game goes on behind it.
+ * (the route and the lure points on the ground, the panel with the probe in hand, always or hidden, the answers in the
+ * chat or above the hotbar, its own decisions on or off). Each button runs one of the {@code /tremor} commands; the
+ * server answers in the chat, or above the hotbar. The game goes on behind it.
  */
 final class ProbeScreen extends Screen {
     private static final int BUTTON_HEIGHT = 20;
@@ -50,7 +51,7 @@ final class ProbeScreen extends Screen {
                 command("stop", "tremor route stop"), command("undo", "tremor route undo"),
                 command("clear", "tremor route clear"));
         y += ROW;
-        row(y, "show", command("show", "tremor route show"), command("pin", "tremor probe toggle"),
+        row(y, "show", command("show", "tremor route show"), panel(), answers(),
                 command("ai", "tremor ai toggle"));
         y += ROW;
         int width = 100;
@@ -81,6 +82,23 @@ final class ProbeScreen extends Screen {
                     ProbeTool.mode = mode;
                     rebuildWidgets();
                 }, ProbeTool.mode != mode);
+    }
+
+    /** Where the panel of the probe shows: with it in hand, always, hidden, and round again. */
+    private Entry panel() {
+        return new Entry(ProbeTool.panel.label(), button -> {
+            ProbeTool.panel(ProbeTool.panel.next());
+            rebuildWidgets();
+        }, true);
+    }
+
+    /** The short answers of the server in the chat, or above the hotbar. */
+    private Entry answers() {
+        return new Entry(Component.translatable("tremor.probe.button.answers." + (ProbeTool.quiet ? "quiet" : "chat")),
+                button -> {
+                    ProbeTool.quiet(!ProbeTool.quiet);
+                    rebuildWidgets();
+                }, true);
     }
 
     /** Runs {@code /command}. */

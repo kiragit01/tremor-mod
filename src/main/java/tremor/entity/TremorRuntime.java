@@ -1300,7 +1300,8 @@ public final class TremorRuntime {
     private void tell(UUID player, String message) {
         ServerPlayer receiver = player == null ? null : level.getServer().getPlayerList().getPlayer(player);
         if (receiver != null) {
-            receiver.sendSystemMessage(Component.literal(message));
+            // Above the hotbar for an operator who wants it quiet (/tremor probe quiet).
+            receiver.displayClientMessage(Component.literal(message), tremor.debug.DebugProbe.quiet(receiver));
         }
     }
 
