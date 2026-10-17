@@ -215,6 +215,7 @@ public final class DebugProbe {
         String behaviour = runtime.behavior();
         lines.add("Does: " + (behaviour.length() > BEHAVIOUR_LENGTH
                 ? behaviour.substring(0, BEHAVIOUR_LENGTH - 3) + "..." : behaviour));
+        lines.add("Ambush: " + runtime.ambush());
         BlockPos target = entity.target();
         lines.add("Target: " + (target == null ? "none" : target.toShortString() + " ("
                 + entity.targetKind().name().toLowerCase(Locale.ROOT) + ")"));

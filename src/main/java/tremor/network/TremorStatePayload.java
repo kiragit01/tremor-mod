@@ -18,10 +18,12 @@ import tremor.core.math.Vec3;
  * @param stage     aggression stage (SPEC 8)
  * @param rippleAge game ticks since the latest ground ripple started (SPEC 8, ALERT), at the time of the snapshot;
  *                  {@link #NO_RIPPLE} if there is none (or it is older than that). Sent as an unsigned short.
+ * @param lurk      how far the bump has gone into lying in wait, 0..1 ({@link tremor.core.behavior.Ambush}): flat,
+ *                  wide and breathing at 1
  */
 public record TremorStatePayload(int instance, boolean present, long gameTime, Vec3 position, Vec3 normal,
                                  Vec3 forward, Vec3 velocity, float amplitude, float phase, Stage stage,
-                                 int rippleAge)
+                                 int rippleAge, float lurk)
         implements TremorPayload {
 
     /** {@link #rippleAge} when there is no ripple; also the largest age that is sent. */
@@ -29,7 +31,7 @@ public record TremorStatePayload(int instance, boolean present, long gameTime, V
 
     public static TremorStatePayload absent(int instance, long gameTime) {
         return new TremorStatePayload(instance, false, gameTime, Vec3.ZERO, Vec3.UNIT_Y, Vec3.UNIT_X, Vec3.ZERO, 0, 0,
-                Stage.DORMANT, NO_RIPPLE);
+                Stage.DORMANT, NO_RIPPLE, 0);
     }
 
     @Override
@@ -50,6 +52,7 @@ public record TremorStatePayload(int instance, boolean present, long gameTime, V
         buf.writeFloat(phase);
         buf.writeEnum(stage);
         buf.writeShort(Math.max(0, Math.min(NO_RIPPLE, rippleAge)));
+        buf.writeFloat(lurk);
     }
 
     static TremorStatePayload read(FriendlyByteBuf buf) {
@@ -67,8 +70,9 @@ public record TremorStatePayload(int instance, boolean present, long gameTime, V
         float phase = buf.readFloat();
         Stage stage = buf.readEnum(Stage.class);
         int rippleAge = buf.readUnsignedShort();
+        float lurk = buf.readFloat();
         return new TremorStatePayload(instance, true, gameTime, position, normal, forward, velocity, amplitude, phase,
-                stage, rippleAge);
+                stage, rippleAge, lurk);
     }
 
     static void writeVec(FriendlyByteBuf buf, Vec3 v) {

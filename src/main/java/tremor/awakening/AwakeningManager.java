@@ -14,6 +14,7 @@ import net.minecraftforge.event.server.ServerStoppingEvent;
 import net.minecraftforge.event.TickEvent;
 import tremor.Tremor;
 import tremor.config.TremorConfig;
+import tremor.core.behavior.Ambush;
 import tremor.core.behavior.Stage;
 import tremor.core.math.Vec3;
 import tremor.entity.TremorEntity;
@@ -35,8 +36,9 @@ import java.util.Map;
 import java.util.UUID;
 
 /**
- * Runs the Awakenings (SPEC 9; stage 4b: the real-world part): at most one per level, each an {@link Awakening}.
- * Event handlers are registered by {@link tremor.Tremor}; server thread only.
+ * Runs the Awakenings (SPEC 9; stage 4b: the real-world part), each an {@link Awakening}: at most one per level that
+ * is no ambush, and an ambush for every player an entity lying in wait has caught ({@link #ambush}). Event handlers
+ * are registered by {@link tremor.Tremor}; server thread only.
  * <ul>
  *   <li><b>Start by itself</b> (SPEC 8 AWAKENING, 9 phase 1): in AWAKENING an entity seeks a player (it goes
  *   for the sounds it hears, faster than hunting, {@link tremor.core.behavior.Seeking}). Each tick after its move,
@@ -84,11 +86,11 @@ public final class AwakeningManager {
     /** Id of the next Awakening; ids are never reused while the server runs. */
     private static int nextId = 1;
 
-    /** What is kept for a level: its Awakening and whom each of its entities heard last. */
+    /** What is kept for a level: its Awakenings and whom each of its entities heard last. */
     private static final class LevelState {
         final ServerLevel level;
-        /** The running Awakening, or null. */
-        Awakening awakening;
+        /** The running Awakenings, oldest first: at most one that is no ambush, and the ambushes. */
+        final List<Awakening> awakenings = new ArrayList<>();
         /** The player whose vibration each entity heard last, by its instance. */
         final Map<Integer, UUID> lastHeard = new HashMap<>();
 
@@ -131,6 +133,10 @@ public final class AwakeningManager {
         if (HollowManager.event(target) != null) {
             throw new Refusal(name + " is in an event of the hollow");
         }
+        Awakening taken = targetOf(target.getUUID());
+        if (taken != null) {
+            throw new Refusal(name + " is being taken by Awakening #" + taken.id + " already");
+        }
         Awakening running = running(level);
         if (running != null) {
             throw new Refusal("Awakening #" + running.id + " for " + running.targetName + " runs in "
@@ -152,6 +158,18 @@ public final class AwakeningManager {
             awakening = targetOf(executor.getUUID());
         }
         if (awakening == null) {
+            // An ambush of the level: the one nearest to whoever runs the command.
+            double best = Double.POSITIVE_INFINITY;
+            for (Awakening ambush : awakenings(level)) {
+                double away = executor == null ? 0 : Math.hypot(ambush.center.x() - executor.getX(),
+                        ambush.center.z() - executor.getZ());
+                if (away < best) {
+                    best = away;
+                    awakening = ambush;
+                }
+            }
+        }
+        if (awakening == null) {
             return null;
         }
         cancel(awakening, awakening.player(), "stopped by a command");
@@ -160,7 +178,7 @@ public final class AwakeningManager {
 
     /** Whether an Awakening runs in the level. */
     public static boolean runs(ServerLevel level) {
-        return running(level) != null;
+        return !awakenings(level).isEmpty();
     }
 
     /**
@@ -168,8 +186,12 @@ public final class AwakeningManager {
      * wait there meanwhile, see {@link NaturalSpawner}: it would take a new entity at once).
      */
     public static boolean runsNear(ServerLevel level, double x, double z, double reach) {
-        Awakening awakening = running(level);
-        return awakening != null && Math.hypot(awakening.center.x() - x, awakening.center.z() - z) <= reach;
+        for (Awakening awakening : awakenings(level)) {
+            if (Math.hypot(awakening.center.x() - x, awakening.center.z() - z) <= reach) {
+                return true;
+            }
+        }
+        return false;
     }
 
     /**
@@ -177,13 +199,13 @@ public final class AwakeningManager {
      * natural spawn pause after one at {@code x, z}; null if there is neither.
      */
     public static String describe(ServerLevel level, double x, double z) {
-        Awakening awakening = running(level);
+        List<Awakening> awakenings = awakenings(level);
         long pause = NaturalSpawner.pauseLeft(level, x, z, tremor.spawn.SpawnPauses.Kind.AWAKENING);
-        if (awakening == null && pause == 0) {
+        if (awakenings.isEmpty() && pause == 0) {
             return null;
         }
-        List<String> lines = new ArrayList<>(2);
-        if (awakening != null) {
+        List<String> lines = new ArrayList<>(awakenings.size() + 1);
+        for (Awakening awakening : awakenings) {
             lines.add(awakening.describe(level.getGameTime()));
         }
         if (pause > 0) {
@@ -195,8 +217,12 @@ public final class AwakeningManager {
 
     /** Whether the level's Awakening takes vibrations now (until its target is in the hollow: step ripples). */
     public static boolean listens(ServerLevel level) {
-        Awakening awakening = running(level);
-        return awakening != null && awakening.rippling();
+        for (Awakening awakening : awakenings(level)) {
+            if (awakening.rippling()) {
+                return true;
+            }
+        }
+        return false;
     }
 
     /**
@@ -205,9 +231,13 @@ public final class AwakeningManager {
      * player who made it).
      */
     public static boolean listens(ServerLevel level, double x, double z) {
-        Awakening awakening = running(level);
-        return awakening != null && awakening.rippling() && AwakeningRules.inZone(awakening.center,
-                awakening.radius + VIBRATION_MARGIN, new Vec3(x, awakening.center.y(), z));
+        for (Awakening awakening : awakenings(level)) {
+            if (awakening.rippling() && AwakeningRules.inZone(awakening.center, awakening.radius + VIBRATION_MARGIN,
+                    new Vec3(x, awakening.center.y(), z))) {
+                return true;
+            }
+        }
+        return false;
     }
 
     /**
@@ -232,8 +262,7 @@ public final class AwakeningManager {
         if (player == null) {
             return;
         }
-        Awakening awakening = running(level);
-        if (awakening != null) {
+        for (Awakening awakening : awakenings(level)) {
             awakening.vibration(vibration, player);
         }
     }
@@ -248,14 +277,19 @@ public final class AwakeningManager {
         if (!(event.level instanceof ServerLevel level)) {
             return;
         }
-        Awakening awakening = running(level);
-        if (awakening != null) {
+        Quicksand.tick(level);
+        for (Awakening awakening : awakenings(level)) {
+            if (awakening.ended()) {
+                continue; // ended by another's tick
+            }
             TremorRuntime own = own(level, awakening);
             if (own != null) {
                 own.absorb();
             }
             awakening.tick(level.getGameTime());
-        } else if (!HollowDimension.is(level)) {
+        }
+        catchMore(level);
+        if (running(level) == null && !HollowDimension.is(level)) {
             for (TremorRuntime runtime : TremorManager.runtimes(level)) {
                 TremorEntity entity = runtime.entity();
                 if (entity != null && entity.stage() == Stage.AWAKENING && !entity.leaving() && !entity.absorbed()
@@ -333,11 +367,7 @@ public final class AwakeningManager {
      */
     public static void onPlayerLoggedOut(PlayerEvent.PlayerLoggedOutEvent event) {
         UUID id = event.getEntity().getUUID();
-        for (LevelState state : List.copyOf(LEVELS.values())) {
-            Awakening awakening = state.awakening;
-            if (awakening == null) {
-                continue;
-            }
+        for (Awakening awakening : all()) {
             awakening.forget(id);
             if (awakening.target.equals(id) && awakening.hollowEvent() == null) {
                 end(awakening, Awakening.End.CANCELLED, awakening.targetName + " logged out");
@@ -382,9 +412,11 @@ public final class AwakeningManager {
     /** A rooted target, or the vehicle it is kept on, takes no fall damage: the fall does not happen. */
     public static void onLivingFall(LivingFallEvent event) {
         if (event.getEntity().level() instanceof ServerLevel level) {
-            Awakening awakening = running(level);
-            if (awakening != null && awakening.holds(event.getEntity())) {
-                event.setCanceled(true);
+            for (Awakening awakening : awakenings(level)) {
+                if (awakening.holds(event.getEntity())) {
+                    event.setCanceled(true);
+                    return;
+                }
             }
         }
     }
@@ -415,11 +447,10 @@ public final class AwakeningManager {
      * the targets lose the Darkness and the root before they are saved, and each entity goes deep in the saved data.
      */
     public static void onServerStopping(ServerStoppingEvent event) {
-        for (LevelState state : List.copyOf(LEVELS.values())) {
-            if (state.awakening != null) {
-                end(state.awakening, Awakening.End.CANCELLED, "the server stops");
-            }
+        for (Awakening awakening : all()) {
+            end(awakening, Awakening.End.CANCELLED, "the server stops");
         }
+        Quicksand.stopAll();
         LEVELS.clear();
     }
 
@@ -428,11 +459,14 @@ public final class AwakeningManager {
     /** Ends a running Awakening ({@link Awakening#finish}); a no-op for one that is over already. */
     static void end(Awakening awakening, Awakening.End why, String detail) {
         LevelState state = LEVELS.get(awakening.level.dimension());
-        if (state == null || state.awakening != awakening) {
+        if (state == null || !state.awakenings.remove(awakening)) {
             return;
         }
-        state.awakening = null;
-        awakening.finish(why, detail);
+        boolean entityFree = true;
+        for (Awakening other : state.awakenings) {
+            entityFree &= awakening.entity == 0 || other.entity != awakening.entity;
+        }
+        awakening.finish(why, detail, entityFree);
     }
 
     /**
@@ -467,6 +501,9 @@ public final class AwakeningManager {
                 return own;
             }
             awakening.entity = 0;
+        }
+        if (awakening.ambush) {
+            return null; // its own is gone: an ambush takes no other
         }
         TremorRuntime near = nearest(level, awakening.center.x(), awakening.center.z());
         if (near != null) {
@@ -535,7 +572,65 @@ public final class AwakeningManager {
      */
     public static boolean takeable(ServerPlayer player) {
         return player.isAlive() && player.gameMode.getGameModeForPlayer() == GameType.SURVIVAL
-                && HollowManager.event(player) == null;
+                && HollowManager.event(player) == null && targetOf(player.getUUID()) == null;
+    }
+
+    /**
+     * An entity lying in wait was sprung ({@code tremor.entity.TremorMind}): each of the {@code targets} who can be
+     * taken ({@link #takeable}) is pulled under at once by an ambush of their own ({@link Awakening}: the quicksand,
+     * {@code ambush.quicksandSeconds}, then a hollow of their own), around {@code center}. All of them take the entity
+     * ({@link TremorRuntime#absorb}), which goes deep when the last of them ends. While one is still in the quicksand,
+     * whoever else steps within {@code radius} of the centre is taken too ({@link #catchMore}). Returns how many
+     * started.
+     */
+    public static int ambush(ServerLevel level, TremorRuntime runtime, Vec3 center, double radius,
+                             List<ServerPlayer> targets) {
+        TremorEntity entity = runtime.entity();
+        if (HollowDimension.is(level) || entity == null || entity.absorbed()) {
+            return 0;
+        }
+        int started = 0;
+        Quicksand quicksand = new Quicksand(level, center, radius);
+        for (ServerPlayer target : targets) {
+            if (target.level() == level && takeable(target)) {
+                startAmbush(level, target, center, radius, entity.instance(), quicksand);
+                started++;
+            }
+        }
+        if (started > 0) {
+            runtime.absorb();
+        }
+        return started;
+    }
+
+    private static void startAmbush(ServerLevel level, ServerPlayer target, Vec3 center, double radius,
+                                    int entity, Quicksand quicksand) {
+        int ticks = (int) Math.max(1, Math.round(TremorConfig.COMMON.ambush.quicksandSeconds.get() * 20));
+        Awakening awakening = new Awakening(nextId++, level, target, center, radius, ticks, quicksand);
+        awakening.entity = entity;
+        state(level, true).awakenings.add(awakening);
+        awakening.begin();
+    }
+
+    /**
+     * While an ambush is still pulling its target in, whoever else steps onto the place or into its mud is taken too,
+     * by an ambush of their own in the same quicksand.
+     */
+    private static void catchMore(ServerLevel level) {
+        for (Awakening awakening : awakenings(level)) {
+            if (!awakening.pulling()) {
+                continue;
+            }
+            for (ServerPlayer player : level.players()) {
+                boolean inMud = level.getBlockState(net.minecraft.core.BlockPos.containing(player.getX(),
+                        player.getY() - 0.2, player.getZ())).is(tremor.block.TremorBlocks.MIRE.get());
+                if (takeable(player) && (inMud || Ambush.steppedIn(awakening.center, new Vec3(player.getX(),
+                        player.getY(), player.getZ()), awakening.radius))) {
+                    startAmbush(level, player, awakening.center, awakening.radius, awakening.entity,
+                            awakening.quicksand);
+                }
+            }
+        }
     }
 
     /**
@@ -554,7 +649,7 @@ public final class AwakeningManager {
     public static boolean frenzy(ServerPlayer target, TremorRuntime entity) {
         ServerLevel level = target.serverLevel();
         if (!target.isAlive() || target.isSpectator() || HollowManager.event(target) != null
-                || HollowDimension.is(level) || running(level) != null) {
+                || HollowDimension.is(level) || running(level) != null || targetOf(target.getUUID()) != null) {
             return false;
         }
         tremor.hollow.Nightmare.mark(target.getUUID());
@@ -566,7 +661,7 @@ public final class AwakeningManager {
                                    TremorRuntime entity) {
         TremorConfig.Awakening config = TremorConfig.COMMON.awakening;
         Awakening awakening = new Awakening(nextId++, level, target, natural, config.radius.get(), buildupTicks);
-        state(level, true).awakening = awakening;
+        state(level, true).awakenings.add(awakening);
         if (entity != null && entity.entity() != null) {
             awakening.entity = entity.entity().instance();
             entity.absorb();
@@ -575,17 +670,36 @@ public final class AwakeningManager {
         return awakening;
     }
 
-    /** The level's running Awakening, or null. */
+    /** The level's running Awakening that is no ambush, or null. */
     private static Awakening running(ServerLevel level) {
+        for (Awakening awakening : awakenings(level)) {
+            if (!awakening.ambush) {
+                return awakening;
+            }
+        }
+        return null;
+    }
+
+    /** The level's running Awakenings, oldest first (a copy). */
+    private static List<Awakening> awakenings(ServerLevel level) {
         LevelState state = state(level, false);
-        return state == null ? null : state.awakening;
+        return state == null ? List.of() : List.copyOf(state.awakenings);
+    }
+
+    /** Every running Awakening, of every level (a copy). */
+    private static List<Awakening> all() {
+        List<Awakening> all = new ArrayList<>();
+        for (LevelState state : LEVELS.values()) {
+            all.addAll(state.awakenings);
+        }
+        return all;
     }
 
     /** The running Awakening that swallowed the player of {@code event} (the event is its), in any level, or null. */
     private static Awakening swallowedBy(HollowEvent event) {
-        for (LevelState state : LEVELS.values()) {
-            if (state.awakening != null && state.awakening.hollowEvent() == event) {
-                return state.awakening;
+        for (Awakening awakening : all()) {
+            if (awakening.hollowEvent() == event) {
+                return awakening;
             }
         }
         return null;
@@ -593,9 +707,9 @@ public final class AwakeningManager {
 
     /** The running Awakening whose target the player is, in any level, or null. */
     private static Awakening targetOf(UUID player) {
-        for (LevelState state : LEVELS.values()) {
-            if (state.awakening != null && state.awakening.target.equals(player)) {
-                return state.awakening;
+        for (Awakening awakening : all()) {
+            if (awakening.target.equals(player)) {
+                return awakening;
             }
         }
         return null;
@@ -603,10 +717,8 @@ public final class AwakeningManager {
 
     /** The player's client dropped its Awakening state: every Awakening sends it again when the player is near. */
     private static void forget(UUID player) {
-        for (LevelState state : LEVELS.values()) {
-            if (state.awakening != null) {
-                state.awakening.forget(player);
-            }
+        for (Awakening awakening : all()) {
+            awakening.forget(player);
         }
     }
 

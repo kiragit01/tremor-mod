@@ -2,12 +2,17 @@ package tremor.entity;
 
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
+import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.ListTag;
+import net.minecraft.nbt.NbtUtils;
 import net.minecraft.nbt.Tag;
 import net.minecraft.server.level.ServerLevel;
+import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.saveddata.SavedData;
 import tremor.Tremor;
 import tremor.core.math.Vec3;
@@ -31,6 +36,27 @@ public final class TremorSavedData extends SavedData {
     }
 
     /** The level's data, created empty (and not written until something changes) if there is none yet. */
+    /** Blocks an ambush's quicksand turned into mud, by position, and what they were ({@code Quicksand}). */
+    private final Map<Long, BlockState> quicksand = new HashMap<>();
+
+    /** A block turned into mud by a quicksand: kept until it is put back, also over a crash. */
+    public void quicksandChanged(long pos, BlockState original) {
+        quicksand.put(pos, original);
+        setDirty();
+    }
+
+    /** A block of a quicksand put back as it was. */
+    public void quicksandRestored(long pos) {
+        if (quicksand.remove(pos) != null) {
+            setDirty();
+        }
+    }
+
+    /** The blocks still mud from a quicksand, and what they were (a copy). */
+    public Map<Long, BlockState> quicksandLeft() {
+        return new HashMap<>(quicksand);
+    }
+
     public static TremorSavedData get(ServerLevel level) {
         return level.getDataStorage().computeIfAbsent(TremorSavedData::load, TremorSavedData::new, NAME);
     }
@@ -110,12 +136,25 @@ public final class TremorSavedData extends SavedData {
             paused.add(p);
         }
         tag.put("pauses", paused);
+        ListTag mud = new ListTag();
+        for (Map.Entry<Long, BlockState> entry : quicksand.entrySet()) {
+            CompoundTag m = new CompoundTag();
+            m.putLong("pos", entry.getKey());
+            m.put("state", NbtUtils.writeBlockState(entry.getValue()));
+            mud.add(m);
+        }
+        tag.put("quicksand", mud);
         return tag;
     }
 
     private static TremorSavedData load(CompoundTag tag) {
         TremorSavedData data = new TremorSavedData();
         data.lastInstance = tag.getInt("lastInstance");
+        for (Tag t : tag.getList("quicksand", Tag.TAG_COMPOUND)) {
+            CompoundTag m = (CompoundTag) t;
+            data.quicksand.put(m.getLong("pos"), NbtUtils.readBlockState(BuiltInRegistries.BLOCK.asLookup(),
+                    m.getCompound("state")));
+        }
         // Before 1.1.0: one entity, and the two pauses without a place.
         if (tag.contains("lastNaturalDespawn", Tag.TAG_LONG)) {
             data.pauses.add(new SpawnPauses.Pause(SpawnPauses.Kind.LEFT, Double.NaN, Double.NaN,

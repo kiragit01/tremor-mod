@@ -160,6 +160,14 @@ public final class HollowManager {
      *                 player is outside the hollow's build height, or no slot is free
      */
     public static HollowEvent enter(ServerPlayer player) throws Refusal {
+        return enter(player, Origin.of(player));
+    }
+
+    /**
+     * The same, from {@code origin} rather than where the player is now: an ambush's quicksand has the player under the
+     * ground, and the origin is where they stepped in (the copy is made around it, and the way back comes out there).
+     */
+    public static HollowEvent enter(ServerPlayer player, Origin origin) throws Refusal {
         State s = require(player.server);
         if (HollowDimension.is(player.level())) {
             throw new Refusal("Already in the hollow");
@@ -171,7 +179,6 @@ public final class HollowManager {
         if (s.data.activeCount() >= config.maxEvents.get()) {
             throw new Refusal("Already " + s.data.activeCount() + " hollow events (hollow.maxEvents)");
         }
-        Origin origin = Origin.of(player);
         BlockPos at = origin.blockPos();
         ServerLevel level = player.serverLevel();
         HollowBox box = HollowBox.around(at.getX(), at.getY(), at.getZ(), config.radius.get(), config.below.get(),

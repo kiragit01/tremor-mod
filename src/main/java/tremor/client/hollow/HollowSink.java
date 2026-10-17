@@ -8,7 +8,8 @@ import net.minecraftforge.event.TickEvent;
 import tremor.network.TremorHollowStatePayload;
 
 /**
- * How deep the soft ground of the hollow has the local player (SPEC 9 phase 2: "Затягивание"), as the effects show it:
+ * How deep the soft ground of the hollow (or the quicksand of an ambush, {@link #quicksand}) has the local player
+ * (SPEC 9 phase 2: "Затягивание"), as the effects show it:
  * the {@link TremorHollowStatePayload#sink} the server sends a few times a second, eased once per client tick
  * ({@link SinkCurve#approach}) and interpolated between ticks, so that the darkness ({@link SinkOverlay}) and the
  * muffling and the pull's sound ({@code tremor.client.sound.HollowSounds}) neither step nor jump. It eases back to 0
@@ -42,7 +43,24 @@ public final class HollowSink {
         TremorHollowStatePayload state = mc.level == null || player == null || player.isDeadOrDying() ? null
                 : ClientHollow.state();
         previous = current;
-        current = SinkCurve.approach(current, state == null ? 0 : state.sink(), TICK_SECONDS);
+        double sink = state != null ? state.sink() : mc.level == null || player == null || player.isDeadOrDying() ? 0
+                : quicksand(player);
+        current = SinkCurve.approach(current, sink, TICK_SECONDS);
+    }
+
+    /**
+     * How deep the quicksand of an ambush has the local player ({@code tremor.awakening.Quicksand}): while the ambush
+     * they are the target of pulls them in, from the ground's top where they stepped in (its focus) down to the feet,
+     * against the eye height of a standing player; 0 otherwise.
+     */
+    private static double quicksand(LocalPlayer player) {
+        tremor.network.TremorAwakeningPayload ambush = tremor.client.awakening.ClientAwakening.state();
+        if (ambush == null || !ambush.ambush() || ambush.phase() != tremor.network.TremorAwakeningPayload.Phase.SWALLOWING
+                || !player.getUUID().equals(ambush.target())) {
+            return 0;
+        }
+        return tremor.hollow.level.SinkTracker.sink(ambush.focus().y(), player.getY(),
+                player.getEyeHeight(net.minecraft.world.entity.Pose.STANDING));
     }
 
     /** The shown sink as of the last client tick, 0..1. */

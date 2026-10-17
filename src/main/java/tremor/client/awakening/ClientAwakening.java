@@ -2,6 +2,7 @@ package tremor.client.awakening;
 
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.multiplayer.ClientLevel;
+import net.minecraft.client.player.LocalPlayer;
 import net.minecraftforge.client.event.ClientPlayerNetworkEvent;
 import tremor.sound.TremorSounds;
 import tremor.core.math.Vec3;
@@ -12,20 +13,25 @@ import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Deque;
+import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 /**
- * Client view of the Awakening in the current level (SPEC 9): the last state the server sent and the recent step
- * ripples. Read by the effects (ground breathing and rings, the swallow hill, silence, heartbeat). Main thread only.
- * Everything is dropped on logout and when the client level changes.
+ * Client view of the Awakenings in the current level (SPEC 9): the last state the server sent of each, and their
+ * recent step ripples. A level may have several at once (an ambush for each player caught, beside one that is no
+ * ambush); the effects follow one ({@link #state}): the one the local player is the target of, else the nearest. Read
+ * by the effects (ground breathing and rings, the swallow hill or the quicksand, silence, heartbeat). Main thread
+ * only. Everything is dropped on logout and when the client level changes.
  */
 public final class ClientAwakening {
     /** Ticks the sound of the start of an Awakening takes to fade out when the player got away. */
     private static final int PULL_FADE_TICKS = 10;
     /** Step ripples older than this (game ticks) are forgotten. */
     public static final int RIPPLE_MEMORY_TICKS = 100;
-    /** At most this many step ripples are kept (the oldest go first). */
+    /** At most this many step ripples are kept for each Awakening (the oldest go first). */
     public static final int MAX_RIPPLES = 32;
 
     /** A ring wave from a step: where, when (level game time) and how strong. */
@@ -33,8 +39,10 @@ public final class ClientAwakening {
     }
 
     private static ClientLevel owner;
-    private static TremorAwakeningPayload state;
-    private static final Deque<StepRipple> ripples = new ArrayDeque<>();
+    /** The running Awakenings of this level as last sent, by id, in the order they came. */
+    private static final Map<Integer, TremorAwakeningPayload> states = new LinkedHashMap<>();
+    /** The recent step ripples of each, by its id. */
+    private static final Map<Integer, Deque<StepRipple>> ripples = new HashMap<>();
 
     private ClientAwakening() {
     }
@@ -42,30 +50,26 @@ public final class ClientAwakening {
     public static void accept(TremorAwakeningPayload payload) {
         adopt(Minecraft.getInstance().level);
         if (payload.phase() == TremorAwakeningPayload.Phase.ENDED) {
-            if (state == null || state.id() == payload.id()) {
-                if (state != null && state.phase() == TremorAwakeningPayload.Phase.BUILDUP) {
-                    // Got away (or called off) during the build-up: the long sound of the start fades out.
-                    tremor.client.sound.SoundFades.fadeOut(TremorSounds.AWAKEN.getId(), PULL_FADE_TICKS);
-                }
-                state = null;
-                ripples.clear();
+            TremorAwakeningPayload was = states.remove(payload.id());
+            ripples.remove(payload.id());
+            if (was != null && was.phase() == TremorAwakeningPayload.Phase.BUILDUP) {
+                // Got away (or called off) during the build-up: the long sound of the start fades out.
+                tremor.client.sound.SoundFades.fadeOut(TremorSounds.AWAKEN.getId(), PULL_FADE_TICKS);
             }
             return;
         }
-        if (state == null || state.id() != payload.id()) {
-            ripples.clear();
-        }
-        state = payload;
+        states.put(payload.id(), payload);
     }
 
     public static void acceptRipple(TremorStepRipplePayload payload) {
         adopt(Minecraft.getInstance().level);
-        if (state == null || state.id() != payload.event()) {
+        if (!states.containsKey(payload.event())) {
             return;
         }
-        ripples.addLast(new StepRipple(payload.position(), payload.gameTime(), payload.strength()));
-        while (ripples.size() > MAX_RIPPLES) {
-            ripples.removeFirst();
+        Deque<StepRipple> list = ripples.computeIfAbsent(payload.event(), id -> new ArrayDeque<>());
+        list.addLast(new StepRipple(payload.position(), payload.gameTime(), payload.strength()));
+        while (list.size() > MAX_RIPPLES) {
+            list.removeFirst();
         }
     }
 
@@ -73,10 +77,29 @@ public final class ClientAwakening {
         clear();
     }
 
-    /** The current Awakening of this level, or null. */
+    /**
+     * The Awakening of this level the effects follow: the one the local player is the target of, else the one whose
+     * centre is nearest to the player (horizontally); null if there is none.
+     */
     public static TremorAwakeningPayload state() {
         adopt(Minecraft.getInstance().level);
-        return state;
+        if (states.size() <= 1) {
+            return states.isEmpty() ? null : states.values().iterator().next();
+        }
+        LocalPlayer player = Minecraft.getInstance().player;
+        TremorAwakeningPayload nearest = null;
+        double best = Double.POSITIVE_INFINITY;
+        for (TremorAwakeningPayload s : states.values()) {
+            if (player == null || player.getUUID().equals(s.target())) {
+                return s;
+            }
+            double away = Math.hypot(s.center().x() - player.getX(), s.center().z() - player.getZ());
+            if (away < best) {
+                best = away;
+                nearest = s;
+            }
+        }
+        return nearest;
     }
 
     /** True if there is an Awakening and the local player is the one it is about. */
@@ -111,16 +134,21 @@ public final class ClientAwakening {
     }
 
     /**
-     * Step ripples not older than {@link #RIPPLE_MEMORY_TICKS} at {@code gameTime}, oldest first.
+     * Step ripples of the Awakening the effects follow ({@link #state}) not older than {@link #RIPPLE_MEMORY_TICKS}
+     * at {@code gameTime}, oldest first.
      *
      * @param gameTime current level game time
      */
     public static List<StepRipple> ripples(long gameTime) {
-        adopt(Minecraft.getInstance().level);
-        while (!ripples.isEmpty() && gameTime - ripples.peekFirst().gameTime() > RIPPLE_MEMORY_TICKS) {
-            ripples.removeFirst();
+        TremorAwakeningPayload s = state();
+        Deque<StepRipple> list = s == null ? null : ripples.get(s.id());
+        if (list == null) {
+            return List.of();
         }
-        return ripples.isEmpty() ? List.of() : Collections.unmodifiableList(new ArrayList<>(ripples));
+        while (!list.isEmpty() && gameTime - list.peekFirst().gameTime() > RIPPLE_MEMORY_TICKS) {
+            list.removeFirst();
+        }
+        return list.isEmpty() ? List.of() : Collections.unmodifiableList(new ArrayList<>(list));
     }
 
     private static void adopt(ClientLevel level) {
@@ -132,7 +160,7 @@ public final class ClientAwakening {
 
     private static void clear() {
         owner = null;
-        state = null;
+        states.clear();
         ripples.clear();
     }
 }

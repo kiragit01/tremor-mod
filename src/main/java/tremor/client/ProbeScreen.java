@@ -42,7 +42,8 @@ final class ProbeScreen extends Screen {
         row(y, "click", mode(ProbeTool.Mode.LURE), mode(ProbeTool.Mode.ROUTE), mode(ProbeTool.Mode.LISTEN));
         y += ROW;
         row(y, "look", command("dormant", "tremor stage dormant"), command("alert", "tremor stage alert"),
-                command("hunting", "tremor stage hunting"), command("hold", "tremor hold"));
+                command("hunting", "tremor stage hunting"), command("hold", "tremor hold"),
+                command("ambush", "tremor ambush"));
         y += ROW;
         row(y, "speed", command("slow", "tremor set speed 1.5"), command("normal", "tremor set reset"),
                 command("fast", "tremor set speed 6"));
