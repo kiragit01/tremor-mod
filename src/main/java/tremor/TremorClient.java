@@ -26,6 +26,7 @@ public final class TremorClient {
         modBus.addListener(tremor.client.hollow.HollowTimeBar::onRegisterGuiLayers);
         modBus.addListener(tremor.client.DebugProbeHud::onRegisterGuiLayers);
         modBus.addListener(tremor.client.ProbeTool::onRegisterKeys);
+        modBus.addListener(tremor.client.QuicksandRenderer::onRegisterRenderers);
         tremor.client.ProbeTool.init();
         modBus.addListener(tremor.client.hollow.HollowSky::onRegisterDimensionEffects);
 

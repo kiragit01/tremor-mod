@@ -61,13 +61,13 @@ class SinkTrackerTest {
     @Test
     void theSofteningGoesDownLayerByLayer() {
         assertEquals(-1, SinkTracker.softness(0, 0));
-        assertEquals(0, SinkTracker.softness(0.05, 0));
-        assertEquals(4, SinkTracker.softness(0.5, 0));
+        assertEquals(0, SinkTracker.softness(0.02, 0));
+        assertEquals(SinkTracker.MAX_SOFTNESS / 2, SinkTracker.softness(0.5, 0));
         assertEquals(SinkTracker.MAX_SOFTNESS, SinkTracker.softness(1, 0));
         assertEquals(-1, SinkTracker.softness(1, 1));
         assertEquals(SinkTracker.MAX_SOFTNESS, SinkTracker.softness(1.5, 0));
-        assertEquals(4, SinkTracker.softness(1.5, 1));
-        assertEquals(6, SinkTracker.softness(1.75, 1));
+        assertEquals(SinkTracker.MAX_SOFTNESS / 2, SinkTracker.softness(1.5, 1));
+        assertEquals(SinkTracker.MAX_SOFTNESS * 3 / 4, SinkTracker.softness(1.75, 1));
         assertEquals(-1, SinkTracker.softness(1.75, 2));
     }
 
@@ -77,8 +77,8 @@ class SinkTrackerTest {
         assertEquals(0, SinkTracker.sink(64, 65, 1.62), EPS);
         assertEquals(0.5, SinkTracker.sink(64, 64 - 0.81, 1.62), EPS);
         assertEquals(1, SinkTracker.sink(64, 64 - 1.62, 1.62), EPS);
-        // The deepest softening (1.75, softness 6 of the second block) is over the eyes of a standing player.
-        double feet = 64 - 2 + (1 - 6 / 8.0);
+        // The deepest softening (1.75, three quarters of the second block) is over the eyes of a standing player.
+        double feet = 64 - 2 + (1 - SinkTracker.softness(1.75, 1) / (double) SinkTracker.MAX_SOFTNESS);
         assertEquals(1, SinkTracker.sink(64, feet, 1.62), EPS);
     }
 
@@ -88,15 +88,15 @@ class SinkTrackerTest {
         assertEquals(SinkTracker.softness(0.5, 0), SinkTracker.softness(0.5, 0, 0));
         assertEquals(SinkTracker.softness(1.5, 1), SinkTracker.softness(1.5, 0, 1));
         // A slab (half missing): the mire starts at its height, never higher, and goes down from there.
-        assertEquals(4, SinkTracker.softness(0.01, 0.5, 0));
-        assertEquals(6, SinkTracker.softness(0.25, 0.5, 0));
+        assertEquals(SinkTracker.MAX_SOFTNESS / 2, SinkTracker.softness(0.01, 0.5, 0));
+        assertEquals(SinkTracker.MAX_SOFTNESS * 3 / 4, SinkTracker.softness(0.25, 0.5, 0));
         assertEquals(SinkTracker.MAX_SOFTNESS, SinkTracker.softness(0.5, 0.5, 0));
-        assertEquals(4, SinkTracker.softness(1.0, 0.5, 1));
+        assertEquals(SinkTracker.MAX_SOFTNESS / 2, SinkTracker.softness(1.0, 0.5, 1));
         // The eyes get under the slab's top with the third block: 1.75 deep from 0.5 is 0.25 into it.
-        assertEquals(2, SinkTracker.softness(1.75, 0.5, 2));
-        // Farmland and paths (1/16 missing) start an eighth down, not a sixteenth up.
-        assertEquals(1, SinkTracker.softness(0.01, 1 / 16.0, 0));
-        assertEquals(1, SinkTracker.softness(0.01, 0.125, 0));
+        assertEquals(SinkTracker.MAX_SOFTNESS / 4, SinkTracker.softness(1.75, 0.5, 2));
+        // Farmland and paths (1/16 missing) start where they are, never higher.
+        assertEquals(SinkTracker.MAX_SOFTNESS / 16, SinkTracker.softness(0.01, 1 / 16.0, 0));
+        assertEquals(SinkTracker.MAX_SOFTNESS / 8, SinkTracker.softness(0.01, 0.125, 0));
         assertEquals(-1, SinkTracker.softness(0.4, 0.5, 1));
     }
 

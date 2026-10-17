@@ -438,6 +438,15 @@ public final class TremorRuntime {
         return mind(entity).lurkNow(level.getGameTime());
     }
 
+    /** A player broke the block at {@code pos}: lying in wait there, the entity is enraged. */
+    public void groundBroken(net.minecraft.core.BlockPos pos, ServerPlayer player) {
+        TremorEntity entity = this.entity;
+        if (entity != null) {
+            beginPass();
+            mind(entity).groundBroken(pos, player, level.getGameTime());
+        }
+    }
+
     /** {@code /tremor ambush stop}: whether the entity lay in wait (and no longer does). */
     public boolean stopLurking() {
         TremorEntity entity = this.entity;

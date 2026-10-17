@@ -13,8 +13,12 @@ package tremor.hollow.level;
  * sets again (the game turns it back into the copied block a while after the player is off it).
  */
 public final class SinkTracker {
-    /** The softest {@code tremor:mire}: no collision left ({@code softness / 8} of the block is gone). */
-    public static final int MAX_SOFTNESS = 8;
+    /**
+     * The softest {@code tremor:mire}: no collision left ({@code softness / 32} of the block is gone). In 32nds of a
+     * block, so that the ground gives way a little at a time and a player sinks smoothly, as into powder snow, rather
+     * than in visible steps.
+     */
+    public static final int MAX_SOFTNESS = 32;
 
     /**
      * @param stillTicks    standing still this long starts the softening

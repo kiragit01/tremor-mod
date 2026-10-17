@@ -29,7 +29,7 @@ import tremor.hollow.level.SinkTracker;
  */
 public final class MireBlock extends Block {
     public static final MapCodec<MireBlock> CODEC = simpleCodec(MireBlock::new);
-    /** How much of the block has given way, in eighths: 0 (holds like the block it was) .. 8 (holds nothing). */
+    /** How much of the block has given way, in 32nds: 0 (holds like the block it was) .. 32 (holds nothing). */
     public static final IntegerProperty SOFTNESS = IntegerProperty.create("softness", 0, SinkTracker.MAX_SOFTNESS);
     /**
      * The motion multiplier inside: powder snow's {@code (0.9, 1.5, 0.9)} slowed down sideways (cobweb: 0.25). Up stays

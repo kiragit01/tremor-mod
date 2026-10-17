@@ -1,5 +1,6 @@
 package tremor.entity;
 
+import net.minecraft.core.BlockPos;
 import net.minecraft.core.Holder;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.network.protocol.game.ClientboundSetEntityMotionPacket;
@@ -97,7 +98,8 @@ import java.util.random.RandomGenerator;
  * it sinks ({@link Devour}); a player who could be taken springs it ({@link #spring}): the quicksand takes everyone
  * on it, each into a hollow of their own ({@link AwakeningManager#ambush}), and the entity with them. It gives up
  * after {@code ambush.lurkSeconds}, with nobody near, calmed down or risen to AWAKENING, its brain switched off, a
- * frenzy or a goto; then it does not lie in wait for {@code ambush.cooldownSeconds}. Not saved.</li>
+ * frenzy or a goto; then it does not lie in wait for {@code ambush.cooldownSeconds}. Digging into where it lies in
+ * wait enrages it ({@link #groundBroken}). Not saved.</li>
  * <li><b>Awakening</b> (SPEC 9; {@link #absorb}): taken by an Awakening, the entity is the whole area rather than a
  * bump: its brain is suspended, the anger stays at the top, the bump sinks, it strikes nobody, does not leave by
  * itself and hears nothing ({@code awakening}). Until it is removed: every Awakening ends with that
@@ -879,6 +881,23 @@ final class TremorMind {
         lurk(now, "a command");
         lurkForced = true;
         return null;
+    }
+
+    /**
+     * A player broke the block at {@code pos}. Lying in wait, one under or around it ({@link Ambush#steppedIn}, a block
+     * wider than what springs it) enrages it: it gives up lying in wait and goes to the top of its anger (AWAKENING, with
+     * the roar), seeking the player, whom it hears at once. Returns whether it did.
+     */
+    boolean groundBroken(BlockPos pos, ServerPlayer player, long now) {
+        if (lurkAt == null || !Ambush.steppedIn(lurkAt, new Vec3(pos.getX() + 0.5, pos.getY() + 1, pos.getZ() + 0.5),
+                TremorConfig.COMMON.ambush.triggerRadius.get() + 1)) {
+            return false;
+        }
+        stopLurking(now, player.getGameProfile().getName() + " dug into it");
+        setAnger(params.awakenAt());
+        brain.hear(vec(player.position()), STRIKE_LOUDNESS);
+        Tremor.LOGGER.info("Tremor #{}: enraged, it seeks {}", entity.instance(), player.getGameProfile().getName());
+        return true;
     }
 
     /** {@code /tremor ambush stop}: stops lying in wait, without the pause after it; whether it lay in wait. */

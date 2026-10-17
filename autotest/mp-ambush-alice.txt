@@ -1,14 +1,15 @@
 # The ambush on a server (1.1.2), Alice (tools/mp-test.sh mp-ambush-alice.txt mp-ambush-bob.txt): a tremor lies in
-# wait; she steps onto it and sinks into the quicksand while Bob watches; Bob steps into the mud after her and is
-# taken too; each is pulled into a hollow of their own; she gets out first (the tremor stays with Bob's ambush), then
-# Bob (the tremor goes deep, the ground is as it was). Chat marks keep them in step: each side is waiting for a mark
-# before the other one says it.
+# wait; she steps onto it and sinks into the quicksand (it looks like the ground) while Bob watches; Bob tries to
+# break a block of it from outside, which nobody can. She is pulled into her hollow and gets out by a command, the
+# ground is as it was. Chat marks keep them in step: each side is waiting for a mark before the other one
+# says it.
 waitchunks
 cmd difficulty easy
 cmd time set noon
 cmd gamerule doDaylightCycle false
 cmd gamemode spectator
 cmd fill -20 190 -20 19 199 19 minecraft:stone
+cmd fill -20 199 -20 19 199 19 minecraft:grass_block
 cmd fill -20 200 -20 19 210 19 minecraft:air
 cmd tp @s 0.5 200 -8.5 0 20
 wait 40
@@ -32,15 +33,14 @@ cmd tp @s 0.5 200 1.5 180 20
 wait 160
 screenshot a01_in_her_hollow
 cmd say MARK alice-in
-waitfor 2400 MARK bob-in
-log --- she gets out first: the tremor stays with Bob's ambush
+waitfor 2400 MARK bob-done
+log --- she gets out
 cmd tremor awaken stop
 wait 100
-cmd say MARK alice-out
-waitfor 2400 MARK bob-out
-wait 40
 cmd gamemode creative
 cmd tp @s 0.5 201 -6.5 0 30
 wait 20
 screenshot a02_ground_back
+cmd say MARK alice-done
+wait 40
 quit

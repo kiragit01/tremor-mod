@@ -620,7 +620,7 @@ public final class AwakeningManager {
             }
             for (ServerPlayer player : level.players()) {
                 boolean inMud = level.getBlockState(net.minecraft.core.BlockPos.containing(player.getX(),
-                        player.getY() - 0.2, player.getZ())).is(tremor.block.TremorBlocks.MIRE.get());
+                        player.getY() - 0.2, player.getZ())).is(tremor.block.TremorBlocks.QUICKSAND.get());
                 if (takeable(player) && (inMud || Ambush.steppedIn(awakening.center, new Vec3(player.getX(),
                         player.getY(), player.getZ()), awakening.radius))) {
                     startAmbush(level, player, awakening.center, awakening.radius, awakening.entity,

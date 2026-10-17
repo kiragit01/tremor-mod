@@ -16,7 +16,8 @@ import tremor.Tremor;
 
 /**
  * The mod's blocks: the node and the soft ground, only ever placed by the level inside the hollow (SPEC 9, phase 2;
- * {@link tremor.hollow.level.HollowLevels}) and without items, so nothing drops them and nothing places them; and the
+ * {@link tremor.hollow.level.HollowLevels}) and without items, so nothing drops them and nothing places them; the
+ * ground of an ambush's quicksand in the real world ({@link #QUICKSAND}), placed by it alone; and the
  * caches of rubble on the bottom of a crater ({@link #RUBBLE_CACHE}), with an item for commands.
  */
 public final class TremorBlocks {
@@ -78,6 +79,28 @@ public final class TremorBlocks {
                     .strength(0.6F)
                     .sound(SoundType.SUSPICIOUS_GRAVEL)
                     .pushReaction(PushReaction.BLOCK));
+
+    /**
+     * The ground of an ambush's quicksand in the real world ({@link QuicksandBlock}): soft as the {@link #MIRE}, but it
+     * looks like the block it was ({@link QuicksandBlockEntity}, drawn by the client); only ever placed by the quicksand
+     * ({@code tremor.awakening.Quicksand}), which puts that block back. No item, nothing of its own to drop (broken from
+     * outside: what the block it was drops), never moved, no explosion breaks it.
+     */
+    public static final DeferredBlock<QuicksandBlock> QUICKSAND = BLOCKS.registerBlock("quicksand",
+            QuicksandBlock::new, BlockBehaviour.Properties.of()
+                    .mapColor(MapColor.DIRT)
+                    .strength(0.5F, BLAST_PROOF)
+                    .sound(SoundType.MUD)
+                    .pushReaction(PushReaction.BLOCK)
+                    .noLootTable()
+                    .isValidSpawn((state, level, pos, type) -> false)
+                    .isViewBlocking((state, level, pos) -> true)
+                    .isSuffocating((state, level, pos) -> false));
+
+    /** What a {@link #QUICKSAND} was. */
+    public static final DeferredHolder<BlockEntityType<?>, BlockEntityType<QuicksandBlockEntity>>
+            QUICKSAND_ENTITY = BLOCK_ENTITIES.register("quicksand",
+            () -> BlockEntityType.Builder.of(QuicksandBlockEntity::new, QUICKSAND.get()).build(null));
 
     /** What a {@link #RUBBLE_CACHE} holds. */
     public static final DeferredHolder<BlockEntityType<?>, BlockEntityType<RubbleCacheBlockEntity>>

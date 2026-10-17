@@ -176,6 +176,7 @@
   "tremor.configuration.hollow.maxEvents": "Событий одновременно",
   "block.tremor.heart_node": "Узел",
   "block.tremor.mire": "Топь",
+  "block.tremor.quicksand": "Зыбучая земля",
   "block.tremor.rubble_cache": "Тайник в осыпи",
   "tremor.configuration.hollow.level": "Уровень в изнанке",
   "tremor.configuration.hollow.level.budgetMillis": "Время сервера за тик (мс)",
