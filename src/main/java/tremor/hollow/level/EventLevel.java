@@ -137,6 +137,8 @@ final class EventLevel {
     private String caveSize = "";
     private int dug;
     private int filled;
+    /** Blocks left hanging over dug cells that were taken away ({@link #uncover}). */
+    private int uncovered;
     private BlockPos node;
     private boolean nodeBroken;
     /** The open cells of the way to the node: never filled, never moved into. */
@@ -351,6 +353,7 @@ final class EventLevel {
             }
             written++;
         }
+        uncover(pos);
         carving = null;
         filling = null;
         // The light at the end of the escape tunnel, in cells it carved.
@@ -436,10 +439,31 @@ final class EventLevel {
                 .map(String::valueOf).orElse("none"));
     }
 
+    /**
+     * Takes away what was left hanging over a dug cell with nothing to stand on: a snow layer, a carpet, a plant, a
+     * pressure plate, a torch on the ground... ({@code canSurvive}, which the copy, written without updates, never
+     * checks). Left there, such a thin cover hides the way under it (the snow of the surface over a passage that runs
+     * just below it looks like the ground, and one falls through it); without it the passage shows as an opening.
+     */
+    private void uncover(BlockPos.MutableBlockPos pos) {
+        BlockPos.MutableBlockPos above = new BlockPos.MutableBlockPos();
+        for (long cell : carving) {
+            pos.set(cell);
+            above.setWithOffset(pos, 0, 1, 0);
+            net.minecraft.world.level.block.state.BlockState state = hollow.getBlockState(above);
+            if (!state.isAir() && !state.canSurvive(hollow, above)) {
+                hollow.setBlock(above, Materials.AIR, Materials.FLAGS);
+                changedChunks.add(ChunkPos.asLong(above));
+                uncovered++;
+            }
+        }
+    }
+
     /** What the preparation changed, for the log and the status. */
     private String changes() {
-        return String.format(Locale.ROOT, "%s (%d open blocks around the player)%s; %d blocks dug, %d filled",
-                widened ? "widened" : "not widened", openAround, caveSize, dug, filled);
+        return String.format(Locale.ROOT, "%s (%d open blocks around the player)%s; %d blocks dug, %d filled, %d left "
+                        + "hanging over the dug ones taken away", widened ? "widened" : "not widened", openAround,
+                caveSize, dug, filled, uncovered);
     }
 
     /** The size of the widened cave ({@code cells}: what it digs), for {@link #changes}. */

@@ -1,0 +1,50 @@
+# Snow layers in the hollow: swallowed standing on snowy ground over rock, look at the snow inside.
+waitchunks
+cmd gamemode spectator
+cmd time set noon
+cmd tremor despawn all
+cmd tremor awaken stop
+cmd tp @s 300.5 230 300.5 270 10
+wait 40
+waitchunks
+cmd fill 267 177 267 333 183 333 minecraft:stone
+cmd fill 267 184 267 333 190 333 minecraft:stone
+cmd fill 267 191 267 333 197 333 minecraft:stone
+cmd fill 267 198 267 333 204 333 minecraft:stone
+cmd fill 267 205 267 333 211 333 minecraft:stone
+cmd fill 267 212 267 333 218 333 minecraft:stone
+cmd fill 267 219 267 333 225 333 minecraft:stone
+cmd fill 267 226 267 333 230 333 minecraft:air
+cmd fill 267 226 267 333 226 333 minecraft:snow[layers=1]
+cmd fill 290 226 290 310 226 310 minecraft:snow[layers=3]
+cmd tp @s 300.5 226.2 300.5 270 30
+wait 20
+cmd gamemode survival
+hud off
+screenshot 01_real
+config awakening.buildupSeconds 3
+config awakening.lethal false
+config awakening.craterRadius 0
+config hollow.level.breathSeconds 120
+cmd tremor awaken
+wait 220
+waitchunks
+cmd tremor hollow status
+look 270 30
+screenshot 10_hollow_down
+look 270 0
+screenshot 11_hollow_ahead
+look 90 20
+screenshot 12_hollow_back
+cmd gamemode spectator
+cmd tp @s ~ ~12 ~ 0 70
+wait 20
+screenshot 13_from_above
+cmd tp @s ~ ~ ~ 180 50
+wait 10
+screenshot 14_from_above_2
+cmd gamemode survival
+cmd tremor hollow tonode
+wait 20
+screenshot 15_node
+quit
