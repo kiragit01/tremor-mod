@@ -31,9 +31,9 @@ public final class TremorItems {
             () -> new Item(new Item.Properties().rarity(Rarity.UNCOMMON)));
     public static final RegistryObject<Item> SEISMOGRAPH = ITEMS.register("seismograph",
             () -> new Item(new Item.Properties().stacksTo(1)));
-    /** Shows an operator who holds it what the entity is up to ({@code tremor.debug.DebugProbe}). */
+    /** The operator's multitool: what the entity is up to, and filming it ({@link DebugProbeItem}). */
     public static final RegistryObject<Item> DEBUG_PROBE = ITEMS.register("debug_probe",
-            () -> new Item(new Item.Properties().stacksTo(1).rarity(Rarity.EPIC)));
+            () -> new DebugProbeItem(new Item.Properties().stacksTo(1).rarity(Rarity.EPIC)));
     public static final RegistryObject<GeophoneBlock> GEOPHONE = BLOCKS.register("geophone",
             () -> new GeophoneBlock(BlockBehaviour.Properties.of()
                     .mapColor(MapColor.DEEPSLATE)

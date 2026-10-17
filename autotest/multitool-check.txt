@@ -1,0 +1,49 @@
+# The debug probe as a multitool: a right click lures the nearest tremor to the block looked at; the route shows on the
+# ground; the panel can be pinned without the probe in hand and taken down; sneak + right click opens the menu.
+waitchunks
+cmd gamemode spectator
+cmd time set noon
+cmd tremor despawn all
+cmd tremor awaken stop
+cmd tp @s 460.5 201.0 300.5 270 10
+wait 40
+waitchunks
+cmd fill 400 198 280 520 200 320 minecraft:stone
+cmd fill 400 201 280 520 206 320 minecraft:air
+cmd gamemode creative
+cmd tremor spawn 490 201 300
+cmd item replace entity @s weapon.mainhand with tremor:debug_probe
+wait 20
+log --- a right click lures it to the block looked at
+lookat 476.5 200.5 304.5
+hold use 2
+wait 60
+screenshot 01_lured
+log --- a route on the ground
+cmd tremor route clear
+cmd tremor route add 440 201 290
+cmd tremor route listen 460 201 314
+cmd tremor route add 482 201 290
+cmd tremor route show on
+cmd tp @s 457.5 201 283.5
+lookat 461.5 201 302.5
+wait 25
+screenshot 02_route_shown
+cmd tremor hold
+cmd tremor ai toggle
+cmd tremor ai toggle
+log --- the panel pinned without the probe in hand, then taken down
+cmd tremor probe pin
+cmd item replace entity @s weapon.mainhand with minecraft:air
+wait 15
+screenshot 03_pinned
+cmd tremor probe unpin
+wait 30
+screenshot 04_unpinned
+log --- sneak + right click opens the menu
+cmd item replace entity @s weapon.mainhand with tremor:debug_probe
+wait 5
+hold sneak+use 2
+wait 10
+screenshot 05_menu
+quit

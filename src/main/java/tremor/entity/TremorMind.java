@@ -398,6 +398,10 @@ final class TremorMind {
         angerHeld = held;
     }
 
+    boolean angerHeld() {
+        return angerHeld;
+    }
+
     /**
      * A listening stop of a route ({@link Routes}): it stands where it is and sends a ring of ripples through the
      * ground, with its sound, as when it freezes to listen (SPEC 8 ALERT); none while it dives or one still runs.

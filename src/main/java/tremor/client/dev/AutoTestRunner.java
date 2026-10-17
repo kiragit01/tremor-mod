@@ -970,6 +970,7 @@ final class AutoTestRunner {
             case SPRINT -> options.keySprint;
             case ATTACK -> options.keyAttack;
             case DROP -> options.keyDrop;
+            case USE -> options.keyUse;
         };
     }
 

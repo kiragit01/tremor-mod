@@ -13,8 +13,9 @@ import tremor.network.TremorDebugPayload;
 
 /**
  * The lines of the debug probe ({@code tremor.debug.DebugProbe}) at the top left of the screen, on a dim backing like
- * vanilla's debug screen, while the player holds the probe and the server keeps sending them; not while the debug
- * screen (F3) is open or the HUD is hidden. Main thread only.
+ * vanilla's debug screen, while the server keeps sending them (the probe in hand, or the panel pinned), and a line on
+ * what the multitool does while it is in hand ({@link ProbeTool}); not while the debug screen (F3) is open or the HUD
+ * is hidden. Main thread only.
  */
 public final class DebugProbeHud {
     /** Lines older than this are not shown (the server stopped sending: no permission, or the probe put away). */
@@ -46,14 +47,25 @@ public final class DebugProbeHud {
     private static void render(GuiGraphics graphics) {
         Minecraft mc = Minecraft.getInstance();
         LocalPlayer player = mc.player;
-        if (mc.options.hideGui || mc.options.renderDebug || player == null || lines.isEmpty()
-                || System.nanoTime() - receivedNanos > STALE_NANOS || !(player.getMainHandItem().is(
-                TremorItems.DEBUG_PROBE.get()) || player.getOffhandItem().is(TremorItems.DEBUG_PROBE.get()))) {
+        if (mc.options.hideGui || mc.options.renderDebug || player == null) {
+            return;
+        }
+        boolean held = player.getMainHandItem().is(TremorItems.DEBUG_PROBE.get())
+                || player.getOffhandItem().is(TremorItems.DEBUG_PROBE.get());
+        List<String> shown = new java.util.ArrayList<>();
+        if (held) {
+            shown.add(net.minecraft.network.chat.Component.translatable("tremor.probe.hint", ProbeTool.mode.label())
+                    .getString());
+        }
+        if (System.nanoTime() - receivedNanos <= STALE_NANOS) {
+            shown.addAll(lines);
+        }
+        if (shown.isEmpty()) {
             return;
         }
         Font font = mc.font;
         int widest = 0;
-        for (String line : lines) {
+        for (String line : shown) {
             widest = Math.max(widest, font.width(line));
         }
         // Narrow screens (a large GUI scale) get the lines smaller rather than cut off.
@@ -61,7 +73,7 @@ public final class DebugProbeHud {
         graphics.pose().pushPose();
         graphics.pose().scale(scale, scale, 1);
         int y = MARGIN;
-        for (String line : lines) {
+        for (String line : shown) {
             graphics.fill(MARGIN - 1, y - 1, MARGIN + font.width(line) + 1, y + LINE_HEIGHT - 1, BACKING);
             graphics.drawString(font, line, MARGIN, y, TEXT, false);
             y += LINE_HEIGHT;
