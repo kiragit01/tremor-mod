@@ -76,6 +76,9 @@ public final class RustleSound extends AbstractTickableSoundInstance {
             return;
         }
         Minecraft mc = Minecraft.getInstance();
+        if (mc.level == null && current == null) {
+            return; // nothing to hear (the title screen, also before the game has finished loading)
+        }
         SoundManager sounds = mc.getSoundManager();
         if (retryDelay > 0) {
             retryDelay--;
@@ -182,7 +185,7 @@ public final class RustleSound extends AbstractTickableSoundInstance {
      * sound of the event every time if it has several.
      */
     private static double hearingRange(SoundManager sounds) {
-        WeighedSoundEvents events = sounds.getSoundEvent(TremorSounds.RUSTLE.get().getLocation());
+        WeighedSoundEvents events = sounds.getSoundEvent(TremorSounds.RUSTLE.getId());
         if (events == null) {
             return SoundManager.EMPTY_SOUND.getAttenuationDistance();
         }
