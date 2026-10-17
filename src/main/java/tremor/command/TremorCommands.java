@@ -37,6 +37,7 @@ import tremor.debug.DebugView;
 import tremor.entity.Param;
 import tremor.entity.TremorEntity;
 import tremor.entity.TremorManager;
+import tremor.entity.Routes;
 import tremor.entity.TremorRuntime;
 import tremor.hollow.HollowCommands;
 import tremor.spawn.NaturalSpawner;
@@ -62,6 +63,8 @@ import java.util.UUID;
  *   and {@code stop});</li>
  *   <li>{@code debug <path|normals|graph|hearing> <on|off>} toggles particles (hearing: also the action bar) for the
  *   player.</li>
+ *   <li>{@code route <add [pos]|listen [pos]|undo|clear|list|go|loop|stop>}: a route for filming, see
+ *   {@link tremor.entity.Routes}.</li>
  *   <li>{@code hollow <enter|leave|status>} and {@code restore}: the hollow, see {@link HollowCommands}.</li>
  *   <li>{@code awaken [player]} and {@code awaken stop}: the Awakening, see {@link AwakeningCommands}.</li>
  *   <li>{@code hollow outcome <victory|edge|defeat>}: ends the level inside the hollow for the player, see
@@ -120,6 +123,7 @@ public final class TremorCommands {
                         .then(Commands.literal("on").executes(ctx -> ai(ctx, true)))
                         .then(Commands.literal("off").executes(ctx -> ai(ctx, false))))
                 .then(debug())
+                .then(route())
                 .then(HollowCommands.hollow())
                 .then(HollowCommands.restore())
                 // Merged into the hollow branch above: hollow outcome <victory|edge|defeat>.
@@ -146,6 +150,91 @@ public final class TremorCommands {
                     .then(Commands.literal("off").executes(ctx -> debug(ctx, view, false))));
         }
         return debug;
+    }
+
+    /** {@code /tremor route ...}: points for the nearest entity to crawl, for filming ({@link Routes}). */
+    private static LiteralArgumentBuilder<CommandSourceStack> route() {
+        return Commands.literal("route")
+                .then(Commands.literal("add").executes(ctx -> routeAdd(ctx, null, false))
+                        .then(Commands.argument("pos", BlockPosArgument.blockPos())
+                                .executes(ctx -> routeAdd(ctx, BlockPosArgument.getBlockPos(ctx, "pos"), false))))
+                .then(Commands.literal("listen").executes(ctx -> routeAdd(ctx, null, true))
+                        .then(Commands.argument("pos", BlockPosArgument.blockPos())
+                                .executes(ctx -> routeAdd(ctx, BlockPosArgument.getBlockPos(ctx, "pos"), true))))
+                .then(Commands.literal("undo").executes(TremorCommands::routeUndo))
+                .then(Commands.literal("clear").executes(TremorCommands::routeClear))
+                .then(Commands.literal("list").executes(TremorCommands::routeList))
+                .then(Commands.literal("go").executes(ctx -> routeGo(ctx, false)))
+                .then(Commands.literal("loop").executes(ctx -> routeGo(ctx, true)))
+                .then(Commands.literal("stop").executes(TremorCommands::routeStop));
+    }
+
+    private static UUID routeOwner(CommandSourceStack source) {
+        return Routes.owner(source.getEntity() instanceof ServerPlayer player ? player : null);
+    }
+
+    /** {@code route add|listen [pos]}: the block looked at (or {@code pos}) is the next point. */
+    private static int routeAdd(CommandContext<CommandSourceStack> ctx, BlockPos requested, boolean listen) {
+        CommandSourceStack source = ctx.getSource();
+        BlockPos pos = requested != null ? requested : lookTarget(source);
+        int count = Routes.add(routeOwner(source), pos, listen);
+        source.sendSuccess(() -> Component.literal(String.format(Locale.ROOT, "Route point %d: %s%s", count,
+                pos.toShortString(), listen ? ", it stops and listens there" : "")), false);
+        return count;
+    }
+
+    private static int routeUndo(CommandContext<CommandSourceStack> ctx) {
+        int left = Routes.undo(routeOwner(ctx.getSource()));
+        ctx.getSource().sendSuccess(() -> Component.literal("Last route point taken away, " + left + " left"), false);
+        return left;
+    }
+
+    private static int routeClear(CommandContext<CommandSourceStack> ctx) {
+        Routes.clear(routeOwner(ctx.getSource()));
+        ctx.getSource().sendSuccess(() -> Component.literal("Route cleared"), false);
+        return 1;
+    }
+
+    private static int routeList(CommandContext<CommandSourceStack> ctx) {
+        java.util.List<Routes.Point> points = Routes.laid(routeOwner(ctx.getSource()));
+        if (points.isEmpty()) {
+            ctx.getSource().sendFailure(Component.literal("No route: look at the ground and /tremor route add"));
+            return 0;
+        }
+        StringBuilder text = new StringBuilder("Route of " + points.size() + " points:");
+        for (int i = 0; i < points.size(); i++) {
+            text.append('\n').append(i + 1).append(". ").append(points.get(i).pos().toShortString())
+                    .append(points.get(i).listen() ? " (listens)" : "");
+        }
+        ctx.getSource().sendSuccess(() -> Component.literal(text.toString()), false);
+        return points.size();
+    }
+
+    /** {@code route go|loop}: the nearest entity crawls the route, once or round and round. */
+    private static int routeGo(CommandContext<CommandSourceStack> ctx, boolean loop) throws CommandSyntaxException {
+        CommandSourceStack source = ctx.getSource();
+        TremorRuntime runtime = requireRuntime(source);
+        if (!Routes.go(runtime, routeOwner(source), loop)) {
+            source.sendFailure(Component.literal("No route: look at the ground and /tremor route add"));
+            return 0;
+        }
+        int count = Routes.laid(routeOwner(source)).size();
+        source.sendSuccess(() -> Component.literal(String.format(Locale.ROOT, "Tremor #%d crawls the route of %d "
+                        + "points %s; its own decisions are off and its look held (/tremor route stop)",
+                runtime.entity().instance(), count, loop ? "round and round" : "once")), false);
+        return count;
+    }
+
+    private static int routeStop(CommandContext<CommandSourceStack> ctx) throws CommandSyntaxException {
+        TremorRuntime runtime = requireRuntime(ctx.getSource());
+        int instance = runtime.entity().instance();
+        if (!Routes.stop(runtime)) {
+            ctx.getSource().sendFailure(Component.literal("Tremor #" + instance + " crawls no route"));
+            return 0;
+        }
+        ctx.getSource().sendSuccess(() -> Component.literal("Tremor #" + instance + " stops its route and is itself "
+                + "again"), false);
+        return 1;
     }
 
     private static int spawn(CommandContext<CommandSourceStack> ctx, BlockPos requested) throws CommandSyntaxException {

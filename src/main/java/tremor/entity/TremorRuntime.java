@@ -399,6 +399,23 @@ public final class TremorRuntime {
         return entity == null ? 0 : mind(entity).motion().maxSpeed();
     }
 
+    /** Holds the entity's anger where it is, or lets it go again (a route for filming, {@link Routes}). */
+    void holdAnger(boolean held) {
+        TremorEntity entity = this.entity;
+        if (entity != null) {
+            mind(entity).holdAnger(held);
+        }
+    }
+
+    /** A route's listening stop: it stands and sends a ring of ripples ({@link TremorMind#listenNow}). */
+    void listenHere() {
+        TremorEntity entity = this.entity;
+        if (entity != null) {
+            beginPass();
+            mind(entity).listenNow();
+        }
+    }
+
     /** Another entity came too near: this one gives way to {@code other} ({@link TremorMind#yieldTo}). */
     void yieldTo(TremorEntity other) {
         TremorEntity entity = this.entity;
