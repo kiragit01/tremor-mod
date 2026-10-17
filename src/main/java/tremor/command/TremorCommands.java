@@ -70,7 +70,8 @@ import java.util.function.Supplier;
  *   {@link tremor.entity.Routes}; {@code hold [on|off]} holds the look of the tremor (its anger) without one;
  *   {@code probe <pin|unpin|hide>} shows the panel of the debug probe also without it in hand, only with it, or not
  *   at all; {@code probe quiet [on|off]} puts the short answers above the hotbar ({@link #answer});
- *   {@code ai toggle}.</li>
+ *   {@code ai toggle}; {@code ambush [stop]}: the nearest tremor lies in wait where it is (see
+ *   {@link tremor.core.behavior.Ambush}), or no longer.</li>
  *   <li>{@code hollow <enter|leave|status>} and {@code restore}: the hollow, see {@link HollowCommands}.</li>
  *   <li>{@code awaken [player]} and {@code awaken stop}: the Awakening, see {@link AwakeningCommands}.</li>
  *   <li>{@code hollow outcome <victory|edge|defeat>}: ends the level inside the hollow for the player, see
@@ -134,6 +135,8 @@ public final class TremorCommands {
                 .then(route())
                 .then(probe())
                 .then(hold())
+                .then(Commands.literal("ambush").executes(TremorCommands::ambush)
+                        .then(Commands.literal("stop").executes(TremorCommands::ambushStop)))
                 .then(HollowCommands.hollow())
                 .then(HollowCommands.restore())
                 // Merged into the hollow branch above: hollow outcome <victory|edge|defeat>.
@@ -222,6 +225,32 @@ public final class TremorCommands {
                 ? "Short tremor answers above the hotbar, not in the chat (/tremor probe quiet off)"
                 : "Tremor answers in the chat"));
         return quiet ? 1 : 0;
+    }
+
+    /** {@code /tremor ambush}: the nearest tremor lies in wait where it is ({@link TremorRuntime#lurk}). */
+    private static int ambush(CommandContext<CommandSourceStack> ctx) throws CommandSyntaxException {
+        TremorRuntime runtime = requireRuntime(ctx.getSource());
+        int instance = runtime.entity().instance();
+        String refusal = runtime.lurk();
+        if (refusal != null) {
+            ctx.getSource().sendFailure(Component.literal("Tremor #" + instance + " cannot lie in wait: " + refusal));
+            return 0;
+        }
+        double radius = TremorConfig.COMMON.ambush.triggerRadius.get();
+        answer(ctx.getSource(), () -> Component.literal(String.format(Locale.ROOT, "Tremor #%d lies in wait where it "
+                + "is; a player in survival mode within %.1f blocks of it springs it", instance, radius)));
+        return 1;
+    }
+
+    private static int ambushStop(CommandContext<CommandSourceStack> ctx) throws CommandSyntaxException {
+        TremorRuntime runtime = requireRuntime(ctx.getSource());
+        int instance = runtime.entity().instance();
+        if (!runtime.stopLurking()) {
+            ctx.getSource().sendFailure(Component.literal("Tremor #" + instance + " does not lie in wait"));
+            return 0;
+        }
+        answer(ctx.getSource(), () -> Component.literal("Tremor #" + instance + " no longer lies in wait"));
+        return 1;
     }
 
     /** {@code /tremor hold [on|off]}: the look of the nearest tremor (its anger) stays as it is, or not. */

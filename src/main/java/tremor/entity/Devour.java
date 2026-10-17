@@ -47,7 +47,7 @@ public final class Devour {
     }
 
     /** Whether the bump may take {@code mob}: alive, not taken yet, no boss, not undevourable, ridden by no player. */
-    static boolean takeable(ServerLevel level, Mob mob) {
+    public static boolean takeable(ServerLevel level, Mob mob) {
         if (!mob.isAlive() || mob.getType().is(Tags.EntityTypes.BOSSES) || mob.getType().is(UNDEVOURABLE)) {
             return false;
         }
@@ -61,7 +61,7 @@ public final class Devour {
     }
 
     /** The bump takes {@code mob}: it stops where it is and starts to sink. */
-    static void take(ServerLevel level, Mob mob) {
+    public static void take(ServerLevel level, Mob mob) {
         mob.ejectPassengers();
         mob.stopRiding();
         mob.setNoAi(true);

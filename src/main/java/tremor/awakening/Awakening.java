@@ -66,6 +66,12 @@ import java.util.UUID;
  *   level). It ends ({@link End#VICTORY}) once the hill has settled, but not before the target has been sent the
  *   phase (so a slow client does not miss it), or is offline or away.</li>
  * </ol>
+ * An ambush ({@link tremor.core.behavior.Ambush}; {@link #ambush}) has no build-up: it starts in SWALLOWING, the
+ * quicksand ({@link Quicksand}: the ground turns into mud for a moment) pulling the target under where it stepped in
+ * ({@code ambush.quicksandSeconds}; for the first {@code ambush.escapeSeconds} the target may still get out, an
+ * escape), and goes on as any other once the eyes are under the mud ({@link #quicksand(long)}); its zone is where the
+ * entity lay in wait. Several ambushes may share their entity and their quicksand (everyone caught by one).
+ * <p>
  * Sync: every player of the level within {@value #SYNC_MARGIN} blocks of the zone (horizontally) gets the state
  * ({@link TremorAwakeningPayload}) once, players coming that near (also by joining or changing dimension) on the next
  * tick, and everyone who has it gets each phase change and the end. Server thread only.
@@ -109,6 +115,8 @@ final class Awakening {
     /** {@link #emergeAt} without a victory (or once EMERGING). */
     private static final long NO_VICTORY = Long.MIN_VALUE;
     private static final double TICKS_PER_SECOND = 20;
+    /** The quicksand of an ambush squelches this often under the player (ticks). */
+    private static final int SQUELCH_TICKS = 14;
     /** The shape of the hills, as the clients draw them. */
     private static final AwakeningParams SHAPE = AwakeningParams.defaults();
 
@@ -121,6 +129,12 @@ final class Awakening {
     final String targetName;
     /** Started by itself (the entity seeking in AWAKENING reached the target) rather than by {@code /tremor awaken}. */
     final boolean natural;
+    /** An ambush: no build-up, the swallowing is quicksand ({@link tremor.core.behavior.Ambush}). */
+    final boolean ambush;
+    /** The quicksand of an ambush, shared by everyone it caught; null otherwise. */
+    final Quicksand quicksand;
+    /** An ambush's target is under the mud, waiting for the others of its quicksand before the hollow takes them. */
+    private boolean under;
     final Vec3 center;
     final double radius;
     /**
@@ -168,11 +182,36 @@ final class Awakening {
         this.instance = target;
         this.targetName = target.getGameProfile().getName();
         this.natural = natural;
+        this.ambush = false;
+        this.quicksand = null;
         this.center = vec(target.position());
         this.radius = radius;
         this.startTime = level.getGameTime();
         this.focus = center;
         this.clock = new PhaseClock(startTime, buildupTicks);
+    }
+
+    /**
+     * An ambush: SWALLOWING at once, {@code quicksand} pulling the target in over {@code pullTicks} at their feet, its
+     * zone the place where the entity lay in wait ({@code center}, {@code radius}); nothing is sent before
+     * {@link #begin}.
+     */
+    Awakening(int id, ServerLevel level, ServerPlayer target, Vec3 center, double radius, int pullTicks,
+              Quicksand quicksand) {
+        this.id = id;
+        this.level = level;
+        this.target = target.getUUID();
+        this.instance = target;
+        this.targetName = target.getGameProfile().getName();
+        this.natural = true;
+        this.ambush = true;
+        this.quicksand = quicksand;
+        this.center = center;
+        this.radius = radius;
+        this.startTime = level.getGameTime();
+        this.focus = vec(target.position());
+        this.phase = Phase.SWALLOWING;
+        this.clock = new PhaseClock(startTime, pullTicks);
     }
 
     Phase phase() {
@@ -196,7 +235,7 @@ final class Awakening {
 
     /** Whether vibrations ring out over the ground now: until the target is in the hollow. */
     boolean rippling() {
-        return phase == Phase.BUILDUP || phase == Phase.SWALLOWING;
+        return !ambush && (phase == Phase.BUILDUP || phase == Phase.SWALLOWING);
     }
 
     /** Whether the target is (or should be) in the hollow: moved into the copy, or past that. */
@@ -221,6 +260,16 @@ final class Awakening {
 
     /** Marks the start by the AWAKEN sound at the centre (the pull), sends the state to the players near and logs it. */
     void begin() {
+        if (ambush) {
+            // The ground squelches as it gives way; the player is not held yet: a moment to get out.
+            level.playSound(null, focus.x(), focus.y(), focus.z(), TremorSounds.PULL, SoundSource.HOSTILE,
+                    (float) TremorConfig.COMMON.transitionVolume.getAsDouble(), 0.8f);
+            sync(true);
+            Tremor.LOGGER.info(String.format(Locale.ROOT, "Ambush #%d in %s for %s: the quicksand at %s pulls them "
+                            + "under in %.1f s, %.1f s to get out", id, level.dimension().location(), targetName,
+                    text(focus), phaseSeconds(), TremorConfig.COMMON.ambush.escapeSeconds.get()));
+            return;
+        }
         level.playSound(null, center.x(), center.y(), center.z(), TremorSounds.AWAKEN, SoundSource.HOSTILE,
                 (float) TremorConfig.COMMON.transitionVolume.getAsDouble(), 1);
         sync(true);
@@ -279,6 +328,11 @@ final class Awakening {
         if (now >= emergeAt) {
             emerge(now);
         }
+    }
+
+    /** Whether it has ended ({@link #finish}). */
+    boolean ended() {
+        return over;
     }
 
     /** Whether the target won ({@link #won}) and the hill is not up yet. */
@@ -415,10 +469,15 @@ final class Awakening {
     /**
      * Ends it (called by {@link AwakeningManager#end} only): the target is released and out of the Darkness, those
      * who have the state are told it is over, the ground sighs (SPEC 13) where it all was, and the entity of the level
-     * goes deep ({@link TremorManager#goDeep}: removed, natural spawns paused for {@code awakening.cooldownSeconds}).
+     * goes deep ({@link TremorManager#goDeep}: removed, natural spawns paused for {@code awakening.cooldownSeconds}),
+     * unless another Awakening still has it ({@code entityFree} false: one ambush took several players).
      */
-    void finish(End why, String detail) {
+    void finish(End why, String detail, boolean entityFree) {
         over = true;
+        if (quicksand != null) {
+            // Gone into the hollow or not: a player still in the mud (called off) is lifted out of it.
+            quicksand.release(this, player(), focus);
+        }
         tremor.hollow.Nightmare.clear(target); // whatever came of it, the next hollow is an ordinary one
         long now = level.getGameTime();
         root.release();
@@ -428,7 +487,7 @@ final class Awakening {
             undarken(player);
         }
         TremorAwakeningPayload ended = new TremorAwakeningPayload(id, center, (float) radius, Phase.ENDED, now, 0,
-                target, focus);
+                target, focus, ambush);
         // Got away (or called off): the clients fade the long sound of the start out (ClientAwakening) and no sigh
         // follows, so nothing goes on rumbling after the player is out.
         boolean quiet = why == End.ESCAPED || why == End.CANCELLED;
@@ -443,23 +502,30 @@ final class Awakening {
             level.playSound(null, focus.x(), focus.y(), focus.z(), TremorSounds.SIGH, SoundSource.HOSTILE,
                     (float) TremorConfig.COMMON.transitionVolume.getAsDouble(), 1);
         }
+        if (!entityFree) {
+            Tremor.LOGGER.info(String.format(Locale.ROOT, "%s #%d in %s ended (%s) after %.1f s: %s; tremor #%d stays "
+                            + "with the others it took", ambush ? "Ambush" : "Awakening", id,
+                    level.dimension().location(), why.id(), seconds(now - startTime), detail, this.entity));
+            return;
+        }
         boolean entity = TremorManager.goDeep(level, this.entity, center.x(), center.z());
-        Tremor.LOGGER.info(String.format(Locale.ROOT, "Awakening #%d in %s ended (%s) after %.1f s: %s; %s, no "
-                        + "natural spawn for %d s", id, level.dimension().location(), why.id(),
-                seconds(now - startTime), detail, entity ? "tremor #" + this.entity + " went deep" : "no tremor",
-                TremorConfig.COMMON.awakening.cooldownSeconds.get()));
+        Tremor.LOGGER.info(String.format(Locale.ROOT, "%s #%d in %s ended (%s) after %.1f s: %s; %s, no "
+                        + "natural spawn for %d s", ambush ? "Ambush" : "Awakening", id, level.dimension().location(),
+                why.id(), seconds(now - startTime), detail, entity ? "tremor #" + this.entity + " went deep"
+                        : "no tremor", TremorConfig.COMMON.awakening.cooldownSeconds.get()));
     }
 
     /** {@code /tremor info}: the phase, the time left, the target and the zone. */
     String describe(long now) {
         StringBuilder text = new StringBuilder(String.format(Locale.ROOT, "Awakening #%d (%s) for %s: ", id,
-                natural ? "natural" : "command", targetName));
+                ambush ? "ambush" : natural ? "natural" : "command", targetName));
         switch (phase) {
             case BUILDUP -> text.append(String.format(Locale.ROOT, "buildup, %.1f of %.1f s left%s",
                     seconds(clock.remaining(now)), phaseSeconds(),
                     clock.elapsed(now) >= AwakeningRules.darknessStart(clock.ticks()) ? ", in the darkness" : ""));
             case SWALLOWING -> text.append(hollowEvent == null
-                    ? String.format(Locale.ROOT, "swallowing at %s, %.1f s left", text(focus),
+                    ? String.format(Locale.ROOT, "%s at %s, %.1f s left", ambush ? "quicksand" : "swallowing",
+                    text(focus),
                     seconds(clock.remaining(now)))
                     : String.format(Locale.ROOT, "swallowed at %s, the hollow is %s", text(focus),
                     hollowEvent.phase().id()));
@@ -521,6 +587,10 @@ final class Awakening {
     }
 
     private void swallowing(long now) {
+        if (ambush) {
+            quicksand(now);
+            return;
+        }
         ServerPlayer player = player();
         if (hollowEvent != null && hollowEvent.phase().inHollow()) {
             // Moved into the copy.
@@ -547,6 +617,101 @@ final class Awakening {
                         refusal.getMessage());
                 AwakeningManager.end(this, End.CANCELLED, "the hollow refused: " + refusal.getMessage());
             }
+        }
+    }
+
+    /**
+     * An ambush's SWALLOWING ({@link Quicksand}): the ground around where the target stepped in turns into mud and
+     * pulls them in. For the first {@code ambush.escapeSeconds} the target may get out (onto firm ground beyond the
+     * funnel: an escape); then the ground holds them (the root, the Darkness) and pulls them under. Once the eyes are
+     * under the mud, or the pull is over, they wait there in the dark until nobody of the quicksand is pulled in any
+     * more (a few seconds at most); then the ground around goes back, and the hollow takes the target as after any
+     * swallowing ({@link #swallow}), from where they stepped in; the columns under the target go back once moved.
+     */
+    private void quicksand(long now) {
+        ServerPlayer player = player();
+        if (hollowEvent != null && hollowEvent.phase().inHollow()) {
+            // Moved into the copy.
+            root.release();
+            if (player != null) {
+                undarken(player);
+            }
+            quicksand.release(this, null, focus);
+            setPhase(Phase.HOLLOW, now, 0);
+            return;
+        }
+        String gone = gone(player);
+        if (gone != null) {
+            AwakeningManager.cancel(this, player, targetName + " " + gone);
+            return;
+        }
+        if (hollowEvent != null || under) {
+            // Under the mud, the screen dark: while the others of the quicksand are pulled in, then the copy is made.
+            root.hold(player);
+            darken(player);
+            if (hollowEvent == null && !quicksand.pulling()) {
+                swallow(player);
+            }
+            return;
+        }
+        long elapsed = clock.elapsed(now);
+        double ticks = Math.max(1, clock.ticks());
+        double progress = Math.min(1, elapsed / ticks);
+        double escapeTicks = TremorConfig.COMMON.ambush.escapeSeconds.get() * 20;
+        boolean held = elapsed >= escapeTicks;
+        if (held && !root.rooted()) {
+            root.start(player);
+            Tremor.LOGGER.info("Ambush #{}: the quicksand holds {}", id, targetName);
+        }
+        if (root.rooted()) {
+            root.hold(player);
+            darken(player);
+        }
+        // The mud first (from the first tick on), then whether the target got out of it.
+        quicksand.pull(this, player, progress, Math.min(1, escapeTicks / ticks), root.rooted());
+        if (!held && quicksand.out(player, focus)) {
+            AwakeningManager.end(this, End.ESCAPED, targetName + " got out of the quicksand");
+            return;
+        }
+        if (elapsed % SQUELCH_TICKS == SQUELCH_TICKS - 1) {
+            level.playSound(null, player.getX(), player.getY(), player.getZ(), TremorSounds.PULL,
+                    SoundSource.HOSTILE, 0.8f, 0.7f + 0.3f * level.getRandom().nextFloat());
+        }
+        if (Quicksand.sink(player, focus) >= 1 || clock.over(now)) {
+            under = true;
+            Tremor.LOGGER.info(String.format(Locale.ROOT, "Ambush #%d: %s is under the mud after %.1f s", id,
+                    targetName, seconds(elapsed)));
+            if (!root.rooted()) {
+                root.start(player);
+            }
+            quicksand.swallowed(this);
+            if (!quicksand.pulling()) {
+                swallow(player);
+            }
+        }
+    }
+
+    /**
+     * Whether an ambush still pulls its target in (other players stepping into its mud are taken too): not yet under
+     * the mud, not yet taken by the hollow.
+     */
+    boolean pulling() {
+        return ambush && phase == Phase.SWALLOWING && hollowEvent == null && !under;
+    }
+
+    /**
+     * The ground of the quicksand is back (nobody of it is pulled in any more): the hollow takes the target from where
+     * they stepped in, the screen going dark, the copy made of the ground as it was.
+     */
+    private void swallow(ServerPlayer player) {
+        try {
+            hollowEvent = HollowManager.enter(player, new tremor.hollow.Origin(level.dimension(),
+                    new net.minecraft.world.phys.Vec3(focus.x(), focus.y(), focus.z()), player.getYRot(),
+                    player.getXRot()));
+        } catch (HollowManager.Refusal refusal) {
+            Tremor.LOGGER.warn("Ambush #{}: {} cannot be swallowed into the hollow: {}", id, targetName,
+                    refusal.getMessage());
+            AwakeningManager.end(this, End.CANCELLED, "the hollow refused: " + refusal.getMessage());
         }
     }
 
@@ -644,7 +809,7 @@ final class Awakening {
             if (all ? has || near(player, reach) : !has && near(player, reach)) {
                 if (payload == null) {
                     payload = new TremorAwakeningPayload(id, center, (float) radius, phase, clock.start(),
-                            clock.ticks(), target, focus);
+                            clock.ticks(), target, focus, ambush);
                 }
                 PacketDistributor.sendToPlayer(player, payload);
                 recipients.add(player.getUUID());

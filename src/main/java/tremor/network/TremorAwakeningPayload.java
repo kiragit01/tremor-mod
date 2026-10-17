@@ -24,9 +24,10 @@ import java.util.UUID;
  *                    which the hill stands until SETTLING)
  * @param target      the player the event is about (who is swallowed)
  * @param focus       where the swallow hill rises (the target's position when SWALLOWING started); the centre otherwise
+ * @param ambush      an ambush ({@link tremor.core.behavior.Ambush}): no build-up, the swallowing is quicksand
  */
 public record TremorAwakeningPayload(int id, Vec3 center, float radius, Phase phase, long phaseStart, int phaseTicks,
-                                     UUID target, Vec3 focus) implements CustomPacketPayload {
+                                     UUID target, Vec3 focus, boolean ambush) implements CustomPacketPayload {
 
     /** Phases of an Awakening as the clients see them. */
     public enum Phase {
@@ -69,6 +70,7 @@ public record TremorAwakeningPayload(int id, Vec3 center, float radius, Phase ph
         buf.writeDouble(focus.x());
         buf.writeDouble(focus.y());
         buf.writeDouble(focus.z());
+        buf.writeBoolean(ambush);
     }
 
     private static TremorAwakeningPayload read(FriendlyByteBuf buf) {
@@ -80,7 +82,8 @@ public record TremorAwakeningPayload(int id, Vec3 center, float radius, Phase ph
         int phaseTicks = buf.readVarInt();
         UUID target = buf.readUUID();
         Vec3 focus = new Vec3(buf.readDouble(), buf.readDouble(), buf.readDouble());
-        return new TremorAwakeningPayload(id, center, radius, phase, phaseStart, phaseTicks, target, focus);
+        boolean ambush = buf.readBoolean();
+        return new TremorAwakeningPayload(id, center, radius, phase, phaseStart, phaseTicks, target, focus, ambush);
     }
 
     @Override

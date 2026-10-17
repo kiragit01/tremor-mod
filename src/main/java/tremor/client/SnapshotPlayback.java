@@ -70,15 +70,22 @@ final class SnapshotPlayback {
      * @param phase       animation clock, seconds
      * @param stage       aggression stage
      * @param rippleStart server game time the latest ground ripple started at, {@link #NO_RIPPLE} if none
+     * @param lurk        how far the bump lies in wait, 0..1 ({@code tremor.core.behavior.Ambush})
      */
     record Snapshot(long tick, Vec3 position, Vec3 normal, Vec3 forward, Vec3 velocity, double amplitude,
-                    double phase, Stage stage, long rippleStart) {
+                    double phase, Stage stage, long rippleStart, double lurk) {
+        /** {@link #of(long, Vec3, Vec3, Vec3, Vec3, double, double, Stage, long, double)} not lying in wait. */
+        static Snapshot of(long tick, Vec3 position, Vec3 normal, Vec3 forward, Vec3 velocity, double amplitude,
+                           double phase, Stage stage, long rippleStart) {
+            return of(tick, position, normal, forward, velocity, amplitude, phase, stage, rippleStart, 0);
+        }
+
         /**
          * A snapshot with normalized directions, or null if a value is unusable (non-finite, zero normal, no
          * stage).
          */
         static Snapshot of(long tick, Vec3 position, Vec3 normal, Vec3 forward, Vec3 velocity, double amplitude,
-                           double phase, Stage stage, long rippleStart) {
+                           double phase, Stage stage, long rippleStart, double lurk) {
             if (!finite(position) || !finite(normal) || !finite(forward) || !finite(velocity)
                     || !Double.isFinite(amplitude) || !Double.isFinite(phase) || stage == null) {
                 return null;
@@ -88,7 +95,7 @@ final class SnapshotPlayback {
                 return null;
             }
             return new Snapshot(tick, position, n, forward.normalize(), velocity, amplitude, phase, stage,
-                    rippleStart);
+                    rippleStart, Double.isFinite(lurk) ? Math.max(0, Math.min(1, lurk)) : 0);
         }
 
         private static boolean finite(Vec3 v) {
@@ -104,8 +111,10 @@ final class SnapshotPlayback {
      * @param velocity  blocks per second; zero while the position holds past the snapshots
      * @param stage     stage of the snapshot at or before the playback time
      * @param rippleAge seconds since the latest ground ripple started, NaN if none has started by the playback time
+     * @param lurk      how far the bump lies in wait, 0..1
      */
-    record Sample(BumpFrame frame, double amplitude, double phase, Vec3 velocity, Stage stage, double rippleAge) {
+    record Sample(BumpFrame frame, double amplitude, double phase, Vec3 velocity, Stage stage, double rippleAge,
+                  double lurk) {
     }
 
     private int instance;
@@ -257,7 +266,7 @@ final class SnapshotPlayback {
             double phase = s.phase() + dt * (after ? phaseRate() : 1 / TICKS_PER_SECOND);
             Vec3 velocity = dt == offset ? s.velocity() : Vec3.ZERO; // zero once the position holds
             return new Sample(new BumpFrame(position, s.normal(), s.forward()), s.amplitude(), phase, velocity,
-                    s.stage(), rippleAge(t, s.rippleStart()));
+                    s.stage(), rippleAge(t, s.rippleStart()), s.lurk());
         }
         int i = count - 2;
         while (snapshots[i].tick() > t) {
@@ -281,7 +290,7 @@ final class SnapshotPlayback {
         // A ripple that started after a is known from b only; a newer snapshot cannot add one that b missed.
         long rippleStart = b.rippleStart() != NO_RIPPLE && b.rippleStart() <= t ? b.rippleStart() : a.rippleStart();
         return new Sample(new BumpFrame(position, normal, forward), amplitude, phase, velocity, a.stage(),
-                rippleAge(t, rippleStart));
+                rippleAge(t, rippleStart), a.lurk() + (b.lurk() - a.lurk()) * u);
     }
 
     /** Seconds from {@code start} (ticks, or {@link #NO_RIPPLE}) to playback time {@code t}, NaN if not yet begun. */

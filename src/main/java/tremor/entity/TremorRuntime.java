@@ -425,6 +425,31 @@ public final class TremorRuntime {
         }
     }
 
+    /**
+     * {@code /tremor ambush}: the entity lies in wait where it is ({@link TremorMind#lurkNow}). Returns null, or why it
+     * cannot.
+     */
+    public String lurk() {
+        TremorEntity entity = this.entity;
+        if (entity == null) {
+            return "there is no tremor";
+        }
+        beginPass();
+        return mind(entity).lurkNow(level.getGameTime());
+    }
+
+    /** {@code /tremor ambush stop}: whether the entity lay in wait (and no longer does). */
+    public boolean stopLurking() {
+        TremorEntity entity = this.entity;
+        return entity != null && mind(entity).stopLurkNow(level.getGameTime());
+    }
+
+    /** The ambush, as the debug probe tells it ({@link TremorMind#ambushState}). */
+    public String ambush() {
+        TremorEntity entity = this.entity;
+        return entity == null ? "no tremor" : mind(entity).ambushState(level.getGameTime());
+    }
+
     /** Another entity came too near: this one gives way to {@code other} ({@link TremorMind#yieldTo}). */
     void yieldTo(TremorEntity other) {
         TremorEntity entity = this.entity;
@@ -1275,7 +1300,7 @@ public final class TremorRuntime {
         Crawler c = entity.crawler();
         return new TremorStatePayload(entity.instance(), true, level.getGameTime(), c.position(), c.normal(),
                 c.forward(), c.velocity(), (float) c.amplitude(), (float) TremorEntity.wrapPhase(c.phase()),
-                entity.stage(), mind(entity).rippleAge(level.getGameTime()));
+                entity.stage(), mind(entity).rippleAge(level.getGameTime()), (float) mind(entity).lurkShare());
     }
 
     private void sendShape(TremorEntity entity) {

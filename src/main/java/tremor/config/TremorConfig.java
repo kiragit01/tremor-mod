@@ -126,6 +126,7 @@ public final class TremorConfig {
         public final Spawn spawn;
         public final Hollow hollow;
         public final Awakening awakening;
+        public final Ambush ambush;
 
         Common(ModConfigSpec.Builder b) {
             BumpParams d = BumpParams.defaults();
@@ -421,6 +422,7 @@ public final class TremorConfig {
             spawn = new Spawn(b);
             hollow = new Hollow(b);
             awakening = new Awakening(b);
+            ambush = new Ambush(b);
         }
 
         private static ModConfigSpec.DoubleValue conductivity(ModConfigSpec.Builder b, String name, String comment,
@@ -848,6 +850,49 @@ public final class TremorConfig {
                             "caches of rubble, some of them buried); false: the player comes out there alive,",
                             "keeping everything, but badly weakened")
                     .translation(KEY + "awakening.lethal").define("lethal", true);
+            b.pop();
+        }
+    }
+
+    /** The ambush ({@link tremor.core.behavior.Ambush}): lying in wait for a player, and the quicksand. */
+    public static final class Ambush {
+        public final ModConfigSpec.BooleanValue enabled;
+        public final ModConfigSpec.DoubleValue chance;
+        public final ModConfigSpec.DoubleValue senseDistance;
+        public final ModConfigSpec.DoubleValue triggerRadius;
+        public final ModConfigSpec.IntValue lurkSeconds;
+        public final ModConfigSpec.IntValue cooldownSeconds;
+        public final ModConfigSpec.DoubleValue quicksandSeconds;
+        public final ModConfigSpec.DoubleValue escapeSeconds;
+
+        Ambush(ModConfigSpec.Builder b) {
+            b.comment("The ambush: in ALERT or HUNTING, on a floor with at least four blocks of ground under it, the",
+                            "entity may lie in wait for a player who is coming and does not see it: it stops, its bump",
+                            "flat and wide, breathing; whoever steps onto it is pulled under into quicksand (the ground",
+                            "turns into mud for a moment, and back), into a hollow of their own, and a mob sinks")
+                    .translation(KEY + "ambush").push("ambush");
+            enabled = b.comment("Whether the entity lies in wait at all")
+                    .translation(KEY + "ambush.enabled").define("enabled", true);
+            chance = b.comment("Chance that it lies in wait when it senses a player coming who does not see it; after",
+                            "a no it tries again 10 seconds later")
+                    .translation(KEY + "ambush.chance").defineInRange("chance", 0.35, 0.0, 1.0);
+            senseDistance = b.comment("How far it senses a player coming (blocks, horizontally)")
+                    .translation(KEY + "ambush.senseDistance").defineInRange("senseDistance", 20.0, 4.0, 64.0);
+            triggerRadius = b.comment("Stepping this near the middle of where it lies springs it (blocks,",
+                            "horizontally)")
+                    .translation(KEY + "ambush.triggerRadius").defineInRange("triggerRadius", 2.5, 1.0, 8.0);
+            lurkSeconds = b.comment("It gives up lying in wait after this long without a catch (seconds)")
+                    .translation(KEY + "ambush.lurkSeconds").defineInRange("lurkSeconds", 40, 5, 600);
+            cooldownSeconds = b.comment("After lying in wait (a catch or not) it does not again for this long (seconds)")
+                    .translation(KEY + "ambush.cooldownSeconds").defineInRange("cooldownSeconds", 90, 0, 3600);
+            quicksandSeconds = b.comment("How long the quicksand takes to pull a player under (seconds); the eyes are",
+                            "under the mud about two thirds of the way")
+                    .translation(KEY + "ambush.quicksandSeconds")
+                    .defineInRange("quicksandSeconds", 3.0, 1.0, 10.0);
+            escapeSeconds = b.comment("For this long after stepping in a player may still get out of the quicksand",
+                            "onto firm ground (the mud holds: only one who sprints and jumps off at once makes it);",
+                            "then it holds the player (seconds)")
+                    .translation(KEY + "ambush.escapeSeconds").defineInRange("escapeSeconds", 1.5, 0.0, 5.0);
             b.pop();
         }
     }

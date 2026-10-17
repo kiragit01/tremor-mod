@@ -19,7 +19,8 @@ import java.util.List;
  *     <li>BUILDUP: the zone breathes ({@link AwakeningShape#breath}), each breath higher than the last as the build-up
  *     runs ({@link AwakeningShape#breathAmplitude}); every step sends a ring ({@link AwakeningShape#stepRipple});</li>
  *     <li>SWALLOWING: the breathing stays at its full height and the rings go on, and the hill rises at the focus
- *     ({@link AwakeningShape#hillPeak});</li>
+ *     ({@link AwakeningShape#hillPeak}); an ambush has none of it, its quicksand is real mud
+ *     ({@code tremor.awakening.Quicksand});</li>
  *     <li>HOLLOW: for everyone left behind the hill that took the player and the ground settle back to smooth over
  *     {@link AwakeningParams#releaseSeconds}, as after an escape, and then nothing is left, as if nobody had been
  *     there;</li>
@@ -125,6 +126,9 @@ public final class AwakeningGround {
 
     private static AwakeningField field(TremorAwakeningPayload state, List<ClientAwakening.StepRipple> ripples,
                                         double gameTime, double release) {
+        if (state.ambush()) {
+            return null;
+        }
         boolean swallowing = state.phase() == Phase.SWALLOWING;
         double progress = phaseProgress(state, gameTime);
         double amplitude = swallowing ? PARAMS.breathEnd() : AwakeningShape.breathAmplitude(PARAMS, progress);

@@ -1,0 +1,75 @@
+# The ambush: a tremor lies in wait on open ground (flat, wide, breathing); a cow that walks onto it sinks; a player
+# in survival mode who steps onto it sinks into quicksand (the ground turns into mud for a moment) and, held after the
+# first moment, is pulled under into a hollow of their own; /tremor awaken stop brings the player back, and the ground
+# is as it was. Another one: a player who gets out at once escapes, and the mud goes back.
+waitchunks
+cmd gamemode spectator
+cmd time set noon
+cmd tremor despawn all
+cmd tremor awaken stop
+cmd tp @s 460.5 201.0 300.5 270 10
+wait 40
+waitchunks
+cmd fill 440 194 280 520 200 320 minecraft:stone
+cmd fill 440 201 280 520 206 320 minecraft:air
+cmd kill @e[type=minecraft:cow]
+cmd gamemode creative
+log --- it lies in wait where it is
+cmd tremor spawn 480 201 300
+cmd tremor stage hunting
+cmd tremor hold
+cmd tremor ambush
+cmd tp @s 469.5 201.0 291.5
+lookat 480.5 200.5 300.5
+hud off
+wait 50
+screenshot 01_lying_in_wait
+log --- a cow that steps onto it sinks
+cmd summon minecraft:cow 480.5 201 300.5 {NoAI:1b}
+wait 15
+screenshot 02_cow_sinks
+wait 40
+log --- a player in survival mode steps onto it: the quicksand
+cmd gamemode survival
+cmd tp @s 478.5 201.0 300.5 270 25
+wait 10
+screenshot 03_quicksand_0.5s
+wait 10
+screenshot 04_quicksand_1s
+wait 10
+screenshot 05_quicksand_1.5s
+wait 10
+screenshot 06_quicksand_2s
+wait 10
+screenshot 07_quicksand_2.5s
+hud on
+wait 200
+screenshot 08_in_the_hollow
+log --- brought back out, the ground as it was
+cmd tremor awaken stop
+wait 120
+cmd gamemode creative
+cmd tp @s 469.5 201.0 291.5
+lookat 480.5 200.5 300.5
+hud off
+wait 20
+screenshot 09_ground_back
+log --- another one: the player gets out at once
+cmd tp @s 489.5 202.0 291.5
+cmd tremor spawn 500 201 300
+cmd tremor stage hunting
+cmd tremor hold
+cmd tremor ambush
+wait 40
+cmd gamemode survival
+cmd tp @s 498.5 201.0 300.5 90 10
+hold forward+sprint+jump 30
+screenshot 10_got_out
+wait 40
+cmd tp @s 489.5 202.0 291.5
+lookat 498.5 200.5 300.5
+wait 10
+screenshot 11_ground_back_after_escape
+cmd gamemode creative
+hud on
+quit

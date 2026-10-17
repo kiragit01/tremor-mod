@@ -1,0 +1,37 @@
+# The ambush on a server (1.1.2), Bob (tools/mp-test.sh mp-ambush-alice.txt mp-ambush-bob.txt): he watches Alice sink
+# into the quicksand, then steps into the mud after her and is taken too, into a hollow of his own; out after her,
+# when the tremor goes deep.
+waitchunks
+cmd gamemode spectator
+cmd tp @s 6.5 205 -4.5 0 10
+wait 60
+waitchunks
+cmd gamemode creative
+cmd say MARK bob-here
+waitfor 2400 MARK lurking
+cmd tp @s 6.5 200 -3.5 0 0
+lookat 0.5 199.5 1.5
+hud off
+cmd say MARK bob-watching
+waitfor 2400 MARK stepping
+wait 10
+screenshot b01_she_sinks_0.5s
+wait 10
+screenshot b02_she_sinks_1s
+log --- he steps into the mud after her
+cmd gamemode survival
+cmd tp @s 1.5 200 0.5 270 20
+wait 10
+screenshot b03_he_sinks
+hud on
+waitfor 2400 MARK alice-in
+wait 10
+screenshot b04_in_his_hollow
+cmd say MARK bob-in
+waitfor 2400 MARK alice-out
+wait 20
+cmd tremor awaken stop
+wait 100
+cmd say MARK bob-out
+wait 40
+quit

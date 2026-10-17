@@ -62,6 +62,24 @@ public record BumpParams(double amplitude, double sigmaFront, double sigmaBack, 
                 trailLag * sizeFactor, trailSigma * sizeFactor, trailDepth, jitter);
     }
 
+    /**
+     * The shape lying in wait ({@link tremor.core.behavior.Ambush}), {@code share} (0..1, clamped) of the way there:
+     * round (as long ahead and behind as it is wide) and {@code spread} times as wide as its widest, without the
+     * trailing dip, which a bump standing still does not leave; the amplitude is kept. The same shape at 0.
+     *
+     * @throws IllegalArgumentException if {@code spread} is not a finite positive number
+     */
+    public BumpParams lurking(double share, double spread) {
+        requirePositive("spread", spread);
+        if (!(share > 0)) {
+            return this;
+        }
+        double s = Math.min(1, share);
+        double round = Math.max(sigmaFront, Math.max(sigmaBack, sigmaSide)) * spread;
+        return new BumpParams(amplitude, sigmaFront + (round - sigmaFront) * s, sigmaBack + (round - sigmaBack) * s,
+                sigmaSide + (round - sigmaSide) * s, trailLag, trailSigma, trailDepth * (1 - s), jitter);
+    }
+
     private static void requirePositive(String name, double value) {
         if (!(value > 0) || !Double.isFinite(value)) {
             throw new IllegalArgumentException(name + " must be finite and > 0: " + value);

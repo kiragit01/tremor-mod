@@ -1,0 +1,33 @@
+# The ambush by itself: a player in survival mode walks backwards towards a hunting tremor, not seeing it; it lies in
+# wait (chance 1 here), and the player walks onto it and is pulled under into a hollow of their own.
+waitchunks
+cmd gamemode spectator
+cmd time set noon
+cmd tremor despawn all
+cmd tremor awaken stop
+cmd tp @s 460.5 201.0 300.5 270 10
+wait 40
+waitchunks
+cmd fill 440 194 280 520 200 320 minecraft:stone
+cmd fill 440 201 280 520 206 320 minecraft:air
+config ambush.chance 1.0
+config ambush.cooldownSeconds 0
+config awakening.cooldownSeconds 0
+cmd gamemode survival
+cmd tp @s 474.5 201.0 300.5 90 20
+cmd tremor spawn 492 201 300
+cmd tremor stage hunting
+wait 10
+log --- the player walks backwards towards it, its back to it
+hold back 20
+screenshot 01_walking_back
+log --- on until the player stands on it
+hold back 70
+wait 20
+screenshot 02_caught
+wait 160
+screenshot 03_in_the_hollow
+cmd tremor awaken stop
+wait 100
+cmd gamemode creative
+quit

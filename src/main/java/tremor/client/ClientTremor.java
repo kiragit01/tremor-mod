@@ -52,7 +52,7 @@ public final class ClientTremor {
                 ? payload.gameTime() - rippleAge : SnapshotPlayback.NO_RIPPLE;
         SnapshotPlayback.Snapshot snap = SnapshotPlayback.Snapshot.of(payload.gameTime(), payload.position(),
                 payload.normal(), payload.forward(), payload.velocity(), payload.amplitude(), payload.phase(),
-                payload.stage(), rippleStart);
+                payload.stage(), rippleStart, payload.lurk());
         if (snap != null) {
             playbacks.computeIfAbsent(payload.instance(), instance -> new SnapshotPlayback())
                     .accept(payload.instance(), snap, now);
@@ -121,7 +121,10 @@ public final class ClientTremor {
                     at++;
                 }
                 distances.add(at, distance);
-                states.add(at, new RenderState(sample.frame(), shape.withAmplitude(sample.amplitude()),
+                // Lying in wait it is round, wide, low and breathing (core Ambush), more so as it settles in.
+                BumpParams drawn = shape.lurking(sample.lurk(), tremor.core.behavior.Ambush.SPREAD).withAmplitude(
+                        sample.amplitude() * tremor.core.behavior.Ambush.breath(gameTime / 20.0, sample.lurk()));
+                states.add(at, new RenderState(sample.frame(), drawn,
                         shape.amplitude(), sample.phase(), entry.getKey(), sample.stage(), sample.rippleAge()));
             }
         }

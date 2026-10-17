@@ -18,6 +18,7 @@ import tremor.Tremor;
 import tremor.awakening.AwakeningManager;
 import tremor.awakening.AwakeningRules;
 import tremor.config.TremorConfig;
+import tremor.core.behavior.Ambush;
 import tremor.core.behavior.AngerMeter;
 import tremor.core.behavior.BehaviorParams;
 import tremor.core.behavior.Brain;
@@ -33,6 +34,7 @@ import tremor.core.math.Vec3;
 import tremor.core.motion.Crawler;
 import tremor.core.motion.MotionParams;
 import tremor.core.path.Path;
+import tremor.core.voxel.LineOfSight;
 import tremor.network.TremorStatePayload;
 import tremor.sound.TremorSounds;
 
@@ -87,6 +89,15 @@ import java.util.random.RandomGenerator;
  * removes it. While its chunk is not loaded the clock runs on, and the runtime removes it at once when it is due
  * ({@link #pausedTick}). Any entity leaves when another came too near and this one gives way ({@link #yieldTo}): it
  * turns away and crawls off as its bump goes down, more slowly.</li>
+ * <li><b>Ambush</b> ({@link Ambush}; {@link #lookForPrey}): in ALERT or HUNTING, on a floor where quicksand can form
+ * ({@code tremor.awakening.Quicksand#fits}), every
+ * {@value #LOOK_TICKS} ticks it looks for a player who could be taken and is coming while nobody sees the bump; at
+ * {@code ambush.chance} it lies in wait there ({@link #lurk}): the brain waits, the body stands, the bump is low
+ * ({@link Ambush#HEIGHT}) and the clients draw it flat, wide and breathing ({@link #lurkShare}). A mob that steps onto
+ * it sinks ({@link Devour}); a player who could be taken springs it ({@link #spring}): the quicksand takes everyone
+ * on it, each into a hollow of their own ({@link AwakeningManager#ambush}), and the entity with them. It gives up
+ * after {@code ambush.lurkSeconds}, with nobody near, calmed down or risen to AWAKENING, its brain switched off, a
+ * frenzy or a goto; then it does not lie in wait for {@code ambush.cooldownSeconds}. Not saved.</li>
  * <li><b>Awakening</b> (SPEC 9; {@link #absorb}): taken by an Awakening, the entity is the whole area rather than a
  * bump: its brain is suspended, the anger stays at the top, the bump sinks, it strikes nobody, does not leave by
  * itself and hears nothing ({@code awakening}). Until it is removed: every Awakening ends with that
@@ -131,6 +142,10 @@ final class TremorMind {
     private static final float STRIKE_VOLUME = 1.5f;
     /** Pitch of the rumble under the crack of a change to HUNTING. */
     private static final float LOW_PITCH = 0.7f;
+    /** Ticks between two looks for a player to lie in wait for ({@link #lookForPrey}). */
+    static final int LOOK_TICKS = 10;
+    /** After a chance not taken it looks again this long later (ticks). */
+    static final int RETRY_TICKS = 200;
 
     /** The {@code behavior} config values last rejected (logged once), or null. */
     private static String rejected;
@@ -157,6 +172,18 @@ final class TremorMind {
     private boolean angerHeld;
     /** Ticks it has been giving way to another entity ({@link #yieldTo}), or -1 if it is not. Not saved. */
     private int yieldTicks = -1;
+    /** Where it lies in wait (the top of its skin), or null ({@link Ambush}). Not saved. */
+    private Vec3 lurkAt;
+    /** Game time it lay in wait at. */
+    private long lurkSince;
+    /** It lies in wait by a command ({@link #lurkNow}): it does not give up for nobody being near. */
+    private boolean lurkForced;
+    /** Game time before which it does not lie in wait (again). */
+    private long lurkAgain;
+    /** How far its bump has gone into lying in wait, 0..1, for the clients ({@link Ambush#fade}). */
+    private double lurkShare;
+    /** Where the feet of each player who could be taken were at the last look ({@link #lookForPrey}). */
+    private final Map<UUID, Vec3> feetBefore = new HashMap<>();
 
     TremorMind(TremorRuntime runtime, TremorEntity entity) {
         this.runtime = runtime;
@@ -212,6 +239,9 @@ final class TremorMind {
         if (entity.targetKind() == TremorEntity.TargetKind.MANUAL) {
             return "goto under way";
         }
+        if (lurkAt != null) {
+            return "lies in wait";
+        }
         return switch (meter.stage()) {
             case DORMANT -> perceived >= params.dormantReactLoudness() ? "investigates" : "ignores it";
             case ALERT -> "freezes";
@@ -250,8 +280,24 @@ final class TremorMind {
             meter.tick(TremorRuntime.TICK_SECONDS, secondsSinceHeard(now));
         }
         settle(before);
+        if (lurkAt != null) {
+            String over = lurkOver(now);
+            if (over == null) {
+                if (entity.crawler().speed() > 0) {
+                    lurkAt = skin(); // still braking: it lies where it comes to a stand
+                }
+                return; // lying in wait: the brain waits too
+            }
+            stopLurking(now, over);
+        }
         if (!entity.aiEnabled() || entity.frenzy()) {
             return;
+        }
+        if (now % LOOK_TICKS == 0) {
+            lookForPrey(now);
+            if (lurkAt != null) {
+                return;
+            }
         }
         boolean manual = entity.targetKind() == TremorEntity.TargetKind.MANUAL;
         boolean idle = !manual && !orders.waiting() && runtime.bodyIdle(entity);
@@ -285,6 +331,9 @@ final class TremorMind {
         boolean yielding = yieldTicks >= 0;
         double amplitude = entity.absorbed() || entity.leaving() && !yielding ? 0
                 : base.amplitude() * TremorConfig.COMMON.amplitudeFactor(stage) * (yielding ? yieldShare() : 1);
+        if (lurkAt != null) {
+            amplitude = Math.min(amplitude, Ambush.HEIGHT); // lying in wait: low (the clients draw it wide)
+        }
         // Giving way, it hurries off whatever its stage.
         double speed = base.maxSpeed() * TremorConfig.COMMON.speedFactor(yielding ? Stage.HUNTING : stage)
                 * (level.dimension() == net.minecraft.world.level.Level.NETHER
@@ -309,10 +358,15 @@ final class TremorMind {
     boolean afterMove(long now) {
         boolean heard = heardSinceTick;
         heardSinceTick = false;
+        lurkShare = Ambush.fade(lurkShare, lurkAt != null, TremorRuntime.TICK_SECONDS);
         if (entity.absorbed()) {
             return false; // the Awakening removes it
         }
+        if (lurkAt != null && !entity.leaving() && spring(now)) {
+            return false; // sprung: the Awakenings of the ambush took it
+        }
         if (entity.leaving()) {
+            lurkAt = null;
             if (yieldTicks >= 0) {
                 yieldTicks++;
             }
@@ -435,6 +489,7 @@ final class TremorMind {
      * suspended, the bump sinks, and the entity neither strikes nor leaves by itself. A leaving entity stops leaving.
      */
     void absorb() {
+        lurkAt = null;
         entity.setAbsorbed(true);
         orders.clear();
         entity.setLeaving(false);
@@ -483,6 +538,10 @@ final class TremorMind {
         }
         if (!entity.aiEnabled()) {
             return "ai off" + seekingState();
+        }
+        if (lurkAt != null) {
+            return String.format(Locale.ROOT, "lies in wait (an ambush) for %.0f s", (level.getGameTime() - lurkSince)
+                    / 20.0) + seekingState();
         }
         String state = brain.describe();
         if (orders.waiting()) {
@@ -774,6 +833,235 @@ final class TremorMind {
     }
 
     /** The brain's questions, answered over the runtime's surface graph ({@link SurfacePicker}). */
+    // ---- ambush ----
+
+    /** How far its bump has gone into lying in wait, 0..1, for the clients. */
+    double lurkShare() {
+        return lurkShare;
+    }
+
+    /**
+     * {@code /tremor ambush}: lies in wait where it is now, whether anybody comes or not (raised to ALERT if it is
+     * DORMANT, half way to HUNTING, so that it does not calm down at once). Returns null, or why it cannot.
+     */
+    String lurkNow(long now) {
+        if (!TremorConfig.COMMON.ambush.enabled.get()) {
+            return "ambushes are switched off (ambush.enabled)";
+        }
+        if (entity.absorbed()) {
+            return "it is taken by an Awakening";
+        }
+        if (entity.leaving()) {
+            return "it is leaving";
+        }
+        if (entity.frenzy()) {
+            return "it is in a frenzy";
+        }
+        if (!entity.aiEnabled()) {
+            return "its ai is off (/tremor ai on)";
+        }
+        if (meter.stage() == Stage.AWAKENING) {
+            return "it seeks a player at the top of its anger (AWAKENING)";
+        }
+        if (!Ambush.mayLurk(Stage.HUNTING, entity.crawler().normal())) {
+            return "it is not on a floor (a wall or a ceiling)";
+        }
+        if (lurkAt != null) {
+            return "it lies in wait already";
+        }
+        if (!tremor.awakening.Quicksand.fits(level, skin(), TremorConfig.COMMON.ambush.triggerRadius.get())) {
+            return "no ground for quicksand here (two blocks of air over at least four of solid ground, nothing with "
+                    + "a block entity, no fluid)";
+        }
+        if (meter.stage() == Stage.DORMANT) {
+            setAnger((params.alertAt() + params.huntAt()) / 2);
+        }
+        lurk(now, "a command");
+        lurkForced = true;
+        return null;
+    }
+
+    /** {@code /tremor ambush stop}: stops lying in wait, without the pause after it; whether it lay in wait. */
+    boolean stopLurkNow(long now) {
+        if (lurkAt == null) {
+            return false;
+        }
+        stopLurking(now, "a command");
+        lurkAgain = now;
+        return true;
+    }
+
+    /** The ambush as the debug probe tells it. */
+    String ambushState(long now) {
+        TremorConfig.Ambush config = TremorConfig.COMMON.ambush;
+        if (!config.enabled.get()) {
+            return "switched off (ambush.enabled)";
+        }
+        if (lurkAt != null) {
+            return String.format(Locale.ROOT, "lying in wait at %.0f %.0f %.0f, %.0f of %d s; springs within %.1f "
+                            + "blocks", lurkAt.x(), lurkAt.y(), lurkAt.z(), (now - lurkSince) / 20.0,
+                    config.lurkSeconds.get(), config.triggerRadius.get());
+        }
+        if (now < lurkAgain) {
+            return String.format(Locale.ROOT, "not again for %.0f s", (lurkAgain - now) / 20.0);
+        }
+        if (meter.stage() != Stage.ALERT && meter.stage() != Stage.HUNTING) {
+            return "only when alert or hunting";
+        }
+        if (!Ambush.mayLurk(meter.stage(), entity.crawler().normal())) {
+            return "not on a wall or a ceiling";
+        }
+        return String.format(Locale.ROOT, "may lie in wait for a player coming within %.0f blocks unseen (chance "
+                + "%.0f%%)", config.senseDistance.get(), config.chance.get() * 100);
+    }
+
+    /**
+     * Every {@value #LOOK_TICKS} ticks while it may lie in wait ({@link #mayLurkNow}): a player who could be taken is
+     * coming ({@link Ambush#coming}, from where the feet were at the last look) and no player near sees the bump
+     * ({@link #sees}): at {@code ambush.chance} it lies in wait ({@link #lurk}); after a no it looks again
+     * {@value #RETRY_TICKS} ticks later.
+     */
+    private void lookForPrey(long now) {
+        if (!mayLurkNow(now)) {
+            feetBefore.clear();
+            return;
+        }
+        TremorConfig.Ambush config = TremorConfig.COMMON.ambush;
+        double sense = config.senseDistance.get();
+        Vec3 skin = skin();
+        Vec3 seen = skin.add(entity.crawler().normal().scale(0.3));
+        boolean coming = false;
+        Map<UUID, Vec3> feet = new HashMap<>();
+        for (ServerPlayer player : level.players()) {
+            double dx = player.getX() - skin.x(), dz = player.getZ() - skin.z();
+            if (player.isSpectator() || dx * dx + dz * dz > 4 * sense * sense) {
+                continue;
+            }
+            if (sees(player, seen)) {
+                feetBefore.clear();
+                return; // not in front of anybody
+            }
+            if (!AwakeningManager.takeable(player) || Math.abs(player.getY() - skin.y()) > sense) {
+                continue;
+            }
+            Vec3 at = vec(player.position());
+            Vec3 before = feetBefore.get(player.getUUID());
+            feet.put(player.getUUID(), at);
+            coming |= before != null && Ambush.coming(skin, before, at, sense);
+        }
+        feetBefore.clear();
+        feetBefore.putAll(feet);
+        if (!coming) {
+            return;
+        }
+        if (level.getRandom().nextDouble() >= config.chance.get()
+                || !tremor.awakening.Quicksand.fits(level, skin, config.triggerRadius.get())) {
+            lurkAgain = now + RETRY_TICKS; // a no, or no ground for quicksand here
+            return;
+        }
+        lurk(now, "a player is coming");
+    }
+
+    /** Whether it may lie in wait now by itself: switched on, not paused, ALERT or HUNTING on a floor, free. */
+    private boolean mayLurkNow(long now) {
+        Crawler crawler = entity.crawler();
+        return TremorConfig.COMMON.ambush.enabled.get() && lurkAt == null && now >= lurkAgain
+                && Ambush.mayLurk(meter.stage(), crawler.normal()) && entity.aiEnabled() && !entity.frenzy()
+                && !entity.leaving() && !entity.absorbed() && !angerHeld && !crawler.diving()
+                && entity.targetKind() != TremorEntity.TargetKind.MANUAL;
+    }
+
+    /** Lies in wait where it is: the brain's orders and the target go, the body stops. */
+    private void lurk(long now, String why) {
+        lurkAt = skin();
+        lurkSince = now;
+        lurkForced = false;
+        feetBefore.clear();
+        runtime.dropTarget(entity);
+        Tremor.LOGGER.info(String.format(Locale.ROOT, "Tremor #%d in %s lies in wait at %.1f %.1f %.1f (%s, %s)",
+                entity.instance(), level.dimension().location(), lurkAt.x(), lurkAt.y(), lurkAt.z(),
+                meter.stage().name().toLowerCase(Locale.ROOT), why));
+    }
+
+    /** Why it stops lying in wait now, or null if it goes on. */
+    private String lurkOver(long now) {
+        TremorConfig.Ambush config = TremorConfig.COMMON.ambush;
+        if (!config.enabled.get()) {
+            return "ambushes switched off";
+        }
+        Stage stage = meter.stage();
+        if (stage != Stage.ALERT && stage != Stage.HUNTING) {
+            return stage == Stage.DORMANT ? "calmed down" : "at the top of its anger";
+        }
+        if (!entity.aiEnabled()) {
+            return "ai off";
+        }
+        if (entity.frenzy()) {
+            return "a frenzy";
+        }
+        if (entity.targetKind() == TremorEntity.TargetKind.MANUAL) {
+            return "a goto";
+        }
+        if (now - lurkSince >= config.lurkSeconds.get() * 20L) {
+            return "nobody came";
+        }
+        if (lurkForced) {
+            return null;
+        }
+        double reach = config.senseDistance.get() * 1.5;
+        for (ServerPlayer player : level.players()) {
+            if (!player.isSpectator() && Math.hypot(player.getX() - lurkAt.x(), player.getZ() - lurkAt.z()) <= reach) {
+                return null;
+            }
+        }
+        return "nobody near";
+    }
+
+    private void stopLurking(long now, String why) {
+        Tremor.LOGGER.info("Tremor #{} in {} stops lying in wait: {}", entity.instance(), level.dimension().location(),
+                why);
+        lurkAt = null;
+        lurkAgain = now + TremorConfig.COMMON.ambush.cooldownSeconds.get() * 20L;
+    }
+
+    /**
+     * Lying in wait, after the move: a mob that has stepped onto it sinks ({@link Devour}), and a player who could be
+     * taken springs it: the quicksand takes every such player on it ({@link AwakeningManager#ambush}), and the
+     * entity with them. Returns whether it was sprung.
+     */
+    private boolean spring(long now) {
+        double radius = TremorConfig.COMMON.ambush.triggerRadius.get();
+        if (TremorConfig.COMMON.devourMobs.get()) {
+            AABB box = new AABB(lurkAt.x() - radius, lurkAt.y() - Ambush.STEP_HEIGHT, lurkAt.z() - radius,
+                    lurkAt.x() + radius, lurkAt.y() + Ambush.STEP_HEIGHT, lurkAt.z() + radius);
+            for (Mob mob : level.getEntitiesOfClass(Mob.class, box, m -> Devour.takeable(level, m))) {
+                if (Ambush.steppedIn(lurkAt, vec(mob.position()), radius)) {
+                    Devour.take(level, mob);
+                }
+            }
+        }
+        List<ServerPlayer> caught = new ArrayList<>();
+        for (ServerPlayer player : level.players()) {
+            if (AwakeningManager.takeable(player) && Ambush.steppedIn(lurkAt, vec(player.position()), radius)) {
+                caught.add(player);
+            }
+        }
+        if (caught.isEmpty()) {
+            return false;
+        }
+        Vec3 at = lurkAt;
+        lurkAt = null;
+        lurkAgain = now + TremorConfig.COMMON.ambush.cooldownSeconds.get() * 20L;
+        return AwakeningManager.ambush(level, runtime, at, radius, caught) > 0;
+    }
+
+    /** Whether {@code player} sees {@code point}: in the view of their look, nothing solid in the way. */
+    private boolean sees(ServerPlayer player, Vec3 point) {
+        Vec3 eye = vec(player.getEyePosition());
+        return Ambush.inView(eye, vec(player.getLookAngle()), point)
+                && LineOfSight.clear(runtime.liveView(), eye, point);
+    }
+
     private final class World implements BrainWorld {
         /**
          * A wander leg {@code wanderMinRadius}..{@code wanderMaxRadius} away, keeping away from the players

@@ -1,0 +1,25 @@
+# How fast a player gets through the mud of a quicksand (tremor:mire, softness 3, as at the start of an ambush):
+# walking, sprinting, sprint-jumping, 40 ticks each (the report gives the distance).
+waitchunks
+cmd gamemode spectator
+cmd time set noon
+cmd tremor despawn all
+cmd tp @s 441.5 205 301.5 270 0
+wait 40
+waitchunks
+cmd fill 440 194 299 480 200 303 minecraft:stone
+cmd fill 440 201 299 480 206 303 minecraft:air
+cmd fill 440 200 300 480 200 302 tremor:mire[softness=3]
+cmd gamemode survival
+cmd tp @s 441.5 201 301.5 270 0
+wait 20
+hold forward 40
+cmd tp @s 441.5 201 301.5 270 0
+wait 20
+hold forward+sprint 40
+cmd tp @s 441.5 201 301.5 270 0
+wait 20
+hold forward+sprint+jump 40
+cmd fill 440 200 300 480 200 302 minecraft:stone
+cmd gamemode creative
+quit
