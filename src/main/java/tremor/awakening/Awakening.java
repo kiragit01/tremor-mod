@@ -69,7 +69,7 @@ import java.util.UUID;
  * An ambush ({@link tremor.core.behavior.Ambush}; {@link #ambush}) has no build-up: it starts in SWALLOWING, the
  * quicksand ({@link Quicksand}: the ground turns into mud for a moment) pulling the target under where it stepped in
  * ({@code ambush.quicksandSeconds}; for the first {@code ambush.escapeSeconds} the target may still get out, an
- * escape), and goes on as any other once the eyes are under the mud ({@link #quicksand(long)}); its zone is where the
+ * escape, which lets the entity go, hunting, rather than making it go deep), and goes on as any other once the eyes are under the mud ({@link #quicksand(long)}); its zone is where the
  * entity lay in wait. Several ambushes may share their entity and their quicksand (everyone caught by one).
  * <p>
  * Sync: every player of the level within {@value #SYNC_MARGIN} blocks of the zone (horizontally) gets the state
@@ -115,6 +115,8 @@ final class Awakening {
     /** {@link #emergeAt} without a victory (or once EMERGING). */
     private static final long NO_VICTORY = Long.MIN_VALUE;
     private static final double TICKS_PER_SECOND = 20;
+    /** An ambush its target got out of lets its entity go, which strikes nobody for this long (ticks). */
+    private static final int ESCAPE_GRACE_TICKS = 40;
     /** The quicksand of an ambush squelches this often under the player (ticks). */
     private static final int SQUELCH_TICKS = 14;
     /** The shape of the hills, as the clients draw them. */
@@ -505,6 +507,17 @@ final class Awakening {
                             + "with the others it took", ambush ? "Ambush" : "Awakening", id,
                     level.dimension().location(), why.id(), seconds(now - startTime), detail, this.entity));
             return;
+        }
+        if (ambush && why == End.ESCAPED) {
+            // Got away in time: the entity is let go, hunting, rather than going deep (no getting off so lightly).
+            tremor.entity.TremorRuntime runtime = TremorManager.byInstance(level, this.entity);
+            if (runtime != null) {
+                runtime.freeFromAmbush(player == null ? null : vec(player.position()), ESCAPE_GRACE_TICKS);
+                Tremor.LOGGER.info(String.format(Locale.ROOT, "Ambush #%d in %s ended (escaped) after %.1f s: %s; "
+                                + "tremor #%d hunts again, striking nobody for %.0f s", id, level.dimension().location(),
+                        seconds(now - startTime), detail, this.entity, seconds(ESCAPE_GRACE_TICKS)));
+                return;
+            }
         }
         boolean entity = TremorManager.goDeep(level, this.entity, center.x(), center.z());
         Tremor.LOGGER.info(String.format(Locale.ROOT, "%s #%d in %s ended (%s) after %.1f s: %s; %s, no "

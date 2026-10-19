@@ -275,11 +275,11 @@ public final class Quicksand {
     }
 
     /**
-     * Whether the target got out: standing on firm ground (not mud) as high as where they stepped in ({@code focus}),
-     * at least {@link #MOVED} away from there.
+     * Whether the target got out: standing on firm ground (not quicksand) at least {@link #MOVED} away from where they
+     * stepped in ({@code focus}), whatever its height: a step down beside the pit counts too.
      */
     boolean out(ServerPlayer player, Vec3 focus) {
-        if (!player.onGround() || player.getY() < focus.y() - 0.5) {
+        if (!player.onGround()) {
             return false;
         }
         BlockPos under = BlockPos.containing(player.getX(), player.getY() - 0.2, player.getZ());

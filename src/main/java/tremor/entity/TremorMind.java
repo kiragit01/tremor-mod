@@ -146,6 +146,11 @@ final class TremorMind {
     private static final float STRIKE_VOLUME = 1.5f;
     /** Pitch of the rumble under the crack of a change to HUNTING. */
     private static final float LOW_PITCH = 0.7f;
+    /**
+     * Let go by its ambush, it hunts the player who got away for this long without rising to the top of its anger
+     * (ticks): a chase, not an Awakening at once.
+     */
+    static final int CHASE_TICKS = 300;
     /** Ticks between two looks for a player to lie in wait for ({@link #lookForPrey}). */
     static final int LOOK_TICKS = 10;
     /** After a chance not taken it looks again this long later (ticks). */
@@ -191,6 +196,10 @@ final class TremorMind {
      * keeps the look of lying in wait meanwhile (low, wide, breathing), and its stage changes without a sound.
      */
     private boolean ambushLook;
+    /** Game time before which it strikes nobody: let go by an ambush somebody got out of ({@link #freeFromAmbush}). */
+    private long graceUntil;
+    /** Game time before which its anger does not reach the top: the chase after an escape ({@link #freeFromAmbush}). */
+    private long chaseUntil;
     /** Where the feet of each player who could be taken were at the last look ({@link #lookForPrey}). */
     private final Map<UUID, Vec3> feetBefore = new HashMap<>();
 
@@ -600,8 +609,9 @@ final class TremorMind {
     // ---- anger ----
 
     private void addAnger(double amount) {
-        if (lurkAt != null) {
-            // Lying in wait it keeps still: the player it hears coming is what it waits for, not what makes it rise.
+        if (lurkAt != null || level.getGameTime() < chaseUntil) {
+            // Lying in wait it keeps still: the player it hears coming is what it waits for, not what makes it rise;
+            // after an escape it chases, without rising to the top of its anger at once either.
             amount = Math.min(amount, Math.max(0, params.awakenAt() - 1 - meter.anger()));
         }
         Stage before = entity.stage();
@@ -674,6 +684,9 @@ final class TremorMind {
      * cooldown. Only players within {@link ContactZone#reach} are tested.
      */
     private void strike(long now) {
+        if (now < graceUntil) {
+            return; // let go by its ambush a moment ago: not at once at whoever got away
+        }
         Crawler crawler = entity.crawler();
         double amplitude = crawler.amplitude();
         double full = entity.params().get(Param.AMPLITUDE) * TremorConfig.COMMON.amplitudeFactor(meter.stage());
@@ -916,6 +929,25 @@ final class TremorMind {
         brain.hear(vec(player.position()), STRIKE_LOUDNESS);
         Tremor.LOGGER.info("Tremor #{}: enraged, it seeks {}", entity.instance(), player.getGameProfile().getName());
         return true;
+    }
+
+    /**
+     * Its ambush let it go: the player got out of the quicksand in time (the user: it should not just vanish, that would
+     * let them off too lightly). A bump again where it lay, it hunts, going for {@code at} (where the player got away
+     * to; null: nowhere in particular), but strikes nobody for {@code graceTicks}. Its anger is a little over the
+     * threshold of the hunt, and does not reach the top for {@value #CHASE_TICKS} ticks: a chase, not an Awakening at
+     * once.
+     */
+    void freeFromAmbush(long now, Vec3 at, int graceTicks) {
+        ambushLook = false;
+        entity.setAbsorbed(false);
+        orders.clear();
+        setAnger(params.huntAt() + (params.awakenAt() - params.huntAt()) / 4);
+        if (at != null) {
+            brain.hear(at, STRIKE_LOUDNESS);
+        }
+        graceUntil = now + graceTicks;
+        chaseUntil = now + CHASE_TICKS;
     }
 
     /** {@code /tremor ambush stop}: stops lying in wait, without the pause after it; whether it lay in wait. */

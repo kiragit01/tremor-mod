@@ -1,7 +1,8 @@
 # The ambush: a tremor lies in wait on open ground (flat, wide, breathing); a cow that walks onto it sinks; a player
 # in survival mode who steps onto it sinks into quicksand that looks like the grass it was, cannot break it, and, held
 # after the first moment, is pulled under into a hollow of their own; /tremor awaken stop brings the player back, and
-# the ground is as it was. Another one: a player who gets out at once escapes, and the ground goes back. A third
+# the ground is as it was. Another one: a player who gets out at once, down a step beside the pit, escapes, the ground
+# goes back, and the tremor is let go, hunting. A third
 # one: digging into where it lies in wait, from outside, enrages it, and it comes for the digger (an Awakening).
 waitchunks
 cmd gamemode spectator
@@ -60,15 +61,16 @@ wait 20
 screenshot 10_ground_back
 log --- another one: the player gets out at once
 cmd tp @s 489.5 202.0 291.5
+cmd fill 485 200 296 496 200 305 minecraft:air
 cmd tremor spawn 500 201 300
 cmd tremor stage hunting
-cmd tremor hold
 cmd tremor ambush
 wait 40
 cmd gamemode survival
 cmd tp @s 497.5 201.0 300.5 90 10
 hold forward+sprint+jump 30
 screenshot 11_got_out
+cmd tremor info
 wait 40
 cmd tp @s 489.5 202.0 291.5
 lookat 498.5 200.5 300.5
@@ -76,6 +78,8 @@ wait 10
 screenshot 12_ground_back_after_escape
 log --- a third one: the player digs into where it lies in wait, from outside, and enrages it
 cmd gamemode creative
+cmd tremor despawn all
+cmd tremor awaken stop
 cmd tp @s 475.5 201.0 300.5 270 40
 cmd tremor spawn 480 201 300
 cmd tremor stage hunting
