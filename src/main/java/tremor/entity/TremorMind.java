@@ -96,7 +96,9 @@ import java.util.random.RandomGenerator;
  * {@code ambush.chance} it lies in wait there ({@link #lurk}): the brain waits, the body stands, the bump is low
  * ({@link Ambush#HEIGHT}) and the clients draw it flat, wide and breathing ({@link #lurkShare}). A mob that steps onto
  * it sinks ({@link Devour}); a player who could be taken springs it ({@link #spring}): the quicksand takes everyone
- * on it, each into a hollow of their own ({@link AwakeningManager#ambush}), and the entity with them. It gives up
+ * on it, each into a hollow of their own ({@link AwakeningManager#ambush}), and the entity with them; its bump keeps
+ * the look of lying in wait while the quicksand pulls ({@link #ambushLook}). Lying in wait, what it hears does not
+ * bring it to the top of its anger. It gives up
  * after {@code ambush.lurkSeconds}, with nobody near, calmed down or risen to AWAKENING, its brain switched off, a
  * frenzy or a goto; then it does not lie in wait for {@code ambush.cooldownSeconds}. Digging into where it lies in
  * wait enrages it ({@link #groundBroken}). Not saved.</li>
@@ -184,6 +186,11 @@ final class TremorMind {
     private long lurkAgain;
     /** How far its bump has gone into lying in wait, 0..1, for the clients ({@link Ambush#fade}). */
     private double lurkShare;
+    /**
+     * It sprang its ambush and the quicksand still pulls somebody in ({@link AwakeningManager#pullingWith}): taken, it
+     * keeps the look of lying in wait meanwhile (low, wide, breathing), and its stage changes without a sound.
+     */
+    private boolean ambushLook;
     /** Where the feet of each player who could be taken were at the last look ({@link #lookForPrey}). */
     private final Map<UUID, Vec3> feetBefore = new HashMap<>();
 
@@ -331,7 +338,7 @@ final class TremorMind {
         MotionParams base = entity.params().motionParams();
         Stage stage = meter.stage();
         boolean yielding = yieldTicks >= 0;
-        double amplitude = entity.absorbed() || entity.leaving() && !yielding ? 0
+        double amplitude = entity.absorbed() ? (ambushLook ? Ambush.HEIGHT : 0) : entity.leaving() && !yielding ? 0
                 : base.amplitude() * TremorConfig.COMMON.amplitudeFactor(stage) * (yielding ? yieldShare() : 1);
         if (lurkAt != null) {
             amplitude = Math.min(amplitude, Ambush.HEIGHT); // lying in wait: low (the clients draw it wide)
@@ -360,7 +367,10 @@ final class TremorMind {
     boolean afterMove(long now) {
         boolean heard = heardSinceTick;
         heardSinceTick = false;
-        lurkShare = Ambush.fade(lurkShare, lurkAt != null, TremorRuntime.TICK_SECONDS);
+        if (ambushLook && !AwakeningManager.pullingWith(level, entity.instance())) {
+            ambushLook = false; // everybody of its quicksand is under: the look of lying in wait goes
+        }
+        lurkShare = Ambush.fade(lurkShare, lurkAt != null || ambushLook, TremorRuntime.TICK_SECONDS);
         if (entity.absorbed()) {
             return false; // the Awakening removes it
         }
@@ -590,6 +600,10 @@ final class TremorMind {
     // ---- anger ----
 
     private void addAnger(double amount) {
+        if (lurkAt != null) {
+            // Lying in wait it keeps still: the player it hears coming is what it waits for, not what makes it rise.
+            amount = Math.min(amount, Math.max(0, params.awakenAt() - 1 - meter.anger()));
+        }
         Stage before = entity.stage();
         meter.add(amount);
         settle(before);
@@ -607,6 +621,10 @@ final class TremorMind {
             return;
         }
         entity.setStage(stage);
+        if (ambushLook) {
+            runtime.stageChanged(entity); // taken by its ambush: the quicksand is its sound, no roar
+            return;
+        }
         float volume = TremorConfig.COMMON.transitionVolume.get().floatValue();
         switch (StageTransition.of(before, stage)) {
             case RUMBLE -> play(TremorSounds.RUMBLE.get(), skin(), volume, 1);
@@ -1071,7 +1089,9 @@ final class TremorMind {
         Vec3 at = lurkAt;
         lurkAt = null;
         lurkAgain = now + TremorConfig.COMMON.ambush.cooldownSeconds.get() * 20L;
-        return AwakeningManager.ambush(level, runtime, at, radius, caught) > 0;
+        ambushLook = true; // before it is taken: no roar
+        ambushLook = AwakeningManager.ambush(level, runtime, at, radius, caught) > 0;
+        return ambushLook;
     }
 
     /** Whether {@code player} sees {@code point}: in the view of their look, nothing solid in the way. */

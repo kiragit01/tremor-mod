@@ -113,6 +113,11 @@ public final class TerrainCopier {
         BlockPos.MutableBlockPos real = new BlockPos.MutableBlockPos();
         write(hollow, target, piece, (x, y, z) -> {
             BlockState state = section.getBlockState(x & 15, y & 15, z & 15);
+            if (state.getBlock() instanceof tremor.block.QuicksandBlock) {
+                // An ambush's quicksand is the block it was, for a moment: copied as that block.
+                BlockState original = tremor.block.QuicksandBlock.original(source, real.set(x - dx, y, z - dz));
+                state = original.isAir() ? Blocks.DIRT.defaultBlockState() : original;
+            }
             if (!box.contains(x, y, z)) {
                 return shell(source, state, real.set(x - dx, y, z - dz), y < box.minY());
             }

@@ -131,8 +131,8 @@ public final class AwakeningSounds {
         LocalPlayer player = mc.player;
         TremorAwakeningPayload state = mc.level == null || player == null || player.isDeadOrDying() ? null
                 : ClientAwakening.state();
-        if (state == null || state.phase() != Phase.BUILDUP && state.phase() != Phase.SWALLOWING) {
-            return null;
+        if (state == null || state.ambush() || state.phase() != Phase.BUILDUP && state.phase() != Phase.SWALLOWING) {
+            return null; // an ambush's quicksand has sounds of its own (its squelches), none of an Awakening
         }
         return ClientAwakening.inZone(new Vec3(player.getX(), player.getY(), player.getZ())) ? state : null;
     }

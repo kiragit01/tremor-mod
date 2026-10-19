@@ -603,6 +603,16 @@ public final class AwakeningManager {
         return started;
     }
 
+    /** Whether an ambush that took the entity {@code instance} still pulls its target in. */
+    public static boolean pullingWith(ServerLevel level, int instance) {
+        for (Awakening awakening : awakenings(level)) {
+            if (awakening.entity == instance && awakening.pulling()) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     private static void startAmbush(ServerLevel level, ServerPlayer target, Vec3 center, double radius,
                                     int entity, Quicksand quicksand) {
         int ticks = (int) Math.max(1, Math.round(TremorConfig.COMMON.ambush.quicksandSeconds.get() * 20));
