@@ -133,8 +133,6 @@ final class Awakening {
     final boolean ambush;
     /** The quicksand of an ambush, shared by everyone it caught; null otherwise. */
     final Quicksand quicksand;
-    /** An ambush's target is under the mud, waiting for the others of its quicksand before the hollow takes them. */
-    private boolean under;
     final Vec3 center;
     final double radius;
     /**
@@ -623,10 +621,10 @@ final class Awakening {
     /**
      * An ambush's SWALLOWING ({@link Quicksand}): the ground around where the target stepped in turns into mud and
      * pulls them in. For the first {@code ambush.escapeSeconds} the target may get out (onto firm ground beyond the
-     * funnel: an escape); then the ground holds them (the root, the Darkness) and pulls them under. Once the eyes are
-     * under the mud, or the pull is over, they wait there in the dark until nobody of the quicksand is pulled in any
-     * more (a few seconds at most); then the ground around goes back, and the hollow takes the target as after any
-     * swallowing ({@link #swallow}), from where they stepped in; the columns under the target go back once moved.
+     * funnel: an escape); then the ground holds them (the root, the Darkness) and pulls them under. Once the whole of
+     * the target is under the ground (the head too: whoever watches sees them go under), or the pull is over, the
+     * hollow takes the target as after any swallowing ({@link #swallow}), from where they stepped in; the columns under
+     * the target go back once moved.
      */
     private void quicksand(long now) {
         ServerPlayer player = player();
@@ -645,13 +643,11 @@ final class Awakening {
             AwakeningManager.cancel(this, player, targetName + " " + gone);
             return;
         }
-        if (hollowEvent != null || under) {
-            // Under the mud, the screen dark: while the others of the quicksand are pulled in, then the copy is made.
+        if (hollowEvent != null) {
+            // Under the ground, the screen dark while the copy is made (of the ground as it was: the copy takes a block
+            // of quicksand for the block it was, tremor.hollow.TerrainCopier).
             root.hold(player);
             darken(player);
-            if (hollowEvent == null && !quicksand.pulling()) {
-                swallow(player);
-            }
             return;
         }
         long elapsed = clock.elapsed(now);
@@ -677,17 +673,14 @@ final class Awakening {
             level.playSound(null, player.getX(), player.getY(), player.getZ(), TremorSounds.PULL,
                     SoundSource.HOSTILE, 0.8f, 0.7f + 0.3f * level.getRandom().nextFloat());
         }
-        if (Quicksand.sink(player, focus) >= 1 || clock.over(now)) {
-            under = true;
-            Tremor.LOGGER.info(String.format(Locale.ROOT, "Ambush #%d: %s is under the mud after %.1f s", id,
+        if (Quicksand.headUnder(player, focus) || clock.over(now)) {
+            Tremor.LOGGER.info(String.format(Locale.ROOT, "Ambush #%d: %s is under the ground after %.1f s", id,
                     targetName, seconds(elapsed)));
             if (!root.rooted()) {
                 root.start(player);
             }
             quicksand.swallowed(this);
-            if (!quicksand.pulling()) {
-                swallow(player);
-            }
+            swallow(player);
         }
     }
 
@@ -696,13 +689,10 @@ final class Awakening {
      * the mud, not yet taken by the hollow.
      */
     boolean pulling() {
-        return ambush && phase == Phase.SWALLOWING && hollowEvent == null && !under;
+        return ambush && phase == Phase.SWALLOWING && hollowEvent == null;
     }
 
-    /**
-     * The ground of the quicksand is back (nobody of it is pulled in any more): the hollow takes the target from where
-     * they stepped in, the screen going dark, the copy made of the ground as it was.
-     */
+    /** The hollow takes the target from where they stepped in, the screen going dark. */
     private void swallow(ServerPlayer player) {
         try {
             hollowEvent = HollowManager.enter(player, new tremor.hollow.Origin(level.dimension(),

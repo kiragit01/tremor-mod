@@ -62,10 +62,13 @@ import java.util.Set;
 public final class Quicksand {
     /** Layers of the ground that turn into mud: the top block and the two under it. */
     static final int LAYERS = 3;
-    /** How deep the middle of a funnel gives way at once (blocks)... */
-    static final double FIRST_DEPTH = 0.4;
-    /** ...and at the end of the pull, slowly at first and faster towards the end: the eyes are under at about 3/4. */
-    static final double LAST_DEPTH = 2.2;
+    /** How deep the middle of the pit gives way at once (blocks): a little, the player still stands... */
+    static final double FIRST_DEPTH = 0.2;
+    /**
+     * ...and at the end of the pull, slowly at first and faster towards the end: the eyes of a player held there are
+     * under the ground about 70% of the way, the whole player a little later.
+     */
+    static final double LAST_DEPTH = 2.4;
     /** All of the mud gives way at least this much (blocks): it holds whoever is in it, up to its edge. */
     static final double EDGE_DEPTH = 0.15;
     /** Deepest a column ever gives way: three layers, the last 32nd of the third one holding. */
@@ -258,6 +261,14 @@ public final class Quicksand {
         devour(radius);
     }
 
+    /**
+     * Whether the whole of the player is under the ground where they stepped in ({@code focus}), the head too, so that
+     * whoever watches sees them go under before the hollow takes them.
+     */
+    static boolean headUnder(ServerPlayer player, Vec3 focus) {
+        return player.getY() + player.getBbHeight() <= focus.y() - 0.05;
+    }
+
     /** How deep the player is pulled in: 0 with the feet at the ground's top where they stepped in, 1 eyes under. */
     static double sink(ServerPlayer player, Vec3 focus) {
         return SinkTracker.sink(focus.y(), player.getY(), player.getEyeHeight(Pose.STANDING));
@@ -274,11 +285,6 @@ public final class Quicksand {
         BlockPos under = BlockPos.containing(player.getX(), player.getY() - 0.2, player.getZ());
         return !level.getBlockState(under).is(TremorBlocks.QUICKSAND.get())
                 && Math.hypot(player.getX() - focus.x(), player.getZ() - focus.z()) >= MOVED;
-    }
-
-    /** Whether a target of it is still being pulled in: the ones under the mud wait for it ({@link Awakening}). */
-    boolean pulling() {
-        return victims.containsValue(Hold.PULLING);
     }
 
     /** The target of {@code victim} is under the mud: the rest of the ground may come back, theirs not yet. */

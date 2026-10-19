@@ -142,7 +142,16 @@ public final class LevelVoxelView implements VoxelView {
             chunk = level.getChunkSource().getChunkNow(x >> 4, z >> 4);
             chunkKey = key;
         }
-        return chunk == null ? null : chunk.getBlockState(cursor.set(x, y, z));
+        if (chunk == null) {
+            return null;
+        }
+        BlockState state = chunk.getBlockState(cursor.set(x, y, z));
+        if (state.getBlock() instanceof tremor.block.QuicksandBlock) {
+            // An ambush's quicksand looks like (and to the entity is) the block it was: so is its breathing drawn.
+            BlockState original = tremor.block.QuicksandBlock.original(chunk, cursor);
+            return original.isAir() ? state : original;
+        }
+        return state;
     }
 
     @Override

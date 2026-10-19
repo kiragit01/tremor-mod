@@ -880,19 +880,19 @@ public final class TremorConfig {
                     .translation(KEY + "ambush.senseDistance").defineInRange("senseDistance", 20.0, 4.0, 64.0);
             triggerRadius = b.comment("Stepping this near the middle of where it lies springs it (blocks,",
                             "horizontally)")
-                    .translation(KEY + "ambush.triggerRadius").defineInRange("triggerRadius", 2.5, 1.0, 8.0);
+                    .translation(KEY + "ambush.triggerRadius").defineInRange("triggerRadius", 3.5, 1.0, 8.0);
             lurkSeconds = b.comment("It gives up lying in wait after this long without a catch (seconds)")
                     .translation(KEY + "ambush.lurkSeconds").defineInRange("lurkSeconds", 40, 5, 600);
             cooldownSeconds = b.comment("After lying in wait (a catch or not) it does not again for this long (seconds)")
                     .translation(KEY + "ambush.cooldownSeconds").defineInRange("cooldownSeconds", 90, 0, 3600);
-            quicksandSeconds = b.comment("How long the quicksand takes to pull a player under (seconds); the eyes are",
-                            "under the mud about two thirds of the way")
+            quicksandSeconds = b.comment("How long the quicksand takes to pull a player under (seconds): slowly at",
+                            "first; the eyes are under the ground about 70% of the way, the whole player a little later")
                     .translation(KEY + "ambush.quicksandSeconds")
-                    .defineInRange("quicksandSeconds", 3.0, 1.0, 10.0);
+                    .defineInRange("quicksandSeconds", 5.0, 1.0, 10.0);
             escapeSeconds = b.comment("For this long after stepping in a player may still get out of the quicksand",
                             "onto firm ground (the mud holds: only one who sprints and jumps off at once makes it);",
                             "then it holds the player (seconds)")
-                    .translation(KEY + "ambush.escapeSeconds").defineInRange("escapeSeconds", 1.5, 0.0, 5.0);
+                    .translation(KEY + "ambush.escapeSeconds").defineInRange("escapeSeconds", 2.0, 0.0, 5.0);
             b.pop();
         }
     }

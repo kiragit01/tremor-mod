@@ -1,4 +1,4 @@
-# The ambush on a server (1.1.2), Bob (tools/mp-test.sh mp-ambush-alice.txt mp-ambush-bob.txt): he watches Alice sink
+# The ambush on a server (1.2.0), Bob (tools/mp-test.sh mp-ambush-alice.txt mp-ambush-bob.txt): he watches Alice sink
 # into the quicksand, then tries to break a block of it from outside with a pickaxe: nobody breaks the ground of a
 # quicksand while it pulls somebody in, nothing happens.
 waitchunks
@@ -19,15 +19,19 @@ screenshot b01_she_sinks_0.5s
 log --- he tries to break the quicksand from outside: it does not break
 cmd gamemode survival
 cmd item replace entity @s weapon.mainhand with minecraft:iron_pickaxe
-cmd tp @s 4.5 200 0.5 90 40
+cmd tp @s 6.5 200 0.5 90 25
 lookat 2.5 199.9 0.5
 wait 2
 hold attack 16
 wait 4
-screenshot b02_broke_it
+screenshot b02_she_sinks_1.5s
+wait 20
+screenshot b03_she_sinks_2.5s
+wait 20
+screenshot b04_she_sinks_3.5s
+wait 12
+screenshot b05_she_goes_under_4s
 hud on
-wait 30
-screenshot b03_his_awakening
 waitfor 2400 MARK alice-in
 cmd tremor awaken stop
 wait 40

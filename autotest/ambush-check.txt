@@ -38,15 +38,17 @@ wait 10
 screenshot 03_quicksand_0.5s
 hold attack 10
 screenshot 04_quicksand_1s
+wait 20
+screenshot 05_quicksand_2s
+wait 20
+screenshot 06_quicksand_3s
 wait 10
-screenshot 05_quicksand_1.5s
+screenshot 07_quicksand_3.5s
 wait 10
-screenshot 06_quicksand_2s
-wait 10
-screenshot 07_quicksand_2.5s
+screenshot 08_quicksand_4s
 hud on
 wait 200
-screenshot 08_in_the_hollow
+screenshot 09_in_the_hollow
 log --- brought back out, the ground as it was
 cmd tremor awaken stop
 wait 120
@@ -55,7 +57,7 @@ cmd tp @s 469.5 201.0 291.5
 lookat 480.5 200.5 300.5
 hud off
 wait 20
-screenshot 09_ground_back
+screenshot 10_ground_back
 log --- another one: the player gets out at once
 cmd tp @s 489.5 202.0 291.5
 cmd tremor spawn 500 201 300
@@ -64,14 +66,14 @@ cmd tremor hold
 cmd tremor ambush
 wait 40
 cmd gamemode survival
-cmd tp @s 498.5 201.0 300.5 90 10
+cmd tp @s 497.5 201.0 300.5 90 10
 hold forward+sprint+jump 30
-screenshot 10_got_out
+screenshot 11_got_out
 wait 40
 cmd tp @s 489.5 202.0 291.5
 lookat 498.5 200.5 300.5
 wait 10
-screenshot 11_ground_back_after_escape
+screenshot 12_ground_back_after_escape
 log --- a third one: the player digs into where it lies in wait, from outside, and enrages it
 cmd gamemode creative
 cmd tp @s 475.5 201.0 300.5 270 40
@@ -84,9 +86,9 @@ cmd item replace entity @s weapon.mainhand with minecraft:iron_shovel
 hud on
 hold attack 12
 wait 5
-screenshot 12_dug_in
+screenshot 13_dug_in
 wait 100
-screenshot 13_enraged
+screenshot 14_enraged
 cmd tremor info
 cmd tremor awaken stop
 wait 40
