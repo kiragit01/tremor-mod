@@ -438,6 +438,19 @@ public final class TremorRuntime {
         return mind(entity).lurkNow(level.getGameTime());
     }
 
+    /**
+     * The ambush that took the entity let it go: its player got out of the quicksand
+     * ({@link TremorMind#freeFromAmbush}: hunting again, going for {@code at}, striking nobody for {@code graceTicks}).
+     */
+    public void freeFromAmbush(tremor.core.math.Vec3 at, int graceTicks) {
+        TremorEntity entity = this.entity;
+        if (entity != null && mind(entity).absorbed()) {
+            beginPass();
+            mind(entity).freeFromAmbush(level.getGameTime(), at, graceTicks);
+            data.setDirty();
+        }
+    }
+
     /** A player broke the block at {@code pos}: lying in wait there, the entity is enraged. */
     public void groundBroken(net.minecraft.core.BlockPos pos, ServerPlayer player) {
         TremorEntity entity = this.entity;

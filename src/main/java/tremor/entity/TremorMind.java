@@ -191,6 +191,8 @@ final class TremorMind {
      * keeps the look of lying in wait meanwhile (low, wide, breathing), and its stage changes without a sound.
      */
     private boolean ambushLook;
+    /** Game time before which it strikes nobody: let go by an ambush somebody got out of ({@link #freeFromAmbush}). */
+    private long graceUntil;
     /** Where the feet of each player who could be taken were at the last look ({@link #lookForPrey}). */
     private final Map<UUID, Vec3> feetBefore = new HashMap<>();
 
@@ -674,6 +676,9 @@ final class TremorMind {
      * cooldown. Only players within {@link ContactZone#reach} are tested.
      */
     private void strike(long now) {
+        if (now < graceUntil) {
+            return; // let go by its ambush a moment ago: not at once at whoever got away
+        }
         Crawler crawler = entity.crawler();
         double amplitude = crawler.amplitude();
         double full = entity.params().get(Param.AMPLITUDE) * TremorConfig.COMMON.amplitudeFactor(meter.stage());
@@ -916,6 +921,23 @@ final class TremorMind {
         brain.hear(vec(player.position()), STRIKE_LOUDNESS);
         Tremor.LOGGER.info("Tremor #{}: enraged, it seeks {}", entity.instance(), player.getGameProfile().getName());
         return true;
+    }
+
+    /**
+     * Its ambush let it go: the player got out of the quicksand in time (the user: it should not just vanish, that would
+     * let them off too lightly). A bump again where it lay, it hunts, going for {@code at} (where the player got away
+     * to; null: nowhere in particular), but strikes nobody for {@code graceTicks}. Its anger is a little over the
+     * threshold of the hunt, so that a chase does not rise to an Awakening at once.
+     */
+    void freeFromAmbush(long now, Vec3 at, int graceTicks) {
+        ambushLook = false;
+        entity.setAbsorbed(false);
+        orders.clear();
+        setAnger(params.huntAt() + (params.awakenAt() - params.huntAt()) / 4);
+        if (at != null) {
+            brain.hear(at, STRIKE_LOUDNESS);
+        }
+        graceUntil = now + graceTicks;
     }
 
     /** {@code /tremor ambush stop}: stops lying in wait, without the pause after it; whether it lay in wait. */
