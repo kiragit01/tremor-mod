@@ -76,4 +76,12 @@ public interface GroundField {
     default Vec3 swellCenter() {
         return null;
     }
+
+    /**
+     * About the highest the field is going to lift the point while it lasts, the hill around {@link #swellCenter}
+     * included at its full height: how far a thin structure there may swell. {@link #ahead} unless there is a hill.
+     */
+    default double swellAhead(double x, double y, double z) {
+        return ahead(x, y, z);
+    }
 }

@@ -203,6 +203,14 @@ public final class AwakeningField implements GroundField {
         return focus;
     }
 
+    /** The breathing at its peak and the hill at its full height ({@link AwakeningParams#hillHeight}). */
+    @Override
+    public double swellAhead(double x, double y, double z) {
+        double dx = x - focus.x(), dy = y - focus.y(), dz = z - focus.z();
+        return peakBreath(x, y, z)
+                + AwakeningShape.hill(params.hillHeight(), params.hillSigma(), dx * dx + dy * dy + dz * dz);
+    }
+
     /** The zone's centre. */
     @Override
     public Vec3 scanCenter() {

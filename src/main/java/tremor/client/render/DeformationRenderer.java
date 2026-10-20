@@ -879,8 +879,8 @@ public final class DeformationRenderer {
         }
         for (int i = 0, n = zoneFills.size(); i < n; i++) {
             Column col = zoneFills.get(i);
-            double h = ThinSwell.coverage(ground.at(col.sx, col.sy, col.sz)
-                    * ThinSwell.breath(seconds, col.x, col.y, col.z), 1, col.fillDistance);
+            double h = ThinSwell.coverage(ThinSwell.HILL_SWELL * Math.max(0, ground.at(col.sx, col.sy, col.sz))
+                    * ThinSwell.breath(seconds, col.x, col.y, col.z), col.fillDistance);
             if (col.stamp == frameStamp) {
                 col.h += h;
             } else {
@@ -914,7 +914,7 @@ public final class DeformationRenderer {
             }
         }
         for (ThinSwell.Fill f : ThinSwell.fills(voxels, zoneThin, rising,
-                (x, y, z) -> ThinSwell.SWELL * Math.max(0, ground.ahead(x, y, z)))) {
+                (x, y, z) -> ThinSwell.HILL_SWELL * Math.max(0, ground.swellAhead(x, y, z)))) {
             zoneFills.add(fill(f, tick));
         }
     }
@@ -930,8 +930,9 @@ public final class DeformationRenderer {
      * the field at its source.
      */
     private static double fillCoverage(HeightField field, Column col) {
-        return ThinSwell.coverage(field.at(col.sx, col.sy, col.sz) * ThinSwell.breath(field.time(), col.x, col.y, col.z),
-                ThinSwell.falloff(field.frame(), field.params().sigmaSide(), col.sx, col.sy, col.sz), col.fillDistance);
+        double height = Math.max(0, field.at(col.sx, col.sy, col.sz));
+        return ThinSwell.coverage(ThinSwell.SWELL * height * ThinSwell.breath(field.time(), col.x, col.y, col.z)
+                * ThinSwell.falloff(field.frame(), field.params().sigmaSide(), col.sx, col.sy, col.sz), col.fillDistance);
     }
 
     /**

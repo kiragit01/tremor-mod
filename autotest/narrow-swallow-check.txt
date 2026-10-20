@@ -1,5 +1,6 @@
-# Swallowed on narrow ground: a player on a pillar 1x1, then on a ridge 2 blocks wide, an Awakening runs its build-up
-# and the hill rises under them; seen from behind.
+# Swallowed on narrow ground: a player on a pillar 1x1, on a ridge 2 blocks wide, on a floating platform one block
+# thick, and on flat ground to compare; an Awakening runs its build-up (3 s) and the hill rises under them (2.5 s)
+# until it has them whole: seen from behind as it rises, and at its last frames from the player's eyes too.
 waitchunks
 cmd gamemode spectator
 cmd time set noon
@@ -16,8 +17,8 @@ cmd fill 700 201 300 700 205 300 minecraft:dirt
 cmd setblock 700 206 300 minecraft:grass_block
 cmd fill 690 201 312 712 203 313 minecraft:dirt
 cmd fill 690 204 312 712 204 313 minecraft:grass_block
-cmd effect give @s minecraft:night_vision infinite 0 true
-config awakening.buildupSeconds 6
+cmd fill 690 206 286 704 206 296 minecraft:grass_block
+config awakening.buildupSeconds 3
 hud off
 log --- on a pillar 1x1
 cmd tp @s 700.5 207.0 300.5 0 20
@@ -26,17 +27,18 @@ cmd tremor spawn 706 201 300
 wait 20
 cmd tremor awaken
 view back
-wait 60
-screenshot 01_pillar_buildup
-wait 50
-screenshot 02_pillar_hill_a
-wait 15
-screenshot 03_pillar_hill_b
-wait 15
-screenshot 04_pillar_hill_c
+wait 85
+screenshot 01_pillar_hill_a
+wait 12
+screenshot 02_pillar_hill_b
+wait 10
+screenshot 03_pillar_hill_end
+view first
+screenshot 04_pillar_end_ahead
+look 0 -80
+screenshot 05_pillar_end_up
 cmd tremor awaken stop
 wait 100
-view first
 cmd gamemode spectator
 cmd tremor despawn all
 log --- on a ridge 2 blocks wide
@@ -46,38 +48,51 @@ cmd tremor spawn 706 201 308
 wait 20
 cmd tremor awaken
 view back
-wait 60
-screenshot 05_ridge_buildup
-wait 50
-screenshot 06_ridge_hill_a
-wait 15
-screenshot 07_ridge_hill_b
-wait 15
-screenshot 08_ridge_hill_c
+wait 97
+screenshot 06_ridge_hill_b
+wait 10
+screenshot 07_ridge_hill_end
+view first
+look 0 -80
+screenshot 08_ridge_end_up
 cmd tremor awaken stop
 wait 100
-view first
 cmd gamemode spectator
 cmd tremor despawn all
 log --- on a floating platform one block thick
-cmd fill 690 206 286 704 206 296 minecraft:grass_block
 cmd tp @s 697.5 207.0 291.5 0 20
 cmd gamemode survival
 cmd tremor spawn 700 207 293
 wait 20
 cmd tremor awaken
 view back
-wait 60
-screenshot 09_slab_buildup
-wait 50
-screenshot 10_slab_hill_a
-wait 15
-screenshot 11_slab_hill_b
-wait 15
-screenshot 12_slab_hill_c
+wait 97
+screenshot 09_slab_hill_b
+wait 10
+screenshot 10_slab_hill_end
+view first
+look 0 -80
+screenshot 11_slab_end_up
 cmd tremor awaken stop
 wait 100
+cmd gamemode spectator
+cmd tremor despawn all
+log --- on flat ground, to compare
+cmd tp @s 688.5 201.0 304.5 0 20
+cmd gamemode survival
+cmd tremor spawn 684 201 304
+wait 20
+cmd tremor awaken
+view back
+wait 97
+screenshot 12_flat_hill_b
+wait 10
+screenshot 13_flat_hill_end
 view first
+look 0 -80
+screenshot 14_flat_end_up
+cmd tremor awaken stop
+wait 100
 cmd gamemode spectator
 cmd tremor despawn all
 quit

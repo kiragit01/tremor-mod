@@ -81,8 +81,8 @@ class ThinSwellTest {
         assertEquals(-1, above.lookY(), "something swells over it: it looks like the block under the top");
         ThinSwell.Fill side = find(result.fills(), 0, 0, 1);
         assertEquals(0, side.sourceY());
-        double full = ThinSwell.coverage(PARAMS.amplitude(), ThinSwell.falloff(frame, PARAMS.sigmaSide(), 0.5, 0.5,
-                0.5), above.distance());
+        double full = ThinSwell.coverage(ThinSwell.SWELL * PARAMS.amplitude()
+                * ThinSwell.falloff(frame, PARAMS.sigmaSide(), 0.5, 0.5, 0.5), above.distance());
         assertEquals(1.0, full, 1e-9, "the cell over the entity is filled at once");
         assertTrue(result.fills().stream().anyMatch(f -> f.lookY() == f.sourceY()), "the top of the ball is the top's");
     }
@@ -109,11 +109,11 @@ class ThinSwellTest {
 
     @Test
     void coverageGrowsWithTheSwelling() {
-        assertEquals(0, ThinSwell.coverage(0, 1, 1));
-        assertEquals(0, ThinSwell.coverage(-1, 1, 1));
-        assertEquals(1, ThinSwell.coverage(2 / ThinSwell.SWELL, 1, 1));
-        assertEquals(0.5, ThinSwell.coverage(1.5 / ThinSwell.SWELL, 1, 2), 1e-9);
-        assertEquals(0, ThinSwell.coverage(10, 0, 1));
+        assertEquals(0, ThinSwell.coverage(0, 1));
+        assertEquals(0, ThinSwell.coverage(-1, 1));
+        assertEquals(1, ThinSwell.coverage(2, 1));
+        assertEquals(0.5, ThinSwell.coverage(1.5, 2), 1e-9);
+        assertEquals(1, ThinSwell.coverage(ThinSwell.HILL_SWELL * 3, 3), 1e-9, "a hill of 3 swallows a player whole");
     }
 
     private static boolean contains(List<ThinSwell.Fill> fills, int x, int y, int z) {
