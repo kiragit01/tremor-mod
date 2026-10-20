@@ -12,6 +12,7 @@ import net.minecraftforge.event.entity.item.ItemTossEvent;
 import net.minecraftforge.event.TickEvent;
 import tremor.Tremor;
 import tremor.awakening.AwakeningManager;
+import tremor.config.Difficulty;
 import tremor.config.TremorConfig;
 import tremor.core.behavior.Stage;
 import tremor.core.math.Vec3;
@@ -79,7 +80,8 @@ public final class Frenzy {
         if (entity == null || entity.leaving() || !near) {
             // One leaving near is replaced by the risen one; else a new one only below the cap (it counts, and it
             // leaves by itself as a natural one does), and at the cap the nearest comes from however far.
-            if (near || TremorManager.runtimes(level).size() < TremorConfig.COMMON.spawn.maxEntities.get()) {
+            if (near || TremorManager.runtimes(level).size()
+                    < Difficulty.current().maxTremors(TremorConfig.COMMON.spawn.maxEntities.get())) {
                 entity = rise(level, player);
                 runtime = entity == null ? null : TremorManager.byInstance(level, entity.instance());
             } else if (entity == null || entity.absorbed() || entity.leaving()) {

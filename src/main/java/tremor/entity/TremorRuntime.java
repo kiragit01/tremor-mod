@@ -9,6 +9,7 @@ import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.level.ChunkPos;
 import tremor.network.TremorNetwork;
 import tremor.Tremor;
+import tremor.config.Difficulty;
 import tremor.config.TremorConfig;
 import tremor.core.VoxelView;
 import tremor.core.behavior.Stage;
@@ -559,7 +560,7 @@ public final class TremorRuntime {
         float before = entity.anger();
         double angerShare = "mob".equals(vibration.note()) ? TremorConfig.COMMON.mobAngerFactor.get() : 1;
         String reaction = mind(entity).heard(vibration.source(), perceived,
-                perceived * TremorConfig.COMMON.angerPerLoudness.get() * angerShare
+                perceived * Difficulty.current().anger(TremorConfig.COMMON.angerPerLoudness.get()) * angerShare
                         * (level.dimension() == net.minecraft.world.level.Level.NETHER
                         ? TremorConfig.COMMON.netherAngerFactor.get() : 1)
                         * TremorConfig.COMMON.depth(level, listener.y(), TremorConfig.COMMON.depthAngerFactor)

@@ -55,6 +55,11 @@ final class ProbeScreen extends Screen {
         row(y, "show", command("show", "tremor route show"), panel(), answers(),
                 command("ai", "tremor ai toggle"));
         y += ROW;
+        row(y, "difficulty", command("difficulty.calm", "tremor difficulty calm"),
+                command("difficulty.normal", "tremor difficulty normal"),
+                command("difficulty.hard", "tremor difficulty hard"),
+                command("difficulty.nightmare", "tremor difficulty nightmare"));
+        y += ROW;
         int width = 100;
         addRenderableWidget(Button.builder(Component.translatable("tremor.probe.button.done"), button -> onClose())
                 .bounds((this.width - width) / 2, y, width, BUTTON_HEIGHT).build());

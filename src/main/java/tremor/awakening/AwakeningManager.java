@@ -13,6 +13,7 @@ import net.minecraftforge.event.level.LevelEvent;
 import net.minecraftforge.event.server.ServerStoppingEvent;
 import net.minecraftforge.event.TickEvent;
 import tremor.Tremor;
+import tremor.config.Difficulty;
 import tremor.config.TremorConfig;
 import tremor.core.behavior.Ambush;
 import tremor.core.behavior.Stage;
@@ -648,7 +649,8 @@ public final class AwakeningManager {
      * AWAKENING, if it was not there yet, sounds: a roar). The start sounds at the centre: the pull.
      */
     private static Awakening start(ServerLevel level, ServerPlayer target, boolean natural, TremorRuntime entity) {
-        return start(level, target, natural, TremorConfig.COMMON.awakening.buildupSeconds.get() * 20, entity);
+        return start(level, target, natural,
+                Difficulty.current().buildupTicks(TremorConfig.COMMON.awakening.buildupSeconds.get()), entity);
     }
 
     /**

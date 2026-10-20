@@ -1,0 +1,37 @@
+# The mouth of the escape tunnel once the closing walls have come to it: from the cave it is a dark hole in the wall,
+# not covered by the copies of the heaving walls; inside it the light at its end shows.
+waitchunks
+cmd gamemode spectator
+cmd time set noon
+cmd tremor despawn
+cmd tremor awaken stop
+cmd tp @s 300.5 201.0 300.5 270 10
+wait 40
+waitchunks
+cmd fill 240 198 280 360 200 320 minecraft:stone
+cmd fill 240 201 280 360 206 320 minecraft:air
+cmd gamemode survival
+config awakening.buildupSeconds 3
+config awakening.lethal false
+config awakening.craterRadius 0
+config hollow.level.breathSeconds 120
+config hollow.level.graceSeconds 0
+config hollow.level.closeSpeed 1.5
+cmd tremor awaken
+wait 220
+waitchunks
+hold left 100
+hold right 100
+hold left 100
+hold right 100
+cmd tremor hollow status
+cmd tremor hollow totunnel
+wait 5
+hold back 12
+wait 10
+screenshot 01_mouth_from_the_cave
+cmd tremor hollow totunnel end
+wait 10
+screenshot 02_light_at_the_end
+cmd tremor awaken stop
+quit

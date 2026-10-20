@@ -12,6 +12,7 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.level.GameType;
+import tremor.config.Difficulty;
 import tremor.config.TremorConfig;
 import tremor.core.math.Vec3;
 import tremor.hollow.HollowEvent;
@@ -109,7 +110,8 @@ public final class AwakeningCommands {
                     TremorConfig.Awakening config = TremorConfig.COMMON.awakening;
                     yield "Defeat: " + (config.craterRadius.get() == 0 ? "no crater (awakening.craterRadius 0)"
                             : "a crater opens at " + text(event.origin().position())) + "; then " + name
-                            + (config.lethal.get() ? " dies (unless a totem or creative mode saves them), the things "
+                            + (Difficulty.current().lethal(config.lethal.get())
+                            ? " dies (unless a totem or creative mode saves them), the things "
                             + "hidden in caches on its bottom" : " comes out on its bottom, weakened");
                 }
             };

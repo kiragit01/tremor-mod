@@ -19,6 +19,7 @@ import tremor.network.TremorNetwork;
 import net.minecraftforge.server.ServerLifecycleHooks;
 import tremor.Tremor;
 import tremor.item.TremorItems;
+import tremor.config.Difficulty;
 import tremor.config.TremorConfig;
 import tremor.core.math.Vec3;
 import tremor.hollow.HollowDimension;
@@ -346,14 +347,16 @@ public final class Outcomes {
             return;
         }
         boolean nightmare = tremor.hollow.Nightmare.is(player.getUUID());
-        if (nightmare) {
-            // A nightmare takes everything: nothing is left on the bottom of the crater.
+        Difficulty difficulty = Difficulty.current();
+        if (nightmare || difficulty.takesEverything()) {
+            // A nightmare takes everything, and so does a defeat at the nightmare difficulty: nothing is left on the
+            // bottom of the crater.
             tremor.hollow.Nightmare.clear(player.getUUID());
             player.getInventory().clearContent();
             player.setExperienceLevels(0);
             player.setExperiencePoints(0);
         }
-        if (player.isAlive() && (nightmare || TremorConfig.COMMON.awakening.lethal.get())) {
+        if (player.isAlive() && (nightmare || difficulty.lethal(TremorConfig.COMMON.awakening.lethal.get()))) {
             player.hurt(new DamageSource(server.registryAccess().registryOrThrow(Registries.DAMAGE_TYPE)
                     .getHolderOrThrow(SWALLOWED)), AwakeningRules.pullDamage(player.getHealth(),
                     player.getAbsorptionAmount()));

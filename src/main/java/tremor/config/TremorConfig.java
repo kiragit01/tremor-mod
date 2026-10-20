@@ -23,6 +23,8 @@ public final class TremorConfig {
     }
 
     public static final class Common {
+        /** How hard the mod is as a whole ({@link Difficulty}): it scales the settings below. */
+        public final ForgeConfigSpec.EnumValue<Difficulty> difficulty;
         public final ForgeConfigSpec.DoubleValue amplitude;
         public final ForgeConfigSpec.DoubleValue sigmaFront;
         public final ForgeConfigSpec.DoubleValue sigmaBack;
@@ -129,6 +131,12 @@ public final class TremorConfig {
 
         Common(ForgeConfigSpec.Builder b) {
             BumpParams d = BumpParams.defaults();
+            difficulty = b.comment("How hard the mod is as a whole. CALM: it hears less, is slower and rarer, there is",
+                            "more time everywhere, and a defeat in the hollow does not kill. NORMAL: the settings below as",
+                            "they are. HARD: it hears more, is angrier and faster, there is less time, and a defeat always",
+                            "kills. NIGHTMARE: harder still, and a defeat also takes everything the player carries. A level",
+                            "scales the settings below, so a value tuned by hand stays tuned, only softer or harder")
+                    .translation(KEY + "difficulty").defineEnum("difficulty", Difficulty.NORMAL);
             b.comment("Shape of the bump the entity pushes through the ground (SPEC 6.1). Lengths are in blocks.")
                     .translation(KEY + "shape").push("shape");
             amplitude = b.comment("A: height of the bump")
@@ -491,8 +499,9 @@ public final class TremorConfig {
                     .translation(KEY + "movement." + key).defineInRange(key, blocks, 0, 8);
         }
 
+        /** Factor on the crawling speed in {@code stage} (SPEC 5.5, 8), and of the difficulty. */
         public double speedFactor(Stage stage) {
-            return stageSpeedFactors.get(stage).get();
+            return stageSpeedFactors.get(stage).get() * Difficulty.current().speed();
         }
 
         /** Factor on the bump height in {@code stage} (SPEC 8). */
@@ -511,7 +520,7 @@ public final class TremorConfig {
          */
         public HearingParams hearingParams() {
             double maxDistance = hearingMaxDistance.get();
-            return new HearingParams(hearingThreshold.get(), maxDistance,
+            return new HearingParams(Difficulty.current().hearingThreshold(hearingThreshold.get()), maxDistance,
                     Math.max(hearingSampleStep.get(), maxDistance / MAX_HEARING_SAMPLES), minConductivity.get());
         }
     }
