@@ -1,0 +1,35 @@
+# Difficulty levels: /tremor difficulty tells and sets it (saved in the config), the multitool's menu has a row for
+# it, and the levels change what the tremor does: its ambush chance in its readout, the build-up of an Awakening.
+waitchunks
+cmd gamemode creative
+cmd time set noon
+cmd tremor despawn all
+cmd tremor awaken stop
+cmd tp @s 300.5 201.0 300.5 0 10
+wait 40
+waitchunks
+cmd tremor difficulty
+cmd tremor difficulty calm
+cmd tremor spawn 300 200 312
+cmd tremor stage hunting
+cmd tremor ai off
+cmd tremor info
+cmd tremor awaken
+wait 5
+cmd tremor awaken stop
+cmd tremor difficulty nightmare
+cmd tremor info
+cmd tremor awaken
+wait 5
+cmd tremor awaken stop
+cmd tremor difficulty normal
+cmd tremor difficulty
+cmd give @s tremor:debug_probe
+cmd item replace entity @s weapon.mainhand with tremor:debug_probe
+hud on
+wait 10
+cmd tremor despawn all
+hold sneak+use 2
+wait 10
+screenshot 01_menu_with_difficulty
+quit

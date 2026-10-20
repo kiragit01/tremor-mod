@@ -18,6 +18,7 @@ import net.minecraft.world.phys.AABB;
 import tremor.Tremor;
 import tremor.awakening.AwakeningManager;
 import tremor.awakening.AwakeningRules;
+import tremor.config.Difficulty;
 import tremor.config.TremorConfig;
 import tremor.core.behavior.Ambush;
 import tremor.core.behavior.AngerMeter;
@@ -754,7 +755,7 @@ final class TremorMind {
         TremorConfig.Common config = TremorConfig.COMMON;
         Crawler crawler = entity.crawler();
         Vec3 skin = skin();
-        float damage = (float) config.contactDamage.getAsDouble();
+        float damage = (float) Difficulty.current().damage(config.contactDamage.getAsDouble());
         boolean hurt = false;
         if (damage > 0) {
             Holder<DamageType> type = level.registryAccess().registryOrThrow(Registries.DAMAGE_TYPE)
@@ -981,7 +982,7 @@ final class TremorMind {
             return "not on a wall or a ceiling";
         }
         return String.format(Locale.ROOT, "may lie in wait for a player coming within %.0f blocks unseen (chance "
-                + "%.0f%%)", config.senseDistance.get(), config.chance.get() * 100);
+                + "%.0f%%)", config.senseDistance.get(), Difficulty.current().ambushChance(config.chance.get()) * 100);
     }
 
     /**
@@ -1023,7 +1024,7 @@ final class TremorMind {
         if (!coming) {
             return;
         }
-        if (level.getRandom().nextDouble() >= config.chance.get()
+        if (level.getRandom().nextDouble() >= Difficulty.current().ambushChance(config.chance.get())
                 || !tremor.awakening.Quicksand.fits(level, skin, config.triggerRadius.get())) {
             lurkAgain = now + RETRY_TICKS; // a no, or no ground for quicksand here
             return;

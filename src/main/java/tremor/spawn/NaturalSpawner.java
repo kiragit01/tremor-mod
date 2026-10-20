@@ -286,9 +286,10 @@ public final class NaturalSpawner {
                         entity.instance(), away, spacing);
             }
         }
-        if (runtimes.size() >= config.maxEntities.get()) {
-            return String.format(Locale.ROOT, "%d tremors in the dimension (spawn.maxEntities %d)", runtimes.size(),
-                    config.maxEntities.get());
+        int most = tremor.config.Difficulty.current().maxTremors(config.maxEntities.get());
+        if (runtimes.size() >= most) {
+            return String.format(Locale.ROOT, "%d tremors in the dimension (at most %d: spawn.maxEntities %d and the "
+                    + "difficulty)", runtimes.size(), most, config.maxEntities.get());
         }
         if (AwakeningManager.runsNear(level, player.getX(), player.getZ(), spacing)) {
             return String.format(Locale.ROOT, "an Awakening runs within %.0f blocks", spacing);
@@ -333,7 +334,8 @@ public final class NaturalSpawner {
 
     private static double chance(SpawnRules.Conditions conditions) {
         TremorConfig.Spawn config = TremorConfig.COMMON.spawn;
-        return SpawnRules.chance(config.baseChance.get(), conditions, new SpawnRules.Multipliers(
+        return SpawnRules.chance(tremor.config.Difficulty.current().spawnChance(config.baseChance.get()), conditions,
+                new SpawnRules.Multipliers(
                 config.caveMultiplier.get(), config.darkMultiplier.get(), config.deepMultiplier.get(),
                 config.nightMultiplier.get()));
     }

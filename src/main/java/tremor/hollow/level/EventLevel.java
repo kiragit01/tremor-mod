@@ -14,6 +14,7 @@ import net.neoforged.neoforge.network.PacketDistributor;
 import tremor.Tremor;
 import tremor.awakening.Outcomes;
 import tremor.block.TremorBlocks;
+import tremor.config.Difficulty;
 import tremor.config.TremorConfig;
 import tremor.hollow.HollowBox;
 import tremor.hollow.HollowEvent;
@@ -250,7 +251,8 @@ final class EventLevel {
     private void read() {
         if (reader == null) {
             TremorConfig.HollowLevel config = TremorConfig.COMMON.hollow.level;
-            int reach = Math.max(config.nodeMinDistance.get(), config.nodeMaxDistance.get()) + MARGIN;
+            int reach = (int) Math.ceil(Difficulty.current().nodeDistance(
+                    Math.max(config.nodeMinDistance.get(), config.nodeMaxDistance.get()))) + MARGIN;
             snapshotMin = new BlockPos(Math.max(box.minX(), start.getX() - reach),
                     Math.max(box.minY(), start.getY() - SNAPSHOT_BELOW), Math.max(box.minZ(), start.getZ() - reach));
             snapshotMax = new BlockPos(Math.min(box.maxX(), start.getX() + reach),
@@ -278,7 +280,7 @@ final class EventLevel {
             widened = true;
             caveSize = size(cave.carve());
         }
-        double far = nightmare ? tremor.hollow.Nightmare.NODE_FACTOR : 1;
+        double far = (nightmare ? tremor.hollow.Nightmare.NODE_FACTOR : 1) * Difficulty.current().nodeDistance(1);
         minLength = (int) Math.round(config.nodeMinDistance.get() * far);
         maxLength = Math.max(minLength, (int) Math.round(config.nodeMaxDistance.get() * far));
         planner = new WayPlanner(grid, region, start.getX(), start.getY(), start.getZ(), new WayPlanner.Params(
@@ -390,7 +392,8 @@ final class EventLevel {
         TremorConfig.HollowLevel config = TremorConfig.COMMON.hollow.level;
         double edge = boxRadius - 1;
         schedule = new ClosingSchedule(new ClosingSchedule.Params(nightmare ? 0 : config.graceSeconds.get() * 20, edge,
-                config.minRadius.get(), config.closeSpeed.get() * (nightmare ? tremor.hollow.Nightmare.CLOSE_FACTOR : 1),
+                config.minRadius.get(), Difficulty.current().closeSpeed(config.closeSpeed.get())
+                        * (nightmare ? tremor.hollow.Nightmare.CLOSE_FACTOR : 1),
                 config.noiseFactor.get(), config.noiseSeconds.get(),
                 ticks(config.lurePauseSeconds.get()), ticks(config.lureCooldownSeconds.get()),
                 config.lureMinDistance.get(), config.beatSlowTicks.get(), config.beatFastTicks.get()));
@@ -754,7 +757,7 @@ final class EventLevel {
      */
     double breath() {
         double seconds = nightmare ? tremor.hollow.Nightmare.SECONDS
-                : TremorConfig.COMMON.hollow.level.breathSeconds.get();
+                : Difficulty.current().hollowSeconds(TremorConfig.COMMON.hollow.level.breathSeconds.get());
         return seconds <= 0 ? 1 : Math.max(0, 1 - ticks / (seconds * 20));
     }
 

@@ -23,6 +23,7 @@ import net.neoforged.neoforge.event.RegisterCommandsEvent;
 import tremor.awakening.AwakeningCommands;
 import tremor.awakening.AwakeningManager;
 import tremor.awakening.Craters;
+import tremor.config.Difficulty;
 import tremor.config.TremorConfig;
 import tremor.core.behavior.DespawnClock;
 import tremor.core.behavior.Stage;
@@ -135,6 +136,7 @@ public final class TremorCommands {
                 .then(route())
                 .then(probe())
                 .then(hold())
+                .then(difficulty())
                 .then(Commands.literal("ambush").executes(TremorCommands::ambush)
                         .then(Commands.literal("stop").executes(TremorCommands::ambushStop)))
                 .then(HollowCommands.hollow())
@@ -254,6 +256,30 @@ public final class TremorCommands {
     }
 
     /** {@code /tremor hold [on|off]}: the look of the nearest tremor (its anger) stays as it is, or not. */
+    /**
+     * {@code difficulty [calm|normal|hard|nightmare]}: tells how hard the mod is set ({@link Difficulty}), or sets it,
+     * saved to the common config.
+     */
+    private static LiteralArgumentBuilder<CommandSourceStack> difficulty() {
+        LiteralArgumentBuilder<CommandSourceStack> node = Commands.literal("difficulty").executes(ctx -> {
+            Difficulty level = Difficulty.current();
+            ctx.getSource().sendSuccess(() -> Component.literal("Difficulty " + level.summary()), false);
+            return level.ordinal();
+        });
+        for (Difficulty level : Difficulty.values()) {
+            node.then(Commands.literal(level.id()).executes(ctx -> setDifficulty(ctx.getSource(), level)));
+        }
+        return node;
+    }
+
+    private static int setDifficulty(CommandSourceStack source, Difficulty level) {
+        TremorConfig.COMMON.difficulty.set(level);
+        TremorConfig.COMMON_SPEC.save();
+        tremor.Tremor.LOGGER.info("{} set the difficulty to {}", source.getTextName(), level.id());
+        answer(source, () -> Component.literal("Difficulty " + level.summary()));
+        return level.ordinal();
+    }
+
     private static LiteralArgumentBuilder<CommandSourceStack> hold() {
         return Commands.literal("hold")
                 .executes(ctx -> hold(ctx, null))
