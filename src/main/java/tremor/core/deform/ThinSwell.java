@@ -37,6 +37,11 @@ public final class ThinSwell {
     static final int THIN_WIDTH = 3;
     /** The share of the bump's height a thin structure swells out by around the entity. */
     public static final double SWELL = 0.65;
+    /**
+     * The share of its height the hill of an Awakening swells a thin structure out by: all of it, since it is to
+     * swallow the player whole.
+     */
+    public static final double HILL_SWELL = 1.0;
     /** Cells farther than this from the structure (blocks) are never filled. */
     public static final double MAX_REACH = 3.5;
     /** How much the swelling breathes, as a share of it, and how long a breath lasts (seconds). */
@@ -130,13 +135,13 @@ public final class ThinSwell {
     }
 
     /**
-     * How much of a fill cell is filled this frame, 0..1: by how far the swelling of its source, {@link #SWELL} of the
-     * bump's height there ({@code height}) faded with the distance from the bump's plane ({@code falloff}), reaches past
-     * the cell's inner face.
+     * How much of a fill cell is filled this frame, 0..1: how far past the cell's inner face reaches the swelling of its
+     * source, which reaches {@code reach} blocks out of it (for the bump {@link #SWELL} of its height there, faded with
+     * the distance from its plane, {@link #falloff}; for the hill of an Awakening {@link #HILL_SWELL} of its height).
      */
-    public static double coverage(double height, double falloff, double distance) {
-        double reach = SWELL * Math.max(0, height) * falloff - distance + 1; // how far it is out of the inner layer
-        return reach <= 0 ? 0 : Math.min(1, reach);
+    public static double coverage(double reach, double distance) {
+        double out = reach - distance + 1; // how far it is out of the inner layer
+        return out <= 0 ? 0 : Math.min(1, out);
     }
 
     /**
