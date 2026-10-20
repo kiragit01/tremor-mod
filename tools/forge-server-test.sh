@@ -38,6 +38,7 @@ if [ ! -f "$SERVER/libraries/net/minecraftforge/forge/$FORGE/$ARGS" ]; then
     echo "[forge-server-test] installing the server into $SERVER"
     "$JAVA" -jar "$INSTALLER" --installServer "$SERVER" > run-prod/installer/install.log 2>&1 \
         || { echo "[forge-server-test] the install failed: see run-prod/installer/install.log"; exit 1; }
+    mv -f "forge-$FORGE-installer.jar.log" run-prod/installer/ 2>/dev/null
 fi
 
 cd "$SERVER"
