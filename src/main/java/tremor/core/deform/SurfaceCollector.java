@@ -42,10 +42,20 @@ public final class SurfaceCollector {
     }
 
     /**
+     * Whether the voxel's neighbour along the axis nearest to its normal is open. Its copies are drawn out along that
+     * axis, so they rise out of the ground rather than through the voxel beyond: not so a voxel under a top one block
+     * wide, whose open sides cancel and leave it the normal of the top.
+     */
+    public static boolean pushable(VoxelView view, int x, int y, int z, Vec3 normal) {
+        int[] axis = ThinSwell.axisStep(normal);
+        return view.isOpen(x + axis[0], y + axis[1], z + axis[2]);
+    }
+
+    /**
      * All surface voxels whose centre {@code p} satisfies {@code |p - c| <= radius}, {@code |(p - c)·n| <= normalBand}
      * and {@code smoothNormal(p)·n >= minNormalDot} ({@code c}, {@code n} from the frame). The band and normal filters
      * keep e.g. a cave ceiling right above a floor bump from bulging too. Voxels whose smoothed normal cancels to zero
-     * are skipped, so every returned normal is a unit vector.
+     * are skipped, so every returned normal is a unit vector, and so are those not {@link #pushable}.
      *
      * @return a new mutable list, sorted by y, then z, then x
      */
@@ -79,7 +89,7 @@ public final class SurfaceCollector {
                         continue;
                     }
                     Vec3 normal = field.smooth(x, y, z);
-                    if (normal.isNearZero() || normal.dot(n) < minDot) {
+                    if (normal.isNearZero() || normal.dot(n) < minDot || !pushable(view, x, y, z, normal)) {
                         continue;
                     }
                     points.add(new SurfacePoint(x, y, z, normal));

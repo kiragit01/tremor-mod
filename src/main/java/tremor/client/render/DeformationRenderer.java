@@ -31,6 +31,7 @@ import tremor.config.TremorConfig;
 import tremor.core.VoxelView;
 import tremor.core.deform.SurfaceCollector;
 import tremor.core.deform.SurfacePoint;
+import tremor.core.deform.ThinSwell;
 import tremor.core.math.Vec3;
 import tremor.core.math.VoxelPos;
 import tremor.core.shape.AwakeningField;
@@ -51,6 +52,7 @@ import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 /**
  * Additive client-side deformation (SPEC 6.3): the world is never touched; instead copies of the affected surface
@@ -128,6 +130,10 @@ public final class DeformationRenderer {
     private static final int MIN_SECTION_REFRESH = 2;
     /** Sections the refresh lost track of (if any) are dropped after this many ticks. */
     private static final int SECTION_EXPIRE = 400;
+    /** How far a copy sliding out of a swelling is nudged across its ray at most (blocks, {@link #emitSlid}). */
+    private static final double SLIDE_NUDGE = 0.04;
+    /** How far from the hill of an Awakening a thin structure under it is taken in (blocks). */
+    private static final double ZONE_SWELL_RADIUS = 6;
     /** Surface and normal estimation (SPEC 6.2) read up to this many voxels beyond the collected ones. */
     private static final int NORMAL_REACH = 2;
     /** What a voxel is for the surface ({@link #surface}): not loaded, ground, open. */
@@ -193,6 +199,17 @@ public final class DeformationRenderer {
 
     /** Columns (baked or not yet) by packed position, reused across collections, the bump's and the zone's alike. */
     private static final Map<Long, Column> columns = new HashMap<>();
+    /**
+     * The cells a thin structure swells into under the hill of an Awakening ({@link ThinSwell},
+     * {@link GroundField#swellCenter}), and the voxels of that structure, which the zone leaves where they are; none
+     * while the ground there is not thin.
+     */
+    private static final List<Column> zoneFills = new ArrayList<>();
+    private static Set<Long> zoneThin = Set.of();
+    /** Where and when they were last looked for, and whether the terrain changed since. */
+    private static Vec3 zoneSwellAt;
+    private static long zoneSwellTick;
+    private static boolean zoneSwellStale;
     /** The bump of each entity known to the client, by its instance: its collection. */
     private static final Map<Integer, Bump> bumps = new HashMap<>();
     /** This frame's bumps with something to draw, nearest first; a column's {@link Column#bumps} bits are their places. */
@@ -278,6 +295,7 @@ public final class DeformationRenderer {
         sectionReads.clear();
         voxels.clear();
         zone.clear();
+        clearZoneSwell();
         AwakeningGround.reset();
         HollowGround.reset();
         source.clear();
@@ -344,6 +362,7 @@ public final class DeformationRenderer {
             columns.clear();
             bumps.clear();
             zone.clear();
+            clearZoneSwell();
         }
         long tick = level.getGameTime();
         if (due(tick, nextEvictTick, EVICT_INTERVAL)) {
@@ -369,7 +388,7 @@ public final class DeformationRenderer {
             Bump bump = frameBumps.get(b);
             for (int i = 0, n = bump.active.size(); i < n; i++) {
                 Column col = bump.active.get(i);
-                double h = bump.field.at(col.cx, col.cy, col.cz);
+                double h = col.fill ? fillCoverage(bump.field, col) : bump.field.at(col.cx, col.cy, col.cz);
                 if (col.stamp != frameStamp) {
                     col.stamp = frameStamp;
                     col.inBump = true;
@@ -385,6 +404,7 @@ public final class DeformationRenderer {
         }
         if (ground != null) {
             zone.evaluate(ground, event.getFrustum(), frameStamp, frameColumns);
+            swellZone(level, ground, tick, (tick + partialTick) / 20.0);
         }
         for (int i = 0, n = frameColumns.size(); i < n; i++) {
             Column col = frameColumns.get(i);
@@ -440,7 +460,9 @@ public final class DeformationRenderer {
         }
         if (frameWarp) {
             for (int i = 0, n = drawn.size(); i < n; i++) {
-                warpCorners(drawn.get(i), ground);
+                if (!drawn.get(i).fill) {
+                    warpCorners(drawn.get(i), ground);
+                }
             }
         }
         if (due(tick, nextValidateTick, VALIDATE_INTERVAL)) {
@@ -500,7 +522,7 @@ public final class DeformationRenderer {
         SurfaceCollector.Options options = SurfaceCollector.Options.forParams(params);
         double radius = RenderReach.collectRadius(params, ripple, REACH_SLACK, options.normalBand(), RADIUS_STEP);
         if (needsCollect(bump, frame, radius, tick)) {
-            collect(level, bump, frame, new SurfaceCollector.Options(radius, options.normalBand(),
+            collect(level, bump, frame, params, new SurfaceCollector.Options(radius, options.normalBand(),
                     options.minNormalDot()), tick);
         }
         return new HeightField(params, frame, state.timeSeconds(), TremorConfig.CLIENT.drawJitter(), ripple,
@@ -625,7 +647,7 @@ public final class DeformationRenderer {
         double front = RippleDust.front(ripple, ageSeconds);
         for (int i = 0, n = active.size(); i < n; i++) {
             Column col = active.get(i);
-            if (RippleDust.onFront(HeightField.tangentDistance(frame, col.cx, col.cy, col.cz), front)) {
+            if (!col.fill && RippleDust.onFront(HeightField.tangentDistance(frame, col.cx, col.cy, col.cz), front)) {
                 dustFront.add(col);
             }
         }
@@ -745,7 +767,7 @@ public final class DeformationRenderer {
             Vec3 normal = col.normal;
             double lift = col.stamp == frameStamp && col.h >= BumpShape.RENDER_THRESHOLD ? col.h : 0;
             level.addParticle(new BlockParticleOption(ParticleTypes.BLOCK, block).setPos(col.pos),
-                    x + normal.x() * lift, y + normal.y() * lift, z + normal.z() * lift,
+                    x + axis.getStepX() * lift, y + axis.getStepY() * lift, z + axis.getStepZ() * lift,
                     normal.x() * DUST_LAUNCH, normal.y() * DUST_LAUNCH, normal.z() * DUST_LAUNCH);
         }
         dustFront.clear();
@@ -770,19 +792,23 @@ public final class DeformationRenderer {
     }
 
     /**
-     * Finds the voxels the bump may raise now. New ones are not baked here but once they rise above the threshold
-     * ({@link #bakePending}).
+     * Finds the voxels the bump may raise now, and the cells a thin structure the entity is on swells into
+     * ({@link ThinSwell}). New ones are not baked here but once they rise above the threshold ({@link #bakePending}).
      */
-    private static void collect(ClientLevel level, Bump bump, BumpFrame frame, SurfaceCollector.Options options,
-                                long tick) {
+    private static void collect(ClientLevel level, Bump bump, BumpFrame frame, BumpParams params,
+                                SurfaceCollector.Options options, long tick) {
         source.begin(level);
         voxels.setTime(tick);
         refreshSections(bump, frame.center(), options.radius(), tick);
         List<SurfacePoint> points = SurfaceCollector.collect(voxels, frame, options);
+        ThinSwell.Result thin = ThinSwell.apply(voxels, frame, params, options.radius(), points);
 
         bump.active.clear();
-        for (SurfacePoint p : points) {
+        for (SurfacePoint p : thin.points()) {
             bump.active.add(column(p, tick));
+        }
+        for (ThinSwell.Fill f : thin.fills()) {
+            bump.active.add(fill(f, tick));
         }
         Vec3 c = frame.center();
         bump.collectX = c.x();
@@ -801,7 +827,7 @@ public final class DeformationRenderer {
         Vec3 n = p.normal();
         Direction axis = Direction.getNearest(n.x(), n.y(), n.z());
         Column col = columns.get(key);
-        if (col == null || col.axis != axis) {
+        if (col == null || col.axis != axis || col.fill) {
             col = new Column(p.x(), p.y(), p.z(), axis, n);
             columns.put(key, col);
         } else if (!col.hasGeometry()) {
@@ -810,6 +836,102 @@ public final class DeformationRenderer {
         col.normal = n;
         col.lastUsed = tick;
         return col;
+    }
+
+    /** The column of a cell a thin structure swells into ({@link ThinSwell}), made or refreshed, used at {@code tick}. */
+    private static Column fill(ThinSwell.Fill f, long tick) {
+        long key = VoxelPos.pack(f.x(), f.y(), f.z());
+        Column col = columns.get(key);
+        if (col == null || !col.is(f)) {
+            col = new Column(f);
+            columns.put(key, col);
+        } else if (!col.hasGeometry()) {
+            col.baked = false;
+        }
+        col.lastUsed = tick;
+        return col;
+    }
+
+    /**
+     * The swelling of a thin structure under the hill of an Awakening this frame ({@link GroundField#swellCenter}):
+     * its voxels the zone pushed out are put back, its cells are filled as far as the ground at their sources says
+     * ({@link ThinSwell#coverage}). Looked for again when the hill moves, every {@link #RECOLLECT_INTERVAL} ticks, and
+     * when the terrain changed.
+     */
+    private static void swellZone(ClientLevel level, GroundField ground, long tick, double seconds) {
+        Vec3 at = ground.swellCenter();
+        if (at == null) {
+            clearZoneSwell();
+            return;
+        }
+        if (zoneSwellStale || !at.equals(zoneSwellAt) || tick - zoneSwellTick >= RECOLLECT_INTERVAL
+                || tick < zoneSwellTick) {
+            collectZoneSwell(level, ground, at, tick);
+        }
+        if (zoneThin.isEmpty()) {
+            return;
+        }
+        for (int i = 0, n = frameColumns.size(); i < n; i++) {
+            Column col = frameColumns.get(i);
+            if (col.inZone && zoneThin.contains(VoxelPos.pack(col.x, col.y, col.z))) {
+                col.h = 0;
+            }
+        }
+        for (int i = 0, n = zoneFills.size(); i < n; i++) {
+            Column col = zoneFills.get(i);
+            double h = ThinSwell.coverage(ground.at(col.sx, col.sy, col.sz)
+                    * ThinSwell.breath(seconds, col.x, col.y, col.z), 1, col.fillDistance);
+            if (col.stamp == frameStamp) {
+                col.h += h;
+            } else {
+                col.stamp = frameStamp;
+                col.h = h;
+                col.inBump = false;
+                col.inZone = false;
+                frameColumns.add(col);
+            }
+        }
+    }
+
+    /** Finds the thin structure under the hill at {@code at} and the cells it swells into ({@link ThinSwell}). */
+    private static void collectZoneSwell(ClientLevel level, GroundField ground, Vec3 at, long tick) {
+        zoneSwellStale = false;
+        zoneSwellAt = at;
+        zoneSwellTick = tick;
+        zoneFills.clear();
+        source.begin(level);
+        voxels.setTime(tick);
+        zoneThin = ThinSwell.structure(voxels, at, Vec3.UNIT_Y, ZONE_SWELL_RADIUS);
+        if (zoneThin.isEmpty()) {
+            return;
+        }
+        List<Column> near = new ArrayList<>();
+        zone.within(at, ZONE_SWELL_RADIUS + ThinSwell.MAX_REACH + 1, near);
+        List<SurfacePoint> rising = new ArrayList<>(near.size());
+        for (Column col : near) {
+            if (!zoneThin.contains(VoxelPos.pack(col.x, col.y, col.z))) {
+                rising.add(new SurfacePoint(col.x, col.y, col.z, col.normal));
+            }
+        }
+        for (ThinSwell.Fill f : ThinSwell.fills(voxels, zoneThin, rising,
+                (x, y, z) -> ThinSwell.SWELL * Math.max(0, ground.ahead(x, y, z)))) {
+            zoneFills.add(fill(f, tick));
+        }
+    }
+
+    private static void clearZoneSwell() {
+        zoneFills.clear();
+        zoneThin = Set.of();
+        zoneSwellAt = null;
+    }
+
+    /**
+     * How far a cell a thin structure swells into is filled this frame ({@link ThinSwell#coverage}): from the height of
+     * the field at its source.
+     */
+    private static double fillCoverage(HeightField field, Column col) {
+        return ThinSwell.coverage(field.at(col.sx, col.sy, col.sz) * ThinSwell.breath(field.time(), col.x, col.y, col.z),
+                ThinSwell.falloff(field.frame(), field.params().sigmaSide(), col.sx, col.sy, col.sz), col.fillDistance);
     }
 
     /**
@@ -924,13 +1046,16 @@ public final class DeformationRenderer {
         LevelVoxelView view = source.begin(level);
         for (int j = 0; j < count; j++) {
             Column col = drawn.get((first + j) % n);
-            BlockPos decoPos = col.decoPos;
-            BlockState state = view.stateAt(col.x, col.y, col.z);
+            BlockPos decoPos = col.decoPos, src = col.source;
+            BlockState state = view.stateAt(src.getX(), src.getY(), src.getZ());
             BlockState deco = view.stateAt(decoPos.getX(), decoPos.getY(), decoPos.getZ());
             boolean blocksChanged = state != col.state || deco != col.decoState;
             boolean surfaceChanged = blocksChanged
-                    && (surface(view, state, col.pos) != surface(view, col.state, col.pos)
+                    && (surface(view, state, src) != surface(view, col.state, src)
                     || surface(view, deco, decoPos) != surface(view, col.decoState, decoPos));
+            if (col.fill && !view.isOpen(col.x, col.y, col.z)) {
+                surfaceChanged = true; // something was put where the structure swells
+            }
             boolean lightChanged = light && col.lightPos != null
                     && (level.getBrightness(LightLayer.SKY, col.lightPos) != col.skyLight
                     || level.getBrightness(LightLayer.BLOCK, col.lightPos) != col.blockLight);
@@ -944,6 +1069,7 @@ public final class DeformationRenderer {
                 for (Bump bump : bumps.values()) {
                     bump.recollect = true;
                 }
+                zoneSwellStale = true;
                 if (col.inZone) {
                     zone.requestRescan();
                 }
@@ -981,16 +1107,22 @@ public final class DeformationRenderer {
             float bx = (float) (col.x - camX);
             float by = (float) (col.y - camY);
             float bz = (float) (col.z - camZ);
-            Vec3 normal = col.normal;
-            if (mesh != null) {
+            // The blocks style draws the copies out along the axis nearest to the normal: a slanted normal (an edge, a
+            // step) would set them off along a diagonal, away from their neighbours, with holes behind.
+            int ax = col.axis.getStepX(), ay = col.axis.getStepY(), az = col.axis.getStepZ();
+            if (mesh != null && col.fill) {
+                emitSlid(consumer, mesh, col, bx, by, bz);
+                frameVertices += mesh.size();
+                frameCopies++;
+            } else if (mesh != null) {
                 int stack = (int) Math.ceil(col.h); // copies at h, h-1, ... fill the gap down to the original
                 for (int k = 0; k < stack; k++) {
                     if (frameWarp) {
                         emitWarped(consumer, mesh, col, k, bx, by, bz, 0, 0, 0);
                     } else {
                         double off = col.h - k;
-                        float x = bx + (float) (normal.x() * off), y = by + (float) (normal.y() * off);
-                        float z = bz + (float) (normal.z() * off);
+                        float x = bx + (float) (ax * off), y = by + (float) (ay * off);
+                        float z = bz + (float) (az * off);
                         mesh.emit(consumer, x, y, z);
                         if (x <= 0 && x + 1 >= 0 && y <= 0 && y + 1 >= 0 && z <= 0 && z + 1 >= 0) {
                             // The camera is inside this copy (a hill risen around the player): seen from inside,
@@ -1004,12 +1136,11 @@ public final class DeformationRenderer {
                 frameCopies += stack;
             }
             if (deco != null) {
-                int ox = col.axis.getStepX(), oy = col.axis.getStepY(), oz = col.axis.getStepZ();
                 if (frameWarp) {
-                    emitWarped(consumer, deco, col, 0, bx, by, bz, ox, oy, oz);
+                    emitWarped(consumer, deco, col, 0, bx, by, bz, ax, ay, az);
                 } else {
-                    deco.emit(consumer, bx + ox + (float) (normal.x() * col.h), by + oy + (float) (normal.y() * col.h),
-                            bz + oz + (float) (normal.z() * col.h));
+                    deco.emit(consumer, bx + ax + (float) (ax * col.h), by + ay + (float) (ay * col.h),
+                            bz + az + (float) (az * col.h));
                 }
                 frameVertices += deco.size();
                 frameCopies++;
@@ -1044,6 +1175,25 @@ public final class DeformationRenderer {
         }
     }
 
+    /**
+     * A cell a thin structure swells into ({@link ThinSwell}): its one copy, a whole block, slid out along the ray from
+     * its source ({@link Column#normal}) as far as it is filled ({@link Column#h}, 0..1: a block back toward the source
+     * at 0, in the cell at 1), and nudged a little across the ray on its way, so that its faces never lie in the plane
+     * of those of the copy it slides out of. A copy the camera is inside is replayed inside out as well, as in a stack.
+     */
+    private static void emitSlid(VertexConsumer consumer, VertexList mesh, Column col, float bx, float by, float bz) {
+        double back = 1 - Math.min(1, col.h), nudge = SLIDE_NUDGE * back;
+        Vec3 ray = col.normal;
+        float x = bx + (float) (col.nudgeX * nudge - ray.x() * back);
+        float y = by + (float) (col.nudgeY * nudge - ray.y() * back);
+        float z = bz + (float) (col.nudgeZ * nudge - ray.z() * back);
+        mesh.emit(consumer, x, y, z);
+        if (x <= 0 && x + 1 >= 0 && y <= 0 && y + 1 >= 0 && z <= 0 && z + 1 >= 0) {
+            mesh.emitInside(consumer, x, y, z, insideShade);
+            frameVertices += mesh.size();
+        }
+    }
+
     private static double clamp01(double v) {
         return v < 0 ? 0 : (v > 1 ? 1 : v);
     }
@@ -1057,8 +1207,8 @@ public final class DeformationRenderer {
         col.baked = true;
         col.meshes.clear();
         col.decoMeshes.clear();
-        BlockPos pos = col.pos, decoPos = col.decoPos;
-        BlockState state = view.stateAt(col.x, col.y, col.z);
+        BlockPos pos = col.pos, decoPos = col.decoPos, source = col.source;
+        BlockState state = view.stateAt(source.getX(), source.getY(), source.getZ());
         BlockState deco = view.stateAt(decoPos.getX(), decoPos.getY(), decoPos.getZ());
         col.state = state;
         col.decoState = deco;
@@ -1066,14 +1216,15 @@ public final class DeformationRenderer {
             col.lightPos = null;
             return;
         }
-        col.lightPos = SurfaceLight.brightestOpenNeighbour(level, view, pos, col.axis);
+        // A fill cell is open: the copy in it has its light.
+        col.lightPos = col.fill ? pos : SurfaceLight.brightestOpenNeighbour(level, view, pos, col.axis);
         col.skyLight = level.getBrightness(LightLayer.SKY, col.lightPos);
         col.blockLight = level.getBrightness(LightLayer.BLOCK, col.lightPos);
         BlockRenderDispatcher dispatcher = Minecraft.getInstance().getBlockRenderer();
         probe.set(level, col.skyLight, col.blockLight);
-        bakeBlock(dispatcher, level, state, pos, col.meshes);
+        bakeBlock(dispatcher, level, state, source, col.meshes);
         // Grass, flowers and snow layers ride on top of the ground they grow on.
-        if (col.axis == Direction.UP && deco != null && !deco.isAir() && deco.getRenderShape() == RenderShape.MODEL
+        if (!col.fill && col.axis == Direction.UP && deco != null && !deco.isAir() && deco.getRenderShape() == RenderShape.MODEL
                 && !deco.hasBlockEntity() && deco.getFluidState().isEmpty()
                 && view.isOpen(decoPos.getX(), decoPos.getY(), decoPos.getZ())) {
             bakeBlock(dispatcher, level, deco, decoPos, col.decoMeshes);
