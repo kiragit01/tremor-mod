@@ -197,6 +197,12 @@ public final class AwakeningField implements GroundField {
         return rings;
     }
 
+    /** The focus: a pillar or a ridge the hill rises on swells around the player rather than rising as a column. */
+    @Override
+    public Vec3 swellCenter() {
+        return focus;
+    }
+
     /** The zone's centre. */
     @Override
     public Vec3 scanCenter() {

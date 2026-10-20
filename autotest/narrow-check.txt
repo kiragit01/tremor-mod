@@ -1,0 +1,199 @@
+# The bump on narrow ground: a ridge 1 block wide, one 2 blocks wide, a trench 1 block wide, a 1x2 tunnel, and flat
+# ground to compare with. A tremor held still (ai off, hunting) on each, seen from the side and at an angle.
+waitchunks
+cmd gamemode spectator
+cmd time set noon
+cmd tremor despawn all
+cmd tremor awaken stop
+hud off
+log --- a ridge 1 block wide
+cmd tp @s 610.5 205.0 300.5
+wait 40
+waitchunks
+cmd fill 595 190 286 625 195 314 minecraft:stone
+cmd fill 595 196 286 625 196 314 minecraft:grass_block
+cmd fill 595 197 286 625 212 314 minecraft:air
+cmd fill 600 197 300 620 199 300 minecraft:dirt
+cmd fill 600 200 300 620 200 300 minecraft:grass_block
+cmd tremor spawn 610 201 300
+cmd tremor ai off
+cmd tremor stage hunting
+cmd tremor hold
+cmd tremor info
+cmd tp @s 610.5 202.0 292.5
+lookat 610.5 200.5 300.5
+wait 60
+screenshot 01_ridge1_side
+cmd tp @s 602.5 204.0 295.5
+lookat 610.5 200.5 300.5
+wait 10
+screenshot 02_ridge1_angle
+log --- a ridge 2 blocks wide
+cmd tp @s 610.5 205.0 420.5
+wait 40
+waitchunks
+cmd fill 595 190 406 625 195 434 minecraft:stone
+cmd fill 595 196 406 625 196 434 minecraft:grass_block
+cmd fill 595 197 406 625 212 434 minecraft:air
+cmd fill 600 197 420 620 199 421 minecraft:dirt
+cmd fill 600 200 420 620 200 421 minecraft:grass_block
+cmd tremor spawn 610 201 420
+cmd tremor ai off
+cmd tremor stage hunting
+cmd tremor hold
+cmd tp @s 610.5 202.0 412.5
+lookat 610.5 200.5 421.0
+wait 60
+screenshot 03_ridge2_side
+cmd tp @s 602.5 204.0 415.5
+lookat 610.5 200.5 421.0
+wait 10
+screenshot 04_ridge2_angle
+log --- a trench 1 block wide
+cmd tp @s 610.5 205.0 340.5
+wait 40
+waitchunks
+cmd fill 595 190 326 625 199 354 minecraft:stone
+cmd fill 595 200 326 625 200 354 minecraft:grass_block
+cmd fill 595 201 326 625 212 354 minecraft:air
+cmd fill 600 199 340 620 200 340 minecraft:air
+cmd fill 600 198 340 620 198 340 minecraft:dirt
+cmd tremor spawn 610 199 340
+cmd tremor ai off
+cmd tremor stage hunting
+cmd tremor hold
+cmd tremor info
+cmd tp @s 610.5 204.0 333.5
+lookat 610.5 199.0 340.5
+wait 60
+screenshot 05_trench1_angle
+cmd tp @s 601.5 203.0 340.5
+lookat 610.5 199.0 340.5
+wait 10
+screenshot 06_trench1_along
+log --- a 1x2 tunnel
+cmd tp @s 610.5 205.0 380.5
+wait 40
+waitchunks
+cmd fill 595 190 366 625 199 394 minecraft:stone
+cmd fill 595 200 366 625 200 394 minecraft:grass_block
+cmd fill 595 201 366 625 212 394 minecraft:air
+cmd fill 600 196 380 620 197 380 minecraft:air
+cmd setblock 604 198 380 minecraft:sea_lantern
+cmd setblock 616 198 380 minecraft:sea_lantern
+cmd tremor spawn 610 196 380
+cmd tremor ai off
+cmd tremor stage hunting
+cmd tremor hold
+cmd tremor info
+cmd tp @s 602.5 196.0 380.5
+lookat 610.5 196.3 380.5
+wait 60
+screenshot 07_tunnel_inside
+log --- pillars 1x1 and 2x2, on top, and climbing the 2x2 one
+cmd tp @s 610.5 208.0 500.5
+wait 40
+waitchunks
+cmd fill 595 190 486 625 199 514 minecraft:stone
+cmd fill 595 200 486 625 200 514 minecraft:grass_block
+cmd fill 595 201 486 625 212 514 minecraft:air
+cmd fill 605 201 500 605 205 500 minecraft:dirt
+cmd setblock 605 206 500 minecraft:grass_block
+cmd fill 614 201 500 615 205 501 minecraft:dirt
+cmd fill 614 206 500 615 206 501 minecraft:grass_block
+cmd tremor spawn 605 207 500
+cmd tremor ai off
+cmd tremor stage hunting
+cmd tremor hold
+cmd tremor info
+cmd tp @s 605.5 207.0 493.5
+lookat 605.5 206.0 500.5
+wait 60
+screenshot 09_pillar1_top
+cmd tremor spawn 614 207 500
+cmd tremor ai off
+cmd tremor stage hunting
+cmd tremor hold
+cmd tremor info
+cmd tp @s 615.0 207.0 493.5
+lookat 615.0 206.0 501.0
+wait 60
+screenshot 10_pillar2_top
+cmd tremor spawn 621 201 501
+cmd tremor ai off
+cmd tremor stage hunting
+cmd tremor hold
+cmd tp @s 609.0 205.0 494.0
+lookat 616.0 203.0 501.0
+wait 30
+cmd tremor goto 615 206 501
+wait 25
+screenshot 11_pillar2_climb_a
+wait 25
+screenshot 12_pillar2_climb_b
+wait 25
+screenshot 13_pillar2_climb_c
+cmd tremor info
+log --- steps one block high, held on one and crawling over them
+cmd tp @s 610.5 208.0 545.5
+wait 40
+waitchunks
+cmd fill 595 190 526 625 199 564 minecraft:stone
+cmd fill 595 200 526 625 200 564 minecraft:grass_block
+cmd fill 595 201 526 625 212 564 minecraft:air
+cmd fill 600 200 543 620 200 564 minecraft:dirt
+cmd fill 600 201 543 620 201 564 minecraft:grass_block
+cmd fill 600 201 546 620 201 564 minecraft:dirt
+cmd fill 600 202 546 620 202 564 minecraft:grass_block
+cmd fill 600 202 549 620 202 564 minecraft:dirt
+cmd fill 600 203 549 620 203 564 minecraft:grass_block
+cmd tremor spawn 610 202 545
+cmd tremor ai off
+cmd tremor stage hunting
+cmd tremor hold
+cmd tremor info
+cmd tp @s 601.5 205.0 541.5
+lookat 610.5 202.0 546.0
+wait 60
+screenshot 14_steps_held
+cmd tp @s 616.5 205.0 538.5
+lookat 610.5 202.0 546.0
+wait 10
+screenshot 15_steps_held_b
+cmd tremor goto 610 204 552
+wait 20
+screenshot 16_steps_crawling
+log --- the edge of a platform one block high
+cmd tp @s 610.5 208.0 580.5
+wait 40
+waitchunks
+cmd fill 595 190 566 625 199 594 minecraft:stone
+cmd fill 595 200 566 625 200 594 minecraft:grass_block
+cmd fill 595 201 566 625 212 594 minecraft:air
+cmd fill 606 201 576 614 201 584 minecraft:grass_block
+cmd tremor spawn 610 202 576
+cmd tremor ai off
+cmd tremor stage hunting
+cmd tremor hold
+cmd tremor info
+cmd tp @s 610.5 204.0 569.5
+lookat 610.5 201.5 577.0
+wait 60
+screenshot 17_platform_edge
+log --- flat ground to compare
+cmd tp @s 610.5 205.0 460.5
+wait 40
+waitchunks
+cmd fill 595 190 446 625 199 474 minecraft:stone
+cmd fill 595 200 446 625 200 474 minecraft:grass_block
+cmd fill 595 201 446 625 212 474 minecraft:air
+cmd tremor spawn 610 201 460
+cmd tremor ai off
+cmd tremor stage hunting
+cmd tremor hold
+cmd tp @s 610.5 202.0 452.5
+lookat 610.5 200.5 460.5
+wait 60
+screenshot 08_flat_side
+cmd tremor despawn all
+quit

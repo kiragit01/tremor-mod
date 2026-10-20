@@ -1,0 +1,62 @@
+# Swallowed on narrow ground: a player on a pillar 1x1, then on a ridge 2 blocks wide, an Awakening runs its build-up
+# and the hill rises under them; seen from behind.
+waitchunks
+cmd gamemode spectator
+cmd time set noon
+cmd tremor despawn all
+cmd tremor awaken stop
+cmd kill @e[type=!player]
+cmd tp @s 700.5 210.0 300.5
+wait 40
+waitchunks
+cmd fill 680 190 280 720 199 320 minecraft:stone
+cmd fill 680 200 280 720 200 320 minecraft:grass_block
+cmd fill 680 201 280 720 215 320 minecraft:air
+cmd fill 700 201 300 700 205 300 minecraft:dirt
+cmd setblock 700 206 300 minecraft:grass_block
+cmd fill 690 201 312 712 203 313 minecraft:dirt
+cmd fill 690 204 312 712 204 313 minecraft:grass_block
+cmd effect give @s minecraft:night_vision infinite 0 true
+config awakening.buildupSeconds 6
+hud off
+log --- on a pillar 1x1
+cmd tp @s 700.5 207.0 300.5 0 20
+cmd gamemode survival
+cmd tremor spawn 706 201 300
+wait 20
+cmd tremor awaken
+view back
+wait 60
+screenshot 01_pillar_buildup
+wait 50
+screenshot 02_pillar_hill_a
+wait 15
+screenshot 03_pillar_hill_b
+wait 15
+screenshot 04_pillar_hill_c
+cmd tremor awaken stop
+wait 100
+view first
+cmd gamemode spectator
+cmd tremor despawn all
+log --- on a ridge 2 blocks wide
+cmd tp @s 701.0 205.0 312.5 0 20
+cmd gamemode survival
+cmd tremor spawn 706 201 308
+wait 20
+cmd tremor awaken
+view back
+wait 60
+screenshot 05_ridge_buildup
+wait 50
+screenshot 06_ridge_hill_a
+wait 15
+screenshot 07_ridge_hill_b
+wait 15
+screenshot 08_ridge_hill_c
+cmd tremor awaken stop
+wait 100
+view first
+cmd gamemode spectator
+cmd tremor despawn all
+quit

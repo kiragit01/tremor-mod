@@ -68,4 +68,12 @@ public interface GroundField {
 
     /** The mounds rising or settling this frame, for their dust. */
     List<Heave> heaves();
+
+    /**
+     * Where ground thinner than a hill swells around instead of being pushed out along its normals
+     * ({@code tremor.core.deform.ThinSwell}): under the hill of the swallowed player; null if nowhere.
+     */
+    default Vec3 swellCenter() {
+        return null;
+    }
 }
