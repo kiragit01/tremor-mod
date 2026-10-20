@@ -180,6 +180,31 @@ cmd tp @s 610.5 204.0 569.5
 lookat 610.5 201.5 577.0
 wait 60
 screenshot 17_platform_edge
+log --- a floating platform one block thick, air under it
+cmd tp @s 610.5 210.0 620.5
+wait 40
+waitchunks
+cmd fill 595 190 606 625 199 634 minecraft:stone
+cmd fill 595 200 606 625 200 634 minecraft:grass_block
+cmd fill 595 201 606 625 212 634 minecraft:air
+cmd fill 603 205 613 617 205 627 minecraft:grass_block
+cmd tremor spawn 610 206 620
+cmd tremor ai off
+cmd tremor stage hunting
+cmd tremor hold
+cmd tremor info
+cmd tp @s 610.5 208.0 610.5
+lookat 610.5 205.5 620.5
+wait 60
+screenshot 18_floating_top
+cmd tp @s 610.5 202.0 609.5
+lookat 610.5 205.0 620.5
+wait 10
+screenshot 19_floating_under
+cmd tremor goto 606 206 616
+wait 30
+screenshot 20_floating_crawling
+cmd tremor info
 log --- flat ground to compare
 cmd tp @s 610.5 205.0 460.5
 wait 40

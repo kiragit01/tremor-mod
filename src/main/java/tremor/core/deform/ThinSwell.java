@@ -3,6 +3,7 @@ package tremor.core.deform;
 import tremor.core.VoxelView;
 import tremor.core.math.Vec3;
 import tremor.core.math.VoxelPos;
+import tremor.core.noise.PerlinNoise;
 import tremor.core.shape.BumpFrame;
 import tremor.core.shape.BumpParams;
 import tremor.core.shape.BumpShape;
@@ -19,21 +20,30 @@ import java.util.Set;
 
 /**
  * The bump on thin ground (the user's report, 2026-10-20: on a ridge or a pillar one or two blocks wide it looked
- * crooked). Every voxel of such a structure is an edge or a corner, so the copies pushed out along their normals
- * fanned out in every direction, and the voxels under a top one block wide were pushed up through it. Ground narrower
- * than {@value #THIN_WIDTH} blocks across x or z ({@link #thin}) is therefore not pushed out along its normals, except
- * for a top the bump rises along. Where the entity itself is on such ground, the structure swells instead, as the user
+ * crooked, and on a platform one block thick it did not show at all). Every voxel of a narrow structure is an edge or a
+ * corner, so the copies pushed out along their normals fanned out in every direction, and the voxels under a top one
+ * block wide were pushed up through it; in a slab one block thick the normals cancel, open over and under alike. Ground
+ * narrower than {@value #THIN_WIDTH} blocks across x or z, or one block thick ({@link #thin}), is therefore not pushed
+ * out along its normals, except for a top the bump rises along. Where the entity itself is on such ground, the structure swells instead, as the user
  * asked: the open cells around it within reach are filled with copies of its nearest voxel, a ball wrapping it around
  * the entity ({@link #coverage}); and so does one the hill of an Awakening rises on, around the swallowed player
- * ({@link tremor.core.shape.GroundField#swellCenter}). Pure math, no game classes.
+ * ({@link tremor.core.shape.GroundField#swellCenter}). The copies are whole blocks: the outer ones slide out of the
+ * swelling along the ray from their source, diagonals too, so they stand off the grid, and the swelling breathes,
+ * unevenly over the structure ({@link #breath}), so they move in and out as something alive. Pure math, no game
+ * classes.
  */
 public final class ThinSwell {
     /** Ground less than this wide across x or z (blocks) is thin: 3 wide holds a bump as it is. */
     static final int THIN_WIDTH = 3;
     /** The share of the bump's height a thin structure swells out by around the entity. */
-    public static final double SWELL = 0.8;
+    public static final double SWELL = 0.65;
     /** Cells farther than this from the structure (blocks) are never filled. */
     public static final double MAX_REACH = 3.5;
+    /** How much the swelling breathes, as a share of it, and how long a breath lasts (seconds). */
+    static final double BREATH = 0.15;
+    static final double BREATH_PERIOD = 2.8;
+    /** How far apart (blocks) the parts of the structure breathe out of step: the scale of the noise of the phase. */
+    static final double BREATH_SCALE = 3.0;
     /** A voxel of the structure swelling less than this (blocks) fills nothing. */
     static final double MIN_SWELL = 0.05;
     /** At most this many voxels of the structure are looked at (a long thin wall). */
@@ -63,12 +73,13 @@ public final class ThinSwell {
     }
 
     /**
-     * An open cell the swelling may fill: a copy of the structure's voxel {@code source} drawn there, growing out of the
-     * face toward its source along the axis step {@code grow} as the swelling reaches it.
+     * An open cell the swelling may fill: a copy sliding out along the ray from the structure's voxel {@code source}
+     * into the cell as the swelling reaches it ({@link #coverage}), of the block at {@code look}: the source, or the
+     * voxel under it if something is over the cell (dirt under grass: the ball is earth with grass on top).
      *
      * @param distance from the centre of the cell to that of its source, blocks
      */
-    public record Fill(int x, int y, int z, int sourceX, int sourceY, int sourceZ, int growX, int growY, int growZ,
+    public record Fill(int x, int y, int z, int sourceX, int sourceY, int sourceZ, int lookX, int lookY, int lookZ,
                        double distance) {
     }
 
@@ -109,9 +120,13 @@ public final class ThinSwell {
         return new Result(kept, fills(view, structure, kept, swell));
     }
 
-    /** Whether the voxel is solid ground less than {@value #THIN_WIDTH} blocks wide across x or across z. */
+    /**
+     * Whether the voxel is solid ground less than {@value #THIN_WIDTH} blocks wide across x or across z, or one block
+     * thick (open over and under it).
+     */
     public static boolean thin(VoxelView view, int x, int y, int z) {
-        return view.isSolid(x, y, z) && (run(view, x, y, z, 1, 0) < THIN_WIDTH || run(view, x, y, z, 0, 1) < THIN_WIDTH);
+        return view.isSolid(x, y, z) && (run(view, x, y, z, 1, 0) < THIN_WIDTH || run(view, x, y, z, 0, 1) < THIN_WIDTH
+                || !view.isSolid(x, y + 1, z) && !view.isSolid(x, y - 1, z));
     }
 
     /**
@@ -120,8 +135,18 @@ public final class ThinSwell {
      * the cell's inner face.
      */
     public static double coverage(double height, double falloff, double distance) {
-        double reach = SWELL * Math.max(0, height) * falloff - distance + 1;
+        double reach = SWELL * Math.max(0, height) * falloff - distance + 1; // how far it is out of the inner layer
         return reach <= 0 ? 0 : Math.min(1, reach);
+    }
+
+    /**
+     * The breathing of the swelling at {@code timeSeconds}, a factor of it for the cell: slow, and out of step from one
+     * part of the structure to another (a smooth noise of the place sets the phase), so that the outer copies move in
+     * and out unevenly rather than all at once.
+     */
+    public static double breath(double timeSeconds, int x, int y, int z) {
+        double phase = 2.5 * PerlinNoise.noise(x / BREATH_SCALE + 0.31, y / BREATH_SCALE + 0.17, z / BREATH_SCALE + 0.53);
+        return 1 + BREATH * Math.sin(2 * Math.PI * timeSeconds / BREATH_PERIOD + phase);
     }
 
     /**
@@ -267,8 +292,9 @@ public final class ThinSwell {
             }
             double[] b = entry.getValue();
             int sx = (int) b[2], sy = (int) b[3], sz = (int) b[4];
-            int[] grow = axisStep(new Vec3(qx - sx, qy - sy, qz - sz));
-            fills.add(new Fill(qx, qy, qz, sx, sy, sz, grow[0], grow[1], grow[2], b[0]));
+            boolean covered = best.containsKey(VoxelPos.pack(qx, qy + 1, qz)) || view.isSolid(qx, qy + 1, qz);
+            int lookY = covered && view.isSolid(sx, sy - 1, sz) && view.isKnown(sx, sy - 1, sz) ? sy - 1 : sy;
+            fills.add(new Fill(qx, qy, qz, sx, sy, sz, sx, lookY, sz, b[0]));
         }
         fills.sort((a, b) -> a.y() != b.y() ? Integer.compare(a.y(), b.y())
                 : a.z() != b.z() ? Integer.compare(a.z(), b.z()) : Integer.compare(a.x(), b.x()));

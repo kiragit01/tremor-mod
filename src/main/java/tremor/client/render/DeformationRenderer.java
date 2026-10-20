@@ -130,6 +130,8 @@ public final class DeformationRenderer {
     private static final int MIN_SECTION_REFRESH = 2;
     /** Sections the refresh lost track of (if any) are dropped after this many ticks. */
     private static final int SECTION_EXPIRE = 400;
+    /** How far a copy sliding out of a swelling is nudged across its ray at most (blocks, {@link #emitSlid}). */
+    private static final double SLIDE_NUDGE = 0.04;
     /** How far from the hill of an Awakening a thin structure under it is taken in (blocks). */
     private static final double ZONE_SWELL_RADIUS = 6;
     /** Surface and normal estimation (SPEC 6.2) read up to this many voxels beyond the collected ones. */
@@ -391,7 +393,7 @@ public final class DeformationRenderer {
         }
         if (ground != null) {
             zone.evaluate(ground, event.getFrustum(), frameStamp, frameColumns);
-            swellZone(level, ground, tick);
+            swellZone(level, ground, tick, (tick + partialTick) / 20.0);
         }
         for (int i = 0, n = frameColumns.size(); i < n; i++) {
             Column col = frameColumns.get(i);
@@ -845,7 +847,7 @@ public final class DeformationRenderer {
      * ({@link ThinSwell#coverage}). Looked for again when the hill moves, every {@link #RECOLLECT_INTERVAL} ticks, and
      * when the terrain changed.
      */
-    private static void swellZone(ClientLevel level, GroundField ground, long tick) {
+    private static void swellZone(ClientLevel level, GroundField ground, long tick, double seconds) {
         Vec3 at = ground.swellCenter();
         if (at == null) {
             clearZoneSwell();
@@ -866,7 +868,8 @@ public final class DeformationRenderer {
         }
         for (int i = 0, n = zoneFills.size(); i < n; i++) {
             Column col = zoneFills.get(i);
-            double h = ThinSwell.coverage(ground.at(col.sx, col.sy, col.sz), 1, col.fillDistance);
+            double h = ThinSwell.coverage(ground.at(col.sx, col.sy, col.sz)
+                    * ThinSwell.breath(seconds, col.x, col.y, col.z), 1, col.fillDistance);
             if (col.stamp == frameStamp) {
                 col.h += h;
             } else {
@@ -916,7 +919,7 @@ public final class DeformationRenderer {
      * the field at its source.
      */
     private static double fillCoverage(HeightField field, Column col) {
-        return ThinSwell.coverage(field.at(col.sx, col.sy, col.sz),
+        return ThinSwell.coverage(field.at(col.sx, col.sy, col.sz) * ThinSwell.breath(field.time(), col.x, col.y, col.z),
                 ThinSwell.falloff(field.frame(), field.params().sigmaSide(), col.sx, col.sy, col.sz), col.fillDistance);
     }
 
@@ -1097,7 +1100,7 @@ public final class DeformationRenderer {
             // step) would set them off along a diagonal, away from their neighbours, with holes behind.
             int ax = col.axis.getStepX(), ay = col.axis.getStepY(), az = col.axis.getStepZ();
             if (mesh != null && col.fill) {
-                emitGrown(consumer, mesh, col, bx, by, bz);
+                emitSlid(consumer, mesh, col, bx, by, bz);
                 frameVertices += mesh.size();
                 frameCopies++;
             } else if (mesh != null) {
@@ -1162,32 +1165,22 @@ public final class DeformationRenderer {
     }
 
     /**
-     * A cell a thin structure swells into ({@link ThinSwell}): its one copy, grown out of the face toward its source
-     * along its axis as far as it is filled ({@link Column#h}, 0..1). A copy the camera is inside, once whole, is
-     * replayed inside out as well, as in a stack.
+     * A cell a thin structure swells into ({@link ThinSwell}): its one copy, a whole block, slid out along the ray from
+     * its source ({@link Column#normal}) as far as it is filled ({@link Column#h}, 0..1: a block back toward the source
+     * at 0, in the cell at 1), and nudged a little across the ray on its way, so that its faces never lie in the plane
+     * of those of the copy it slides out of. A copy the camera is inside is replayed inside out as well, as in a stack.
      */
-    private static void emitGrown(VertexConsumer consumer, VertexList mesh, Column col, float bx, float by, float bz) {
-        float f = (float) Math.min(1, col.h);
-        Direction axis = col.axis;
-        boolean positive = axis.getAxisDirection() == Direction.AxisDirection.POSITIVE;
-        for (int i = 0; i < mesh.size(); i++) {
-            float lx = mesh.x(i), ly = mesh.y(i), lz = mesh.z(i);
-            switch (axis.getAxis()) {
-                case X -> lx = grown(lx, f, positive);
-                case Y -> ly = grown(ly, f, positive);
-                case Z -> lz = grown(lz, f, positive);
-            }
-            mesh.emitAt(consumer, i, bx + lx, by + ly, bz + lz);
-        }
-        if (f >= 1 && bx <= 0 && bx + 1 >= 0 && by <= 0 && by + 1 >= 0 && bz <= 0 && bz + 1 >= 0) {
-            mesh.emitInside(consumer, bx, by, bz, insideShade);
+    private static void emitSlid(VertexConsumer consumer, VertexList mesh, Column col, float bx, float by, float bz) {
+        double back = 1 - Math.min(1, col.h), nudge = SLIDE_NUDGE * back;
+        Vec3 ray = col.normal;
+        float x = bx + (float) (col.nudgeX * nudge - ray.x() * back);
+        float y = by + (float) (col.nudgeY * nudge - ray.y() * back);
+        float z = bz + (float) (col.nudgeZ * nudge - ray.z() * back);
+        mesh.emit(consumer, x, y, z);
+        if (x <= 0 && x + 1 >= 0 && y <= 0 && y + 1 >= 0 && z <= 0 && z + 1 >= 0) {
+            mesh.emitInside(consumer, x, y, z, insideShade);
             frameVertices += mesh.size();
         }
-    }
-
-    /** A block-local coordinate along the axis of growth of a copy grown {@code f} of the way out of its inner face. */
-    private static float grown(float t, float f, boolean positive) {
-        return positive ? t * f : 1 - (1 - t) * f;
     }
 
     private static double clamp01(double v) {

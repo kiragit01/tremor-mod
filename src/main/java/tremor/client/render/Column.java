@@ -13,19 +13,25 @@ import java.util.Map;
 /**
  * One deformed surface voxel of {@link DeformationRenderer}: where it is and, once baked, its geometry per render
  * layer. The same column serves the bump and the Awakening zone when both cover it ({@link ZoneColumns}). Or an open
- * cell a thin structure swells into around the entity ({@link ThinSwell}): one copy of the structure's voxel nearest to
- * it ({@link #source}), grown out of the face toward that voxel along {@link #axis} as far as {@link #h} (0..1).
+ * cell a thin structure swells into around the entity ({@link ThinSwell}): one whole copy of the structure's voxel
+ * nearest to it ({@link #source}), slid out along the ray from that voxel ({@link #normal}) as far as {@link #h} (0..1)
+ * of the way into the cell.
  */
 final class Column {
     final int x, y, z;
     final BlockPos pos;
-    /** The voxel whose block the copies are of: the voxel itself, or the source of a {@link #fill} cell. */
+    /** The voxel whose block the copies are of: the voxel itself, or the one a {@link #fill} cell looks like. */
     final BlockPos source;
     /** Whether this is a cell a thin structure swells into ({@link ThinSwell.Fill}) rather than a surface voxel. */
     final boolean fill;
     /** For a fill cell: the distance to its source (blocks), and the centre of the source. */
     final double fillDistance;
     final double sx, sy, sz;
+    /**
+     * For a fill cell: which way it is nudged across its ray while it slides (+1 or -1 along each axis), so that its
+     * faces never lie in the plane of those of the copy it slides out of.
+     */
+    final int nudgeX, nudgeY, nudgeZ;
     /** Where a plant/snow layer riding on the voxel sits. */
     final BlockPos decoPos;
     final double cx, cy, cz;
@@ -71,6 +77,7 @@ final class Column {
         this.sx = cx;
         this.sy = cy;
         this.sz = cz;
+        this.nudgeX = this.nudgeY = this.nudgeZ = 0;
     }
 
     Column(ThinSwell.Fill f) {
@@ -78,24 +85,28 @@ final class Column {
         this.y = f.y();
         this.z = f.z();
         this.pos = new BlockPos(x, y, z);
-        this.axis = Direction.getNearest(f.growX(), f.growY(), f.growZ());
-        this.decoPos = pos.relative(axis);
         this.cx = x + 0.5;
         this.cy = y + 0.5;
         this.cz = z + 0.5;
-        this.normal = new Vec3(f.growX(), f.growY(), f.growZ());
-        this.source = new BlockPos(f.sourceX(), f.sourceY(), f.sourceZ());
+        this.normal = new Vec3(x - f.sourceX(), y - f.sourceY(), z - f.sourceZ()).normalize();
+        this.axis = Direction.getNearest(normal.x(), normal.y(), normal.z());
+        this.decoPos = pos.relative(axis);
+        this.source = new BlockPos(f.lookX(), f.lookY(), f.lookZ());
         this.fill = true;
         this.fillDistance = f.distance();
         this.sx = f.sourceX() + 0.5;
         this.sy = f.sourceY() + 0.5;
         this.sz = f.sourceZ() + 0.5;
+        long hash = (x * 73856093L) ^ (y * 19349663L) ^ (z * 83492791L);
+        this.nudgeX = axis.getAxis() == Direction.Axis.X ? 0 : ((hash & 1) == 0 ? 1 : -1);
+        this.nudgeY = axis.getAxis() == Direction.Axis.Y ? 0 : ((hash & 2) == 0 ? 1 : -1);
+        this.nudgeZ = axis.getAxis() == Direction.Axis.Z ? 0 : ((hash & 4) == 0 ? 1 : -1);
     }
 
-    /** Whether it is the fill cell {@code f} as it is (same source, same growth). */
+    /** Whether it is the fill cell {@code f} as it is (same source, same look, same distance). */
     boolean is(ThinSwell.Fill f) {
-        return fill && source.getX() == f.sourceX() && source.getY() == f.sourceY() && source.getZ() == f.sourceZ()
-                && axis.getStepX() == f.growX() && axis.getStepY() == f.growY() && axis.getStepZ() == f.growZ()
+        return fill && sx == f.sourceX() + 0.5 && sy == f.sourceY() + 0.5 && sz == f.sourceZ() + 0.5
+                && source.getX() == f.lookX() && source.getY() == f.lookY() && source.getZ() == f.lookZ()
                 && fillDistance == f.distance();
     }
 
