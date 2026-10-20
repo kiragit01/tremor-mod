@@ -1,0 +1,20 @@
+# Finds land for the scar previews (prototype): what the ground is like at a few places.
+waitchunks
+cmd gamemode spectator
+cmd tp @s 460 260 524
+wait 40
+waitchunks
+cmd execute positioned 460 300 524 positioned over world_surface run tp @s ~-30 ~25 ~-30 facing ~ ~ ~
+wait 40
+waitchunks
+cmd data get entity @s Pos
+screenshot 01_plains
+cmd tp @s 588 260 588
+wait 40
+waitchunks
+cmd execute positioned 588 300 588 positioned over world_surface run tp @s ~-30 ~25 ~-30 facing ~ ~ ~
+wait 40
+waitchunks
+cmd data get entity @s Pos
+screenshot 02_savanna
+quit

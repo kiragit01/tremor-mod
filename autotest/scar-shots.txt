@@ -1,0 +1,41 @@
+# Photographs the scar previews made by scar-preview.txt (prototype branch): the rift at 800 117 800, the maw at
+# 1050 64 800, the inverted land at 1300 73 800.
+waitchunks
+cmd gamemode spectator
+cmd time set noon
+hud off
+cmd tp @s 800 210 800 0 90
+wait 60
+waitchunks
+screenshot 01_rift_top
+cmd tp @s 735 165 735 facing 800 112 800
+wait 30
+screenshot 02_rift_nw
+cmd tp @s 865 165 735 facing 800 112 800
+wait 20
+screenshot 03_rift_ne
+cmd tp @s 800 140 760 facing 800 100 800
+wait 20
+screenshot 04_rift_near
+cmd tp @s 1050 100 800
+wait 60
+waitchunks
+cmd tp @s 1015 95 765 facing 1050 58 800
+wait 30
+screenshot 05_maw_far
+cmd tp @s 1024 68 800 facing 1050 52 800
+wait 20
+screenshot 06_maw_rim
+cmd tp @s 1050 140 800 0 90
+wait 20
+screenshot 07_maw_top
+cmd tp @s 1300 100 800
+wait 60
+waitchunks
+cmd tp @s 1272 92 772 facing 1300 78 800
+wait 30
+screenshot 08_inverted_far
+cmd tp @s 1276 75 800 facing 1300 78 800
+wait 20
+screenshot 09_inverted_side
+quit

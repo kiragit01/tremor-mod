@@ -137,6 +137,12 @@ public final class TremorCommands {
                 .then(probe())
                 .then(hold())
                 .then(difficulty())
+                .then(Commands.literal("scar")
+                        .then(Commands.argument("kind", StringArgumentType.word())
+                                .suggests((ctx, builder) -> SharedSuggestionProvider.suggest(
+                                        java.util.List.of("rift", "maw", "inverted"), builder))
+                                .executes(ctx -> tremor.debug.ScarPreview.run(ctx.getSource(),
+                                        StringArgumentType.getString(ctx, "kind")))))
                 .then(Commands.literal("ambush").executes(TremorCommands::ambush)
                         .then(Commands.literal("stop").executes(TremorCommands::ambushStop)))
                 .then(HollowCommands.hollow())

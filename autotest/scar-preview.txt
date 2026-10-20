@@ -1,0 +1,51 @@
+# Previews of what a lost great frenzy could leave in the world (prototype branch): a rift, a maw, inverted land, each
+# on natural ground, seen from above at an angle and from closer.
+waitchunks
+cmd gamemode spectator
+cmd time set noon
+cmd tremor despawn all
+hud off
+log --- the rift
+cmd tp @s 800 200 800
+wait 60
+waitchunks
+cmd execute positioned 800 300 800 positioned over world_surface run tremor scar rift
+wait 40
+cmd execute positioned 800 300 800 positioned over world_surface run tp @s ~-60 ~55 ~-60 facing ~ ~-10 ~
+wait 40
+waitchunks
+screenshot 01_rift_far
+cmd execute positioned 800 300 800 positioned over world_surface run tp @s ~-22 ~16 ~-22 facing ~ ~-6 ~
+wait 30
+screenshot 02_rift_near
+cmd execute positioned 800 300 800 positioned over world_surface run tp @s ~ ~70 ~ facing ~1 ~ ~1
+cmd tp @s ~ ~ ~ ~ 90
+wait 30
+screenshot 03_rift_top
+log --- the maw
+cmd tp @s 1050 200 800
+wait 60
+waitchunks
+cmd execute positioned 1050 300 800 positioned over world_surface run tremor scar maw
+wait 40
+cmd execute positioned 1050 300 800 positioned over world_surface run tp @s ~-38 ~30 ~-38 facing ~ ~-10 ~
+wait 40
+waitchunks
+screenshot 04_maw_far
+cmd execute positioned 1050 300 800 positioned over world_surface run tp @s ~-14 ~8 ~-14 facing ~ ~-14 ~
+wait 30
+screenshot 05_maw_rim
+log --- inverted land
+cmd tp @s 1300 200 800
+wait 60
+waitchunks
+cmd execute positioned 1300 300 800 positioned over world_surface run tremor scar inverted
+wait 40
+cmd execute positioned 1300 300 800 positioned over world_surface run tp @s ~-32 ~22 ~-32 facing ~ ~ ~
+wait 40
+waitchunks
+screenshot 06_inverted_far
+cmd execute positioned 1300 300 800 positioned over world_surface run tp @s ~-20 ~3 ~-4 facing ~ ~-2 ~
+wait 30
+screenshot 07_inverted_side
+quit
