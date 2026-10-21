@@ -134,11 +134,8 @@ public final class DeformationRenderer {
     private static final double SLIDE_NUDGE = 0.04;
     /** The widest a bridge of a leap is looked for round its line (its largest radius, blocks). */
     private static final double BRIDGE_MAX_RADIUS = 2.0;
-    /** A moving end of a bridge rounds off over this share of its length. */
-    private static final double BRIDGE_CAP = 0.25;
-    /** How much thinner a bridge is in its middle, and how high the waves running along it are (shares). */
+    /** How much thinner a bridge is in its middle (a share of its thickness). */
     private static final double BRIDGE_NECK = 0.3;
-    private static final double BRIDGE_WAVE = 0.18;
     /** How far from the hill of an Awakening a thin structure under it is taken in (blocks). */
     private static final double ZONE_SWELL_RADIUS = 6;
     /** Surface and normal estimation (SPEC 6.2) read up to this many voxels beyond the collected ones. */
@@ -216,13 +213,19 @@ public final class DeformationRenderer {
     private static final Map<Integer, BridgeCells> bridgeCells = new HashMap<>();
     private static final List<BridgeFrame> frameBridges = new ArrayList<>();
 
-    /** The open cells round the line of a leap ({@link ClientTremor.Bridge}): where along it, how far from it. */
+    /**
+     * The open cells round the line of a leap ({@link ClientTremor.Bridge}): where along it, how far from it, and the
+     * way out from it; and the line's direction and length.
+     */
     private static final class BridgeCells {
         Vec3 from;
         Vec3 to;
+        Vec3 axis = Vec3.UNIT_Y;
+        double length;
         final List<Column> cells = new ArrayList<>();
         double[] along = new double[0];
         double[] off = new double[0];
+        Vec3[] out = new Vec3[0];
     }
 
     /** A bridge to draw this frame: its cells, and the bridge as it is now. */
@@ -537,6 +540,13 @@ public final class DeformationRenderer {
         voxels.setTime(tick);
         Vec3 ab = b.sub(a);
         double length2 = ab.lengthSquared();
+        if (!(length2 <= ClientTremor.MAX_LEAP * ClientTremor.MAX_LEAP)) {
+            cells.from = null; // not a leap to build a bridge for
+            cells.along = new double[0];
+            cells.off = new double[0];
+            cells.out = new Vec3[0];
+            return cells;
+        }
         Vec3 dir = length2 < 1e-9 ? Vec3.UNIT_Y : ab.normalize();
         double reach = BRIDGE_MAX_RADIUS + 1;
         int r = (int) Math.ceil(reach);
@@ -569,35 +579,41 @@ public final class DeformationRenderer {
         }
         cells.along = along.stream().mapToDouble(Double::doubleValue).toArray();
         cells.off = off.stream().mapToDouble(Double::doubleValue).toArray();
+        cells.out = new Vec3[cells.cells.size()];
+        for (int i = 0; i < cells.out.length; i++) {
+            cells.out[i] = cells.cells.get(i).normal; // from the line out to the cell, as the fill was made
+        }
+        cells.axis = dir;
+        cells.length = Math.sqrt(length2);
         return cells;
     }
 
     /**
-     * How far each cell of this frame's bridges is filled: the bridge grows across from where the entity leaves in the
-     * first half of the pouring (its head), joins where it lands halfway, and lets go of the near side in the second
-     * half (its tail drawn into the far one); thinner in the middle like a neck, rounded at a moving end, waves running
-     * along it from the near side to the far one.
+     * How far each cell of this frame's bridges is filled ({@link ClientTremor.Bridge}): the tongue is pushed across as
+     * from a tube (a cell at its head fills as the head passes it, its copy sliding in forward), its tail moves on into
+     * the far hill (a cell there empties as the tail passes it, its copy sliding on forward), and it is as thick as
+     * the mass on its way, thinner in the middle like a neck (a cell held back by that slides out from the line).
      */
     private static void pourBridges() {
         for (int f = 0, nf = frameBridges.size(); f < nf; f++) {
             BridgeFrame frame = frameBridges.get(f);
             ClientTremor.Bridge bridge = frame.bridge();
-            double share = bridge.share();
-            double head = Math.min(1, 2 * share), tail = Math.max(0, 2 * share - 1);
-            double swell = Math.pow(Math.sin(Math.PI * share), 0.35);
             BridgeCells cells = frame.cells();
+            double head = bridge.head() * cells.length, tail = bridge.tail() * cells.length;
+            double thick = bridge.radius();
+            Vec3 forward = cells.axis, backward = forward.negate();
             for (int i = 0, n = cells.cells.size(); i < n; i++) {
                 Column col = cells.cells.get(i);
-                double u = cells.along[i];
-                double h = 0;
-                if (u <= head && u >= tail) {
-                    double front = head >= 1 ? 1 : Math.min(1, (head - u) / BRIDGE_CAP);
-                    double back = tail <= 0 ? 1 : Math.min(1, (u - tail) / BRIDGE_CAP);
-                    double radius = bridge.radius() * swell * Math.sqrt(front * back)
-                            * (1 - BRIDGE_NECK * Math.sin(Math.PI * u))
-                            * (1 + BRIDGE_WAVE * Math.sin(2 * Math.PI * (1.5 * u - 1.2 * frame.time())));
-                    h = Math.max(0, Math.min(1, radius - cells.off[i] + 0.5));
-                }
+                double at = cells.along[i] * cells.length;
+                double byHead = Math.max(0, Math.min(1, head - at + 0.5));
+                double byTail = tail <= 0 ? 1 : Math.max(0, Math.min(1, at - tail + 0.5));
+                double radius = thick * (1 - BRIDGE_NECK * Math.sin(Math.PI * cells.along[i]));
+                double byThickness = Math.max(0, Math.min(1, radius - cells.off[i] + 0.5));
+                double h = Math.min(byHead, Math.min(byTail, byThickness));
+                // It slides the way the side that holds it back moves: forward at the head, on into the far hill at
+                // the tail, out from the line as the bridge thickens.
+                col.normal = byHead <= byTail && byHead <= byThickness ? forward
+                        : byTail <= byThickness ? backward : cells.out[i];
                 if (col.stamp == frameStamp) {
                     col.h += h;
                 } else {

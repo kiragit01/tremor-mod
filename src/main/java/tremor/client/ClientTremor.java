@@ -53,6 +53,17 @@ public final class ClientTremor {
     private static final double BRIDGE_PER_HEIGHT = 0.6;
     private static final double BRIDGE_MIN = 1.0;
     private static final double BRIDGE_MAX = 2.0;
+    /**
+     * The flow of a leap over its pouring (shares of it): the tongue touches the far side at {@link #LEAP_ARRIVE} (the
+     * far hill grows from then on), the hill it leaves is empty at {@link #LEAP_DRAIN}, and the tongue's tail lets go of
+     * the near side from {@link #LEAP_LET_GO} on.
+     */
+    private static final double LEAP_ARRIVE = 0.4;
+    private static final double LEAP_DRAIN = 0.75;
+    private static final double LEAP_LET_GO = 0.7;
+    /** The longest leap taken from the server (blocks), and how far from the entity it may start. */
+    public static final double MAX_LEAP = 16;
+    private static final double MAX_LEAP_DISTANCE = 64;
     private static long lastStatesNanos;
 
     /**
@@ -90,7 +101,7 @@ public final class ClientTremor {
         if (snap != null) {
             playbacks.computeIfAbsent(payload.instance(), instance -> new SnapshotPlayback())
                     .accept(payload.instance(), snap, now);
-            if (payload.leap() != null) {
+            if (sane(payload.leap(), payload.position())) {
                 leapsTold.put(payload.instance(), payload.leap());
             } else {
                 leapsTold.remove(payload.instance());
@@ -230,24 +241,31 @@ public final class ClientTremor {
             }
         }
         TremorStatePayload.Leap leap = view.leap;
-        double poured = smoothstep(view.share), rest = view.rest;
+        double p = view.share, rest = view.rest;
+        // One mass: what the hill it leaves still holds, what has come into the one it lands in, what is on its way.
+        double left = 1 - smoothstep(p / LEAP_DRAIN);
+        double arrived = smoothstep((p - LEAP_ARRIVE) / (1 - LEAP_ARRIVE));
+        double moving = Math.max(0, 1 - left - arrived);
+        double head = smoothstep(p / LEAP_ARRIVE), tail = smoothstep((p - LEAP_LET_GO) / (1 - LEAP_LET_GO));
+        double thickest = Math.max(BRIDGE_MIN, Math.min(BRIDGE_MAX, BRIDGE_PER_HEIGHT * rest));
+        Bridge bridge = new Bridge(leap.from(), leap.to(), head, tail,
+                thickest * Math.min(1, Math.sqrt(moving / Math.max(0.15, head - tail))));
         Vec3 a = leap.from(), b = leap.to();
         boolean before = !view.gone, across = view.gone && c.sub(a).dot(b.sub(a)) < b.sub(a).dot(b.sub(a));
         List<RenderState> parts = new ArrayList<>(3);
-        // Drawn out toward each other, the most halfway: each hill's front faces the other end of the leap.
-        double stretch = 1 + LEAP_STRETCH * Math.sin(Math.PI * poured);
+        // Drawn out toward each other while much is on its way: each hill's front faces the other end of the leap.
+        double stretch = 1 + LEAP_STRETCH * Math.min(1, 2 * moving);
         // Its own hill: the one it leaves before the gap (heading for it: its front), nothing across it, the one it
         // lands in after it (heading away: its back faces the gap).
-        double ownHeight = before ? rest * (1 - poured) : across ? 0 : rest * poured;
-        Bridge bridge = new Bridge(a, b, view.share, Math.max(BRIDGE_MIN, Math.min(BRIDGE_MAX, BRIDGE_PER_HEIGHT * rest)));
+        double ownHeight = before ? rest * left : across ? 0 : rest * arrived;
         parts.add(drawnOut(own, own.frame(), ownHeight, instance, stretch, (before ? a : b).sub(c).add(b.sub(a)
                 .scale(before ? 1 : -1)), before).withBridge(bridge));
         if (!before) {
-            parts.add(drawnOut(own, new BumpFrame(a, leap.fromNormal(), b.sub(a)), rest * (1 - poured),
+            parts.add(drawnOut(own, new BumpFrame(a, leap.fromNormal(), b.sub(a)), rest * left,
                     -(instance * 2 + 1), stretch, b.sub(a), true));
         }
         if (before || across) {
-            parts.add(drawnOut(own, new BumpFrame(b, leap.toNormal(), a.sub(b)), rest * poured,
+            parts.add(drawnOut(own, new BumpFrame(b, leap.toNormal(), a.sub(b)), rest * arrived,
                     -(instance * 2 + 2), stretch, a.sub(b), true));
         }
         return parts;
@@ -276,6 +294,17 @@ public final class ClientTremor {
         }
         return new RenderState(frame, shape.withAmplitude(height), own.fullAmplitude(), own.timeSeconds(),
                 instance, own.stage(), instance == own.instance() ? own.rippleAgeSeconds() : Double.NaN, null);
+    }
+
+    /** Whether a leap the server tells is one to draw: finite, at most {@link #MAX_LEAP} long, near the entity. */
+    private static boolean sane(TremorStatePayload.Leap leap, Vec3 position) {
+        return leap != null && finite(leap.from()) && finite(leap.to()) && finite(leap.fromNormal())
+                && finite(leap.toNormal()) && leap.from().distance(leap.to()) <= MAX_LEAP
+                && leap.from().distance(position) <= MAX_LEAP_DISTANCE;
+    }
+
+    private static boolean finite(Vec3 v) {
+        return Double.isFinite(v.x()) && Double.isFinite(v.y()) && Double.isFinite(v.z());
     }
 
     private static double smoothstep(double x) {
@@ -333,12 +362,11 @@ public final class ClientTremor {
     }
 
     /**
-     * The ground pouring over a gap in a leap: from where the entity leaves the ground ({@code from}) to where it lands
-     * ({@code to}), how far the pouring has come ({@code share}, 0..1) and how thick the bridge gets at most (its
-     * radius, blocks). The renderer grows it across from {@code from}, joins it to {@code to} halfway, then draws it
-     * into {@code to}.
+     * The tongue of ground flowing across a gap in a leap, from where the entity leaves the ground ({@code from}) to
+     * where it lands ({@code to}): how far along the line its head has come and its tail has moved on (shares of the
+     * line, 0..1) and how thick it is now (its radius, blocks, before the neck the renderer gives it).
      */
-    public record Bridge(Vec3 from, Vec3 to, double share, double radius) {
+    public record Bridge(Vec3 from, Vec3 to, double head, double tail, double radius) {
     }
 
     /**

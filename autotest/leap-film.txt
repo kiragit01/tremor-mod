@@ -1,0 +1,108 @@
+# Films a leap across a gap of 3 blocks for a GIF (the game slowed to 4 ticks a second, a frame every tick): the hill
+# flowing over into the far one.
+waitchunks
+cmd gamemode spectator
+cmd time set noon
+cmd tremor despawn all
+cmd tremor awaken stop
+hud off
+cmd tp @s 617.5 205.0 690.5
+wait 40
+waitchunks
+cmd fill 596 190 696 638 212 716 minecraft:air
+cmd fill 600 196 700 615 199 712 minecraft:dirt
+cmd fill 600 200 700 615 200 712 minecraft:grass_block
+cmd fill 619 196 700 634 199 712 minecraft:stone
+cmd fill 619 200 700 634 200 712 minecraft:stone
+cmd tremor spawn 609 201 706
+cmd tremor ai off
+cmd tremor stage hunting
+cmd tremor hold
+cmd tp @s 617.5 204.5 694.5
+lookat 617.5 200.5 706.5
+wait 40
+cmd tick rate 4
+cmd tremor goto 627 200 706
+wait 1
+screenshot f00
+wait 1
+screenshot f01
+wait 1
+screenshot f02
+wait 1
+screenshot f03
+wait 1
+screenshot f04
+wait 1
+screenshot f05
+wait 1
+screenshot f06
+wait 1
+screenshot f07
+wait 1
+screenshot f08
+wait 1
+screenshot f09
+wait 1
+screenshot f10
+wait 1
+screenshot f11
+wait 1
+screenshot f12
+wait 1
+screenshot f13
+wait 1
+screenshot f14
+wait 1
+screenshot f15
+wait 1
+screenshot f16
+wait 1
+screenshot f17
+wait 1
+screenshot f18
+wait 1
+screenshot f19
+wait 1
+screenshot f20
+wait 1
+screenshot f21
+wait 1
+screenshot f22
+wait 1
+screenshot f23
+wait 1
+screenshot f24
+wait 1
+screenshot f25
+wait 1
+screenshot f26
+wait 1
+screenshot f27
+wait 1
+screenshot f28
+wait 1
+screenshot f29
+wait 1
+screenshot f30
+wait 1
+screenshot f31
+wait 1
+screenshot f32
+wait 1
+screenshot f33
+wait 1
+screenshot f34
+wait 1
+screenshot f35
+wait 1
+screenshot f36
+wait 1
+screenshot f37
+wait 1
+screenshot f38
+wait 1
+screenshot f39
+cmd tick rate 20
+cmd tremor despawn all
+quit
