@@ -114,6 +114,13 @@ public final class TremorRuntime {
     /** This runtime's entity (one of the level's), or null once it is gone. */
     private TremorEntity entity;
     private final SectionTrackingView tracked;
+    /** How far ahead along its path (blocks) a leap starts to pour the hill over. */
+    private static final double LEAP_LOOKAHEAD = 5;
+    /** The last leap is still told this long after it (ticks), while the hill it left sinks away. */
+    private static final int LEAP_LINGER_TICKS = 40;
+    /** The leap told the clients ({@link #leap}), and the game time until which it is told after it. */
+    private TremorStatePayload.Leap leap;
+    private long leapUntil;
     private final VoxelCache cache;
     private SurfaceGraph graph;
     /** Uncached view of the world for the current pass (see {@link SectionTrackingView} on why it is replaced). */
@@ -1323,7 +1330,51 @@ public final class TremorRuntime {
         Crawler c = entity.crawler();
         return new TremorStatePayload(entity.instance(), true, level.getGameTime(), c.position(), c.normal(),
                 c.forward(), c.velocity(), (float) c.amplitude(), (float) TremorEntity.wrapPhase(c.phase()),
-                entity.stage(), mind(entity).rippleAge(level.getGameTime()), (float) mind(entity).lurkShare());
+                entity.stage(), mind(entity).rippleAge(level.getGameTime()), (float) mind(entity).lurkShare(),
+                leap(entity.crawler()));
+    }
+
+    /**
+     * The leap to tell the clients (the user's wish: a leap across a gap pours the hill over from where it leaves to
+     * where it lands, rather than the bump going under and coming up on the far side): the one the crawler is in or
+     * comes to within {@link #LEAP_LOOKAHEAD}, and the last one for {@link #LEAP_LINGER_TICKS} after it, while the hill
+     * it left sinks away; null if none. A leap is a dive edge through open air
+     * ({@link tremor.core.graph.SurfaceGraph}); one through rock stays a dive.
+     */
+    private TremorStatePayload.Leap leap(Crawler c) {
+        long now = level.getGameTime();
+        TremorStatePayload.Leap ahead = leapAhead(c);
+        if (ahead != null) {
+            if (leap != null && ahead.to().distanceSquared(leap.to()) < 1e-6
+                    && live.isOpen((int) Math.floor(ahead.from().x()), (int) Math.floor(ahead.from().y()),
+                    (int) Math.floor(ahead.from().z()))) {
+                ahead = leap; // a replan in mid-air starts the dive where the crawler is: it still left from there
+            }
+            leap = ahead;
+            leapUntil = now + LEAP_LINGER_TICKS;
+        } else if (now >= leapUntil) {
+            leap = null;
+        }
+        return leap;
+    }
+
+    /** The dive through open air the crawler is in, or comes to within {@link #LEAP_LOOKAHEAD}; null if none. */
+    private TremorStatePayload.Leap leapAhead(Crawler c) {
+        tremor.core.path.PathSpline spline = c.spline();
+        if (spline == null) {
+            return null;
+        }
+        double[] dive = spline.dive(c.progress());
+        if (dive == null || dive[0] - c.progress() > LEAP_LOOKAHEAD) {
+            return null;
+        }
+        // A block into the dive: past the face of the node it leaves, in the gap if it is a leap.
+        Vec3 probe = spline.position(Math.min(dive[1], dive[0] + 1));
+        if (!live.isOpen((int) Math.floor(probe.x()), (int) Math.floor(probe.y()), (int) Math.floor(probe.z()))) {
+            return null;
+        }
+        Vec3 from = spline.position(dive[0]), to = spline.position(dive[1]);
+        return new TremorStatePayload.Leap(from, normalAt(from), to, normalAt(to));
     }
 
     private void sendShape(TremorEntity entity) {

@@ -20,18 +20,26 @@ import tremor.core.math.Vec3;
  *                  {@link #NO_RIPPLE} if there is none (or it is older than that). Sent as an unsigned short.
  * @param lurk      how far the bump has gone into lying in wait, 0..1 ({@link tremor.core.behavior.Ambush}): flat,
  *                  wide and breathing at 1
+ * @param leap      the leap across open air the entity is in or comes to, or has just made; null if none
  */
 public record TremorStatePayload(int instance, boolean present, long gameTime, Vec3 position, Vec3 normal,
                                  Vec3 forward, Vec3 velocity, float amplitude, float phase, Stage stage,
-                                 int rippleAge, float lurk)
+                                 int rippleAge, float lurk, Leap leap)
         implements TremorPayload {
+
+    /**
+     * A leap across a gap of open air: where the entity leaves the ground and where it lands, with the surface normals
+     * there. The clients pour the hill over from one to the other as it goes across.
+     */
+    public record Leap(Vec3 from, Vec3 fromNormal, Vec3 to, Vec3 toNormal) {
+    }
 
     /** {@link #rippleAge} when there is no ripple; also the largest age that is sent. */
     public static final int NO_RIPPLE = 0xFFFF;
 
     public static TremorStatePayload absent(int instance, long gameTime) {
         return new TremorStatePayload(instance, false, gameTime, Vec3.ZERO, Vec3.UNIT_Y, Vec3.UNIT_X, Vec3.ZERO, 0, 0,
-                Stage.DORMANT, NO_RIPPLE, 0);
+                Stage.DORMANT, NO_RIPPLE, 0, null);
     }
 
     @Override
@@ -53,6 +61,17 @@ public record TremorStatePayload(int instance, boolean present, long gameTime, V
         buf.writeEnum(stage);
         buf.writeShort(Math.max(0, Math.min(NO_RIPPLE, rippleAge)));
         buf.writeFloat(lurk);
+        buf.writeBoolean(leap != null);
+        if (leap != null) {
+            buf.writeDouble(leap.from().x());
+            buf.writeDouble(leap.from().y());
+            buf.writeDouble(leap.from().z());
+            writeVec(buf, leap.fromNormal());
+            buf.writeDouble(leap.to().x());
+            buf.writeDouble(leap.to().y());
+            buf.writeDouble(leap.to().z());
+            writeVec(buf, leap.toNormal());
+        }
     }
 
     static TremorStatePayload read(FriendlyByteBuf buf) {
@@ -71,8 +90,15 @@ public record TremorStatePayload(int instance, boolean present, long gameTime, V
         Stage stage = buf.readEnum(Stage.class);
         int rippleAge = buf.readUnsignedShort();
         float lurk = buf.readFloat();
+        Leap leap = null;
+        if (buf.readBoolean()) {
+            Vec3 from = new Vec3(buf.readDouble(), buf.readDouble(), buf.readDouble());
+            Vec3 fromNormal = readVec(buf);
+            Vec3 to = new Vec3(buf.readDouble(), buf.readDouble(), buf.readDouble());
+            leap = new Leap(from, fromNormal, to, readVec(buf));
+        }
         return new TremorStatePayload(instance, true, gameTime, position, normal, forward, velocity, amplitude, phase,
-                stage, rippleAge, lurk);
+                stage, rippleAge, lurk, leap);
     }
 
     static void writeVec(FriendlyByteBuf buf, Vec3 v) {

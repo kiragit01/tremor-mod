@@ -1,0 +1,35 @@
+# The tremor hears players speak (Simple Voice Chat; here /tremor voice speaks for the player, as the voice chat's
+# plugin would): a quiet voice is not heard, a loud one is, a whisper less so.
+waitchunks
+cmd gamemode creative
+cmd time set noon
+cmd tremor despawn all
+cmd tremor awaken stop
+cmd tp @s 300.5 201.0 300.5 0 10
+wait 40
+waitchunks
+cmd fill 280 195 280 320 200 320 minecraft:dirt
+cmd fill 280 200 280 320 200 320 minecraft:grass_block
+cmd fill 280 201 280 320 206 320 minecraft:air
+cmd gamemode survival
+cmd tremor spawn 300 201 312
+cmd tremor ai off
+cmd tremor anger 0
+wait 20
+log --- a quiet voice
+cmd tremor voice -55
+wait 15
+cmd tremor info
+log --- a whisper
+cmd tremor anger 0
+cmd tremor voice -20 whisper
+wait 15
+cmd tremor info
+log --- a loud voice
+cmd tremor anger 0
+cmd tremor voice -10
+wait 15
+cmd tremor info
+cmd tremor despawn all
+cmd gamemode creative
+quit

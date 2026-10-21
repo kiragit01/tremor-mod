@@ -132,6 +132,10 @@ public final class DeformationRenderer {
     private static final int SECTION_EXPIRE = 400;
     /** How far a copy sliding out of a swelling is nudged across its ray at most (blocks, {@link #emitSlid}). */
     private static final double SLIDE_NUDGE = 0.04;
+    /** The widest a bridge of a leap is looked for round its line (its largest radius, blocks). */
+    private static final double BRIDGE_MAX_RADIUS = 2.0;
+    /** How much thinner a bridge is in its middle (a share of its thickness). */
+    private static final double BRIDGE_NECK = 0.3;
     /** How far from the hill of an Awakening a thin structure under it is taken in (blocks). */
     private static final double ZONE_SWELL_RADIUS = 6;
     /** Surface and normal estimation (SPEC 6.2) read up to this many voxels beyond the collected ones. */
@@ -205,6 +209,28 @@ public final class DeformationRenderer {
      * while the ground there is not thin.
      */
     private static final List<Column> zoneFills = new ArrayList<>();
+    /** The cells of the bridge of each entity's leap, by instance, and the bridges drawn this frame. */
+    private static final Map<Integer, BridgeCells> bridgeCells = new HashMap<>();
+    private static final List<BridgeFrame> frameBridges = new ArrayList<>();
+
+    /**
+     * The open cells round the line of a leap ({@link ClientTremor.Bridge}): where along it, how far from it, and the
+     * way out from it; and the line's direction and length.
+     */
+    private static final class BridgeCells {
+        Vec3 from;
+        Vec3 to;
+        Vec3 axis = Vec3.UNIT_Y;
+        double length;
+        final List<Column> cells = new ArrayList<>();
+        double[] along = new double[0];
+        double[] off = new double[0];
+        Vec3[] out = new Vec3[0];
+    }
+
+    /** A bridge to draw this frame: its cells, and the bridge as it is now. */
+    private record BridgeFrame(BridgeCells cells, ClientTremor.Bridge bridge, double time) {
+    }
     private static Set<Long> zoneThin = Set.of();
     /** Where and when they were last looked for, and whether the terrain changed since. */
     private static Vec3 zoneSwellAt;
@@ -296,6 +322,8 @@ public final class DeformationRenderer {
         voxels.clear();
         zone.clear();
         clearZoneSwell();
+        bridgeCells.clear();
+        frameBridges.clear();
         AwakeningGround.reset();
         HollowGround.reset();
         source.clear();
@@ -378,7 +406,7 @@ public final class DeformationRenderer {
         camZ = cam.z;
         bumps(level, partialTick, tick);
         GroundField ground = ground(level, (double) tick + partialTick, partialTick, tick);
-        if (frameBumps.isEmpty() && ground == null) {
+        if (frameBumps.isEmpty() && ground == null && frameBridges.isEmpty()) {
             return false;
         }
 
@@ -406,6 +434,7 @@ public final class DeformationRenderer {
             zone.evaluate(ground, event.getFrustum(), frameStamp, frameColumns);
             swellZone(level, ground, tick, (tick + partialTick) / 20.0);
         }
+        pourBridges();
         for (int i = 0, n = frameColumns.size(); i < n; i++) {
             Column col = frameColumns.get(i);
             if (!col.baked && col.h >= BumpShape.RENDER_THRESHOLD) {
@@ -482,8 +511,13 @@ public final class DeformationRenderer {
         frameBumps.clear();
         List<ClientTremor.RenderState> states = ClientTremor.renderStates(level, partialTick);
         java.util.Set<Integer> known = new java.util.HashSet<>();
+        frameBridges.clear();
         for (ClientTremor.RenderState state : states) {
             known.add(state.instance());
+            if (state.bridge() != null) {
+                frameBridges.add(new BridgeFrame(bridgeCells(level, state.instance(), state.bridge(), tick),
+                        state.bridge(), state.timeSeconds()));
+            }
             if (frameBumps.size() < MAX_BUMPS) {
                 Bump bump = bumps.computeIfAbsent(state.instance(), instance -> new Bump());
                 bump.field = bump(level, state, bump, frameBumps.isEmpty(), tick);
@@ -493,6 +527,115 @@ public final class DeformationRenderer {
             }
         }
         bumps.keySet().retainAll(known);
+        bridgeCells.keySet().retainAll(known);
+    }
+
+    /**
+     * The cells of the bridge of an entity's leap: every open cell within the bridge's reach of the line from where it
+     * leaves to where it lands, a copy of the ground it leaves sliding out from the line; found again when the leap
+     * changes.
+     */
+    private static BridgeCells bridgeCells(ClientLevel level, int instance, ClientTremor.Bridge bridge, long tick) {
+        BridgeCells cells = bridgeCells.computeIfAbsent(instance, i -> new BridgeCells());
+        Vec3 a = bridge.from(), b = bridge.to();
+        if (cells.from != null && a.distanceSquared(cells.from) < 1e-6 && b.distanceSquared(cells.to) < 1e-6) {
+            for (Column col : cells.cells) {
+                col.lastUsed = tick;
+            }
+            return cells;
+        }
+        cells.from = a;
+        cells.to = b;
+        cells.cells.clear();
+        source.begin(level);
+        voxels.setTime(tick);
+        Vec3 ab = b.sub(a);
+        double length2 = ab.lengthSquared();
+        if (!(length2 <= ClientTremor.MAX_LEAP * ClientTremor.MAX_LEAP)) {
+            cells.from = null; // not a leap to build a bridge for
+            cells.along = new double[0];
+            cells.off = new double[0];
+            cells.out = new Vec3[0];
+            return cells;
+        }
+        Vec3 dir = length2 < 1e-9 ? Vec3.UNIT_Y : ab.normalize();
+        double reach = BRIDGE_MAX_RADIUS + 1;
+        int r = (int) Math.ceil(reach);
+        int x0 = (int) Math.floor(Math.min(a.x(), b.x())) - r, x1 = (int) Math.floor(Math.max(a.x(), b.x())) + r;
+        int y0 = (int) Math.floor(Math.min(a.y(), b.y())) - r, y1 = (int) Math.floor(Math.max(a.y(), b.y())) + r;
+        int z0 = (int) Math.floor(Math.min(a.z(), b.z())) - r, z1 = (int) Math.floor(Math.max(a.z(), b.z())) + r;
+        BlockPos look = BlockPos.containing(a.x(), a.y(), a.z());
+        List<Double> along = new ArrayList<>(), off = new ArrayList<>();
+        for (int y = y0; y <= y1; y++) {
+            for (int z = z0; z <= z1; z++) {
+                for (int x = x0; x <= x1; x++) {
+                    Vec3 q = Vec3.voxelCenter(x, y, z);
+                    double t = length2 < 1e-9 ? 0 : Math.max(0, Math.min(1, q.sub(a).dot(ab) / length2));
+                    Vec3 p = a.add(ab.scale(t));
+                    double d = q.distance(p);
+                    if (d > reach || !voxels.isOpen(x, y, z) || !voxels.isKnown(x, y, z)) {
+                        continue;
+                    }
+                    // It slides out from the line: from the cell of the nearest point of it, or along it on the line.
+                    BlockPos from = BlockPos.containing(p.x(), p.y(), p.z());
+                    if (from.getX() == x && from.getY() == y && from.getZ() == z) {
+                        from = BlockPos.containing(p.x() - dir.x(), p.y() - dir.y(), p.z() - dir.z());
+                    }
+                    cells.cells.add(fill(new ThinSwell.Fill(x, y, z, from.getX(), from.getY(), from.getZ(),
+                            look.getX(), look.getY(), look.getZ(), Math.max(d, 0.5)), tick));
+                    along.add(t);
+                    off.add(d);
+                }
+            }
+        }
+        cells.along = along.stream().mapToDouble(Double::doubleValue).toArray();
+        cells.off = off.stream().mapToDouble(Double::doubleValue).toArray();
+        cells.out = new Vec3[cells.cells.size()];
+        for (int i = 0; i < cells.out.length; i++) {
+            cells.out[i] = cells.cells.get(i).normal; // from the line out to the cell, as the fill was made
+        }
+        cells.axis = dir;
+        cells.length = Math.sqrt(length2);
+        return cells;
+    }
+
+    /**
+     * How far each cell of this frame's bridges is filled ({@link ClientTremor.Bridge}): the tongue is pushed across as
+     * from a tube (a cell at its head fills as the head passes it, its copy sliding in forward), its tail moves on into
+     * the far hill (a cell there empties as the tail passes it, its copy sliding on forward), and it is as thick as
+     * the mass on its way, thinner in the middle like a neck (a cell held back by that slides out from the line).
+     */
+    private static void pourBridges() {
+        for (int f = 0, nf = frameBridges.size(); f < nf; f++) {
+            BridgeFrame frame = frameBridges.get(f);
+            ClientTremor.Bridge bridge = frame.bridge();
+            BridgeCells cells = frame.cells();
+            double head = bridge.head() * cells.length, tail = bridge.tail() * cells.length;
+            double thick = bridge.radius();
+            Vec3 forward = cells.axis, backward = forward.negate();
+            for (int i = 0, n = cells.cells.size(); i < n; i++) {
+                Column col = cells.cells.get(i);
+                double at = cells.along[i] * cells.length;
+                double byHead = Math.max(0, Math.min(1, head - at + 0.5));
+                double byTail = tail <= 0 ? 1 : Math.max(0, Math.min(1, at - tail + 0.5));
+                double radius = thick * (1 - BRIDGE_NECK * Math.sin(Math.PI * cells.along[i]));
+                double byThickness = Math.max(0, Math.min(1, radius - cells.off[i] + 0.5));
+                double h = Math.min(byHead, Math.min(byTail, byThickness));
+                // It slides the way the side that holds it back moves: forward at the head, on into the far hill at
+                // the tail, out from the line as the bridge thickens.
+                col.normal = byHead <= byTail && byHead <= byThickness ? forward
+                        : byTail <= byThickness ? backward : cells.out[i];
+                if (col.stamp == frameStamp) {
+                    col.h += h;
+                } else {
+                    col.stamp = frameStamp;
+                    col.h = h;
+                    col.inBump = false;
+                    col.inZone = false;
+                    frameColumns.add(col);
+                }
+            }
+        }
     }
 
     /**
