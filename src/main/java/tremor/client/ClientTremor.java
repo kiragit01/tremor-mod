@@ -42,6 +42,17 @@ public final class ClientTremor {
     private static final double LEAP_OUT = 2.5;
     /** How fast the pouring finishes, or goes back, once the server no longer tells the leap (shares per second). */
     private static final double LEAP_SETTLE = 2;
+    /**
+     * How much longer the hills are drawn out toward each other halfway through the pouring (their half-length
+     * toward the other end times {@code 1 + LEAP_STRETCH}, their sides narrower to match).
+     */
+    private static final double LEAP_STRETCH = 1.3;
+    /** A hill drawn out straight up toward the other end grows by this share of its stretch. */
+    private static final double LEAP_TALL = 0.5;
+    /** The thickest the bridge of a leap gets (its radius), as a share of the hill's height, within these bounds. */
+    private static final double BRIDGE_PER_HEIGHT = 0.6;
+    private static final double BRIDGE_MIN = 1.0;
+    private static final double BRIDGE_MAX = 2.0;
     private static long lastStatesNanos;
 
     /**
@@ -155,7 +166,7 @@ public final class ClientTremor {
                 BumpParams drawn = shape.lurking(sample.lurk(), tremor.core.behavior.Ambush.SPREAD).withAmplitude(
                         sample.amplitude() * tremor.core.behavior.Ambush.breath(gameTime / 20.0, sample.lurk()));
                 RenderState state = new RenderState(sample.frame(), drawn, shape.amplitude(), sample.phase(),
-                        entry.getKey(), sample.stage(), sample.rippleAge());
+                        entry.getKey(), sample.stage(), sample.rippleAge(), null);
                 distances.remove(at); // each hill goes in by its own distance
                 for (RenderState part : pour(state, dt)) {
                     double d = part.frame().center().distance(eye);
@@ -223,23 +234,48 @@ public final class ClientTremor {
         Vec3 a = leap.from(), b = leap.to();
         boolean before = !view.gone, across = view.gone && c.sub(a).dot(b.sub(a)) < b.sub(a).dot(b.sub(a));
         List<RenderState> parts = new ArrayList<>(3);
-        // Its own hill: the one it leaves before the gap, nothing across it, the one it lands in after it.
+        // Drawn out toward each other, the most halfway: each hill's front faces the other end of the leap.
+        double stretch = 1 + LEAP_STRETCH * Math.sin(Math.PI * poured);
+        // Its own hill: the one it leaves before the gap (heading for it: its front), nothing across it, the one it
+        // lands in after it (heading away: its back faces the gap).
         double ownHeight = before ? rest * (1 - poured) : across ? 0 : rest * poured;
-        parts.add(withHeight(own, own.frame(), ownHeight, instance));
+        Bridge bridge = new Bridge(a, b, view.share, Math.max(BRIDGE_MIN, Math.min(BRIDGE_MAX, BRIDGE_PER_HEIGHT * rest)));
+        parts.add(drawnOut(own, own.frame(), ownHeight, instance, stretch, (before ? a : b).sub(c).add(b.sub(a)
+                .scale(before ? 1 : -1)), before).withBridge(bridge));
         if (!before) {
-            parts.add(withHeight(own, new BumpFrame(a, leap.fromNormal(), b.sub(a)), rest * (1 - poured),
-                    -(instance * 2 + 1)));
+            parts.add(drawnOut(own, new BumpFrame(a, leap.fromNormal(), b.sub(a)), rest * (1 - poured),
+                    -(instance * 2 + 1), stretch, b.sub(a), true));
         }
         if (before || across) {
-            parts.add(withHeight(own, new BumpFrame(b, leap.toNormal(), b.sub(a)), rest * poured,
-                    -(instance * 2 + 2)));
+            parts.add(drawnOut(own, new BumpFrame(b, leap.toNormal(), a.sub(b)), rest * poured,
+                    -(instance * 2 + 2), stretch, a.sub(b), true));
         }
         return parts;
     }
 
-    private static RenderState withHeight(RenderState own, BumpFrame frame, double height, int instance) {
-        return new RenderState(frame, own.params().withAmplitude(height), own.fullAmplitude(), own.timeSeconds(),
-                instance, own.stage(), instance == own.instance() ? own.rippleAgeSeconds() : Double.NaN);
+    /**
+     * A hill of the leap, {@code height} high and drawn out {@code k} times toward the other end ({@code toward}, from
+     * its centre): where that end is beside it, its front ({@code front}) or back half-length longer and its sides
+     * narrower by the square root; where it is over it (a leap straight up to a ceiling), taller and narrower all
+     * round. No trailing dip.
+     */
+    private static RenderState drawnOut(RenderState own, BumpFrame frame, double height, int instance, double k,
+                                        Vec3 toward, boolean front) {
+        BumpParams p = own.params();
+        Vec3 dir = toward.normalize();
+        BumpParams shape;
+        if (!dir.isNearZero() && Math.abs(dir.dot(frame.normal())) > 0.7) {
+            double narrow = 1 / Math.sqrt(k);
+            shape = new BumpParams(p.amplitude(), p.sigmaFront() * narrow, p.sigmaBack() * narrow,
+                    p.sigmaSide() * narrow, p.trailLag(), p.trailSigma(), 0, p.jitter());
+            height *= 1 + LEAP_TALL * (k - 1);
+        } else {
+            shape = new BumpParams(p.amplitude(), front ? p.sigmaFront() * k : p.sigmaFront(),
+                    front ? p.sigmaBack() : p.sigmaBack() * k, p.sigmaSide() / Math.sqrt(k), p.trailLag(),
+                    p.trailSigma(), 0, p.jitter());
+        }
+        return new RenderState(frame, shape.withAmplitude(height), own.fullAmplitude(), own.timeSeconds(),
+                instance, own.stage(), instance == own.instance() ? own.rippleAgeSeconds() : Double.NaN, null);
     }
 
     private static double smoothstep(double x) {
@@ -288,7 +324,21 @@ public final class ClientTremor {
      *                         started. It keeps growing after the ripple is over; when that is, is up to the renderer.
      */
     public record RenderState(BumpFrame frame, BumpParams params, double fullAmplitude, double timeSeconds,
-                              int instance, Stage stage, double rippleAgeSeconds) {
+                              int instance, Stage stage, double rippleAgeSeconds, Bridge bridge) {
+        /** The same, with the bridge of a leap the entity pours over. */
+        RenderState withBridge(Bridge bridge) {
+            return new RenderState(frame, params, fullAmplitude, timeSeconds, instance, stage, rippleAgeSeconds,
+                    bridge);
+        }
+    }
+
+    /**
+     * The ground pouring over a gap in a leap: from where the entity leaves the ground ({@code from}) to where it lands
+     * ({@code to}), how far the pouring has come ({@code share}, 0..1) and how thick the bridge gets at most (its
+     * radius, blocks). The renderer grows it across from {@code from}, joins it to {@code to} halfway, then draws it
+     * into {@code to}.
+     */
+    public record Bridge(Vec3 from, Vec3 to, double share, double radius) {
     }
 
     /**
