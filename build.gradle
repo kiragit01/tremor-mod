@@ -109,6 +109,17 @@ repositories {
             includeGroup 'maven.modrinth'
         }
     }
+    exclusiveContent {
+        forRepository {
+            maven {
+                name = 'Simple Voice Chat'
+                url = 'https://maven.maxhenkel.de/repository/public'
+            }
+        }
+        filter {
+            includeGroup 'de.maxhenkel.voicechat'
+        }
+    }
 }
 
 configurations {
@@ -119,6 +130,13 @@ dependencies {
     // -Ptremor_sodium=true adds Sodium to the dev runtime to check render compatibility (SPEC 6.3).
     if (providers.gradleProperty('tremor_sodium').map { it.toBoolean() }.getOrElse(false)) {
         localRuntime "maven.modrinth:sodium:${sodium_version}"
+    }
+
+    // Simple Voice Chat's API, for its plugin (tremor.compat.VoiceChatPlugin): the voice chat brings it when installed.
+    compileOnly "de.maxhenkel.voicechat:voicechat-api:${voicechat_api_version}"
+    // -Ptremor_voicechat=true adds Simple Voice Chat to the dev runtime, to see the plugin load.
+    if (providers.gradleProperty('tremor_voicechat').map { it.toBoolean() }.getOrElse(false)) {
+        localRuntime "maven.modrinth:simple-voice-chat:${voicechat_version}"
     }
 
     // Pure-math core (tremor.core) is tested with plain JUnit 5, without booting the game.

@@ -129,6 +129,7 @@ public final class TremorConfig {
         public final Hollow hollow;
         public final Awakening awakening;
         public final Ambush ambush;
+        public final Voice voice;
 
         Common(ModConfigSpec.Builder b) {
             BumpParams d = BumpParams.defaults();
@@ -431,6 +432,7 @@ public final class TremorConfig {
             hollow = new Hollow(b);
             awakening = new Awakening(b);
             ambush = new Ambush(b);
+            voice = new Voice(b);
         }
 
         private static ModConfigSpec.DoubleValue conductivity(ModConfigSpec.Builder b, String name, String comment,
@@ -902,6 +904,33 @@ public final class TremorConfig {
                             "onto firm ground (the mud holds: only one who sprints and jumps off at once makes it);",
                             "then it holds the player (seconds)")
                     .translation(KEY + "ambush.escapeSeconds").defineInRange("escapeSeconds", 2.0, 0.0, 5.0);
+            b.pop();
+        }
+    }
+
+    /** Players speaking in Simple Voice Chat, if it is installed ({@link tremor.hearing.Voices}). */
+    public static final class Voice {
+        public final ModConfigSpec.BooleanValue enabled;
+        public final ModConfigSpec.DoubleValue loudness;
+        public final ModConfigSpec.DoubleValue whisperFactor;
+        public final ModConfigSpec.DoubleValue quietDb;
+        public final ModConfigSpec.DoubleValue loudDb;
+
+        Voice(ModConfigSpec.Builder b) {
+            b.comment("Simple Voice Chat, if it is installed: the entity hears players speak, as a vibration in the",
+                            "ground under them, the louder the voice the louder (it hears through the ground like a step)")
+                    .translation(KEY + "voice").push("voice");
+            enabled = b.comment("Whether it hears players speak at all")
+                    .translation(KEY + "voice.enabled").define("enabled", true);
+            loudness = b.comment("How loud the loudest voice is (a sprinting step is 8, a walking one about 4)")
+                    .translation(KEY + "voice.loudness").defineInRange("loudness", 8.0, 0.0, 100.0);
+            whisperFactor = b.comment("A whisper (the voice chat's whisper mode) is this share of that")
+                    .translation(KEY + "voice.whisperFactor").defineInRange("whisperFactor", 0.3, 0.0, 1.0);
+            quietDb = b.comment("A voice at this level or quieter is not heard (dBFS: 0 is the loudest a microphone",
+                            "gives)")
+                    .translation(KEY + "voice.quietDb").defineInRange("quietDb", -50.0, -100.0, 0.0);
+            loudDb = b.comment("A voice at this level or louder is as loud as it gets (dBFS)")
+                    .translation(KEY + "voice.loudDb").defineInRange("loudDb", -15.0, -100.0, 0.0);
             b.pop();
         }
     }

@@ -270,6 +270,21 @@ public final class VibrationListener {
      *
      * @param cause what made it, or null
      */
+    /**
+     * A player speaking in a voice chat ({@link Voices}), {@code loudness} as loud as their voice: like a step, it goes
+     * into the ground under them; in the hollow it is noise like any other.
+     */
+    public static void spoke(net.minecraft.server.level.ServerPlayer player, double loudness, String note) {
+        ServerLevel level = player.serverLevel();
+        List<TremorRuntime> runtimes = TremorManager.runtimes(level);
+        if (!(loudness > 0) || !wanted(level, runtimes, player.position())) {
+            return;
+        }
+        Contact contact = Contact.ofEntity(new LevelVoxelView(level), player, false);
+        emit(level, runtimes, new Vibration("voice", contact.point(), loudness, contact.footing(), 0,
+                join(note, contact.note()), contact.rustling()), player);
+    }
+
     /** Every entity of the level within hearing distance evaluates it; the Awakening and the hollow get it once. */
     private static void emit(ServerLevel level, List<TremorRuntime> runtimes, Vibration vibration, Entity cause) {
         Player player = playerBehind(cause);
