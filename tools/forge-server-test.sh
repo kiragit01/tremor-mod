@@ -8,6 +8,7 @@
 # new each run, its log in run-prod/forge-1.20.1/logs/latest.log. Java 17 from the Gradle toolchains (or $JAVA17).
 # Build the jar first on the forge-1.20.1 branch (./gradlew build): it stays in build/libs on either branch.
 # Usage: tools/forge-server-test.sh [mod version, default mod_version of gradle.properties]
+# TREMOR_EXTRA_MODS="a.jar b.jar" puts more mods in with it (Simple Voice Chat: its plugin must then load).
 set -u
 cd "$(dirname "$0")/.."
 ROOT=$(pwd)
@@ -45,6 +46,9 @@ cd "$SERVER"
 rm -rf mods world logs crash-reports config/tremor-common.toml
 mkdir -p mods
 cp "$JAR" mods/
+for extra in ${TREMOR_EXTRA_MODS:-}; do
+    cp "$extra" mods/
+done
 echo "eula=true" > eula.txt
 printf 'online-mode=false\nlevel-seed=20261008\nview-distance=4\nsimulation-distance=4\nspawn-protection=0\n' \
     > server.properties
@@ -91,6 +95,9 @@ check "two tremors spawned" 'spawned tremor #2'
 check "lies in wait" 'lies in wait where it'
 check "the quicksand's block entity" 'has the following block data'
 check "stopped cleanly" 'All dimensions are saved'
+case "${TREMOR_EXTRA_MODS:-}" in
+    *voice*) check "the voice chat's plugin" 'Simple Voice Chat found' ;;
+esac
 ERRORS=$(grep -E '/(ERROR|FATAL)\]|Exception' "$LOG" 2>/dev/null)
 if [ -n "$ERRORS" ]; then
     echo "  errors in the log:"
