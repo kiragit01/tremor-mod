@@ -31,6 +31,29 @@ public final class ClientTremor {
     private static final Map<Integer, SnapshotPlayback> playbacks = new HashMap<>();
     /** The shape of each entity of the level, by instance (sent to the whole dimension, kept until it is gone). */
     private static final Map<Integer, BumpParams> shapes = new HashMap<>();
+    /** The leap of each entity as the server last told it, and how it is drawn, by instance. */
+    private static final Map<Integer, TremorStatePayload.Leap> leapsTold = new HashMap<>();
+    private static final Map<Integer, LeapView> leaps = new HashMap<>();
+    /**
+     * Over how much of its way (blocks) before the gap and after it the hill pours over: from this far before the edge
+     * the hill on the far side starts to grow, and this far after the landing the one it left is gone.
+     */
+    private static final double LEAP_IN = 2.5;
+    private static final double LEAP_OUT = 2.5;
+    /** How fast the pouring finishes, or goes back, once the server no longer tells the leap (shares per second). */
+    private static final double LEAP_SETTLE = 2;
+    private static long lastStatesNanos;
+
+    /**
+     * How a leap is drawn: the leap, how far the hill has poured over (0..1, from the tremor's way through it), the
+     * height of the hill before it began, and whether the tremor has left the ground it leaves.
+     */
+    private static final class LeapView {
+        TremorStatePayload.Leap leap;
+        double share;
+        double rest = Double.NaN;
+        boolean gone;
+    }
     /** Level the received data belongs to, null before anything arrived. */
     private static ClientLevel owner;
     /** The nearest entity as of the latest {@link #renderState} call, null if there is none. */
@@ -56,6 +79,11 @@ public final class ClientTremor {
         if (snap != null) {
             playbacks.computeIfAbsent(payload.instance(), instance -> new SnapshotPlayback())
                     .accept(payload.instance(), snap, now);
+            if (payload.leap() != null) {
+                leapsTold.put(payload.instance(), payload.leap());
+            } else {
+                leapsTold.remove(payload.instance());
+            }
         }
     }
 
@@ -92,6 +120,8 @@ public final class ClientTremor {
      */
     private static List<RenderState> states(double gameTime, double tickRate, boolean running) {
         long nanos = System.nanoTime();
+        double dt = lastStatesNanos == 0 ? 0 : Math.min(0.1, (nanos - lastStatesNanos) / 1e9);
+        lastStatesNanos = nanos;
         net.minecraft.world.phys.Vec3 camera = Minecraft.getInstance().gameRenderer.getMainCamera().getPosition();
         Vec3 eye = new Vec3(camera.x, camera.y, camera.z);
         List<RenderState> states = new ArrayList<>();
@@ -124,13 +154,97 @@ public final class ClientTremor {
                 // Lying in wait it is round, wide, low and breathing (core Ambush), more so as it settles in.
                 BumpParams drawn = shape.lurking(sample.lurk(), tremor.core.behavior.Ambush.SPREAD).withAmplitude(
                         sample.amplitude() * tremor.core.behavior.Ambush.breath(gameTime / 20.0, sample.lurk()));
-                states.add(at, new RenderState(sample.frame(), drawn,
-                        shape.amplitude(), sample.phase(), entry.getKey(), sample.stage(), sample.rippleAge()));
+                RenderState state = new RenderState(sample.frame(), drawn, shape.amplitude(), sample.phase(),
+                        entry.getKey(), sample.stage(), sample.rippleAge());
+                distances.remove(at); // each hill goes in by its own distance
+                for (RenderState part : pour(state, dt)) {
+                    double d = part.frame().center().distance(eye);
+                    int where = 0;
+                    while (where < distances.size() && distances.get(where) <= d) {
+                        where++;
+                    }
+                    distances.add(where, d);
+                    states.add(where, part);
+                }
             }
         }
         presence = best == null ? null : new Presence(best.frame().center(), running ? best.velocity() : Vec3.ZERO,
                 best.amplitude(), best.stage(), bestInstance);
         return states;
+    }
+
+    /**
+     * The hills of an entity this frame: its own, and while it leaps across a gap (the user's wish) the hill pours over
+     * from where it leaves to where it lands. How far it has poured ({@code share}) follows the tremor's way: from
+     * {@link #LEAP_IN} blocks before the edge, across the gap, to {@link #LEAP_OUT} blocks after the landing. Before the
+     * gap its own hill sinks as one grows where it will land; across the gap one stands at each end, the height going
+     * from the first to the second; after it, its own hill rises as the one it left sinks away. Once the server no
+     * longer tells the leap, the pouring finishes (or goes back, if it never left) on its own.
+     */
+    private static List<RenderState> pour(RenderState own, double dt) {
+        int instance = own.instance();
+        TremorStatePayload.Leap told = leapsTold.get(instance);
+        LeapView view = leaps.get(instance);
+        if (told == null && view == null) {
+            return List.of(own);
+        }
+        if (view == null) {
+            view = new LeapView();
+            leaps.put(instance, view);
+        }
+        if (Double.isNaN(view.rest) || told == null && view.leap == null) {
+            view.rest = own.params().amplitude();
+        }
+        Vec3 c = own.frame().center();
+        if (told != null) {
+            if (view.leap == null || told.to().distanceSquared(view.leap.to()) > 1e-6) {
+                view.leap = told;
+                view.gone = false;
+                view.share = 0;
+                view.rest = Math.max(view.rest, own.params().amplitude());
+            }
+            Vec3 a = told.from(), b = told.to(), ab = b.sub(a);
+            double length = ab.length();
+            double t = length < 1e-6 ? 1 : c.sub(a).dot(ab) / (length * length);
+            double way = t <= 0 ? -c.distance(a) : t >= 1 ? length + c.distance(b) : t * length;
+            view.gone |= t > 0;
+            view.share = Math.max(0, Math.min(1, (way + LEAP_IN) / (LEAP_IN + length + LEAP_OUT)));
+        } else {
+            // No longer told: it finishes pouring if it has left, it goes back if it never did.
+            view.share = view.gone ? Math.min(1, view.share + dt * LEAP_SETTLE)
+                    : Math.max(0, view.share - dt * LEAP_SETTLE);
+            if (view.share <= 0 || view.share >= 1) {
+                leaps.remove(instance);
+                return List.of(own);
+            }
+        }
+        TremorStatePayload.Leap leap = view.leap;
+        double poured = smoothstep(view.share), rest = view.rest;
+        Vec3 a = leap.from(), b = leap.to();
+        boolean before = !view.gone, across = view.gone && c.sub(a).dot(b.sub(a)) < b.sub(a).dot(b.sub(a));
+        List<RenderState> parts = new ArrayList<>(3);
+        // Its own hill: the one it leaves before the gap, nothing across it, the one it lands in after it.
+        double ownHeight = before ? rest * (1 - poured) : across ? 0 : rest * poured;
+        parts.add(withHeight(own, own.frame(), ownHeight, instance));
+        if (!before) {
+            parts.add(withHeight(own, new BumpFrame(a, leap.fromNormal(), b.sub(a)), rest * (1 - poured),
+                    -(instance * 2 + 1)));
+        }
+        if (before || across) {
+            parts.add(withHeight(own, new BumpFrame(b, leap.toNormal(), b.sub(a)), rest * poured,
+                    -(instance * 2 + 2)));
+        }
+        return parts;
+    }
+
+    private static RenderState withHeight(RenderState own, BumpFrame frame, double height, int instance) {
+        return new RenderState(frame, own.params().withAmplitude(height), own.fullAmplitude(), own.timeSeconds(),
+                instance, own.stage(), instance == own.instance() ? own.rippleAgeSeconds() : Double.NaN);
+    }
+
+    private static double smoothstep(double x) {
+        double t = Math.max(0, Math.min(1, x));
+        return t * t * (3 - 2 * t);
     }
 
     /**
@@ -154,6 +268,8 @@ public final class ClientTremor {
     private static void clear() {
         playbacks.clear();
         shapes.clear();
+        leapsTold.clear();
+        leaps.clear();
         owner = null;
         presence = null;
     }

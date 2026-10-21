@@ -199,6 +199,32 @@ public final class PathSpline {
         return k == segments ? Double.POSITIVE_INFINITY : k == j ? from : segmentStart[k];
     }
 
+    /**
+     * The dive {@code s} lies on (with the dives right before it), or else the next one after it: the arc lengths where
+     * it starts and where it ends; null if there is none, or {@code s} is at or past the end.
+     */
+    public double[] dive(double s) {
+        if (segments == 0 || !(s < length())) {
+            return null;
+        }
+        int j = segmentAt(Math.max(s, 0));
+        if (dive[j]) {
+            while (j > 0 && dive[j - 1]) {
+                j--;
+            }
+        } else {
+            j = nextDive[j];
+            if (j == segments) {
+                return null;
+            }
+        }
+        int end = j;
+        while (end < segments && dive[end]) {
+            end++;
+        }
+        return new double[]{segmentStart[j], segmentStart[end]};
+    }
+
     // ---- internals -------------------------------------------------------------------------------------------------
 
     /** The last segment starting at or before {@code s}. Requires {@code segments > 0}. */

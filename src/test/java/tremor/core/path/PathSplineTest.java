@@ -1,6 +1,8 @@
 package tremor.core.path;
 
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -157,6 +159,10 @@ class PathSplineTest {
         assertEquals(1.5, spline.nextDiveStart(1.5));
         assertEquals(exit + 1, spline.nextDiveStart(exit), 1e-6);
         assertEquals(Double.POSITIVE_INFINITY, spline.nextDiveStart(exit + 4.5));
+        assertArrayEquals(new double[]{0, exit}, spline.dive(1.5), 1e-6);
+        assertArrayEquals(new double[]{exit + 1, exit + 4}, spline.dive(exit + 0.5), 1e-6);
+        assertArrayEquals(new double[]{exit + 1, exit + 4}, spline.dive(exit + 2), 1e-6);
+        assertNull(spline.dive(exit + 4.5));
         assertVec(path.point(0).sub(start), spline.startChord(), 1e-12);
 
         // Without the dive flag node 0 is replaced by the start: start -> (5, 0, 0) is edge 0, on the skin.

@@ -1,0 +1,80 @@
+# A leap across a gap of open air pours the hill over: the hill where it leaves sinks as the one where it lands grows
+# (both stand while it goes across), not the bump going under and coming up on the far side. Across a gap of 3 blocks
+# between two platforms, and up to a slab 3 blocks over the ground.
+waitchunks
+cmd gamemode spectator
+cmd time set noon
+cmd tremor despawn all
+cmd tremor awaken stop
+hud off
+log --- across a gap
+cmd tp @s 617.5 205.0 690.5
+wait 40
+waitchunks
+cmd fill 596 190 696 638 212 716 minecraft:air
+cmd fill 600 196 700 615 199 712 minecraft:dirt
+cmd fill 600 200 700 615 200 712 minecraft:grass_block
+cmd fill 619 196 700 634 199 712 minecraft:stone
+cmd fill 619 200 700 634 200 712 minecraft:stone
+cmd tremor spawn 609 201 706
+cmd tremor ai off
+cmd tremor stage hunting
+cmd tremor hold
+cmd tp @s 617.5 203.5 693.5
+lookat 617.5 200.5 706.5
+wait 40
+cmd tremor goto 627 200 706
+wait 10
+screenshot 01_gap_a
+wait 4
+screenshot 02_gap_b
+wait 4
+screenshot 03_gap_c
+wait 4
+screenshot 04_gap_d
+wait 4
+screenshot 05_gap_e
+wait 4
+screenshot 06_gap_f
+wait 4
+screenshot 07_gap_g
+wait 4
+screenshot 08_gap_h
+wait 6
+screenshot 09_gap_i
+wait 8
+screenshot 10_gap_j
+cmd tremor info
+log --- up to a slab
+cmd tp @s 660.5 205.0 690.5
+wait 40
+waitchunks
+cmd fill 646 190 690 674 212 722 minecraft:air
+cmd fill 650 196 694 670 199 718 minecraft:dirt
+cmd fill 650 200 694 670 200 718 minecraft:grass_block
+cmd fill 656 204 702 664 205 710 minecraft:stone
+cmd tremor spawn 660 201 698
+cmd tremor ai off
+cmd tremor stage hunting
+cmd tremor hold
+cmd tp @s 648.5 203.0 706.5
+lookat 660.5 202.5 706.5
+wait 40
+cmd tremor goto 660 206 706
+wait 8
+screenshot 11_up_a
+wait 4
+screenshot 12_up_b
+wait 4
+screenshot 13_up_c
+wait 4
+screenshot 14_up_d
+wait 4
+screenshot 15_up_e
+wait 4
+screenshot 16_up_f
+wait 6
+screenshot 17_up_g
+cmd tremor info
+cmd tremor despawn all
+quit
