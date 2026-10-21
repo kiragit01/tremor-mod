@@ -137,6 +137,11 @@ public final class TremorCommands {
                 .then(probe())
                 .then(hold())
                 .then(difficulty())
+                .then(Commands.literal("voice")
+                        .then(Commands.argument("db", DoubleArgumentType.doubleArg(-100, 0))
+                                .executes(ctx -> voice(ctx, DoubleArgumentType.getDouble(ctx, "db"), false))
+                                .then(Commands.literal("whisper").executes(ctx -> voice(ctx,
+                                        DoubleArgumentType.getDouble(ctx, "db"), true)))))
                 .then(Commands.literal("ambush").executes(TremorCommands::ambush)
                         .then(Commands.literal("stop").executes(TremorCommands::ambushStop)))
                 .then(HollowCommands.hollow())
@@ -270,6 +275,19 @@ public final class TremorCommands {
             node.then(Commands.literal(level.id()).executes(ctx -> setDifficulty(ctx.getSource(), level)));
         }
         return node;
+    }
+
+    /**
+     * {@code voice <dB> [whisper]}: the caller speaks at that level (dBFS), as through the voice chat
+     * ({@link tremor.hearing.Voices}): to try the tremor's ear without a microphone.
+     */
+    private static int voice(CommandContext<CommandSourceStack> ctx, double db, boolean whisper)
+            throws CommandSyntaxException {
+        ServerPlayer player = ctx.getSource().getPlayerOrException();
+        tremor.hearing.Voices.heard(player.getUUID(), db, whisper);
+        answer(ctx.getSource(), () -> Component.literal(String.format(Locale.ROOT, "%s speaks at %.0f dB%s",
+                player.getName().getString(), db, whisper ? ", whispering" : "")));
+        return 1;
     }
 
     private static int setDifficulty(CommandSourceStack source, Difficulty level) {

@@ -2,7 +2,7 @@ package tremor.hearing;
 
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
-import net.neoforged.neoforge.event.tick.LevelTickEvent;
+import net.minecraftforge.event.TickEvent;
 import tremor.config.TremorConfig;
 
 import java.util.HashMap;
@@ -45,8 +45,8 @@ public final class Voices {
     }
 
     /** Once per tick of a level: its players who spoke since are heard, each at most every few ticks. */
-    public static void onLevelTick(LevelTickEvent.Post event) {
-        if (!(event.getLevel() instanceof ServerLevel level) || SPOKEN.isEmpty()) {
+    public static void onLevelTick(TickEvent.LevelTickEvent event) {
+        if (event.phase != TickEvent.Phase.END || !(event.level instanceof ServerLevel level) || SPOKEN.isEmpty()) {
             return;
         }
         TremorConfig.Voice config = TremorConfig.COMMON.voice;
