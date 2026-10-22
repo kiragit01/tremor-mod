@@ -51,17 +51,22 @@ public final class DebugProbeHud {
         if (mc.options.hideGui || mc.options.renderDebug || player == null) {
             return;
         }
-        if (lines.isEmpty() || System.nanoTime() - receivedNanos > STALE_NANOS) {
-            return; // nothing of late: the probe put away, the panel hidden (sent empty), or no permission
-        }
         boolean held = player.getMainHandItem().is(TremorItems.DEBUG_PROBE.get())
                 || player.getOffhandItem().is(TremorItems.DEBUG_PROBE.get());
+        // Nothing of late: the probe put away, the panel hidden (sent empty, as it is at first), or no permission.
+        boolean fresh = !lines.isEmpty() && System.nanoTime() - receivedNanos <= STALE_NANOS;
+        if (!fresh && !held) {
+            return;
+        }
         List<String> shown = new java.util.ArrayList<>();
         if (held) {
+            // How to use it shows while it is in hand, the panel hidden or not.
             shown.add(net.minecraft.network.chat.Component.translatable("tremor.probe.hint", ProbeTool.mode.label())
                     .getString());
         }
-        shown.addAll(lines);
+        if (fresh) {
+            shown.addAll(lines);
+        }
         Font font = mc.font;
         int widest = 0;
         for (String line : shown) {

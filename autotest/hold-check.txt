@@ -1,0 +1,27 @@
+# A held look (/tremor hold) keeps the anger and the stage where they are, but the tremor still hears and does what
+# its stage does: hunting, it goes for a player who runs near it.
+waitchunks
+cmd gamemode creative
+cmd time set noon
+cmd tremor despawn all
+cmd tremor awaken stop
+cmd tp @s 300.5 201.0 300.5 0 10
+wait 40
+waitchunks
+cmd fill 270 195 270 330 200 330 minecraft:dirt
+cmd fill 270 200 270 330 200 330 minecraft:grass_block
+cmd fill 270 201 270 330 206 330 minecraft:air
+cmd tremor spawn 300 201 318
+cmd tremor stage hunting
+cmd tremor hold
+wait 20
+cmd gamemode survival
+hold forward+sprint 30
+wait 20
+cmd tremor info
+wait 40
+cmd tremor info
+cmd tremor hold off
+cmd tremor despawn all
+cmd gamemode creative
+quit

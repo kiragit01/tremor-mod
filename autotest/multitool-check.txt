@@ -1,7 +1,7 @@
-# The debug probe as a multitool: a right click lures the nearest tremor to the block looked at; the route shows on the
-# ground; the panel can be pinned without the probe in hand and taken down; quiet, a click's answer goes above the
-# hotbar and not into the chat; the panel hides with the probe in hand and shows again; sneak + right click opens the
-# menu.
+# The debug probe as a multitool: at first it is quiet (a click's answer goes above the hotbar, not into the chat) and
+# shows no panel; a right click lures the nearest tremor to the block looked at; the route shows on the ground; the
+# panel shows with the probe in hand, can be pinned without it and taken down; the answers can go into the chat; the
+# panel hides with the probe in hand and shows again; sneak + right click opens the menu.
 waitchunks
 cmd gamemode spectator
 cmd time set noon
@@ -16,11 +16,11 @@ cmd gamemode creative
 cmd tremor spawn 490 201 300
 cmd item replace entity @s weapon.mainhand with tremor:debug_probe
 wait 20
-log --- a right click lures it to the block looked at
+log --- at first: a right click lures it to the block looked at, the answer above the hotbar, no panel
 lookat 476.5 200.5 304.5
 hold use 2
 wait 60
-screenshot 01_lured
+screenshot 01_lured_quiet_no_panel
 log --- a route on the ground
 cmd tremor route clear
 cmd tremor route add 440 201 290
@@ -34,7 +34,10 @@ screenshot 02_route_shown
 cmd tremor hold
 cmd tremor ai toggle
 cmd tremor ai toggle
-log --- the panel pinned without the probe in hand, then taken down
+log --- the panel with the probe in hand, pinned without it, then taken down
+cmd tremor probe unpin
+wait 15
+screenshot 03a_panel_in_hand
 cmd tremor probe pin
 cmd item replace entity @s weapon.mainhand with minecraft:air
 wait 15
@@ -42,15 +45,15 @@ screenshot 03_pinned
 cmd tremor probe unpin
 wait 30
 screenshot 04_unpinned
-log --- quiet: a click's answer above the hotbar, not in the chat
-cmd tremor probe quiet on
+log --- answers into the chat, then quiet again
+cmd tremor probe quiet off
 cmd item replace entity @s weapon.mainhand with tremor:debug_probe
 wait 5
 lookat 470.5 200.5 296.5
 hold use 2
 wait 5
-screenshot 05_quiet
-cmd tremor probe quiet off
+screenshot 05_chat
+cmd tremor probe quiet on
 log --- the panel hidden with the probe in hand, then shown again
 cmd tremor probe hide
 wait 15
