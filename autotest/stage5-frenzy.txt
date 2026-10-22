@@ -1,17 +1,22 @@
-# Stage 5: the frenzy over a dropped shard. The player throws a shard on the sky platform; an entity rises some 24
-# blocks away, rushes to the shard (fast, tall), takes it in, rushes on after the player, who sprints away, and an
-# Awakening starts the moment it reaches them (a build-up too short to run from).
+# Stage 5: the frenzy over a dropped shard. The player throws a shard on the sky platform: nobody can pick it up, a
+# little mound swallows it where it lands (gone for good); an entity rises some 24 blocks away and rushes straight
+# after the player (fast, tall), who sprints away, and an Awakening starts the moment it reaches them (a build-up too
+# short to run from).
 # Run: gradlew runClientAutotest -Ptremor_autotest_script=stage5-frenzy.txt
 waitchunks
 cmd gamemode spectator
 cmd time set noon
 cmd tremor despawn
 cmd tremor awaken stop
-cmd tp @s 300.5 201.0 300.5 90 20
+cmd tp @s 300.5 201.0 -899.5 90 30
 wait 40
 waitchunks
-cmd fill 240 198 240 360 200 360 minecraft:stone
-cmd fill 240 201 240 360 206 360 minecraft:air
+cmd fill 240 198 -960 299 199 -840 minecraft:stone
+cmd fill 300 198 -960 360 199 -840 minecraft:stone
+cmd fill 240 200 -960 360 200 -840 minecraft:grass_block
+cmd fill 240 201 -960 279 206 -840 minecraft:air
+cmd fill 280 201 -960 319 206 -840 minecraft:air
+cmd fill 320 201 -960 360 206 -840 minecraft:air
 cmd kill @e[type=!player]
 cmd gamemode survival
 cmd effect clear @s
@@ -22,16 +27,22 @@ config awakening.lethal false
 hud on
 log --- throw the shard
 hold drop 2
-wait 10
-cmd tremor info
-screenshot 10_thrown
-wait 20
-screenshot 11_rushing
-cmd tremor info
+wait 4
+screenshot 10_landed
+log --- step onto it: nobody can pick it up
+hold forward 8
+cmd clear @s tremor:tremor_shard 0
+cmd execute if entity @e[type=item,distance=..8]
+hold back 8
+screenshot 11_mound
 wait 30
+log --- swallowed: gone for good
+cmd execute if entity @e[type=item,distance=..8]
+screenshot 13_taken
 cmd tremor info
-cmd execute if entity @e[type=item,distance=..12]
-screenshot 12_after_take
+wait 20
+screenshot 14_rushing
+cmd tremor info
 log --- run
 hold back+sprint 60
 cmd tremor info
