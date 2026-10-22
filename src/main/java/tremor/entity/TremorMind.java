@@ -178,7 +178,10 @@ final class TremorMind {
     /** A vibration was heard since the last tick (eventful for the despawn clock). */
     private boolean heardSinceTick;
     private int leavingTicks;
-    /** Its anger is held where it is (a route for filming, {@link Routes}): it neither decays nor grows. Not saved. */
+    /**
+     * Its anger is held where it is ({@code /tremor hold}, a route for filming, {@link Routes}): it neither decays nor
+     * grows, so its look stays; it still hears and does what its stage does (a route has its ai off). Not saved.
+     */
     private boolean angerHeld;
     /** Ticks it has been giving way to another entity ({@link #yieldTo}), or -1 if it is not. Not saved. */
     private int yieldTicks = -1;
@@ -244,10 +247,7 @@ final class TremorMind {
             return "awakening";
         }
         heardSinceTick = true;
-        if (angerHeld) {
-            return "anger held (a route)";
-        }
-        addAnger(anger);
+        addAnger(anger); // held, it stays where it is: the look stays, but it still hears and reacts as its stage says
         if (entity.frenzy()) {
             return "frenzy";
         }
@@ -610,6 +610,9 @@ final class TremorMind {
     // ---- anger ----
 
     private void addAnger(double amount) {
+        if (angerHeld) {
+            return; // its look is held: the anger stays where it is, whatever it hears or strikes
+        }
         if (lurkAt != null || level.getGameTime() < chaseUntil) {
             // Lying in wait it keeps still: the player it hears coming is what it waits for, not what makes it rise;
             // after an escape it chases, without rising to the top of its anger at once either.

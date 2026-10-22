@@ -70,9 +70,9 @@ public final class ProbeTool {
     }
 
     static Mode mode = Mode.LURE;
-    static Panel panel = Panel.HELD;
-    /** Whether the short answers of the server go above the hotbar rather than into the chat. */
-    static boolean quiet;
+    static Panel panel = Panel.HIDDEN;
+    /** Whether the short answers of the server go above the hotbar rather than into the chat (at first they do). */
+    static boolean quiet = true;
     /** Where the panel showed before the key hid it. */
     private static Panel shownBefore = Panel.HELD;
     private static long lastUse = Long.MIN_VALUE / 2;
@@ -143,9 +143,9 @@ public final class ProbeTool {
 
     /** Leaving a world or a server: the panel and the answers as at first, as the server has them then. */
     static void forget() {
-        panel = Panel.HELD;
+        panel = Panel.HIDDEN;
         shownBefore = Panel.HELD;
-        quiet = false;
+        quiet = true;
     }
 
     /** Runs {@code /command} as the player. */
