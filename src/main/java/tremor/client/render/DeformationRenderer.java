@@ -493,12 +493,15 @@ public final class DeformationRenderer {
 
     /**
      * This frame's bumps ({@link #frameBumps}): of every entity known, the bump with the ground ripple of an ALERT
-     * freeze while one runs, its voxels collected; not one that has nothing high enough to draw or is too far from the
-     * camera. The collections of the entities gone are dropped.
+     * freeze while one runs, its voxels collected, and the mounds swallowing thrown shards ({@link
+     * tremor.client.ShardMounds}); not one that has nothing high enough to draw or is too far from the camera. The
+     * collections of the entities gone are dropped.
      */
     private static void bumps(ClientLevel level, float partialTick, long tick) {
         frameBumps.clear();
-        List<ClientTremor.RenderState> states = ClientTremor.renderStates(level, partialTick);
+        List<ClientTremor.RenderState> states = new java.util.ArrayList<>(ClientTremor.renderStates(level,
+                partialTick));
+        states.addAll(tremor.client.ShardMounds.states(level, partialTick));
         java.util.Set<Integer> known = new java.util.HashSet<>();
         frameBridges.clear();
         for (ClientTremor.RenderState state : states) {

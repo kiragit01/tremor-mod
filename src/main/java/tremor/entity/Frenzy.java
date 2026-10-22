@@ -26,12 +26,15 @@ import java.util.UUID;
 
 /**
  * The frenzy over a dropped shard (the user's wish: a shard thrown on the ground drives the entity mad). A player
- * tosses a {@code tremor:tremor_shard}: the entity of that part of the world (the nearest within
+ * tosses a {@code tremor:tremor_shard}: the ground takes it at once (the user's wish, 1.2.2: it could be picked up
+ * again before the entity came): nobody can pick it up, and where it lands a little mound swallows it ({@link
+ * #SWALLOW_TICKS}; the clients draw the mound over the shard the server marks with no gravity,
+ * {@code tremor.client.ShardMounds}); it is gone for good. And the entity of that part of the world (the nearest within
  * {@code spawn.spacing}; or one that rises some {@value #SPAWN_DISTANCE} blocks away if there is none and the
  * dimension has fewer than {@code spawn.maxEntities}, else the nearest from however far; none if an Awakening has
- * taken the one near) roars and rushes to the shard, much faster and taller than when HUNTING
- * ({@code items.frenzySpeedFactor}, {@code frenzyAmplitudeFactor}, {@link TremorEntity#frenzy}), its brain idle; it
- * takes the shard in, then rushes on to the player who dropped it, following them; reaching them starts an Awakening
+ * taken the one near) roars and rushes to the player who dropped it, much faster and taller than when HUNTING
+ * ({@code items.frenzySpeedFactor}, {@code frenzyAmplitudeFactor}, {@link TremorEntity#frenzy}), its brain idle,
+ * following them; reaching them starts an Awakening
  * with a build-up too short to run from ({@link AwakeningManager#frenzy}). A frenzy that has not reached the player
  * in {@code items.frenzySeconds}, or whose player died, left or went into the hollow, dies down: the entity hunts on
  * as usual. One frenzy per level; not saved (after a restart the entity is itself again). Server thread only;
@@ -40,24 +43,36 @@ import java.util.UUID;
 public final class Frenzy {
     /** How far from the player an entity rises when there is none in the level (blocks). */
     static final int SPAWN_DISTANCE = 24;
-    /** The shard is taken in once the bump is this near it (blocks). */
-    private static final double TAKE_DISTANCE = 2.5;
+    /** The ground swallows a thrown shard this long after it lands (ticks), under a little mound. */
+    static final int SWALLOW_TICKS = 30;
+    /** A shard still in the air after this long (ticks) is swallowed where it is. */
+    private static final int FLIGHT_TICKS = 60;
     /** Ticks between two new routes after a moving target. */
     private static final int RETARGET_TICKS = 10;
 
-    private enum Goal { SHARD, PLAYER }
-
     private static final class State {
         TremorRuntime runtime;
-        ItemEntity shard;
         UUID player;
-        Goal goal = Goal.SHARD;
         long started;
         long lastRoute = -1_000_000;
         long routedTo = SurfaceGraph.NO_NODE;
     }
 
     private static final Map<ServerLevel, State> FRENZIES = new HashMap<>();
+
+    /** A thrown shard the ground takes: when it was thrown, and when it landed (or -1 while in the air). */
+    private static final class Swallow {
+        final ItemEntity shard;
+        final long thrown;
+        long landed = -1;
+
+        Swallow(ItemEntity shard, long thrown) {
+            this.shard = shard;
+            this.thrown = thrown;
+        }
+    }
+
+    private static final Map<ServerLevel, java.util.List<Swallow>> SWALLOWS = new HashMap<>();
 
     private Frenzy() {
     }
@@ -66,9 +81,14 @@ public final class Frenzy {
     public static void onItemToss(ItemTossEvent event) {
         ItemEntity item = event.getEntity();
         if (!(item.level() instanceof ServerLevel level) || !(event.getPlayer() instanceof ServerPlayer player)
-                || !item.getItem().is(TremorItems.SHARD.get()) || HollowDimension.is(level)
-                || FRENZIES.containsKey(level) || player.isSpectator()) {
+                || !item.getItem().is(TremorItems.SHARD.get()) || HollowDimension.is(level) || player.isSpectator()) {
             return;
+        }
+        // The ground takes it, whatever comes of the frenzy: nobody gets it back.
+        item.setNeverPickUp();
+        SWALLOWS.computeIfAbsent(level, l -> new java.util.ArrayList<>()).add(new Swallow(item, level.getGameTime()));
+        if (FRENZIES.containsKey(level)) {
+            return; // one frenzy at a time
         }
         TremorRuntime runtime = TremorManager.nearest(level, player.getX(), player.getY(), player.getZ());
         TremorEntity entity = runtime == null ? null : runtime.entity();
@@ -93,7 +113,6 @@ public final class Frenzy {
         }
         State state = new State();
         state.runtime = runtime;
-        state.shard = item;
         state.player = player.getUUID();
         state.started = level.getGameTime();
         FRENZIES.put(level, state);
@@ -108,11 +127,12 @@ public final class Frenzy {
                 player.getGameProfile().getName());
     }
 
-    /** Leads the frenzy of every level on: the route after the shard or the player, the take, the end. */
+    /** Leads the frenzy of every level on: the route after the player, the end; and the ground takes the shards. */
     public static void onLevelTick(LevelTickEvent.Post event) {
         if (!(event.getLevel() instanceof ServerLevel level)) {
             return;
         }
+        swallow(level);
         State state = FRENZIES.get(level);
         if (state == null) {
             return;
@@ -137,20 +157,6 @@ public final class Frenzy {
             runtime.forceStage(Stage.HUNTING);
         }
         Vec3 at = entity.crawler().position();
-        if (state.goal == Goal.SHARD) {
-            ItemEntity shard = state.shard;
-            if (shard == null || !shard.isAlive()) {
-                state.goal = Goal.PLAYER; // picked up again, or gone: it goes for the player all the same
-            } else if (horizontal(at, shard.getX(), shard.getZ()) <= TAKE_DISTANCE
-                    && Math.abs(at.y() - shard.getY()) <= 3) {
-                takeIn(level, shard);
-                state.goal = Goal.PLAYER;
-                state.lastRoute = -1_000_000;
-            } else {
-                route(runtime, state, now, shard.blockPosition());
-                return;
-            }
-        }
         double reach = TremorConfig.COMMON.awakening.reachDistance.get();
         if (horizontal(at, player.getX(), player.getZ()) <= reach && Math.abs(at.y() - player.getY()) <= 5) {
             entity.setFrenzy(false);
@@ -178,7 +184,38 @@ public final class Frenzy {
         runtime.moveTo(node, null);
     }
 
-    /** The bump takes the shard in: it is gone, with a crack and the dust of the ground. */
+    /**
+     * The ground takes the thrown shards of the level: one that has landed (or flown long enough) is marked with no
+     * gravity, which the clients draw a little mound over, and {@link #SWALLOW_TICKS} later it is gone.
+     */
+    private static void swallow(ServerLevel level) {
+        java.util.List<Swallow> swallows = SWALLOWS.get(level);
+        if (swallows == null) {
+            return;
+        }
+        long now = level.getGameTime();
+        for (java.util.Iterator<Swallow> it = swallows.iterator(); it.hasNext(); ) {
+            Swallow s = it.next();
+            ItemEntity shard = s.shard;
+            if (!shard.isAlive()) {
+                it.remove();
+            } else if (s.landed < 0) {
+                if (shard.onGround() || now - s.thrown >= FLIGHT_TICKS) {
+                    s.landed = now;
+                    shard.setNoGravity(true);
+                    shard.setDeltaMovement(net.minecraft.world.phys.Vec3.ZERO);
+                }
+            } else if (now - s.landed >= SWALLOW_TICKS) {
+                takeIn(level, shard);
+                it.remove();
+            }
+        }
+        if (swallows.isEmpty()) {
+            SWALLOWS.remove(level);
+        }
+    }
+
+    /** The ground takes the shard in: it is gone, with a crack and the dust of the ground. */
     private static void takeIn(ServerLevel level, ItemEntity shard) {
         BlockState ground = level.getBlockState(shard.blockPosition().below());
         if (!ground.isAir()) {
@@ -206,6 +243,12 @@ public final class Frenzy {
             }
         }
         return null;
+    }
+
+    /** Forgets the frenzies and the shards the ground was taking: their levels are gone. */
+    public static void onServerStopped(net.neoforged.neoforge.event.server.ServerStoppedEvent event) {
+        FRENZIES.clear();
+        SWALLOWS.clear();
     }
 
     private static void end(ServerLevel level, TremorEntity entity, String why) {
