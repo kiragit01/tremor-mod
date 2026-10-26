@@ -66,10 +66,6 @@ Difficulty is one switch: Calm, Normal, Hard, Nightmare. It's `difficulty` at th
 
 The `/tremor` commands are for operators: `spawn`, `despawn`, `info`, `stage`, `awaken`, `restore`, `difficulty` and more (Tab completes the rest). There's also a multitool in the Operator Utilities creative tab: in your hand it shows what the nearest creature is doing, right click lures it to where you're looking, sneak + right click opens its menu.
 
-## About AI
-
-Yes, the code is written by AI (Claude). The idea, the mechanics and every call on how it should look and feel are mine: I describe what I want, test it in the game and send it back until it's right. Without AI this mod just wouldn't exist.
-
 ## Building from source
 
 `main` is NeoForge 1.21.1 (JDK 21), `forge-1.20.1` is Forge 1.20.1 (JDK 17).
