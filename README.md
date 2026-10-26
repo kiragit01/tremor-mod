@@ -1,139 +1,85 @@
 # Tremor
 
-Хоррор-мод для Minecraft 1.21.1 (NeoForge 21.1.x): невидимая сущность ползёт под поверхностью мира, и видно её
-только по вспучиванию земли. Полное ТЗ — [SPEC.md](SPEC.md).
+English · [Русский](README.ru.md)
 
-## Сборка и запуск
+A horror mod for Minecraft about something that lives under the ground. You never see it. You only see the ground move where it crawls: a mound going through grass, stone and cave walls, following every sound you make.
 
-Нужен JDK 21. Всё остальное скачает Gradle.
+You can't fight it. You can stay quiet, you can run, or you can get caught.
+
+For NeoForge 1.21.1 and Forge 1.20.1.
+
+## How it plays
+
+It hears you through the ground. Steps, jumps, landings, mined blocks, explosions, arrows and thrown items hitting the ground. Stone carries a sound far, sand and gravel less, wool and carpets almost kill it, and leaves rustle under your feet. Sneak and your steps make no sound at all. Stand still and you don't exist for it.
+
+When it hears nothing, it just wanders around. When it hears something, it gets angry. First it gets wary: it freezes and sends rings of ripples across the ground. That's it listening, and if you move right then, it knows where you are. Then it hunts: it's fast and goes for every sound. At the peak of its anger it's looking for you, and if it reaches you, the Awakening starts.
+
+All of it in detail, with numbers and the small stuff, is in the [guide](GUIDE.md).
+
+## Questions people ask
+
+**How often does it show up?**
+
+Every now and then, 40 to 80 blocks from you. On the surface in daylight it's rare, on average about once every 10–15 minutes if there isn't one around already. At night, in the dark, in caves and deep underground it's a lot more likely. If no one comes near it for a while, or nothing happens for a long time, it sinks into the ground and leaves.
+
+**Does it follow me everywhere?**
+
+No, it isn't tied to you. It kind of has its own part of the world, the one you're in, and it roams there and goes for sounds. Go far enough away and it stays behind, and after a while it leaves. There can be several of them, one for each part of the world where players are (at least 500 blocks apart, up to 4 per dimension).
+
+**What happens when it reaches me?**
+
+That's the Awakening, and it goes in two steps. First the whole area around you (32 blocks) becomes it: the sounds go quiet, the ground breathes, and you have about 7 seconds to get out of that circle while the ground grabs at your feet. Make it out and you got away. Don't, and a hill rises under you and swallows you.
+
+**And what's "getting inside it"?**
+
+Once you're swallowed, you end up in the hollow: a dark copy of the same place, just for you, in a separate dimension. There's black fog, you can't sprint, and the edges slowly close in. Somewhere 40–60 steps away, through tunnels with dead ends, its heart is beating (the node). You have about a minute. Break the node and you come back out where you were taken, with a shard. There's one more way out, through the edge, but you have to find it, and the place you were taken from still gets a crater. Run out of time and a real crater opens where you stood; by default you die, and your things end up in caches at the bottom of that crater.
+
+**What are the shards for?**
+
+A shard is what you get for breaking the node. Shards make a seismograph (its needle points at the creature), a geophone (a redstone signal when it's near) and a Muffled Steps book for your boots. And never throw a shard on the ground: the ground takes it right away, and the creature comes straight for you in a frenzy.
+
+**Can I play it with friends?**
+
+Yes, it's made for servers too. Install it on the server and on every player's client. Everyone who gets swallowed gets their own hollow.
+
+**Voice chat?**
+
+If you have Simple Voice Chat, it hears you talk: your voice goes into the ground under you, like a step. Whispering is quieter.
+
+**Is it heavy?**
+
+There's a quality preset in the client config (Low / Medium / High) for weaker PCs. Works with Sodium and Iris; I haven't really tested shader packs.
+
+## Installing
+
+1. Install NeoForge for 1.21.1 or Forge for 1.20.1.
+2. Put the mod's jar into `mods`. For a server: on the server and for every player.
+3. Optional: Simple Voice Chat.
+
+It's on CurseForge (Modrinth is still in review).
+
+## Settings
+
+Difficulty is one switch: Calm, Normal, Hard, Nightmare. It's `difficulty` at the top of `config/tremor-common.toml`, or `/tremor difficulty` in game (operators). Everything else can be tuned too: hearing, anger, speed, spawning, the Awakening, the hollow, the crater, the items. The difficulty table is in the guide, and every key in the config file has a comment.
+
+## For server admins and testing
+
+The `/tremor` commands are for operators: `spawn`, `despawn`, `info`, `stage`, `awaken`, `restore`, `difficulty` and more (Tab completes the rest). There's also a multitool in the Operator Utilities creative tab: in your hand it shows what the nearest creature is doing, right click lures it to where you're looking, sneak + right click opens its menu.
+
+## About AI
+
+Yes, the code is written by AI (Claude). The idea, the mechanics and every call on how it should look and feel are mine: I describe what I want, test it in the game and send it back until it's right. Without AI this mod just wouldn't exist.
+
+## Building from source
+
+`main` is NeoForge 1.21.1 (JDK 21), `forge-1.20.1` is Forge 1.20.1 (JDK 17).
 
 ```bash
-./gradlew build            # компиляция + юнит-тесты (чистая логика без запуска игры)
-./gradlew test             # только тесты
-./gradlew runClient        # клиент для ручной проверки (игровая папка ./run)
-./gradlew runServer        # выделенный сервер (./run-server)
+./gradlew build
 ```
 
-### Скриптовая проверка в игре (autotest)
+The jar ends up in `build/libs`. Dev notes (in Russian) are in [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md).
 
-`runClientAutotest` запускает клиент в отдельной папке `./run-autotest`, сам создаёт/открывает мир с фиксированным
-сидом и выполняет скрипт из `./autotest` (команды, ожидания, замеры FPS, скриншоты), после чего закрывает игру.
-Результаты: `run-autotest/tremor-autotest/<время>/report.txt` и скриншоты рядом.
+## Modpacks, videos, rights
 
-```bash
-./gradlew runClientAutotest -Ptremor_autotest_script=stage1-cave.txt
-```
-
-Этап 5: `stage5-tools` — геофон зажигает лампу при сущности рядом, стрелка сейсмографа, тихие шаги, рецепты, осколки за
-победу.
-
-**Вещи из осколка** (осколок даёт разрушенный узел, по умолчанию 1 шт.): сейсмограф (осколок + 3 меди + редстоун;
-стрелка указывает на сущность в 64 блоках, дрожит по стадии), геофон (осколок + аметист + 2 редстоуна + 3 глубинного
-булыжника; редстоун-сигнал 1–15 по близости сущности в 32 блоках, компаратор — стадия), книга «Тихие шаги» (книга +
-2 осколка + 2 алмаза + шерсть; на ботинки через наковальню; шаги и приземления в 5 раз тише). Конфиг — раздел `items`.
-
-Сетевой тест: `tools/mp-test.sh mp-alice.txt mp-bob.txt` поднимает выделенный сервер на localhost (папка
-`run-mp/server`, офлайн-режим, оба игрока — операторы) и два клиента-автотеста, Alice и Bob, каждый со своим
-скриптом; клиент подключается к серверу из `-Dtremor.autotest.server`. Отчёты — в `run-mp/alice|bob/tremor-autotest`.
-Скрипту нужны `build/moddev/serverClasspathArg.txt` и `clientClasspathArg.txt` (строка `-cp ...` из командной строки
-java, которую запускает `./gradlew runServer` / `runClientAutotest`). Этап 4e: `stage4e-breath` (срок в изнанке),
-`stage4e-devour-bar` (поглощение мобов, вид полосы срока).
-
-Формат скрипта (wait, cmd, hold, bench, screenshot, graphics, fps, config, waitfor, ...) описан в
-`tremor.client.dev.Script`. Сценарии по этапам: `stage1-cave/smooth/fixes`, `stage2-hearing`, `stage3-aggression`,
-`stage3-ripple`, `stage4a-hollow`, `stage4a-relog-1/2`, `stage4b-buildup`, `stage4c-victory`, а также
-`stage0-compat` для проверки рендера (в том числе с Sodium). Этап 4d:
-
-* `stage4d-reach-seeking`, `-hiding`, `-sneakaway`, `-calm`, `-leaves`, `-relog-1/2` — поиск игрока на пике агрессии,
-  как его переждать, шелест листвы;
-* `stage4d-crater-dig`, `-defeat`, `-edge`, `-relog-1/2` — кратер, тайники с вещами, побег через край, выход из игры
-  посреди копки;
-* `stage4d-search-tunnel`, `-open`, `-cave` — сеть ходов к узлу в туннеле, на открытой местности (горло) и через
-  пещеру;
-* `stage4d-dark-fog`, `-rings` — чёрный туман, запрет бега, кольца узла в темноте;
-* `stage4d-root`, `-root-relog-1/2` — с холма не убежать: поглощаемый и победитель в холме удержаны, что бы ни
-  нажимал игрок; выход из игры, смерть и отмена Пробуждения, пока победитель в холме (`stage4c-victory` снимает
-  вид победителя при выходе из холма рядом с последними кадрами поглощения).
-
-Сценарии с парой `-1/-2` запускаются один за другим (второй проверяет мир после выхода из игры в первом). Многие
-сценарии этапов 3–4 используют небесную платформу из `stage3-aggression`; сценарии 4d сами чинят то, что оставили
-на ней и на их площадках другие прогоны. Если в коде изменилось значение конфига по умолчанию, удалите
-`run-autotest/config/tremor-*.toml`: иначе там останется старое.
-
-### Hot swap
-
-В dev-запусках всегда передаётся `-XX:+AllowEnhancedClassRedefinition` (вместе с `-XX:+IgnoreUnrecognizedVMOptions`,
-поэтому на обычной JVM флаг просто игнорируется). Чтобы он заработал, игра должна идти на JetBrains Runtime 21:
-
-* **IntelliJ IDEA**: в сгенерированной run-конфигурации выбрать JRE = JBR 21 (идёт в комплекте с IDEA), запускать
-  под Debug, после правок — *Build → Recompile* / Ctrl+Shift+F9.
-* **Gradle**: `./gradlew runClient -Ptremor_hotswap=true --debug-jvm` — Gradle возьмёт/скачает JBR 21 и будет ждать
-  подключения отладчика на порту 5005.
-
-### Совместимость с Sodium
-
-`-Ptremor_sodium=true` добавляет Sodium в рантайм dev-запуска (версия в `gradle.properties`).
-
-## Структура
-
-| Пакет | Что внутри |
-|---|---|
-| `tremor.core` | Чистая логика без Minecraft API: форма бугра, нормали, кэш вокселей, граф поверхности, A*, сплайн, движение, слух, стадии и «мозг» (поиск игрока на пике — `Seeking`, держаться от игроков — `KeepAway`). Доступ к миру только через `VoxelView`. Изоляцию проверяет `CoreIsolationTest`. |
-| `tremor.world` | Адаптеры к миру Minecraft (`LevelVoxelView`, теги, свет). |
-| `tremor.entity` | Серверная сущность: состояние в `SavedData`, тик, поиск пути, синхронизация, реакция на изменения блоков; «мозг» по стадиям (`TremorMind`), удар, уход. |
-| `tremor.hearing` | Слух: игровые события → вибрации с громкостью и опорой. |
-| `tremor.spawn` | Естественный спавн (SPEC 11). |
-| `tremor.awakening` | Пробуждение (SPEC 9): начало по досягаемости, зона, фазы, поглощение, связь с изнанкой, исходы (`Outcomes`, выход через край — `EdgeExits`); кратер (`Craters`, форма `CraterShape`, правила `CraterRules`) и тайники с вещами на его дне (`CraterCaches`, `CacheLayout`). |
-| `tremor.block` | Блоки мода: узел `heart_node`, трясина `mire`, тайник в осыпи `rubble_cache` (с block entity). |
-| `tremor.hollow` | Изнанка (SPEC 9): измерение `tremor:hollow`, копирование местности, перенос с затемнением, правила, возврат, запрет бега на сервере (`SprintLock`); `tremor.hollow.level` — уровень внутри (раздвигание, сеть ходов к узлу `WayPlanner`/`Worm`, смыкание, затягивание). |
-| `tremor.sound` | Звуки мода (гул, треск, вздох, шорох, удар, пульс узла, глухой удар кольца...). |
-| `tremor.network` | Пакеты сервер → клиент (состояние ~80 байт, форма бугра). |
-| `tremor.command` | Отладочные команды `/tremor ...`. |
-| `tremor.debug` | Отладочные частицы (маршрут, нормали, граф). |
-| `tremor.client` | Клиент: интерполяция снимков, рендер деформации и ряби, шорох; `tremor.client.hollow` — изнанка на клиенте: чёрный туман (`HollowFog`), без неба (`HollowSky`), без бега (`HollowStride`), движение земли и пыль колец узла (`HollowGround`, `HollowWake`). |
-| `tremor.client.dev` | Dev-only скриптовый прогон (`runClientAutotest`), в обычной игре не активен. |
-
-## Команды
-
-| Команда | Что делает |
-|---|---|
-| `/tremor spawn [pos]` | Создать сущность (одна на измерение) у взгляда или в точке; точка «прилипает» к ближайшей поверхности. Такая сущность сама не уходит. |
-| `/tremor spawn natural` | Сразу выбрать точку естественного спавна для себя (40–80 блоков, на виду или на пути) и создать там естественную сущность. |
-| `/tremor despawn` | Убрать. |
-| `/tremor goto [pos]` | Отправить в точку (поиск пути распределён по тикам). Пока цель не достигнута, звуки её не перебивают. |
-| `/tremor stop` | Забыть цель (команды или звука) и остановиться. |
-| `/tremor anger <0..100>` | Выставить агрессию (стадия и звук перехода — по ней). На 100 сущность начинает искать игрока (`seeking a player for 35 s`). |
-| `/tremor stage <dormant\|alert\|hunting\|awakening>` | Выставить стадию; `awakening` — поиск игрока, событие начнётся, когда она доберётся. |
-| `/tremor ai <on\|off>` | Включить или выключить «мозг» стадий; без него сущность слушается только `goto` и `stop`. |
-| `/tremor set` | Показать параметры; `set <param> <value>` — изменить для сущности; `set reset` — вернуть значения конфига. |
-| `/tremor hollow <enter\|leave\|status\|tonode>` | Отладка изнанки: перенести себя в копию местности, вернуться, состояние событий и уровня (сеть ходов, смыкание, подготовка), встать к узлу. |
-| `/tremor hollow walk [steps]` | Пройти копию, какая она сейчас, от себя до узла (сколько шагов пешком) и переместиться на `steps` шагов по пути. |
-| `/tremor hollow outcome <victory\|edge\|defeat>` | Отладка: сразу завершить событие в изнанке этим исходом. |
-| `/tremor awaken [игрок]`, `/tremor awaken stop` | Запустить Пробуждение сразу (без поиска) или отменить. |
-| `/tremor crater [pos]` | Выкопать кратер настроенного размера в точке (по умолчанию там, где стоит выполняющий), без события и без вещей; `/tremor info` показывает, как он копается. |
-| `/tremor restore` | Завершить все события изнанки, вернуть игроков, очистить участки. |
-| `/tremor info` | Стадия, агрессия, что делает «мозг» (на пике — сколько ещё ищет), маршрут, часы ухода, стоимость тика; идущее Пробуждение, копающиеся кратеры и последний выкопанный (худший тик). |
-| `/tremor debug <path\|normals\|graph\|hearing> <on\|off>` | Частицы: маршрут, нормали, узлы и рёбра графа; слух — частица в точке звука (зелёная = услышан) и строка над хотбаром с громкостью, изоляцией, расстоянием и итогом. |
-
-## Конфиг
-
-Общий конфиг — `config/tremor-common.toml` (слух, поведение, спавн, изнанка, Пробуждение и кратер), клиентский —
-`config/tremor-client.toml` (рендер, эффекты, звуки). У каждого ключа есть комментарий. Стиль рендера бугра (`blocks`
-по ТЗ или гладкий `warp`) — `render.style`. Ключи этапа 4d: поиск на пике — `awakening.seekSeconds` (35 с),
-`reachDistance` (8), `searchRadius` (4); кратер — `awakening.craterRadius` (12, 0 — без кратера), `craterDepth` (20);
-сеть ходов — `hollow.level.nodeMinDistance`/`nodeMaxDistance` (40/60 шагов), `minDeadEnds`/`maxDeadEnds` (3/5);
-шелест — `hearing.rustlingFactor` (1.5); тьма — клиентский `effects.hollowFogDistance` (5.5 блока). Полная таблица —
-в [stage4-awakening.md](docs/stage4-awakening.md).
-
-## Этапы
-
-* [Этап 0 — спайк рендера](docs/stage0-render-spike.md): выбран аддитивный клиентский рендер.
-* [Этап 1 — вертикальный срез](docs/stage1-vertical-slice.md): сущность, граф поверхности, A*, движение, нырки, сеть.
-* [Этап 2 — слух](docs/stage2-hearing.md): вибрации через землю, изоляция под ногами, проводимость, приманки.
-* [Этап 3 — агрессия и спавн](docs/stage3-aggression.md): шкала и стадии, рябь, шорох, удар, естественный спавн и
-  уход.
-* [Этап 4 — Пробуждение](docs/stage4-awakening.md): нарастание в реальном мире, поглощение в изнанку (копию местности в
-  отдельном измерении), узел, смыкание, затягивание; победа, побег, поражение. Доработка 4d (готово, проверено в
-  игре): событие только когда сущность добралась до игрока, пик можно переждать; в изнанке чёрный туман и нет бега;
-  узел под землёй в 40–60 шагах, к нему сеть ходов с тупиками и «горло»; поражение и побег через край оставляют
-  кратер, вещи погибшего — в тайниках на дне; листва под ногами шелестит.
+Feel free to put Tremor in any modpack, public or private, and to make videos or streams with it, monetized or not. Credit is appreciated but not required. Please don't re-upload the mod to other sites or share modified versions without my permission. All rights reserved.
