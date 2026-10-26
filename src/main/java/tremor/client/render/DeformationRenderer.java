@@ -470,6 +470,7 @@ public final class DeformationRenderer {
             insideShade[direction.ordinal()] = own > 0 ? level.getShade(direction.getOpposite(), true) / own : 1;
         }
         int total = 0;
+        BlockPos mined = minedBlock();
         for (int i = 0, n = frameColumns.size(); i < n; i++) {
             Column col = frameColumns.get(i);
             if (col.h < BumpShape.RENDER_THRESHOLD) {
@@ -477,6 +478,9 @@ public final class DeformationRenderer {
             }
             if (!col.baked || !col.hasGeometry()) {
                 continue; // waits for its bake in a later frame, or there is nothing to draw
+            }
+            if (col.inZone && stays(level, col.source, mined)) {
+                continue; // the real block shows, with the cracks of its mining
             }
             drawn.add(col);
             total += col.cost();
@@ -1236,6 +1240,28 @@ public final class DeformationRenderer {
     private static boolean chunkLoaded(int chunkX, int chunkZ) {
         ClientLevel level = boundLevel;
         return level != null && level.getChunkSource().getChunkNow(chunkX, chunkZ) != null;
+    }
+
+    /** The block the local player is mining now, or null. */
+    private static BlockPos minedBlock() {
+        Minecraft mc = Minecraft.getInstance();
+        return mc.gameMode != null && mc.gameMode.isDestroying()
+                && mc.hitResult instanceof net.minecraft.world.phys.BlockHitResult hit
+                && hit.getType() == net.minecraft.world.phys.HitResult.Type.BLOCK ? hit.getBlockPos() : null;
+    }
+
+    /**
+     * Whether the voxel {@code source} a column of the zone's ground is a copy of (its own, or the one a fill cell
+     * swells out of) is drawn as itself, with no copy over it (the user's wish: in the hollow the copy of the breathing
+     * heart covered its cracks whenever it heaved, so mining it looked like doing nothing): the block the local player
+     * is mining ({@code mined}), and the heart node, which stands still while the ground around it heaves. Not for a
+     * bump: its copies stand blocks high, and one left out would be a hole.
+     */
+    private static boolean stays(ClientLevel level, BlockPos source, BlockPos mined) {
+        if (source.equals(mined)) {
+            return true;
+        }
+        return level.getBlockState(source).is(tremor.block.TremorBlocks.HEART_NODE.get());
     }
 
     private static void draw(RenderType layer) {
