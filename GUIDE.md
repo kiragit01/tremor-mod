@@ -71,6 +71,7 @@ You end up in a copy of the place you were taken from, made just for you, in a s
 - You have 60 seconds. The bar at the top of the screen shows how much is left, and eating or drinking doesn't change it. When it runs out, the ground takes you.
 - Somewhere 40–60 steps away, through tunnels dug through the copy, there's a chamber with its heart, the Heart Node. There are dead ends too.
 - The heart beats. Every beat sends a ring through the ground (you hear the thud and see the dust), and the beats get faster as the walls close. Follow the rings back to where they come from.
+- To break the heart, hold the attack button on it: with an iron pickaxe it takes under a second, by hand about 4 seconds. Let go and it starts over.
 - After 10 seconds the edges start closing in. They close faster the more noise you make: walking on stone more than doubles it, sneaking adds nothing. They stop a few blocks from where you arrived, and the way to the node always stays open.
 - Throwing an item or shooting an arrow somewhere away from you is a lure: the closing stops for 4 seconds (not more often than every 8 seconds).
 - Don't stand still. After 3 seconds in one spot the ground under you goes soft and starts pulling you in; stay on it for 10 seconds and that's the end. Step off and it sets again.
