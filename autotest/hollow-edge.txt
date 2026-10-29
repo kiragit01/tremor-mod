@@ -1,0 +1,56 @@
+# The edge of the hollow seen without the darkness (as with shaders): the copy should end in the closing wall from
+# the first moment, not in the open. Swallowed on the open sky platform, the player turns creative (no darkness)
+# right after coming in and looks out to the four sides.
+# Run: gradlew runClientAutotest -Ptremor_autotest_script=hollow-edge.txt
+waitchunks
+cmd gamemode spectator
+cmd time set noon
+cmd tremor despawn all
+cmd tremor awaken stop
+cmd tp @s 300.5 201.0 -899.5 0 0
+wait 40
+waitchunks
+cmd fill 240 198 -960 299 199 -840 minecraft:stone
+cmd fill 300 198 -960 360 199 -840 minecraft:stone
+cmd fill 240 200 -960 360 200 -840 minecraft:grass_block
+cmd fill 240 201 -960 279 206 -840 minecraft:air
+cmd fill 280 201 -960 319 206 -840 minecraft:air
+cmd fill 320 201 -960 360 206 -840 minecraft:air
+cmd kill @e[type=!player]
+cmd gamemode survival
+cmd effect clear @s
+cmd effect give @s minecraft:night_vision infinite 0 true
+cmd effect give @s minecraft:instant_health 1 4 true
+config client:effects.hollowFogDistance 32
+config hollow.level.stillSeconds 60
+config awakening.buildupSeconds 3
+config awakening.craterRadius 0
+config awakening.lethal false
+hud off
+cmd tremor awaken
+wait 220
+waitchunks
+cmd tremor hollow status
+cmd gamemode creative
+wait 10
+look 0 5
+screenshot 10_south
+look 90 5
+screenshot 11_west
+look 180 5
+screenshot 12_north
+look 270 5
+screenshot 13_east
+look 0 -30
+screenshot 14_south_up
+log --- out by the escape tunnel, through the wall, on foot
+cmd gamemode survival
+cmd tremor hollow totunnel end
+wait 5
+screenshot 20_tunnel_end
+hold forward 80
+wait 60
+cmd data get entity @s Dimension
+wait 120
+cmd effect clear @s
+quit

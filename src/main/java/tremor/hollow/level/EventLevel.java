@@ -99,7 +99,7 @@ final class EventLevel {
     private static final int WALK_LENGTHS = 4;
 
     private enum Stage {
-        READ, WIDEN, PLAN, WRITE, LIGHT, READY
+        READ, WIDEN, PLAN, WRITE, LIGHT, WALL, READY
     }
 
     private final ServerLevel hollow;
@@ -169,11 +169,17 @@ final class EventLevel {
     private final WallShifter walls = new WallShifter();
     private Mire mire;
     private long ticks;
+    /** How deep the edge of the copy is closed before the player comes in (blocks). */
+    private static final double WALL_BLOCKS = 6;
+    /** The wall is made within this many ticks at most. */
+    private static final int WALL_MAX_TICKS = 100;
     /** The player is brought back if still inside this long after the outcome (ticks)... */
     private static final int STUCK_TICKS = 600;
     /** ...or this long while a crater is dug, which a defeat waits for (a big one on a slow server takes a while). */
     private static final int STUCK_DIGGING_TICKS = 3600;
     private boolean outcomeCalled;
+    /** {@link #prepareTicks} when the wall began ({@link #wall}). */
+    private int wallFrom;
     /** Ticks the player has been inside since the outcome was decided. */
     private int ticksAfterOutcome;
 
@@ -232,6 +238,7 @@ final class EventLevel {
                     case PLAN -> plan();
                     case WRITE -> write(budget);
                     case LIGHT -> settle();
+                    case WALL -> wall(budget);
                     case READY -> {
                     }
                 }
@@ -390,6 +397,20 @@ final class EventLevel {
         stage = Stage.LIGHT;
     }
 
+    /**
+     * Before the player comes in, the closing fills the outer {@value #WALL_BLOCKS} blocks of the copy (the user's
+     * wish: with shaders, which light the darkness away, the copy ended in the open and was eaten away from there; now
+     * its edge is the closing wall from the first moment, and it closes in from there), within the tick's budget, for
+     * {@value #WALL_MAX_TICKS} ticks at most.
+     */
+    private void wall(TickBudget budget) {
+        closer.tick(hollow, this, schedule.radius(), new net.minecraft.world.phys.Vec3(centreX, centreY, centreZ), 1.8,
+                prepareTicks, budget.deadline(), Integer.MAX_VALUE);
+        if (closer.idle() || prepareTicks - wallFrom >= WALL_MAX_TICKS) {
+            stage = Stage.READY;
+        }
+    }
+
     /** Waits for the light of the changes, then sets up the running parts with the config of now. */
     private void settle() {
         for (CompletableFuture<?> future : light) {
@@ -400,7 +421,8 @@ final class EventLevel {
         light.clear();
         TremorConfig.HollowLevel config = TremorConfig.COMMON.hollow.level;
         double edge = boxRadius - 1;
-        schedule = new ClosingSchedule(new ClosingSchedule.Params(nightmare ? 0 : config.graceSeconds.get() * 20, edge,
+        double start = Math.max(config.minRadius.get(), edge - WALL_BLOCKS); // the wall is there from the first moment
+        schedule = new ClosingSchedule(new ClosingSchedule.Params(nightmare ? 0 : config.graceSeconds.get() * 20, start,
                 config.minRadius.get(), Difficulty.current().closeSpeed(config.closeSpeed.get())
                         * (nightmare ? tremor.hollow.Nightmare.CLOSE_FACTOR : 1),
                 config.noiseFactor.get(), config.noiseSeconds.get(),
@@ -412,7 +434,8 @@ final class EventLevel {
         mire = new Mire(new SinkTracker.Params(ticks(nightmare ? tremor.hollow.Nightmare.STILL_SECONDS
                 : config.stillSeconds.get()), STILL_DISTANCE,
                 SINK_DEPTH / sinkTicks, SINK_DEPTH), ticks(config.recoverSeconds.get()));
-        stage = Stage.READY;
+        wallFrom = prepareTicks;
+        stage = Stage.WALL;
         Tremor.LOGGER.info("Hollow level: {} ready in {} ms of server time over {} ticks (reading {} ms, widening {} "
                         + "ms, planning {} ms in {} parts, writing {} ms); {}; {}", event,
                 String.format(Locale.ROOT, "%.1f", prepareMillis), prepareTicks, millis(Stage.READ),
