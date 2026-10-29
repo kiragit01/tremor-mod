@@ -26,7 +26,7 @@ import java.util.stream.Collectors;
  * wait &lt;ticks&gt;                 wait that many client ticks
  * waitchunks [timeoutTicks]    wait until chunks stopped arriving and visible sections are meshed (default 600)
  * cmd &lt;command&gt;               run a command as the player (a leading slash is optional)
- * hud &lt;on|off&gt;                show / hide the GUI (F1)
+ * hud &lt;on|off|debug&gt;          show / hide the GUI (F1); debug: shown with the debug screen (F3)
  * view &lt;first|back|front&gt;     camera: first person, third person from behind or from the front (F5)
  * look &lt;yaw&gt; &lt;pitch&gt;          set the camera rotation, pitch in [-90, 90]
  * hold &lt;keys&gt; &lt;ticks&gt;          hold movement keys for that many client ticks (at least 1), then release them; keys
@@ -233,12 +233,12 @@ record Script(Path path, List<Step> steps) {
                     yield Step.of(line, source, Kind.CMD, command, 0);
                 }
                 case "hud" -> {
-                    expectArgs(args, 1, 1, "hud <on|off>");
+                    expectArgs(args, 1, 1, "hud <on|off|debug>");
                     String value = args[0].toLowerCase(Locale.ROOT);
-                    if (!value.equals("on") && !value.equals("off")) {
-                        throw new IllegalArgumentException("usage: hud <on|off>");
+                    if (!value.equals("on") && !value.equals("off") && !value.equals("debug")) {
+                        throw new IllegalArgumentException("usage: hud <on|off|debug>");
                     }
-                    yield Step.of(line, source, Kind.HUD, value, value.equals("on") ? 1 : 0);
+                    yield Step.of(line, source, Kind.HUD, value, value.equals("debug") ? 2 : value.equals("on") ? 1 : 0);
                 }
                 case "view" -> {
                     expectArgs(args, 1, 1, "view <first|back|front>");

@@ -340,6 +340,14 @@ public final class NaturalSpawner {
         return !level.canSeeSky(pos) && pos.getY() < roof;
     }
 
+    /**
+     * Whether a spawn point at {@code pos} is under the ground and dark there as monsters need it: a cave or a mine,
+     * not a lit house (its roof alone would count it as under the ground).
+     */
+    private static boolean undergroundAndDark(ServerLevel level, BlockPos pos) {
+        return underground(level, pos) && level.getMaxLocalRawBrightness(pos) < DARK_LIGHT;
+    }
+
     private static double chance(SpawnRules.Conditions conditions) {
         TremorConfig.Spawn config = TremorConfig.COMMON.spawn;
         return SpawnRules.chance(tremor.config.Difficulty.current().spawnChance(config.baseChance.get()), conditions,
@@ -367,7 +375,7 @@ public final class NaturalSpawner {
         double halfWidth = config.routeHalfWidth.get();
         boolean undergroundOnly = config.undergroundOnly.get();
         Predicate<Vec3> allowed = p -> protection.test(p) && (inView(view, p) || heading.passes(feet, p, halfWidth))
-                && (!undergroundOnly || underground(level, BlockPos.containing(p.x(), p.y() + 0.5, p.z())));
+                && (!undergroundOnly || undergroundAndDark(level, BlockPos.containing(p.x(), p.y() + 0.5, p.z())));
         SurfaceGraph graph = new SurfaceGraph(new LevelVoxelView(level), TremorConfig.COMMON.maxDiveDepth.get());
         SurfacePicker.SpawnPick pick = SurfacePicker.spawnPoint(graph, feet, vec(player.getEyePosition()),
                 heading.direction(), config.minDistance.get(), maxDistance(), halfWidth, config.verticalRange.get(),

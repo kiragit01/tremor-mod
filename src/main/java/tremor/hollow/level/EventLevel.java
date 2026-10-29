@@ -169,11 +169,10 @@ final class EventLevel {
     private final WallShifter walls = new WallShifter();
     private Mire mire;
     private long ticks;
-    /**
-     * The player is brought back if still inside this long after the outcome (ticks): longer than the biggest crater
-     * of a defeat takes to dig.
-     */
-    private static final int STUCK_TICKS = 2400;
+    /** The player is brought back if still inside this long after the outcome (ticks)... */
+    private static final int STUCK_TICKS = 600;
+    /** ...or this long while a crater is dug, which a defeat waits for (a big one on a slow server takes a while). */
+    private static final int STUCK_DIGGING_TICKS = 3600;
     private boolean outcomeCalled;
     /** Ticks the player has been inside since the outcome was decided. */
     private int ticksAfterOutcome;
@@ -514,10 +513,12 @@ final class EventLevel {
     /** One tick with the player inside the copy, alive. */
     void tick(ServerPlayer player) {
         if ((outcomeCalled || event.outcome() != null) && event.phase() == HollowEvent.Phase.INSIDE
-                && ++ticksAfterOutcome == STUCK_TICKS) {
+                && ticksAfterOutcome >= 0 && ++ticksAfterOutcome
+                >= (tremor.awakening.Craters.digging() ? STUCK_DIGGING_TICKS : STUCK_TICKS)) {
             // What should have taken the player out (a defeat's crater...) failed: never leave them in the dark.
             Tremor.LOGGER.warn("Hollow level: {} still inside {} s after the outcome, brought back", event,
-                    STUCK_TICKS / 20);
+                    ticksAfterOutcome / 20);
+            ticksAfterOutcome = -1; // once
             HollowLevels.bringBack(event, player);
             return;
         }

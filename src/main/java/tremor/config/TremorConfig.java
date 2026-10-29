@@ -612,8 +612,8 @@ public final class TremorConfig {
             allowPeaceful = b.comment("Whether the entity appears by itself in peaceful difficulty too")
                     .translation(KEY + "spawn.allowPeaceful").define("allowPeaceful", false);
             undergroundOnly = b.comment("Whether the entity appears by itself only under the ground: where no sky is",
-                            "seen (a cave, a mine), never on the surface. Once there it may still crawl up after",
-                            "sounds")
+                            "seen and it is dark as for monsters (a cave, a mine; not a lit house), never on the",
+                            "surface. Once there it may still crawl up after sounds")
                     .translation(KEY + "spawn.undergroundOnly").define("undergroundOnly", false);
             b.pop();
         }
