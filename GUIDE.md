@@ -12,6 +12,8 @@ Every 30 seconds there's a roll for each player. The base chance is 4%, and it g
 
 It doesn't appear in the first minute after you join or change dimension, within 32 blocks of the world spawn or of players' beds and respawn anchors, or on Peaceful.
 
+In the config you can make it appear only where no sky is seen and it's dark, the way all hostile mobs spawn (`spawn.undergroundOnly`, off by default).
+
 One creature per part of the world. A new one won't appear within 500 blocks of another, and there are at most 4 in a dimension. If two come closer than 100 blocks, the calmer one turns away, calms down and sinks into the ground. (These settings may change later.)
 
 It lives in the Overworld and the Nether. In the Nether it's angrier: it gets angry 1.5 times faster and crawls 1.25 times faster. Also, in the Overworld, the deeper it is, the angrier and faster it gets.
@@ -44,6 +46,8 @@ It crawls over any surface: floors, walls, cave ceilings. It can go through up t
 
 If it runs into you while hunting (or at its peak), it hits: about 2 hearts, and it knocks you back, which makes you make a sound. Animals and monsters it runs into get pulled under the ground.
 
+Items lying on the ground get pulled under too when it crawls over them (when it isn't calm). There's no getting them back. It only leaves alone things the mod itself gave back to a player, after the hollow for example: those never despawn either. This can be turned off in the config (`contact.devourItems`).
+
 ## Ambush
 
 When it's wary or hunting and senses a player walking towards it who can't see it, it may lie in wait instead (about a third of the time). It spreads into a wide, low mound under the floor and breathes. It only does this where there are at least four blocks of earth or stone under the floor.
@@ -74,6 +78,7 @@ You end up in a copy of the place you were taken from, in this creature's own di
 - Don't stand still. After 3 seconds in one spot the ground under you softens and starts pulling you in; stay on it for 10 seconds and the ground swallows you. Step off and it sets again.
 - You can dig, but it's very slow there.
 - There's a ceiling over you, so you can't escape over the top.
+- The coordinates in F3 won't help you there: random characters flicker in their place. The same during the Awakening, while you're being pulled in.
 
 There's one more way out: a narrow tunnel that starts a couple of blocks from where you arrived and leads to the edge. It isn't marked in any way. You only see the light at its end once you're already in it, and when the walls close in, it's just a dark hole in one of them.
 
