@@ -42,6 +42,8 @@ public final class Devour {
 
     /** Per level: the mobs being pulled under and the ticks they have sunk. */
     private static final Map<ServerLevel, Map<Mob, Integer>> TAKEN = new WeakHashMap<>();
+    /** The age of an item that never despawns ({@code ItemEntity.setUnlimitedLifetime}). */
+    private static final int UNLIMITED_AGE = -32768;
     /** The tag of a mob being pulled under, saved with it if its chunk unloads meanwhile. */
     private static final String TAG = "tremor_devoured";
 
@@ -60,6 +62,23 @@ public final class Devour {
         }
         Map<Mob, Integer> taken = TAKEN.get(level);
         return taken == null || !taken.containsKey(mob);
+    }
+
+    /** Whether the bump may take {@code item}: one lying about, not one the mod laid down to stay (never despawns). */
+    public static boolean takeable(net.minecraft.world.entity.item.ItemEntity item) {
+        return item.isAlive() && item.getAge() != UNLIMITED_AGE;
+    }
+
+    /** The bump takes {@code item} at once: it is gone, in the dust of the ground. */
+    public static void take(ServerLevel level, net.minecraft.world.entity.item.ItemEntity item) {
+        BlockState ground = level.getBlockState(item.blockPosition().below());
+        if (!ground.isAir()) {
+            level.sendParticles(new BlockParticleOption(ParticleTypes.BLOCK, ground), item.getX(), item.getY() + 0.1,
+                    item.getZ(), 8, 0.2, 0.1, 0.2, 0.05);
+        }
+        level.playSound(null, item.getX(), item.getY(), item.getZ(), TremorSounds.CRACK.get(), SoundSource.HOSTILE,
+                0.5F, 1.4F);
+        item.discard();
     }
 
     /** The bump takes {@code mob}: it stops where it is and starts to sink. */

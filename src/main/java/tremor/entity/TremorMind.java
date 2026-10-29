@@ -423,7 +423,8 @@ final class TremorMind {
         if (stage == Stage.HUNTING || stage == Stage.AWAKENING) {
             strike(now);
         }
-        if (stage != Stage.DORMANT && TremorConfig.COMMON.devourMobs.get()) {
+        if (stage != Stage.DORMANT
+                && (TremorConfig.COMMON.devourMobs.get() || TremorConfig.COMMON.devourItems.get())) {
             devour();
         }
         if (entity.natural()) {
@@ -763,10 +764,21 @@ final class TremorMind {
         double reach = ContactZone.reach(amplitude, radius, 3);
         AABB box = new AABB(center.x() - reach, center.y() - reach, center.z() - reach, center.x() + reach,
                 center.y() + reach, center.z() + reach);
-        for (Mob mob : level.getEntitiesOfClass(Mob.class, box, m -> Devour.takeable(level, m))) {
-            if (ContactZone.touches(runtime.liveView(), center, crawler.normal(), amplitude, vec(mob.position()),
-                    mob.getBbHeight(), radius)) {
-                Devour.take(level, mob);
+        if (TremorConfig.COMMON.devourMobs.get()) {
+            for (Mob mob : level.getEntitiesOfClass(Mob.class, box, m -> Devour.takeable(level, m))) {
+                if (ContactZone.touches(runtime.liveView(), center, crawler.normal(), amplitude, vec(mob.position()),
+                        mob.getBbHeight(), radius)) {
+                    Devour.take(level, mob);
+                }
+            }
+        }
+        if (TremorConfig.COMMON.devourItems.get()) {
+            for (net.minecraft.world.entity.item.ItemEntity item : level.getEntitiesOfClass(
+                    net.minecraft.world.entity.item.ItemEntity.class, box, Devour::takeable)) {
+                if (ContactZone.touches(runtime.liveView(), center, crawler.normal(), amplitude, vec(item.position()),
+                        item.getBbHeight(), radius)) {
+                    Devour.take(level, item);
+                }
             }
         }
     }

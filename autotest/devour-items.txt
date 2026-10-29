@@ -1,0 +1,43 @@
+# The bump pulls under the items lying on the ground it passes over (not while DORMANT); an item that never despawns
+# (one the mod laid down for a player, Age -32768) is spared.
+# Run: gradlew runClientAutotest -Ptremor_autotest_script=devour-items.txt
+waitchunks
+cmd gamemode spectator
+cmd time set noon
+cmd tremor despawn all
+cmd tremor awaken stop
+cmd tp @s 306.5 206.0 -905.5 90 40
+wait 40
+waitchunks
+cmd fill 240 198 -960 299 199 -840 minecraft:stone
+cmd fill 300 198 -960 360 199 -840 minecraft:stone
+cmd fill 240 200 -960 360 200 -840 minecraft:grass_block
+cmd fill 240 201 -960 279 206 -840 minecraft:air
+cmd fill 280 201 -960 319 206 -840 minecraft:air
+cmd fill 320 201 -960 360 206 -840 minecraft:air
+cmd kill @e[type=item]
+cmd summon item 300.5 201 -902.5 {Item:{id:"minecraft:diamond",count:3,Count:3b}}
+cmd summon item 300.5 201 -905.5 {Item:{id:"minecraft:diamond",count:3,Count:3b}}
+cmd summon item 300.5 201 -908.5 {Item:{id:"minecraft:gold_ingot",count:1,Count:1b},Age:-32768s}
+wait 20
+cmd execute if entity @e[type=item,distance=..30]
+cmd execute as @e[type=item,distance=..30] run data get entity @s Pos
+cmd tremor spawn 300 201 -892
+cmd tremor ai off
+cmd tremor stage hunting
+cmd tremor hold
+wait 40
+log --- it passes over the items
+cmd tremor goto 300 200 -918
+screenshot 10_items
+wait 60
+screenshot 11_passing
+wait 240
+log --- the diamonds are gone, the item that never despawns stays
+cmd execute if entity @e[type=item,distance=..30]
+cmd execute if entity @e[type=item,nbt={Item:{id:"minecraft:gold_ingot"}},distance=..30]
+cmd execute as @e[type=item,distance=..30] run data get entity @s Pos
+cmd tremor info
+cmd tremor despawn all
+cmd kill @e[type=item]
+quit
