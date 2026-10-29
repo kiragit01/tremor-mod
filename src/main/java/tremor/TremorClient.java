@@ -32,6 +32,7 @@ public final class TremorClient {
 
         IEventBus game = NeoForge.EVENT_BUS;
         game.addListener(DeformationRenderer::onRenderLevelStage);
+        game.addListener(tremor.client.DebugScramble::onDebugText);
         game.addListener(ClientTremor::onLoggingOut);
         game.addListener(tremor.client.DebugProbeHud::onLoggingOut);
         game.addListener(tremor.client.ProbeTool::onClientTick);

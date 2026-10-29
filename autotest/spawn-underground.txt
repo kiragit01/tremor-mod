@@ -1,5 +1,6 @@
-# spawn.undergroundOnly: with it on, a natural spawn point is only under the ground (no sky seen). On the open sky
-# platform no point is found; with it off one is; under a stone roof over the platform one is again.
+# spawn.undergroundOnly: with it on, a natural spawn point is only under the ground and dark (no sky seen, light as
+# for monsters). On the open sky platform no point is found; with it off one is; under a stone roof over the platform
+# one is again; with the floor under the roof lit (glowstone) none is.
 # Run: gradlew runClientAutotest -Ptremor_autotest_script=spawn-underground.txt
 waitchunks
 cmd gamemode spectator
@@ -31,6 +32,14 @@ wait 20
 config spawn.undergroundOnly true
 cmd tremor spawn natural
 cmd tremor despawn all
+log --- under a roof but lit (a lit house), underground only: no spawn point
+cmd fill 240 200 -960 299 200 -840 minecraft:glowstone
+cmd fill 300 200 -960 360 200 -840 minecraft:glowstone
+wait 20
+cmd tremor spawn natural
+cmd tremor despawn all
+cmd fill 240 200 -960 299 200 -840 minecraft:grass_block
+cmd fill 300 200 -960 360 200 -840 minecraft:grass_block
 cmd fill 240 205 -960 299 205 -840 minecraft:air
 cmd fill 300 205 -960 360 205 -840 minecraft:air
 quit

@@ -756,7 +756,12 @@ final class AutoTestRunner {
                 return false;
             }
             case CMD -> player.connection.sendCommand(step.text());
-            case HUD -> mc.options.hideGui = step.number() == 0;
+            case HUD -> {
+                mc.options.hideGui = step.number() == 0;
+                if (mc.getDebugOverlay().showDebugScreen() != (step.number() == 2)) {
+                    mc.getDebugOverlay().toggleOverlay();
+                }
+            }
             case VIEW -> mc.options.setCameraType(net.minecraft.client.CameraType.values()[(int) step.number()]);
             case LOOK -> look(player, step.yaw(), step.pitch());
             case LOOKAT -> {

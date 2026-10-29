@@ -165,6 +165,11 @@ public final class Craters {
      * says no (asked before any digging, and on every tick of it) the crater is called off: it stays as far as it got,
      * and {@code done} is not told.
      */
+    /** Whether a crater is being dug anywhere. */
+    public static boolean digging() {
+        return !JOBS.isEmpty();
+    }
+
     static int dig(ServerLevel level, BlockPos top, String why, BooleanSupplier wanted, Consumer<Crater> done) {
         TremorConfig.Awakening config = TremorConfig.COMMON.awakening;
         if (collectors.isEmpty()) {

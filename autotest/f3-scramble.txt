@@ -1,0 +1,47 @@
+# F3 cannot tell where the player is in the hollow (the user's wish): the coordinates and the like are drawn as
+# obfuscated, ever changing characters. Shots of the debug screen before the swallow and inside.
+# Run: gradlew runClientAutotest -Ptremor_autotest_script=f3-scramble.txt
+waitchunks
+cmd gamemode spectator
+cmd time set noon
+cmd tremor despawn
+cmd kill @e[type=!player]
+cmd tp @s 255.5 212.0 255.5 0 20
+wait 40
+waitchunks
+# The block: x and z 224..286, y 186..222 (the platform is y 198..200); a fill takes 32768 blocks at most
+cmd fill 224 186 224 286 193 286 minecraft:stone
+cmd fill 224 194 224 286 201 286 minecraft:stone
+cmd fill 224 202 224 286 209 286 minecraft:stone
+cmd fill 224 210 224 286 217 286 minecraft:stone
+cmd fill 224 218 224 286 222 286 minecraft:stone
+# The 1x2 tunnel, closed at both ends
+cmd fill 245 209 255 265 210 255 minecraft:air
+cmd tp @s 255.5 209.0 255.5 90 10
+cmd gamemode survival
+cmd effect clear @s
+cmd effect give @s minecraft:night_vision infinite 0 true
+cmd effect give @s minecraft:instant_health 1 4 true
+cmd clear @s
+wait 20
+hud off
+hud debug
+wait 5
+screenshot 10_f3_real
+config awakening.buildupSeconds 3
+cmd tremor awaken
+wait 20
+screenshot 11_f3_buildup
+wait 200
+waitchunks
+cmd tremor hollow status
+wait 5
+screenshot 20_f3_hollow
+hud off
+cmd tremor hollow outcome victory
+wait 160
+hud debug
+wait 5
+screenshot 30_f3_back
+hud off
+quit
