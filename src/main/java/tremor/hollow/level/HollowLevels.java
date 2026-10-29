@@ -83,7 +83,7 @@ public final class HollowLevels {
      * The level of {@code event} failed: its player goes back to where the player was swallowed, with no outcome (an
      * event still copying is called off). False if that was refused.
      */
-    private static boolean bringBack(HollowEvent event, ServerPlayer player) {
+    static boolean bringBack(HollowEvent event, ServerPlayer player) {
         try {
             HollowManager.leave(player, null);
             return true;

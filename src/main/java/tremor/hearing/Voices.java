@@ -44,6 +44,12 @@ public final class Voices {
         SPOKEN.merge(player, new double[]{dbfs, whispering ? 1 : 0}, (old, now) -> old[0] >= now[0] ? old : now);
     }
 
+    /** A player coming in is heard afresh: nothing from before (a packet late after leaving, another world). */
+    public static void onPlayerLoggedIn(net.minecraftforge.event.entity.player.PlayerEvent.PlayerLoggedInEvent event) {
+        SPOKEN.remove(event.getEntity().getUUID());
+        NEXT.remove(event.getEntity().getUUID());
+    }
+
     /** Once per tick of a level: its players who spoke since are heard, each at most every few ticks. */
     public static void onLevelTick(TickEvent.LevelTickEvent event) {
         if (event.phase != TickEvent.Phase.END || !(event.level instanceof ServerLevel level) || SPOKEN.isEmpty()) {

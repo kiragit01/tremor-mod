@@ -134,6 +134,8 @@ final class TremorMind {
     static final double PASS_MARGIN_HEIGHT = 1;
     /** Volume of the sound of a ring of ripples ({@link TremorSounds#RIPPLE}): heard up to 16 blocks times this away. */
     static final float RIPPLE_VOLUME = 2;
+    /** How often (ticks) {@link #alone} looks for players again. */
+    private static final int ALONE_CHECK_TICKS = 20;
     /** A leaving entity is removed once its bump is lower than this (blocks)... */
     static final double SUNK = 0.02;
     /** ...or this many ticks after it started leaving, whatever its bump does. */
@@ -178,6 +180,9 @@ final class TremorMind {
     /** A vibration was heard since the last tick (eventful for the despawn clock). */
     private boolean heardSinceTick;
     private int leavingTicks;
+    /** {@link #alone}: what it found, and when it looked. */
+    private boolean alone;
+    private long aloneCheckedAt = Long.MIN_VALUE / 2;
     /**
      * Its anger is held where it is ({@code /tremor hold}, a route for filming, {@link Routes}): it neither decays nor
      * grows, so its look stays; it still hears and does what its stage does (a route has its ai off). Not saved.
@@ -274,6 +279,23 @@ final class TremorMind {
      * runs instead, and once it has run out the entity calms down), and the brain decides with what it heard since the
      * last tick; the body carries out the order.
      */
+    /** Whether no player (not a spectator) is within {@value #VIEWER_RANGE} blocks; looked at once a second. */
+    private boolean alone(long now) {
+        if (now - aloneCheckedAt >= ALONE_CHECK_TICKS || now < aloneCheckedAt) {
+            aloneCheckedAt = now;
+            Vec3 at = entity.crawler().position();
+            alone = true;
+            for (ServerPlayer player : level.players()) {
+                if (!player.isSpectator()
+                        && player.distanceToSqr(at.x(), at.y(), at.z()) <= VIEWER_RANGE * VIEWER_RANGE) {
+                    alone = false;
+                    break;
+                }
+            }
+        }
+        return alone;
+    }
+
     void think(long now) {
         BehaviorParams current = configParams();
         if (!current.equals(params)) {
@@ -311,6 +333,9 @@ final class TremorMind {
         }
         if (!entity.aiEnabled() || entity.frenzy()) {
             return;
+        }
+        if (meter.stage() == Stage.DORMANT && entity.targetKind() != TremorEntity.TargetKind.MANUAL && alone(now)) {
+            return; // asleep with nobody near: no wandering, no paths to find (a nest of them would cost for nothing)
         }
         if (now % LOOK_TICKS == 0) {
             lookForPrey(now);
@@ -708,6 +733,7 @@ final class TremorMind {
             double height = player.getBbHeight();
             double reach = ContactZone.reach(amplitude, radius, height);
             if (player.isSpectator() || player.isCreative() || !player.isAlive()
+                    || tremor.awakening.AwakeningManager.taken(player) // another one's prey
                     || player.distanceToSqr(center.x(), center.y(), center.z()) > reach * reach
                     || strikes.containsKey(player.getUUID())) {
                 continue;

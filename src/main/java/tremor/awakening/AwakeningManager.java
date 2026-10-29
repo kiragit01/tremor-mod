@@ -279,6 +279,8 @@ public final class AwakeningManager {
             return;
         }
         Quicksand.tick(level);
+        Outcomes.leftDrops(level);
+        forgetGone(level);
         for (Awakening awakening : awakenings(level)) {
             if (awakening.ended()) {
                 continue; // ended by another's tick
@@ -633,8 +635,9 @@ public final class AwakeningManager {
                 continue;
             }
             for (ServerPlayer player : level.players()) {
-                boolean inMud = level.getBlockState(net.minecraft.core.BlockPos.containing(player.getX(),
-                        player.getY() - 0.2, player.getZ())).is(tremor.block.TremorBlocks.QUICKSAND.get());
+                // Its own mud only: another ambush's quicksand is no part of this one.
+                boolean inMud = awakening.quicksand != null && awakening.quicksand.owns(
+                        net.minecraft.core.BlockPos.containing(player.getX(), player.getY() - 0.2, player.getZ()));
                 if (takeable(player) && (inMud || Ambush.steppedIn(awakening.center, new Vec3(player.getX(),
                         player.getY(), player.getZ()), awakening.radius))) {
                     startAmbush(level, player, awakening.center, awakening.radius, awakening.entity,
@@ -718,6 +721,19 @@ public final class AwakeningManager {
     }
 
     /** The running Awakening whose target the player is, in any level, or null. */
+    /** Whether an Awakening has {@code player} for its target (its zone, its quicksand or its hollow). */
+    public static boolean taken(net.minecraft.world.entity.player.Player player) {
+        return targetOf(player.getUUID()) != null;
+    }
+
+    /** Once a minute: who the entities that are gone heard last is forgotten (their numbers never come back). */
+    private static void forgetGone(ServerLevel level) {
+        LevelState state = state(level, false);
+        if (state != null && level.getGameTime() % 1200 == 0) {
+            state.lastHeard.keySet().removeIf(instance -> TremorManager.byInstance(level, instance) == null);
+        }
+    }
+
     private static Awakening targetOf(UUID player) {
         for (Awakening awakening : all()) {
             if (awakening.target.equals(player)) {

@@ -90,6 +90,8 @@ public final class ClientTremor {
         if (!payload.present()) {
             playbacks.remove(payload.instance());
             shapes.remove(payload.instance());
+            leapsTold.remove(payload.instance());
+            leaps.remove(payload.instance());
             return;
         }
         int rippleAge = payload.rippleAge();
@@ -155,6 +157,8 @@ public final class ClientTremor {
             SnapshotPlayback.Sample sample = entry.getValue().sample(gameTime, nanos, tickRate, running);
             if (sample == null) {
                 if (entry.getValue().isEmpty()) {
+                    leapsTold.remove(entry.getKey());
+                    leaps.remove(entry.getKey());
                     it.remove(); // gone stale: out of the sync range, or gone without word
                 }
                 continue;
@@ -167,17 +171,11 @@ public final class ClientTremor {
             }
             BumpParams shape = shapes.get(entry.getKey());
             if (shape != null) {
-                int at = 0;
-                while (at < distances.size() && distances.get(at) <= distance) {
-                    at++;
-                }
-                distances.add(at, distance);
                 // Lying in wait it is round, wide, low and breathing (core Ambush), more so as it settles in.
                 BumpParams drawn = shape.lurking(sample.lurk(), tremor.core.behavior.Ambush.SPREAD).withAmplitude(
                         sample.amplitude() * tremor.core.behavior.Ambush.breath(gameTime / 20.0, sample.lurk()));
                 RenderState state = new RenderState(sample.frame(), drawn, shape.amplitude(), sample.phase(),
                         entry.getKey(), sample.stage(), sample.rippleAge(), null);
-                distances.remove(at); // each hill goes in by its own distance
                 for (RenderState part : pour(state, dt)) {
                     double d = part.frame().center().distance(eye);
                     int where = 0;

@@ -268,13 +268,6 @@ public final class VibrationListener {
     }
 
     /**
-     * The vibration goes to the level's entity, if there is one, then to the level's Awakening with the player behind
-     * it ({@link #playerBehind}), and in the hollow to the level of the hollow there ({@link HollowLevels#vibration}:
-     * the player's noise, or a lure).
-     *
-     * @param cause what made it, or null
-     */
-    /**
      * A player speaking in a voice chat ({@link Voices}), {@code loudness} as loud as their voice: like a step, it goes
      * into the ground under them; in the hollow it is noise like any other.
      */
@@ -289,11 +282,19 @@ public final class VibrationListener {
                 join(note, contact.note()), contact.rustling()), player);
     }
 
-    /** Every entity of the level within hearing distance evaluates it; the Awakening and the hollow get it once. */
+    /**
+     * The vibration goes to every entity of the level (each within hearing distance evaluates it), unless the player
+     * behind it ({@link #playerBehind}) is being taken by an Awakening (the user: a second tremor kept striking them),
+     * then once to the level's Awakening, and in the hollow to the level of the hollow there
+     * ({@link HollowLevels#vibration}: the player's noise, or a lure).
+     *
+     * @param cause what made it, or null
+     */
     private static void emit(ServerLevel level, List<TremorRuntime> runtimes, Vibration vibration, Entity cause) {
         Player player = playerBehind(cause);
+        boolean taken = player != null && AwakeningManager.taken(player);
         for (TremorRuntime runtime : runtimes) {
-            Perception perception = runtime.hear(vibration);
+            Perception perception = taken ? null : runtime.hear(vibration);
             TremorEntity entity = runtime.entity();
             if (perception != null && entity != null) {
                 DebugParticles.hearing(level, vibration, perception);

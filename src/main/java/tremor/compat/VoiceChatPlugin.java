@@ -52,17 +52,29 @@ public final class VoiceChatPlugin implements VoicechatPlugin {
         UUID player = sender.getPlayer().getUuid();
         byte[] opus = event.getPacket().getOpusEncodedData();
         OpusDecoder decoder = decoders.computeIfAbsent(player, id -> voicechat.createDecoder());
-        if (opus == null || opus.length == 0) {
-            decoder.resetState(); // the end of a talk
-            return;
+        short[] samples;
+        // The voice chat's packet thread decodes, a disconnect closes: never both at once (a native decoder).
+        synchronized (decoder) {
+            if (decoder.isClosed()) {
+                return;
+            }
+            if (opus == null || opus.length == 0) {
+                decoder.resetState(); // the end of a talk
+                return;
+            }
+            samples = decoder.decode(opus);
         }
-        Voices.heard(player, Voices.level(decoder.decode(opus)), event.getPacket().isWhispering());
+        Voices.heard(player, Voices.level(samples), event.getPacket().isWhispering());
     }
 
     private void onDisconnected(PlayerDisconnectedEvent event) {
         OpusDecoder decoder = decoders.remove(event.getPlayerUuid());
-        if (decoder != null && !decoder.isClosed()) {
-            decoder.close();
+        if (decoder != null) {
+            synchronized (decoder) {
+                if (!decoder.isClosed()) {
+                    decoder.close();
+                }
+            }
         }
     }
 }
