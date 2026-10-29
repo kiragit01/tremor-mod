@@ -120,6 +120,7 @@ public final class TremorConfig {
         public final ForgeConfigSpec.DoubleValue contactLift;
         public final ForgeConfigSpec.DoubleValue contactAnger;
         public final ForgeConfigSpec.BooleanValue devourMobs;
+        public final ForgeConfigSpec.BooleanValue devourItems;
         public final ForgeConfigSpec.DoubleValue despawnPlayerDistance;
         public final ForgeConfigSpec.DoubleValue despawnFarSeconds;
         public final ForgeConfigSpec.DoubleValue despawnQuietSeconds;
@@ -381,6 +382,10 @@ public final class TremorConfig {
             devourMobs = b.comment("Animals and monsters the bump touches while it is not DORMANT are pulled under and",
                             "gone (no drops, no crater); bosses and #tremor:undevourable never")
                     .translation(KEY + "behavior.contact.devourMobs").define("devourMobs", true);
+            devourItems = b.comment("Items lying on the ground that the bump touches while it is not DORMANT are",
+                            "pulled under: gone for good. What the mod laid down for a player (it never despawns) is",
+                            "spared")
+                    .translation(KEY + "behavior.contact.devourItems").define("devourItems", true);
             b.pop();
 
             b.comment("A naturally spawned entity leaves (sinks and disappears) when no player was near for",

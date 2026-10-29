@@ -56,8 +56,8 @@ import java.util.Locale;
  *   which is ignored (the walk is heard through its steps);</li>
  *   <li>steps of a mount ridden by a player and of any minecart have {@code mountStepLoudness} (vanilla emits a
  *   minecart's steps while it rolls on rails, every ~1.7 blocks);</li>
- *   <li>other living sources: times {@code mobLoudnessFactor} (0 by default: the entity listens for players, not
- *   cows), except explosions (creepers), which always count fully;</li>
+ *   <li>other living sources: times {@code mobLoudnessFactor} (0.6 by default: it hears mobs, more quietly than
+ *   players, and they anger it less, {@code mobAngerFactor}), except explosions (creepers), which always count fully;</li>
  *   <li>projectiles and other non-living sources count fully, whoever threw them: decoys (SPEC 7.4);</li>
  *   <li>items: every entity emits {@code hit_ground} when it lands after falling; for an item that becomes
  *   {@code item_land} with {@code itemLandLoudness} plus up to 2 for a fast impact, and nothing below
