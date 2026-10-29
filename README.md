@@ -2,80 +2,80 @@
 
 English · [Русский](README.ru.md)
 
-A horror mod for Minecraft about something that lives under the ground. You never see it. You only see the ground move where it crawls: a mound going through grass, stone and cave walls, following every sound you make.
+A Minecraft mod about a creature that lives under the ground. You never see the thing itself, only how it moves. It can crawl over any surface at any angle (ceilings, walls, floors, pillars). It reacts to sound, a bit like the Warden.
 
-You can't fight it. You can stay quiet, you can run, or you can get caught.
+It takes no damage. You can hide from it or quietly walk away, or it swallows you.
 
 For NeoForge 1.21.1 and Forge 1.20.1.
 
 ## How it plays
 
-It hears you through the ground. Steps, jumps, landings, mined blocks, explosions, arrows and thrown items hitting the ground. Stone carries a sound far, sand and gravel less, wool and carpets almost kill it, and leaves rustle under your feet. Sneak and your steps make no sound at all. Stand still and you don't exist for it.
+The creature hears sounds through the ground: jumps, steps, breaking and placing blocks, explosions, dropped items, and arrows, snowballs and eggs when they hit the ground. Sound travels differently depending on the surface: far through stone, more muffled through sand and gravel, and wool and carpets make almost no sound at all. If you sneak or stand still, it won't hear you.
 
-When it hears nothing, it just wanders around. When it hears something, it gets angry. First it gets wary: it freezes and sends rings of ripples across the ground. That's it listening, and if you move right then, it knows where you are. Then it hunts: it's fast and goes for every sound. At the peak of its anger it's looking for you, and if it reaches you, the Awakening starts.
+While it hears nothing, it just wanders around nearby. If there are sounds close by, it starts getting irritated and becomes wary. At that moment it may send rings of waves around itself, listening, and if you make noise right then, it starts hunting and goes for the last sound it heard. While hunting it can react to mobs too and pull them under the ground. Keep making noise and it reaches its last stage of anger, where it gets even faster and more aggressive, and if it reaches a player, the Awakening begins.
 
-All of it in detail, with numbers and the small stuff, is in the [guide](GUIDE.md).
+Everything in detail, with numbers and all the small stuff, is in the [guide](GUIDE.md).
 
-## Questions people ask
+## Some answers to questions
 
 **How often does it show up?**
 
-Every now and then, 40 to 80 blocks from you. On the surface in daylight it's rare, on average about once every 10–15 minutes if there isn't one around already. At night, in the dark, in caves and deep underground it's a lot more likely. If no one comes near it for a while, or nothing happens for a long time, it sinks into the ground and leaves.
+By itself, every now and then, 40 to 80 blocks from you. On the surface in daylight it's rare, on average about once every 10–15 minutes. At night, in the dark, in caves and deep underground it's much more often. If no player comes near it for a long time, or nothing happens for a long time, it sinks into the ground and disappears. In the config you can tune its spawning: make it appear only underground in unlit places, and change how often it shows up.
 
-**Does it follow me everywhere?**
+**Does it follow me all the time?**
 
-No, it isn't tied to you. It kind of has its own part of the world, the one you're in, and it roams there and goes for sounds. Go far enough away and it stays behind, and after a while it leaves. There can be several of them, one for each part of the world where players are (at least 500 blocks apart, up to 4 per dimension).
+No, it isn't tied to a player. It can be right nearby, never hear you, and just leave.
 
-**What happens when it reaches me?**
+**What happens if it reaches me?**
 
-That's the Awakening, and it goes in two steps. First the whole area around you (32 blocks) becomes it: the sounds go quiet, the ground breathes, and you have about 7 seconds to get out of that circle while the ground grabs at your feet. Make it out and you got away. Don't, and a hill rises under you and swallows you.
+The Awakening begins, and it has two stages. First the whole area around you (32 blocks) comes "alive": sounds go quiet, the ground breathes, and you have about 7 seconds to run out of that circle, while the ground grabs at your feet. Make it out and you got away. Don't, and a hill rises under you and swallows you.
 
-**And what's "getting inside it"?**
+**And what does "getting inside it" mean?**
 
-Once you're swallowed, you end up in the hollow: a dark copy of the same place, just for you, in a separate dimension. There's black fog, you can't sprint, and the edges slowly close in. Somewhere 40–60 steps away, through tunnels with dead ends, its heart is beating (the node). You have about a minute. Break the node and you come back out where you were taken, with a shard. There's one more way out, through the edge, but you have to find it, and the place you were taken from still gets a crater. Run out of time and a real crater opens where you stood; by default you die, and your things end up in caches at the bottom of that crater.
+Once swallowed, you end up in the hollow. It's a dark copy of the place where the creature pulled you in, but in a separate dimension of its own. There's black fog, you can't sprint, and the edges slowly close in. Somewhere 40–60 steps away, through tunnels with dead ends, its heart (the node) is beating. You have about a minute. Break the node and you come back out where you were taken, carrying a shard. There's one more way out, through the edge, but you have to find it, and then the place you were taken from still gets a crater. Run out of time and a crater opens where you stood; by default you die, and your things end up in caches at the bottom of it.
 
-**What are the shards for?**
+**What are shards?**
 
-A shard is what you get for breaking the node. Shards make a seismograph (its needle points at the creature), a geophone (a redstone signal when it's near) and a Muffled Steps book for your boots. And never throw a shard on the ground: the ground takes it right away, and the creature comes straight for you in a frenzy.
+A shard is what a broken node gives you. Shards craft a seismograph (its needle points at the creature), a geophone (a redstone signal when it's near) and a Muffled Steps book for your boots. And never throw a shard on the ground: the ground takes it right away, and the creature comes straight for you in a frenzy.
 
-**Can I play it with friends?**
+**Can I play with friends?**
 
-Yes, it's made for servers too. Install it on the server and on every player's client. Everyone who gets swallowed gets their own hollow.
+Yes, the mod is made for servers too. Install it on the server and for every player. Everyone who gets swallowed gets their own hollow.
 
-**Voice chat?**
+**What about voice chat?**
 
-If you have Simple Voice Chat, it hears you talk: your voice goes into the ground under you, like a step. Whispering is quieter.
+If you have Simple Voice Chat, it hears you talk: the voice goes into the ground under whoever speaks, like a step. Whispering is quieter.
 
 **Is it heavy?**
 
-There's a quality preset in the client config (Low / Medium / High) for weaker PCs. Works with Sodium and Iris; I haven't really tested shader packs.
+The client settings have a quality preset (Low / Medium / High) for weaker PCs. Works with Sodium and Iris. With shaders there can be bugs: no darkness effect, and the area isn't lit the way it should be.
 
 ## Installing
 
 1. Install NeoForge for 1.21.1 or Forge for 1.20.1.
-2. Put the mod's jar into `mods`. For a server: on the server and for every player.
+2. Put the mod's jar into the `mods` folder. For a server: on the server and for every player.
 3. Optional: Simple Voice Chat.
 
-It's on CurseForge (Modrinth is still in review).
+The mod is on CurseForge (Modrinth is still in review).
 
 ## Settings
 
-Difficulty is one switch: Calm, Normal, Hard, Nightmare. It's `difficulty` at the top of `config/tremor-common.toml`, or `/tremor difficulty` in game (operators). Everything else can be tuned too: hearing, anger, speed, spawning, the Awakening, the hollow, the crater, the items. The difficulty table is in the guide, and every key in the config file has a comment.
+Difficulty is one switch: Calm, Normal, Hard, Nightmare. It's `difficulty` at the very top of `config/tremor-common.toml`, or `/tremor difficulty` right in the game (operators). Everything else can be tuned too: hearing, anger, speed, spawning, the Awakening, the hollow, the crater, the items. The difficulty table is in the guide, and every key in the config file has a comment.
 
-## For server admins and testing
+## For admins and testing
 
-The `/tremor` commands are for operators: `spawn`, `despawn`, `info`, `stage`, `awaken`, `restore`, `difficulty` and more (Tab completes the rest). There's also a multitool in the Operator Utilities creative tab: in your hand it shows what the nearest creature is doing, right click lures it to where you're looking, sneak + right click opens its menu.
+The `/tremor` commands are for operators only: `spawn`, `despawn`, `info`, `stage`, `awaken`, `restore`, `difficulty` and more, Tab will suggest the rest. There's also a multitool (`/give @s tremor:debug_probe`): in your hand it shows what the nearest creature is doing, right click lures it to where you're looking, sneak + right click opens its menu.
 
 ## Building from source
 
-`main` is NeoForge 1.21.1 (JDK 21), `forge-1.20.1` is Forge 1.20.1 (JDK 17).
+The `main` branch is NeoForge 1.21.1 (needs JDK 21), the `forge-1.20.1` branch is Forge 1.20.1 (JDK 17).
 
 ```bash
 ./gradlew build
 ```
 
-The jar ends up in `build/libs`. Dev notes (in Russian) are in [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md).
+The jar ends up in `build/libs`. Development notes (in Russian) are in [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md).
 
 ## Modpacks, videos, rights
 
-Feel free to put Tremor in any modpack, public or private, and to make videos or streams with it, monetized or not. Credit is appreciated but not required. Please don't re-upload the mod to other sites or share modified versions without my permission. All rights reserved.
+Feel free to put the mod in any modpack, public or private, and to make videos and streams with it, monetized ones included. Credit is appreciated but not required. Please don't re-upload the mod to other sites or share modified versions without my permission. All rights reserved.
