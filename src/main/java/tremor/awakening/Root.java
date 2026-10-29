@@ -236,7 +236,6 @@ final class Root {
         player.connection.send(new ClientboundUpdateAttributesPacket(player.getId(), instances));
     }
 
-    /** Adds or removes the modifiers that bring the movement speed and the jump strength of a living entity to 0. */
     /**
      * The ground of the build-up grabs at the target's feet (SPEC 9 phase 1): its movement speed and jump strength are
      * cut by {@code share} (0..1) of their total, by transient modifiers apart from the root's, until {@link #release}.
@@ -267,6 +266,7 @@ final class Root {
         }
     }
 
+    /** Adds or removes the modifiers that bring the movement speed and the jump strength of a living entity to 0. */
     private static void still(Entity entity, boolean on) {
         if (!(entity instanceof LivingEntity living)) {
             return;

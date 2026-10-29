@@ -59,6 +59,11 @@ public record Vec3(double x, double y, double z) {
         return Math.sqrt(distanceSquared(o));
     }
 
+    /** Whether every coordinate is a finite number. */
+    public boolean isFinite() {
+        return Double.isFinite(x) && Double.isFinite(y) && Double.isFinite(z);
+    }
+
     public boolean isNearZero() {
         return lengthSquared() < EPSILON * EPSILON;
     }

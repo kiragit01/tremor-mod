@@ -36,7 +36,6 @@ public final class TremorSavedData extends SavedData {
     private TremorSavedData() {
     }
 
-    /** The level's data, created empty (and not written until something changes) if there is none yet. */
     /** Items of defeated players waiting for their craters ({@code Outcomes}), by event: kept over a crash. */
     private final Map<String, WaitingDrops> drops = new HashMap<>();
 
@@ -81,6 +80,7 @@ public final class TremorSavedData extends SavedData {
         return new HashMap<>(quicksand);
     }
 
+    /** The level's data, created empty (and not written until something changes) if there is none yet. */
     public static TremorSavedData get(ServerLevel level) {
         return level.getDataStorage().computeIfAbsent(TremorSavedData::load, TremorSavedData::new, NAME);
     }

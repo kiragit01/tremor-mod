@@ -1179,6 +1179,9 @@ public final class DeformationRenderer {
         }
     }
 
+    /** The block looked at in the frame before, or null ({@link #validateTarget}). */
+    private static BlockPos lastTarget;
+
     /**
      * Re-bakes drawn columns whose block (or the block riding on it) changed, and every {@link #LIGHT_INTERVAL} ticks
      * those whose light changed; at most {@link #MAX_VALIDATED} per call. A change that moves the surface (ground
@@ -1186,9 +1189,6 @@ public final class DeformationRenderer {
      * re-read, and the bump's voxels collected and the zone scanned again; one that does not (a crop growing, a door,
      * redstone power, a water level) only re-bakes the column, since the surface reads nothing else.
      */
-    /** The block looked at in the frame before, or null ({@link #validateTarget}). */
-    private static BlockPos lastTarget;
-
     private static void validate(ClientLevel level, long tick) {
         nextValidateTick = tick + VALIDATE_INTERVAL;
         boolean light = due(tick, nextLightTick, LIGHT_INTERVAL);

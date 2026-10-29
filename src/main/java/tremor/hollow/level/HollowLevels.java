@@ -156,13 +156,13 @@ public final class HollowLevels {
         }
     }
 
-    /** The node of the level of {@code event} ({@code /tremor hollow tonode}), or null if there is none. */
     /** The escape tunnel of the level of {@code event} at the player's feet ({@link EventLevel#tunnel}). */
     public static java.util.List<BlockPos> tunnel(HollowEvent event) {
         EventLevel level = LEVELS.get(event);
         return level == null ? java.util.List.of() : level.tunnel();
     }
 
+    /** The node of the level of {@code event} ({@code /tremor hollow tonode}), or null if there is none. */
     public static BlockPos node(HollowEvent event) {
         EventLevel level = LEVELS.get(event);
         return level == null ? null : level.node();

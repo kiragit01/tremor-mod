@@ -260,7 +260,6 @@ public final class TremorCommands {
         return 1;
     }
 
-    /** {@code /tremor hold [on|off]}: the look of the nearest tremor (its anger) stays as it is, or not. */
     /**
      * {@code difficulty [calm|normal|hard|nightmare]}: tells how hard the mod is set ({@link Difficulty}), or sets it,
      * saved to the common config.
@@ -298,6 +297,7 @@ public final class TremorCommands {
         return level.ordinal();
     }
 
+    /** {@code /tremor hold [on|off]}: the look of the nearest tremor (its anger) stays as it is, or not. */
     private static LiteralArgumentBuilder<CommandSourceStack> hold() {
         return Commands.literal("hold")
                 .executes(ctx -> hold(ctx, null))

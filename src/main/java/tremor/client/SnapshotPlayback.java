@@ -87,7 +87,7 @@ final class SnapshotPlayback {
          */
         static Snapshot of(long tick, Vec3 position, Vec3 normal, Vec3 forward, Vec3 velocity, double amplitude,
                            double phase, Stage stage, long rippleStart, double lurk) {
-            if (!finite(position) || !finite(normal) || !finite(forward) || !finite(velocity)
+            if (!position.isFinite() || !normal.isFinite() || !forward.isFinite() || !velocity.isFinite()
                     || !Double.isFinite(amplitude) || !Double.isFinite(phase) || stage == null) {
                 return null;
             }
@@ -97,10 +97,6 @@ final class SnapshotPlayback {
             }
             return new Snapshot(tick, position, n, forward.normalize(), velocity, amplitude, phase, stage,
                     rippleStart, Double.isFinite(lurk) ? Math.max(0, Math.min(1, lurk)) : 0);
-        }
-
-        private static boolean finite(Vec3 v) {
-            return Double.isFinite(v.x()) && Double.isFinite(v.y()) && Double.isFinite(v.z());
         }
     }
 
@@ -244,15 +240,6 @@ final class SnapshotPlayback {
         count = 0;
         arrivals = 0;
         silentTicks = 0;
-    }
-
-    /** Forgets everything, including the measured timing (new level or connection). */
-    void clear() {
-        clearSnapshots();
-        spacing = DEFAULT_SPACING;
-        spacingKnown = false;
-        latePeak = Double.NaN;
-        clock = Double.NaN;
     }
 
     private Sample interpolate(double t) {

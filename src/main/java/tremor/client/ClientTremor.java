@@ -295,16 +295,12 @@ public final class ClientTremor {
 
     /** Whether a leap the server tells is one to draw: finite, at most {@link #MAX_LEAP} long, near the entity. */
     private static boolean sane(TremorStatePayload.Leap leap, Vec3 position) {
-        return leap != null && finite(leap.from()) && finite(leap.to()) && finite(leap.fromNormal())
-                && finite(leap.toNormal()) && leap.from().distance(leap.to()) <= MAX_LEAP
+        return leap != null && leap.from().isFinite() && leap.to().isFinite() && leap.fromNormal().isFinite()
+                && leap.toNormal().isFinite() && leap.from().distance(leap.to()) <= MAX_LEAP
                 && leap.from().distance(position) <= MAX_LEAP_DISTANCE;
     }
 
-    private static boolean finite(Vec3 v) {
-        return Double.isFinite(v.x()) && Double.isFinite(v.y()) && Double.isFinite(v.z());
-    }
-
-    private static double smoothstep(double x) {
+    static double smoothstep(double x) {
         double t = Math.max(0, Math.min(1, x));
         return t * t * (3 - 2 * t);
     }

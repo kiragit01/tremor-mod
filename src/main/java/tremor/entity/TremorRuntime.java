@@ -266,11 +266,6 @@ public final class TremorRuntime {
         return graph.nearestNode(entity.crawler().position(), NODE_RADIUS);
     }
 
-    /** {@link #spawn(long, boolean)} of an entity that does not despawn by itself (a command's). */
-    public TremorEntity spawn(long node) {
-        return spawn(node, false);
-    }
-
     /**
      * Replaces this runtime's entity (if any) by a new one standing at the centre of {@code node} with the smoothed
      * normal there, and sends its shape and state to every player in the dimension.

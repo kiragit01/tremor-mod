@@ -16,7 +16,6 @@ import tremor.hollow.HollowEvent;
 import tremor.hollow.HollowManager;
 
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.List;
 
 /**
@@ -127,7 +126,7 @@ public final class CraterCaches {
         for (ItemEntity drop : event.getDrops()) {
             stacks.add(drop.getItem().copy());
         }
-        List<ItemStack> loose = takeLoose(player);
+        List<ItemStack> loose = tremor.hollow.HollowRules.takeLoose(player);
         stacks.addAll(loose);
         stacks.removeIf(ItemStack::isEmpty);
         if (stacks.isEmpty()) {
@@ -172,25 +171,4 @@ public final class CraterCaches {
         return level.getBlockEntity(at) instanceof RubbleCacheBlockEntity entity ? entity : null;
     }
 
-    /**
-     * Takes out what is in the player's crafting grids and on the cursor: the open menu and the inventory's are closed
-     * the way a dead player's are, and what they drop is caught instead of spawned (as {@code HollowRules} does).
-     */
-    private static List<ItemStack> takeLoose(ServerPlayer player) {
-        List<ItemEntity> caught = new ArrayList<>();
-        Collection<ItemEntity> outer = player.captureDrops(caught);
-        try {
-            if (player.hasContainerOpen()) {
-                player.doCloseContainer();
-            }
-            player.inventoryMenu.removed(player);
-        } finally {
-            player.captureDrops(outer);
-        }
-        List<ItemStack> stacks = new ArrayList<>(caught.size());
-        for (ItemEntity entity : caught) {
-            stacks.add(entity.getItem());
-        }
-        return stacks;
-    }
 }

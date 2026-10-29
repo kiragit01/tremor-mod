@@ -635,11 +635,6 @@ public final class HollowRules {
                 && !(state.getBlock() instanceof LiquidBlock && !state.getFluidState().isSource());
     }
 
-    /**
-     * Takes out what is in the player's crafting grids and on the cursor: the open menu and the inventory's are closed
-     * the way a dead or disconnected player's are, and what they drop is caught instead of spawned (what a living,
-     * connected player's menus give back goes into the inventory as usual).
-     */
     /** The block the player looks at within reach, as {@code Item.getPlayerPOVHitResult} (protected in 1.20.1). */
     private static BlockHitResult povHit(Level level, Player player, ClipContext.Fluid fluid) {
         net.minecraft.world.phys.Vec3 eye = player.getEyePosition();
@@ -647,7 +642,12 @@ public final class HollowRules {
         return level.clip(new ClipContext(eye, end, ClipContext.Block.OUTLINE, fluid, player));
     }
 
-    private static List<ItemStack> takeLoose(ServerPlayer player) {
+    /**
+     * Takes out what is in the player's crafting grids and on the cursor: the open menu and the inventory's are closed
+     * the way a dead or disconnected player's are, and what they drop is caught instead of spawned (what a living,
+     * connected player's menus give back goes into the inventory as usual).
+     */
+    public static List<ItemStack> takeLoose(ServerPlayer player) {
         List<ItemEntity> caught = new ArrayList<>();
         Collection<ItemEntity> outer = player.captureDrops(caught);
         try {

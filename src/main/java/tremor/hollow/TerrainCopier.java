@@ -302,10 +302,6 @@ public final class TerrainCopier {
     }
 
     /**
-     * The state a block of the real world gets in the copy: a moving piston (what moves lives in its block entity) and
-     * a portal (nether, end, gateway: it would lead out into the real world) become air.
-     */
-    /**
      * The state a cell of the vault ({@link HollowVault}) gets: a full block of rock the copy had there stays; anything
      * else (air, water, a plant, a build) becomes rock: stone with patches of andesite and tuff, deepslate below y 0.
      */
@@ -322,6 +318,10 @@ public final class TerrainCopier {
                 : patch < -0.45 ? Blocks.ANDESITE.defaultBlockState() : Blocks.STONE.defaultBlockState();
     }
 
+    /**
+     * The state a block of the real world gets in the copy: a moving piston (what moves lives in its block entity) and
+     * a portal (nether, end, gateway: it would lead out into the real world) become air.
+     */
     private static BlockState copyable(BlockState state) {
         return state.is(Blocks.MOVING_PISTON) || state.is(BlockTags.PORTALS) ? AIR : state;
     }

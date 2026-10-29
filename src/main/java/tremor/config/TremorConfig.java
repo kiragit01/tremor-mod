@@ -465,11 +465,6 @@ public final class TremorConfig {
                     awakening.searchRadius.get(), wanderKeepAway.get());
         }
 
-        /** Factor on the crawling speed in {@code stage} (SPEC 5.5, 8). */
-        /**
-         * Longest gap of open space (blocks) the entity flings itself across between two surfaces in {@code stage}
-         * ({@code frenzy}: in a frenzy over a dropped shard).
-         */
         /**
          * The factor of {@code full} at height {@code y} in {@code level} for how deep it is
          * ({@code behavior.depth*}): 1 at or above {@code depthShallowY}, {@code full} at or below
@@ -483,6 +478,10 @@ public final class TremorConfig {
                     tremor.core.behavior.Depth.share(y, depthShallowY.get(), depthDeepY.get()));
         }
 
+        /**
+         * Longest gap of open space (blocks) the entity flings itself across between two surfaces in {@code stage}
+         * ({@code frenzy}: in a frenzy over a dropped shard).
+         */
         public int leap(Stage stage, boolean frenzy) {
             if (frenzy) {
                 return leapFrenzy.get();
