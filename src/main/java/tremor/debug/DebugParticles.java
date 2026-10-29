@@ -75,6 +75,11 @@ public final class DebugParticles {
     private DebugParticles() {
     }
 
+    /** The views the player turned on; none once they are no operator any more. */
+    private static EnumSet<DebugView> views(ServerPlayer player) {
+        return player.hasPermissions(2) ? VIEWS.get(player.getUUID()) : null;
+    }
+
     public static void set(ServerPlayer player, DebugView view, boolean on) {
         if (on) {
             VIEWS.computeIfAbsent(player.getUUID(), id -> EnumSet.noneOf(DebugView.class)).add(view);
@@ -87,7 +92,7 @@ public final class DebugParticles {
     }
 
     public static boolean isOn(ServerPlayer player, DebugView view) {
-        EnumSet<DebugView> views = VIEWS.get(player.getUUID());
+        EnumSet<DebugView> views = views(player);
         return views != null && views.contains(view);
     }
 
@@ -100,7 +105,7 @@ public final class DebugParticles {
         // Each player sees the views of the entity nearest to them, within RANGE.
         Map<TremorRuntime, Map<DebugView, List<Dot>>> built = new HashMap<>();
         for (ServerPlayer player : level.players()) {
-            EnumSet<DebugView> views = VIEWS.get(player.getUUID());
+            EnumSet<DebugView> views = views(player);
             TremorRuntime runtime = views == null ? null
                     : TremorManager.nearest(level, player.getX(), player.getY(), player.getZ());
             TremorEntity entity = runtime == null ? null : runtime.entity();

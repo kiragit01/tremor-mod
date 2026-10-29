@@ -9,6 +9,7 @@ import java.util.Map;
 import net.minecraft.core.HolderLookup;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.nbt.CompoundTag;
+import net.minecraft.world.item.ItemStack;
 import net.minecraft.nbt.ListTag;
 import net.minecraft.nbt.NbtUtils;
 import net.minecraft.nbt.Tag;
@@ -40,6 +41,29 @@ public final class TremorSavedData extends SavedData {
     }
 
     /** The level's data, created empty (and not written until something changes) if there is none yet. */
+    /** Items of defeated players waiting for their craters ({@code Outcomes}), by event: kept over a crash. */
+    private final Map<String, WaitingDrops> drops = new HashMap<>();
+
+    /** Items waiting for a crater, and the swallow point they lie at if it never comes. */
+    public record WaitingDrops(double x, double y, double z, java.util.List<ItemStack> stacks) {
+    }
+
+    public void dropsWaiting(String key, WaitingDrops waiting) {
+        drops.put(key, waiting);
+        setDirty();
+    }
+
+    public void dropsGone(String key) {
+        if (drops.remove(key) != null) {
+            setDirty();
+        }
+    }
+
+    /** The items still waiting, by event (a copy). */
+    public Map<String, WaitingDrops> dropsLeft() {
+        return new HashMap<>(drops);
+    }
+
     /** Blocks an ambush's quicksand turned into mud, by position, and what they were ({@code Quicksand}). */
     private final Map<Long, BlockState> quicksand = new HashMap<>();
 
@@ -148,6 +172,23 @@ public final class TremorSavedData extends SavedData {
             mud.add(m);
         }
         tag.put("quicksand", mud);
+        ListTag waiting = new ListTag();
+        for (Map.Entry<String, WaitingDrops> entry : drops.entrySet()) {
+            CompoundTag w = new CompoundTag();
+            w.putString("key", entry.getKey());
+            w.putDouble("x", entry.getValue().x());
+            w.putDouble("y", entry.getValue().y());
+            w.putDouble("z", entry.getValue().z());
+            ListTag items = new ListTag();
+            for (ItemStack stack : entry.getValue().stacks()) {
+                if (!stack.isEmpty()) {
+                    items.add(stack.save(registries));
+                }
+            }
+            w.put("items", items);
+            waiting.add(w);
+        }
+        tag.put("drops", waiting);
         return tag;
     }
 
@@ -158,6 +199,15 @@ public final class TremorSavedData extends SavedData {
             CompoundTag m = (CompoundTag) t;
             data.quicksand.put(m.getLong("pos"), NbtUtils.readBlockState(BuiltInRegistries.BLOCK.asLookup(),
                     m.getCompound("state")));
+        }
+        for (Tag t : tag.getList("drops", Tag.TAG_COMPOUND)) {
+            CompoundTag w = (CompoundTag) t;
+            java.util.List<ItemStack> stacks = new java.util.ArrayList<>();
+            for (Tag item : w.getList("items", Tag.TAG_COMPOUND)) {
+                ItemStack.parse(registries, item).ifPresent(stacks::add);
+            }
+            data.drops.put(w.getString("key"), new WaitingDrops(w.getDouble("x"), w.getDouble("y"), w.getDouble("z"),
+                    stacks));
         }
         // Before 1.1.0: one entity, and the two pauses without a place.
         if (tag.contains("lastNaturalDespawn", Tag.TAG_LONG)) {

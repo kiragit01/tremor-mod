@@ -378,6 +378,7 @@ public final class DeformationRenderer {
             modelsChanged = false;
             columns.clear();
             bumps.clear();
+            bridgeCells.clear();
             zone.clear();
             clearZoneSwell();
         }
@@ -468,8 +469,9 @@ public final class DeformationRenderer {
             if (!col.baked || !col.hasGeometry()) {
                 continue; // waits for its bake in a later frame, or there is nothing to draw
             }
-            if (col.inZone && stays(level, col.source, mined)) {
-                continue; // the real block shows, with the cracks of its mining
+            if (col.inZone && !col.inBump && (col.source.equals(mined)
+                    || col.state != null && col.state.is(tremor.block.TremorBlocks.HEART_NODE.get()))) {
+                continue; // the real block shows, with the cracks of its mining (see minedBlock)
             }
             drawn.add(col);
             total += col.cost();
@@ -490,6 +492,7 @@ public final class DeformationRenderer {
         if (due(tick, nextValidateTick, VALIDATE_INTERVAL)) {
             validate(level, tick);
         }
+        validateTarget(level);
         frameCopies = 0;
         frameVertices = 0;
         return !drawn.isEmpty();
@@ -1172,6 +1175,9 @@ public final class DeformationRenderer {
      * re-read, and the bump's voxels collected and the zone scanned again; one that does not (a crop growing, a door,
      * redstone power, a water level) only re-bakes the column, since the surface reads nothing else.
      */
+    /** The block looked at in the frame before, or null ({@link #validateTarget}). */
+    private static BlockPos lastTarget;
+
     private static void validate(ClientLevel level, long tick) {
         nextValidateTick = tick + VALIDATE_INTERVAL;
         boolean light = due(tick, nextLightTick, LIGHT_INTERVAL);
@@ -1185,34 +1191,52 @@ public final class DeformationRenderer {
         light |= sliced;
         LevelVoxelView view = source.begin(level);
         for (int j = 0; j < count; j++) {
-            Column col = drawn.get((first + j) % n);
-            BlockPos decoPos = col.decoPos, src = col.source;
-            BlockState state = view.stateAt(src.getX(), src.getY(), src.getZ());
-            BlockState deco = view.stateAt(decoPos.getX(), decoPos.getY(), decoPos.getZ());
-            boolean blocksChanged = state != col.state || deco != col.decoState;
-            boolean surfaceChanged = blocksChanged
-                    && (surface(view, state, src) != surface(view, col.state, src)
-                    || surface(view, deco, decoPos) != surface(view, col.decoState, decoPos));
-            if (col.fill && !view.isOpen(col.x, col.y, col.z)) {
-                surfaceChanged = true; // something was put where the structure swells
+            validateColumn(level, view, drawn.get((first + j) % n), light);
+        }
+    }
+
+    /**
+     * Checks the column of the block looked at in the frame before at once: one just broken goes from the copies with
+     * it, instead of floating in its hole until {@link #validate} gets to it.
+     */
+    private static void validateTarget(ClientLevel level) {
+        BlockPos target = lastTarget;
+        lastTarget = Minecraft.getInstance().hitResult instanceof net.minecraft.world.phys.BlockHitResult hit
+                && hit.getType() == net.minecraft.world.phys.HitResult.Type.BLOCK ? hit.getBlockPos() : null;
+        Column col = target == null ? null : columns.get(VoxelPos.pack(target.getX(), target.getY(), target.getZ()));
+        if (col != null && col.baked && !col.fill) {
+            validateColumn(level, source.begin(level), col, false);
+        }
+    }
+
+    /** Bakes {@code col} again if its blocks (or, with {@code light}, its light) changed; a changed surface rescans. */
+    private static void validateColumn(ClientLevel level, LevelVoxelView view, Column col, boolean light) {
+        BlockPos decoPos = col.decoPos, src = col.source;
+        BlockState state = view.stateAt(src.getX(), src.getY(), src.getZ());
+        BlockState deco = view.stateAt(decoPos.getX(), decoPos.getY(), decoPos.getZ());
+        boolean blocksChanged = state != col.state || deco != col.decoState;
+        boolean surfaceChanged = blocksChanged
+                && (surface(view, state, src) != surface(view, col.state, src)
+                || surface(view, deco, decoPos) != surface(view, col.decoState, decoPos));
+        if (col.fill && !view.isOpen(col.x, col.y, col.z)) {
+            surfaceChanged = true; // something was put where the structure swells
+        }
+        boolean lightChanged = light && col.lightPos != null
+                && (level.getBrightness(LightLayer.SKY, col.lightPos) != col.skyLight
+                || level.getBrightness(LightLayer.BLOCK, col.lightPos) != col.blockLight);
+        if (blocksChanged || lightChanged) {
+            bake(level, view, col);
+        }
+        if (surfaceChanged) {
+            // The surface around it changed too: re-read the terrain there and collect again.
+            voxels.invalidateBox(col.x - NORMAL_REACH, col.y - NORMAL_REACH, col.z - NORMAL_REACH,
+                    col.x + NORMAL_REACH, col.y + NORMAL_REACH, col.z + NORMAL_REACH);
+            for (Bump bump : bumps.values()) {
+                bump.recollect = true;
             }
-            boolean lightChanged = light && col.lightPos != null
-                    && (level.getBrightness(LightLayer.SKY, col.lightPos) != col.skyLight
-                    || level.getBrightness(LightLayer.BLOCK, col.lightPos) != col.blockLight);
-            if (blocksChanged || lightChanged) {
-                bake(level, view, col);
-            }
-            if (surfaceChanged) {
-                // The surface around it changed too: re-read the terrain there and collect again.
-                voxels.invalidateBox(col.x - NORMAL_REACH, col.y - NORMAL_REACH, col.z - NORMAL_REACH,
-                        col.x + NORMAL_REACH, col.y + NORMAL_REACH, col.z + NORMAL_REACH);
-                for (Bump bump : bumps.values()) {
-                    bump.recollect = true;
-                }
-                zoneSwellStale = true;
-                if (col.inZone) {
-                    zone.requestRescan();
-                }
+            zoneSwellStale = true;
+            if (col.inZone) {
+                zone.requestRescan();
             }
         }
     }
@@ -1231,26 +1255,17 @@ public final class DeformationRenderer {
         return level != null && level.getChunkSource().getChunkNow(chunkX, chunkZ) != null;
     }
 
-    /** The block the local player is mining now, or null. */
+    /**
+     * The block the local player is mining now, or null. In the zone's ground no copy is drawn of it, nor of the heart
+     * node, which stands still while the ground around it heaves (the user's wish: the copy of the breathing heart
+     * covered its cracks whenever it heaved, so mining it looked like doing nothing); not in a bump, whose copies
+     * stand blocks high: one left out would be a hole.
+     */
     private static BlockPos minedBlock() {
         Minecraft mc = Minecraft.getInstance();
         return mc.gameMode != null && mc.gameMode.isDestroying()
                 && mc.hitResult instanceof net.minecraft.world.phys.BlockHitResult hit
                 && hit.getType() == net.minecraft.world.phys.HitResult.Type.BLOCK ? hit.getBlockPos() : null;
-    }
-
-    /**
-     * Whether the voxel {@code source} a column of the zone's ground is a copy of (its own, or the one a fill cell
-     * swells out of) is drawn as itself, with no copy over it (the user's wish: in the hollow the copy of the breathing
-     * heart covered its cracks whenever it heaved, so mining it looked like doing nothing): the block the local player
-     * is mining ({@code mined}), and the heart node, which stands still while the ground around it heaves. Not for a
-     * bump: its copies stand blocks high, and one left out would be a hole.
-     */
-    private static boolean stays(ClientLevel level, BlockPos source, BlockPos mined) {
-        if (source.equals(mined)) {
-            return true;
-        }
-        return level.getBlockState(source).is(tremor.block.TremorBlocks.HEART_NODE.get());
     }
 
     private static void draw(RenderType layer) {

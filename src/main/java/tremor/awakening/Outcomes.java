@@ -22,6 +22,7 @@ import tremor.item.TremorItems;
 import tremor.config.Difficulty;
 import tremor.config.TremorConfig;
 import tremor.core.math.Vec3;
+import tremor.entity.TremorSavedData;
 import tremor.hollow.HollowDimension;
 import tremor.hollow.HollowEvent;
 import tremor.hollow.HollowManager;
@@ -103,6 +104,8 @@ public final class Outcomes {
      * ({@link #lose}); gone once they are in its caches or lie somewhere.
      */
     private static final Map<HollowEvent, List<ItemStack>> WAITING = new WeakHashMap<>();
+    /** The levels whose items left waiting by a crash were laid down ({@link #leftDrops}). */
+    private static final Set<ResourceKey<net.minecraft.world.level.Level>> CHECKED = new java.util.HashSet<>();
 
     private Outcomes() {
     }
@@ -238,6 +241,9 @@ public final class Outcomes {
                 for (ItemStack stack : stacks) {
                     waiting.add(stack.copy());
                 }
+                net.minecraft.world.phys.Vec3 at = event.origin().position();
+                TremorSavedData.get(real).dropsWaiting(key(event),
+                        new TremorSavedData.WaitingDrops(at.x, at.y, at.z, List.copyOf(waiting)));
                 return true;
             });
             Craters.dig(real, event.origin().blockPos(), "defeat of " + event.playerName(), () -> {
@@ -335,7 +341,7 @@ public final class Outcomes {
         HollowManager.setDeathDrops(event, site, bottom == null ? null : stacks -> CraterCaches.bury(crater, stacks));
         List<ItemStack> waiting = WAITING.get(event);
         if (waiting != null && !waiting.isEmpty() && bottom != null && CraterCaches.bury(crater, waiting)) {
-            WAITING.remove(event);
+            unwait(server, event);
         }
         lay(server, event, site);
         ServerPlayer player = server.getPlayerList().getPlayer(id);
@@ -352,6 +358,9 @@ public final class Outcomes {
             // A nightmare takes everything, and so does a defeat at the nightmare difficulty: nothing is left on the
             // bottom of the crater.
             tremor.hollow.Nightmare.clear(player.getUUID());
+            // The crafting grid and the cursor go back into the inventory first, or the death would drop them.
+            player.closeContainer();
+            player.inventoryMenu.removed(player);
             player.getInventory().clearContent();
             player.setExperienceLevels(0);
             player.setExperiencePoints(0);
@@ -378,6 +387,43 @@ public final class Outcomes {
         AwakeningManager.defeated(event, name(player) + " survived, out to the bottom of the crater");
     }
 
+    /** The key of the items of {@code event} in the saved data: the player and when the event began. */
+    private static String key(HollowEvent event) {
+        return event.player() + "/" + event.createdGameTime();
+    }
+
+    /** The items waiting for the crater of {@code event}, waiting no longer (also in the saved data); null if none. */
+    private static List<ItemStack> unwait(MinecraftServer server, HollowEvent event) {
+        ServerLevel real = server.getLevel(event.origin().dimension());
+        if (real != null) {
+            TremorSavedData.get(real).dropsGone(key(event));
+        }
+        return WAITING.remove(event);
+    }
+
+    /**
+     * Once per level after a start: items that waited for a crater when the server went down without stopping (a
+     * crash) lie at its swallow point, as items that never despawn.
+     */
+    static void leftDrops(ServerLevel level) {
+        if (!CHECKED.add(level.dimension())) {
+            return;
+        }
+        TremorSavedData data = TremorSavedData.get(level);
+        for (Map.Entry<String, TremorSavedData.WaitingDrops> entry : data.dropsLeft().entrySet()) {
+            TremorSavedData.WaitingDrops w = entry.getValue();
+            level.getChunkAt(BlockPos.containing(w.x(), w.y(), w.z()));
+            for (ItemStack stack : w.stacks()) {
+                ItemEntity item = new ItemEntity(level, w.x(), w.y(), w.z(), stack, 0, 0, 0);
+                item.setUnlimitedLifetime();
+                level.addFreshEntity(item);
+            }
+            data.dropsGone(entry.getKey());
+            Tremor.LOGGER.info("Outcome: {} stacks that waited for a crater when the server went down lie at {}",
+                    w.stacks().size(), text(new net.minecraft.world.phys.Vec3(w.x(), w.y(), w.z())));
+        }
+    }
+
     /** Whether the event's player is (still) in the copy, not on the way out: entering or inside. */
     private static boolean inside(HollowEvent event) {
         return event.phase() == HollowEvent.Phase.ENTERING || event.phase() == HollowEvent.Phase.INSIDE;
@@ -392,6 +438,7 @@ public final class Outcomes {
             lay(event.getServer(), waiting, waiting.origin());
         }
         WAITING.clear();
+        CHECKED.clear();
     }
 
     /**
@@ -399,7 +446,7 @@ public final class Outcomes {
      * that never despawn (the player may be far away, or offline), its chunk loaded so they are kept.
      */
     private static void lay(MinecraftServer server, HollowEvent event, Origin at) {
-        List<ItemStack> waiting = WAITING.remove(event);
+        List<ItemStack> waiting = unwait(server, event);
         ServerLevel level = server.getLevel(at.dimension());
         if (waiting == null || waiting.isEmpty() || level == null) {
             return;

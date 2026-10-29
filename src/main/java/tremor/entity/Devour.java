@@ -42,6 +42,8 @@ public final class Devour {
 
     /** Per level: the mobs being pulled under and the ticks they have sunk. */
     private static final Map<ServerLevel, Map<Mob, Integer>> TAKEN = new WeakHashMap<>();
+    /** The tag of a mob being pulled under, saved with it if its chunk unloads meanwhile. */
+    private static final String TAG = "tremor_devoured";
 
     private Devour() {
     }
@@ -69,9 +71,22 @@ public final class Devour {
         mob.setDeltaMovement(Vec3.ZERO);
         mob.noPhysics = true;
         mob.setNoGravity(true);
+        mob.addTag(TAG);
         TAKEN.computeIfAbsent(level, l -> new IdentityHashMap<>()).put(mob, 0);
         level.playSound(null, mob.getX(), mob.getY(), mob.getZ(), TremorSounds.CRACK.get(), SoundSource.HOSTILE, 1.2F,
                 0.8F);
+    }
+
+    /** A mob saved while it was pulled under (frozen and invulnerable for good otherwise) does not come back. */
+    public static void onEntityJoin(net.neoforged.neoforge.event.entity.EntityJoinLevelEvent event) {
+        if (!event.getLevel().isClientSide() && event.getEntity().getTags().contains(TAG)) {
+            event.setCanceled(true);
+        }
+    }
+
+    /** Forgets the mobs being pulled under: their levels are gone. */
+    public static void onServerStopped(net.neoforged.neoforge.event.server.ServerStoppedEvent event) {
+        TAKEN.clear();
     }
 
     /** Sinks the taken mobs of the level a little further, and removes those that are under. */

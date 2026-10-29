@@ -122,6 +122,11 @@ public final class Quicksand {
     /** Radius of the mud as the pull starts. */
     private final double startRadius;
     private final Long2ObjectOpenHashMap<Cell> cells = new Long2ObjectOpenHashMap<>();
+
+    /** Whether the block at {@code pos} is mud of this quicksand. */
+    boolean owns(BlockPos pos) {
+        return cells.containsKey(pos.asLong());
+    }
     /** The top block of each column looked at, or {@link #NONE}. */
     private final Long2IntOpenHashMap tops = new Long2IntOpenHashMap();
     /** The Awakenings whose targets it pulls or holds, and how. */
