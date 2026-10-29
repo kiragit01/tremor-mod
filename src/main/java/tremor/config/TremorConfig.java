@@ -139,7 +139,7 @@ public final class TremorConfig {
                             "kills. NIGHTMARE: harder still, and a defeat also takes everything the player carries. A level",
                             "scales the settings below, so a value tuned by hand stays tuned, only softer or harder")
                     .translation(KEY + "difficulty").defineEnum("difficulty", Difficulty.NORMAL);
-            b.comment("Shape of the bump the entity pushes through the ground (SPEC 6.1). Lengths are in blocks.")
+            b.comment("Shape of the bump the entity pushes through the ground. Lengths are in blocks.")
                     .translation(KEY + "shape").push("shape");
             amplitude = b.comment("A: height of the bump")
                     .translation(KEY + "shape.amplitude").defineInRange("amplitude", d.amplitude(), 0.1, 8.0);
@@ -159,7 +159,7 @@ public final class TremorConfig {
                     .translation(KEY + "shape.jitter").defineInRange("jitter", d.jitter(), 0.0, 0.5);
             b.pop();
 
-            b.comment("Movement over the surface of the world (SPEC 5)").translation(KEY + "movement").push("movement");
+            b.comment("Movement over the surface of the world").translation(KEY + "movement").push("movement");
             maxDiveDepth = b.comment("How far (blocks) the entity can travel straight through rock to another surface")
                     .translation(KEY + "movement.maxDiveDepth").defineInRange("maxDiveDepth", 4, 0, 16);
             leapDormant = leap(b, "leapDormant", "DORMANT", 1);
@@ -194,7 +194,7 @@ public final class TremorConfig {
             b.pop();
 
             HearingParams h = HearingParams.defaults();
-            b.comment("Hearing: vibrations through the ground (SPEC 7).",
+            b.comment("Hearing: vibrations through the ground.",
                             "perceived = loudness * footing / (1 + distance * average resistance along the way)")
                     .translation(KEY + "hearing").push("hearing");
             hearingThreshold = b.comment("Perceived loudness from which the entity hears a vibration")
@@ -260,7 +260,7 @@ public final class TremorConfig {
             b.pop(2);
 
             BehaviorParams bp = BehaviorParams.defaults();
-            b.comment("Anger and stage behaviour (SPEC 8). The anger runs from 0 to awakenAt. Times are in seconds,",
+            b.comment("Anger and stage behaviour. The anger runs from 0 to awakenAt. Times are in seconds,",
                             "distances in blocks, loudness in perceived units (see hearing). Needs",
                             "0 < alertAt < huntAt < awakenAt and hysteresis < alertAt, else the defaults are used.")
                     .translation(KEY + "behavior").push("behavior");
@@ -303,7 +303,7 @@ public final class TremorConfig {
             huntSearchSeconds = b.comment("...until this long after the sound, then wanders")
                     .translation(KEY + "behavior.huntSearchSeconds")
                     .defineInRange("huntSearchSeconds", bp.huntSearchSeconds(), 0.0, 600.0);
-            wanderPauseSeconds = b.comment("Mean pause between two legs of wandering (SPEC 5.6)")
+            wanderPauseSeconds = b.comment("Mean pause between two legs of wandering")
                     .translation(KEY + "behavior.wanderPauseSeconds")
                     .defineInRange("wanderPauseSeconds", bp.wanderPauseSeconds(), 0.0, 120.0);
             wanderMinRadius = b.comment("A wander leg ends at least this far away...")
@@ -323,7 +323,7 @@ public final class TremorConfig {
                     .defineInRange("minWanderDistance", bp.minWanderDistance(), 0.0, 128.0);
             wanderKeepAway = b.comment("ALERT and HUNTING wandering keeps minWanderDistance from every player (not a",
                             "spectator) too. Off: those legs are random and may end next to a quiet player, as a",
-                            "warden roams (SPEC 5.6); none is drawn toward a player either way")
+                            "warden roams; none is drawn toward a player either way")
                     .translation(KEY + "behavior.wanderKeepAway")
                     .define("wanderKeepAway", bp.wanderKeepAway());
             netherSpeedFactor = b.comment("In the Nether it is fiercer: its speed is this many times what the stage",
@@ -353,7 +353,7 @@ public final class TremorConfig {
                     .translation(KEY + "behavior.transitionVolume")
                     .defineInRange("transitionVolume", 3.0, 0.0, 16.0);
 
-            b.comment("Movement per stage (SPEC 5.5, 8): factors on movement.speed and on the bump height")
+            b.comment("Movement per stage: factors on movement.speed and on the bump height")
                     .translation(KEY + "behavior.stages").push("stages");
             stage(b, Stage.DORMANT, "Lazy wandering: slow, a low bump", 0.6, 0.6);
             stage(b, Stage.ALERT, "Freezing and creeping toward sounds", 0.5, 0.85);
@@ -362,7 +362,7 @@ public final class TremorConfig {
                     + " higher than hunting, a little faster than a player running and jumping", 2.5, 1.4);
             b.pop();
 
-            b.comment("Contact of the bump with a player while HUNTING or AWAKENING (SPEC 8), with the bump at least",
+            b.comment("Contact of the bump with a player while HUNTING or AWAKENING, with the bump at least",
                             "half up; not in creative or spectator mode, and never through rock")
                     .translation(KEY + "behavior.contact").push("contact");
             contactRadius = b.comment("Radius of the zone around the axis of the bump, from the middle of its block",
@@ -385,7 +385,7 @@ public final class TremorConfig {
                     .translation(KEY + "behavior.contact.devourMobs").define("devourMobs", true);
             b.pop();
 
-            b.comment("A naturally spawned entity leaves (sinks and disappears, SPEC 11) when no player was near for",
+            b.comment("A naturally spawned entity leaves (sinks and disappears) when no player was near for",
                             "farSeconds, or nothing happened (no sound heard while DORMANT) for quietSeconds; while",
                             "its chunk is not loaded the times run on, and it disappears at once")
                     .translation(KEY + "behavior.despawn").push("despawn");
@@ -399,7 +399,7 @@ public final class TremorConfig {
                     .defineInRange("quietSeconds", 600.0, 1.0, 86400.0);
             b.pop(2);
 
-            b.comment("The things made from the entity's shard (SPEC 15, stage 5)")
+            b.comment("The things made from the entity's shard")
                     .translation(KEY + "items").push("items");
             geophoneRange = b.comment("A geophone hears the entity within this many blocks (its redstone signal is 15",
                             "right by it and 1 at this distance)")
@@ -553,7 +553,7 @@ public final class TremorConfig {
         public final ModConfigSpec.BooleanValue undergroundOnly;
 
         Spawn(ModConfigSpec.Builder b) {
-            b.comment("Natural spawn: the entity appears by itself in the distance (SPEC 11)")
+            b.comment("Natural spawn: the entity appears by itself in the distance")
                     .translation(KEY + "spawn").push("spawn");
             enabled = b.comment("Whether the entity appears by itself")
                     .translation(KEY + "spawn.enabled").define("enabled", true);
@@ -640,7 +640,7 @@ public final class TremorConfig {
 
         Hollow(ModConfigSpec.Builder b) {
             b.comment("The hollow: a copy of the terrain around a swallowed player in the dimension tremor:hollow,",
-                            "where the Awakening is played out (SPEC 9)")
+                            "where the Awakening is played out")
                     .translation(KEY + "hollow").push("hollow");
             radius = b.comment("Blocks copied around the player horizontally (the copy is 2 * radius + 1 wide)")
                     .translation(KEY + "hollow.radius").defineInRange("radius", 32, 8, 96);
@@ -700,7 +700,7 @@ public final class TremorConfig {
         public final ModConfigSpec.IntValue beatFastTicks;
 
         HollowLevel(ModConfigSpec.Builder b) {
-            b.comment("The level inside the hollow (SPEC 9): the node to destroy, the edges closing in, walls that",
+            b.comment("The level inside the hollow: the node to destroy, the edges closing in, walls that",
                             "move, ground that pulls in a player who stands still")
                     .translation(KEY + "hollow.level").push("level");
             budgetMillis = b.comment("Server time per tick for the level of one player while the player is inside",
@@ -803,7 +803,7 @@ public final class TremorConfig {
         public final ModConfigSpec.BooleanValue lethal;
 
         Awakening(ModConfigSpec.Builder b) {
-            b.comment("The Awakening (SPEC 9): at the top of its anger the entity seeks a player, and once it has",
+            b.comment("The Awakening: at the top of its anger the entity seeks a player, and once it has",
                             "reached one it becomes the whole area around that player; the player escapes by leaving",
                             "the zone in time, or the ground swallows the player into the hollow")
                     .translation(KEY + "awakening").push("awakening");
@@ -1032,7 +1032,7 @@ public final class TremorConfig {
                     .translation(KEY + "render.quality").defineEnum("quality", Quality.HIGH);
             maxDeformedBlocks = b.comment("Upper bound of block copies drawn per frame; the rest is skipped")
                     .translation(KEY + "render.maxDeformedBlocks").defineInRange("maxDeformedBlocks", 1500, 0, 20000);
-            awakeningMaxBlocks = b.comment("The same bound while the ground of an Awakening zone (SPEC 9) is drawn,",
+            awakeningMaxBlocks = b.comment("The same bound while the ground of an Awakening zone is drawn,",
                             "where all of it in view breathes; the nearest is kept, and it lowers smoothly towards",
                             "where the bound cuts it off")
                     .translation(KEY + "render.awakeningMaxBlocks")
@@ -1046,7 +1046,7 @@ public final class TremorConfig {
                     .translation(KEY + "render.style").defineEnum("style", Style.BLOCKS);
             b.pop();
 
-            b.comment("Visible effects of the entity's behaviour (SPEC 8)")
+            b.comment("Visible effects of the entity's behaviour")
                     .translation(KEY + "effects").push("effects");
             ripple = b.comment("Draw the ripple that runs over the ground around an alerted entity")
                     .translation(KEY + "effects.ripple").define("ripple", true);
@@ -1059,7 +1059,7 @@ public final class TremorConfig {
                             "node in the hollow, there with a few faint glints where it is too dark to see dust); half",
                             "as much with the Particles video setting at Decreased, none at Minimal")
                     .translation(KEY + "effects.rippleDust").define("rippleDust", true);
-            hollowFogDistance = b.comment("In the hollow (SPEC 9) a black fog hides everything further than this",
+            hollowFogDistance = b.comment("In the hollow a black fog hides everything further than this",
                             "(blocks); it starts about a tenth of the way out and closes in a little as the hollow",
                             "closes. Night vision does not lift it. The rings of the node and the heaving ground are",
                             "drawn only about as far as this (at most 20 blocks)")
@@ -1067,14 +1067,14 @@ public final class TremorConfig {
                     .defineInRange("hollowFogDistance", 5.5, 2.0, 32.0);
             b.pop();
 
-            b.comment("Sounds of the entity (SPEC 13)").translation(KEY + "sound").push("sound");
+            b.comment("Sounds of the entity").translation(KEY + "sound").push("sound");
             rustleVolume = b.comment("Volume of the rustle of the moving bump (1 = normal, 0 = silent). Above 1 it is",
                             "louder than the other hostile sounds, but at most at full volume: that only counts while",
                             "the Hostile Creatures volume is below 100%")
                     .translation(KEY + "sound.rustleVolume").defineInRange("rustleVolume", 1.0, 0.0, 2.0);
             silenceFloor = b.comment("Inside the zone of an Awakening every sound of the world (mobs, weather, blocks,",
-                            "music) fades to this share of its volume over 3 s, and comes back once you are out",
-                            "(SPEC 9); the music plays on through it. 0 = complete silence, 1 = no silence; the menu",
+                            "music) fades to this share of its volume over 3 s, and comes back once you are out.",
+                            "The music plays on through it. 0 = complete silence, 1 = no silence; the menu",
                             "and the mod's own sounds stay, and so may sound loops of other mods")
                     .translation(KEY + "sound.silenceFloor").defineInRange("silenceFloor", 0.05, 0.0, 1.0);
             heartbeatVolume = b.comment("Volume of the heartbeat heard inside the zone of an Awakening; it starts at",
