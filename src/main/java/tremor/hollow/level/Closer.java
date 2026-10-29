@@ -172,6 +172,11 @@ final class Closer {
         return filled;
     }
 
+    /** Whether nothing is due now (columns may still wait to be gone over again later). */
+    boolean idle() {
+        return queue.isEmpty();
+    }
+
     /** Columns waiting to be gone over (now or later). */
     int pending() {
         return listed.size();

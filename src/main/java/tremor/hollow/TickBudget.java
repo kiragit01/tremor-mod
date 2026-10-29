@@ -26,6 +26,11 @@ public final class TickBudget {
         return clock.getAsLong() - start < budget;
     }
 
+    /** The clock's reading when this tick's budget is spent. */
+    public long deadline() {
+        return start + budget;
+    }
+
     /** The clock's reading now. */
     public long now() {
         return clock.getAsLong();
