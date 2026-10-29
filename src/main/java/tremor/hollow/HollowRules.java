@@ -639,7 +639,7 @@ public final class HollowRules {
      * the way a dead or disconnected player's are, and what they drop is caught instead of spawned (what a living,
      * connected player's menus give back goes into the inventory as usual).
      */
-    private static List<ItemStack> takeLoose(ServerPlayer player) {
+    public static List<ItemStack> takeLoose(ServerPlayer player) {
         List<ItemEntity> caught = new ArrayList<>();
         Collection<ItemEntity> outer = player.captureDrops(caught);
         try {

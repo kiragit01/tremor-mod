@@ -717,7 +717,6 @@ public final class AwakeningManager {
         return null;
     }
 
-    /** The running Awakening whose target the player is, in any level, or null. */
     /** Whether an Awakening has {@code player} for its target (its zone, its quicksand or its hollow). */
     public static boolean taken(net.minecraft.world.entity.player.Player player) {
         return targetOf(player.getUUID()) != null;
@@ -731,6 +730,7 @@ public final class AwakeningManager {
         }
     }
 
+    /** The running Awakening whose target the player is, in any level, or null. */
     private static Awakening targetOf(UUID player) {
         for (Awakening awakening : all()) {
             if (awakening.target.equals(player)) {

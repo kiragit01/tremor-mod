@@ -144,11 +144,6 @@ public final class TremorEntity {
         this.lastHeard = lastHeard;
     }
 
-    /**
-     * Whether the stage behaviour decides where the entity goes (SPEC 8; on by default). Off ({@code /tremor ai off},
-     * a debug switch for scripted tests), it only obeys {@code /tremor goto} and {@code /tremor stop}; anger, stages,
-     * contact and despawning still run.
-     */
     /** Whether it is in a frenzy over a dropped shard ({@link Frenzy}); not saved. */
     public boolean frenzy() {
         return frenzy;
@@ -158,6 +153,11 @@ public final class TremorEntity {
         this.frenzy = frenzy;
     }
 
+    /**
+     * Whether the stage behaviour decides where the entity goes (SPEC 8; on by default). Off ({@code /tremor ai off},
+     * a debug switch for scripted tests), it only obeys {@code /tremor goto} and {@code /tremor stop}; anger, stages,
+     * contact and despawning still run.
+     */
     public boolean aiEnabled() {
         return aiEnabled;
     }

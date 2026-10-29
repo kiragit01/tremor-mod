@@ -24,7 +24,6 @@ import java.util.ArrayDeque;
  * behind the player. The work is amortized: a number of cells per tick, and the time left of the tick's budget.
  */
 final class Closer {
-    /** How close to the player nothing is filled (blocks). */
     /** How far the closing front is bent in and out by noise (blocks). */
     static final double WOBBLE = 3.5;
     /** How much sooner the ground under the place of arrival closes, at most (blocks of radius). */
@@ -33,6 +32,7 @@ final class Closer {
     static final double ROOF_FALL = 9;
     /** Columns are gone over this much before the front at their middle: their low and high cells close sooner. */
     private static final double LEAD = WOBBLE + Math.max(1.5 * FLOOR_RISE, 1.44 * ROOF_FALL);
+    /** How close to the player nothing is filled (blocks). */
     static final double NEAR = 2;
     private static final int RESCAN_TICKS = 20;
     private static final int RESCAN_RADIUS = 8;

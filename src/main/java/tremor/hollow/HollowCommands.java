@@ -75,10 +75,6 @@ public final class HollowCommands {
         return 1;
     }
 
-    /**
-     * Debug and autotests: moves the player inside the hollow to a free standing spot next to the node of their level,
-     * facing it, so that the node can be broken at once.
-     */
     /** Blocks before the end of the escape tunnel {@code totunnel end} goes to. */
     private static final int END_BLOCKS = 8;
 
@@ -105,6 +101,10 @@ public final class HollowCommands {
         return tunnel.size();
     }
 
+    /**
+     * Debug and autotests: moves the player inside the hollow to a free standing spot next to the node of their level,
+     * facing it, so that the node can be broken at once.
+     */
     private static int toNode(CommandContext<CommandSourceStack> ctx) throws CommandSyntaxException {
         ServerPlayer player = ctx.getSource().getPlayerOrException();
         HollowEvent event = HollowManager.event(player);

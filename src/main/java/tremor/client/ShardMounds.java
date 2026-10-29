@@ -86,8 +86,8 @@ public final class ShardMounds {
         List<ClientTremor.RenderState> states = new ArrayList<>(MOUNDS.size());
         for (Map.Entry<Integer, Mound> entry : MOUNDS.entrySet()) {
             Mound mound = entry.getValue();
-            double height = HEIGHT * smoothstep((now - mound.start) / RISE_SECONDS)
-                    * (1 - smoothstep((now - mound.end()) / SINK_SECONDS))
+            double height = HEIGHT * ClientTremor.smoothstep((now - mound.start) / RISE_SECONDS)
+                    * (1 - ClientTremor.smoothstep((now - mound.end()) / SINK_SECONDS))
                     * (1 + BREATH * Math.sin(2 * Math.PI * (now - mound.start) / BREATH_SECONDS));
             if (height > 0) {
                 states.add(new ClientTremor.RenderState(new BumpFrame(mound.at, UP, FORWARD),
@@ -122,8 +122,4 @@ public final class ShardMounds {
         }
     }
 
-    private static double smoothstep(double x) {
-        double t = Math.max(0, Math.min(1, x));
-        return t * t * (3 - 2 * t);
-    }
 }

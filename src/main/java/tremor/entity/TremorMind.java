@@ -274,11 +274,6 @@ final class TremorMind {
         };
     }
 
-    /**
-     * The first part of a tick, before the move: the config is taken in, the anger decays (in AWAKENING the seeking
-     * runs instead, and once it has run out the entity calms down), and the brain decides with what it heard since the
-     * last tick; the body carries out the order.
-     */
     /** Whether no player (not a spectator) is within {@value #VIEWER_RANGE} blocks; looked at once a second. */
     private boolean alone(long now) {
         if (now - aloneCheckedAt >= ALONE_CHECK_TICKS || now < aloneCheckedAt) {
@@ -296,6 +291,11 @@ final class TremorMind {
         return alone;
     }
 
+    /**
+     * The first part of a tick, before the move: the config is taken in, the anger decays (in AWAKENING the seeking
+     * runs instead, and once it has run out the entity calms down), and the brain decides with what it heard since the
+     * last tick; the body carries out the order.
+     */
     void think(long now) {
         BehaviorParams current = configParams();
         if (!current.equals(params)) {
@@ -493,7 +493,6 @@ final class TremorMind {
         seekAfresh();
     }
 
-    /** {@code /tremor ai on|off}: switched back on, the brain starts afresh (it heard nothing meanwhile). */
     /** Holds the anger where it is, or lets it go again ({@link #angerHeld}). */
     void holdAnger(boolean held) {
         angerHeld = held;
@@ -517,6 +516,7 @@ final class TremorMind {
         }
     }
 
+    /** {@code /tremor ai on|off}: switched back on, the brain starts afresh (it heard nothing meanwhile). */
     void setAi(boolean on) {
         if (on && !entity.aiEnabled()) {
             brain = newBrain();
