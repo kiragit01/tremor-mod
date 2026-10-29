@@ -166,6 +166,7 @@
   "tremor.configuration.spawn.graceSeconds": "Grace after entering (s)",
   "tremor.configuration.spawn.protectionRadius": "Protection around spawn and beds",
   "tremor.configuration.spawn.allowPeaceful": "Also in peaceful",
+  "tremor.configuration.spawn.undergroundOnly": "Only under the ground",
   "tremor.configuration.hollow": "The hollow",
   "tremor.configuration.hollow.radius": "Copy radius",
   "tremor.configuration.hollow.below": "Copy depth below the player",

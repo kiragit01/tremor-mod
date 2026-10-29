@@ -166,6 +166,7 @@
   "tremor.configuration.spawn.graceSeconds": "Отсрочка после входа (с)",
   "tremor.configuration.spawn.protectionRadius": "Защита вокруг спавна и кроватей",
   "tremor.configuration.spawn.allowPeaceful": "И на мирной сложности",
+  "tremor.configuration.spawn.undergroundOnly": "Только под землёй",
   "tremor.configuration.hollow": "Изнанка",
   "tremor.configuration.hollow.radius": "Радиус копии",
   "tremor.configuration.hollow.below": "Глубина копии под игроком",

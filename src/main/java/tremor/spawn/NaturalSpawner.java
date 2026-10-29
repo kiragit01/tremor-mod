@@ -327,12 +327,17 @@ public final class NaturalSpawner {
      */
     private static SpawnRules.Conditions conditions(ServerLevel level, ServerPlayer player) {
         BlockPos eye = BlockPos.containing(player.getEyePosition());
-        int roof = Math.min(level.getHeight(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, eye.getX(), eye.getZ()),
-                level.getHeight(Heightmap.Types.OCEAN_FLOOR, eye.getX(), eye.getZ()));
-        boolean cave = !level.canSeeSky(eye) && eye.getY() < roof;
+        boolean cave = underground(level, eye);
         boolean dark = level.getMaxLocalRawBrightness(eye) < DARK_LIGHT;
         boolean deep = player.getY() < DEEP_BELOW_Y;
         return new SpawnRules.Conditions(cave, dark, deep, level.isNight());
+    }
+
+    /** Whether {@code pos} is under the ground, as the cave condition says ({@link #conditions}). */
+    private static boolean underground(ServerLevel level, BlockPos pos) {
+        int roof = Math.min(level.getHeight(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, pos.getX(), pos.getZ()),
+                level.getHeight(Heightmap.Types.OCEAN_FLOOR, pos.getX(), pos.getZ()));
+        return !level.canSeeSky(pos) && pos.getY() < roof;
     }
 
     private static double chance(SpawnRules.Conditions conditions) {
@@ -360,7 +365,9 @@ public final class NaturalSpawner {
         SpawnProtection protection = protection(level);
         View view = View.of(player);
         double halfWidth = config.routeHalfWidth.get();
-        Predicate<Vec3> allowed = p -> protection.test(p) && (inView(view, p) || heading.passes(feet, p, halfWidth));
+        boolean undergroundOnly = config.undergroundOnly.get();
+        Predicate<Vec3> allowed = p -> protection.test(p) && (inView(view, p) || heading.passes(feet, p, halfWidth))
+                && (!undergroundOnly || underground(level, BlockPos.containing(p.x(), p.y() + 0.5, p.z())));
         SurfaceGraph graph = new SurfaceGraph(new LevelVoxelView(level), TremorConfig.COMMON.maxDiveDepth.get());
         SurfacePicker.SpawnPick pick = SurfacePicker.spawnPoint(graph, feet, vec(player.getEyePosition()),
                 heading.direction(), config.minDistance.get(), maxDistance(), halfWidth, config.verticalRange.get(),
