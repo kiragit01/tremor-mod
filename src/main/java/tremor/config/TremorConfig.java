@@ -551,6 +551,7 @@ public final class TremorConfig {
         public final ModConfigSpec.IntValue graceSeconds;
         public final ModConfigSpec.IntValue protectionRadius;
         public final ModConfigSpec.BooleanValue allowPeaceful;
+        public final ModConfigSpec.BooleanValue undergroundOnly;
 
         Spawn(ModConfigSpec.Builder b) {
             b.comment("Natural spawn: the entity appears by itself in the distance (SPEC 11)")
@@ -614,6 +615,10 @@ public final class TremorConfig {
                     .translation(KEY + "spawn.protectionRadius").defineInRange("protectionRadius", 32, 0, 1024);
             allowPeaceful = b.comment("Whether the entity appears by itself in peaceful difficulty too")
                     .translation(KEY + "spawn.allowPeaceful").define("allowPeaceful", false);
+            undergroundOnly = b.comment("Whether the entity appears by itself only under the ground: where no sky is",
+                            "seen (a cave, a mine), never on the surface. Once there it may still crawl up after",
+                            "sounds")
+                    .translation(KEY + "spawn.undergroundOnly").define("undergroundOnly", false);
             b.pop();
         }
 
