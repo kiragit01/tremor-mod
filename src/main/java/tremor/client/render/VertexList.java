@@ -36,10 +36,22 @@ final class VertexList implements VertexConsumer {
     }
 
     /** Emits every vertex translated by {@code (dx, dy, dz)}. */
+    /** Tests only (the autotest's {@code tint}): the copies are drawn tinted red, told from the real blocks on shots. */
+    static boolean tinted;
+
+    /** The colour {@code argb}, tinted red if {@link #tinted}. */
+    private static int tint(int argb) {
+        if (!tinted) {
+            return argb;
+        }
+        int g = (argb >> 8 & 0xFF) * 2 / 5, b = (argb & 0xFF) * 2 / 5;
+        return argb & 0xFFFF0000 | g << 8 | b;
+    }
+
     void emit(VertexConsumer out, float dx, float dy, float dz) {
         float[] d = data;
         for (int i = 0, o = 0; i < size; i++, o += STRIDE) {
-            put(out, d[o] + dx, d[o + 1] + dy, d[o + 2] + dz, Float.floatToRawIntBits(d[o + 8]), d[o + 3],
+            put(out, d[o] + dx, d[o + 1] + dy, d[o + 2] + dz, tint(Float.floatToRawIntBits(d[o + 8])), d[o + 3],
                     d[o + 4], Float.floatToRawIntBits(d[o + 9]), d[o + 5], d[o + 6], d[o + 7]);
         }
     }

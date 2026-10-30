@@ -1,0 +1,49 @@
+# A hill hanging from a ceiling two blocks thick with a hole one block deep in its top right over the tremor (the user:
+# there the ceiling is one block thick, and that block did not come down with the hill), against the same ceiling
+# without the hole. The tremor climbs a wall under the edge onto the underside. The copies are tinted red.
+# Run: gradlew runClientAutotest -Ptremor_autotest_script=thin-ceiling.txt
+waitchunks
+cmd gamemode spectator
+cmd time set noon
+cmd tremor despawn all
+cmd tremor awaken stop
+cmd tp @s 312.5 204.0 -905.5 90 0
+wait 40
+waitchunks
+cmd fill 240 198 -960 299 199 -840 minecraft:stone
+cmd fill 300 198 -960 360 199 -840 minecraft:stone
+cmd fill 240 200 -960 360 200 -840 minecraft:grass_block
+cmd fill 285 201 -935 315 215 -885 minecraft:air
+cmd fill 290 206 -915 310 207 -895 minecraft:stone
+cmd fill 290 201 -915 290 205 -895 minecraft:stone
+cmd setblock 300 207 -905 minecraft:air
+cmd kill @e[type=!player]
+hud off
+tint on
+cmd tremor spawn 294 200 -905
+cmd tremor ai off
+cmd tremor stage hunting
+cmd tremor hold
+cmd tremor set amplitude 3
+wait 40
+cmd tremor goto 300 206 -905
+wait 160
+cmd tremor info
+cmd tp @s 305.5 201.0 -905.5 90 -40
+wait 10
+screenshot 10_hole_below
+cmd tp @s 300.5 202.0 -899.5 180 -50
+wait 10
+screenshot 11_hole_below_front
+log --- the same ceiling without the hole
+cmd setblock 300 207 -905 minecraft:stone
+wait 60
+cmd tp @s 305.5 201.0 -905.5 90 -40
+wait 10
+screenshot 20_solid_below
+cmd tp @s 300.5 202.0 -899.5 180 -50
+wait 10
+screenshot 21_solid_below_front
+cmd tremor despawn all
+tint off
+quit

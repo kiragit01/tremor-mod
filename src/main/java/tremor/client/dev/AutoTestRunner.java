@@ -763,6 +763,7 @@ final class AutoTestRunner {
                 return false;
             }
             case CMD -> player.connection.sendCommand(step.text());
+            case TINT -> tremor.client.render.DeformationRenderer.tintCopies(step.number() == 1);
             case HUD -> {
                 mc.options.hideGui = step.number() == 0;
                 mc.options.renderDebug = step.number() == 2;
