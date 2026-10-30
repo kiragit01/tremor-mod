@@ -1,0 +1,42 @@
+# A big hill on a slope of steps one block high and one deep (the user's terraces: shelves and hollows where the copies
+# of neighbours went up and aside). A still tremor, amplitude 3, sits in the middle of the slope.
+# Run: gradlew runClientAutotest -Ptremor_autotest_script=stairs-hill.txt
+waitchunks
+cmd gamemode spectator
+cmd time set noon
+cmd tremor despawn all
+cmd tremor awaken stop
+cmd tp @s 312.5 206.0 -905.5 90 15
+wait 40
+waitchunks
+cmd fill 240 198 -960 299 199 -840 minecraft:stone
+cmd fill 300 198 -960 360 199 -840 minecraft:stone
+cmd fill 240 200 -960 360 200 -840 minecraft:grass_block
+cmd fill 285 201 -935 315 215 -885 minecraft:air
+cmd fill 290 201 -930 310 201 -901 minecraft:grass_block
+cmd fill 290 202 -930 310 202 -902 minecraft:grass_block
+cmd fill 290 203 -930 310 203 -903 minecraft:grass_block
+cmd fill 290 204 -930 310 204 -904 minecraft:grass_block
+cmd fill 290 205 -930 310 205 -905 minecraft:grass_block
+cmd fill 290 206 -930 310 206 -906 minecraft:grass_block
+cmd fill 290 207 -930 310 207 -907 minecraft:grass_block
+cmd fill 290 208 -930 310 208 -908 minecraft:grass_block
+cmd kill @e[type=!player]
+hud off
+cmd tremor spawn 300 205 -904
+cmd tremor ai off
+cmd tremor stage hunting
+cmd tremor hold
+cmd tremor set amplitude 3
+wait 80
+cmd tp @s 300.5 207.0 -895.5 180 25
+wait 10
+screenshot 10_front
+cmd tp @s 307.5 208.0 -898.5 135 30
+wait 10
+screenshot 11_diagonal
+cmd tp @s 308.5 206.0 -904.5 90 15
+wait 10
+screenshot 12_side
+cmd tremor despawn all
+quit

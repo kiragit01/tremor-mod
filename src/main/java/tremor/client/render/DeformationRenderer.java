@@ -493,6 +493,11 @@ public final class DeformationRenderer {
         if (total > budget) {
             trim(budget, ground != null);
         }
+        LevelVoxelView seams = source.begin(level);
+        for (int i = 0, n = drawn.size(); i < n; i++) {
+            Column col = drawn.get(i);
+            col.cross = frameWarp || col.fill || col.h < 1 ? null : seam(seams, col);
+        }
         if (frameWarp) {
             for (int i = 0, n = drawn.size(); i < n; i++) {
                 if (!drawn.get(i).fill) {
@@ -978,7 +983,10 @@ public final class DeformationRenderer {
     private static Column column(SurfacePoint p, long tick) {
         long key = VoxelPos.pack(p.x(), p.y(), p.z());
         Vec3 n = p.normal();
-        Direction axis = Direction.getNearest(n.x(), n.y(), n.z());
+        // The way its copies go: up for a slope of steps, the open side for the face of a ledge (SurfaceCollector).
+        Vec3 push = SurfaceCollector.pushNormal(voxels, p.x(), p.y(), p.z(), n);
+        Vec3 way = push == null ? n : push;
+        Direction axis = Direction.getNearest(way.x(), way.y(), way.z());
         Column col = columns.get(key);
         if (col == null || col.axis != axis || col.fill) {
             col = new Column(p.x(), p.y(), p.z(), axis, n);
@@ -1279,6 +1287,23 @@ public final class DeformationRenderer {
                 && hit.getType() == net.minecraft.world.phys.HitResult.Type.BLOCK ? hit.getBlockPos() : null;
     }
 
+    /**
+     * The way {@code col} also fills this frame ({@link Column#cross}), or null: when the column behind it (the voxel
+     * at its back, against its axis) goes a way sideways to its axis, and the cell next to it that way is open. The
+     * user's screenshot: a big hill over a ledge, the top going up and the face of the ledge sideways, left the corner
+     * between them hollow.
+     */
+    private static Direction seam(LevelVoxelView view, Column col) {
+        Direction a = col.axis;
+        Column behind = columns.get(VoxelPos.pack(col.x - a.getStepX(), col.y - a.getStepY(), col.z - a.getStepZ()));
+        if (behind == null || behind.fill || behind.stamp != frameStamp || behind.h < BumpShape.RENDER_THRESHOLD
+                || behind.axis.getAxis() == a.getAxis()) {
+            return null;
+        }
+        Direction b = behind.axis;
+        return view.isOpen(col.x + b.getStepX(), col.y + b.getStepY(), col.z + b.getStepZ()) ? b : null;
+    }
+
     private static void draw(RenderType layer) {
         MultiBufferSource.BufferSource out = buffers();
         VertexConsumer consumer = null;
@@ -1322,6 +1347,20 @@ public final class DeformationRenderer {
                     frameVertices += mesh.size();
                 }
                 frameCopies += stack;
+                if (col.cross != null && !frameWarp) {
+                    // The seam: a staircase toward the other way, from the top of the stack down to its foot, as far
+                    // out as the copy is high, so the corner fills like the slope of a hill.
+                    int cx = col.cross.getStepX(), cy = col.cross.getStepY(), cz = col.cross.getStepZ();
+                    for (int k = 1; k <= stack; k++) {
+                        double off = Math.max(0, col.h - k);
+                        for (int s = 1; s <= (int) Math.floor(col.h - off + 1e-9); s++) {
+                            mesh.emit(consumer, bx + (float) (ax * off) + cx * s, by + (float) (ay * off) + cy * s,
+                                    bz + (float) (az * off) + cz * s);
+                            frameVertices += mesh.size();
+                            frameCopies++;
+                        }
+                    }
+                }
             }
             if (deco != null) {
                 if (frameWarp) {
