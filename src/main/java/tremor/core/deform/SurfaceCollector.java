@@ -51,6 +51,39 @@ public final class SurfaceCollector {
         return view.isOpen(x + axis[0], y + axis[1], z + axis[2]);
     }
 
+    /** A voxel open above whose normal rises at least this much (the cosine with up) has its copies go up. */
+    static final double UP_BIAS = 0.3;
+    private static final Vec3 UP = new Vec3(0, 1, 0);
+    /** A voxel faces an open side at least this much (the cosine) for its copies to go out that way instead. */
+    static final double MIN_SIDE_DOT = 0.2;
+    private static final int[][] AXES = {{1, 0, 0}, {-1, 0, 0}, {0, 1, 0}, {0, -1, 0}, {0, 0, 1}, {0, 0, -1}};
+
+    /**
+     * The normal the copies of a surface voxel go out along: straight up if it is open above and faces up by
+     * {@value #UP_BIAS} at least; else its own if {@link #pushable}; else the open axis it faces
+     * most (the face of a ledge under its top: the top is over it, the drop ahead), so it moves with the hill instead
+     * of standing still in it; null if it faces no open side by {@value #MIN_SIDE_DOT} (a voxel under a top one block
+     * wide, whose open sides cancel).
+     */
+    public static Vec3 pushNormal(VoxelView view, int x, int y, int z, Vec3 normal) {
+        if (ThinSwell.axisStep(normal)[1] != 1 && normal.y() >= UP_BIAS && view.isOpen(x, y + 1, z)) {
+            return UP; // a slope of steps rises as one (the user's terraces: the copies of neighbours went up and aside)
+        }
+        if (pushable(view, x, y, z, normal)) {
+            return normal;
+        }
+        Vec3 best = null;
+        double bestDot = MIN_SIDE_DOT;
+        for (int[] d : AXES) {
+            double dot = normal.x() * d[0] + normal.y() * d[1] + normal.z() * d[2];
+            if (dot > bestDot && view.isOpen(x + d[0], y + d[1], z + d[2])) {
+                bestDot = dot;
+                best = new Vec3(d[0], d[1], d[2]);
+            }
+        }
+        return best;
+    }
+
     /**
      * All surface voxels whose centre {@code p} satisfies {@code |p - c| <= radius}, {@code |(p - c)·n| <= normalBand}
      * and {@code smoothNormal(p)·n >= minNormalDot} ({@code c}, {@code n} from the frame). The band and normal filters
@@ -89,7 +122,11 @@ public final class SurfaceCollector {
                         continue;
                     }
                     Vec3 normal = field.smooth(x, y, z);
-                    if (normal.isNearZero() || normal.dot(n) < minDot || !pushable(view, x, y, z, normal)) {
+                    if (normal.isNearZero() || normal.dot(n) < minDot) {
+                        continue;
+                    }
+                    Vec3 push = pushNormal(view, x, y, z, normal);
+                    if (push == null) {
                         continue;
                     }
                     points.add(new SurfacePoint(x, y, z, normal));

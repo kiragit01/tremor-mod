@@ -111,7 +111,7 @@ public final class ThinSwell {
         int[] axis = axisStep(frame.normal());
         List<SurfacePoint> kept = new ArrayList<>(points.size());
         for (SurfacePoint p : points) {
-            if (!thin(view, p.x(), p.y(), p.z()) || isTop(view, p, axis)) {
+            if (!thin(view, p.x(), p.y(), p.z(), axisStep(p.normal())) || isTop(view, p, axis)) {
                 kept.add(p);
             }
         }
@@ -130,7 +130,19 @@ public final class ThinSwell {
      * thick (open over and under it).
      */
     public static boolean thin(VoxelView view, int x, int y, int z) {
-        return view.isSolid(x, y, z) && (run(view, x, y, z, 1, 0) < THIN_WIDTH || run(view, x, y, z, 0, 1) < THIN_WIDTH
+        return thin(view, x, y, z, null);
+    }
+
+    /**
+     * {@link #thin}, for ground facing along {@code depth} (the axis of its own normal): the run along a horizontal
+     * depth axis does not count, as that is the thickness of a wall, not its width (a wall two blocks thick with a
+     * hollow behind it in places swelled and stopped swelling as the bump went along and turned at its corners: the
+     * hill jerked).
+     */
+    static boolean thin(VoxelView view, int x, int y, int z, int[] depth) {
+        boolean byX = depth == null || depth[0] == 0, byZ = depth == null || depth[2] == 0;
+        return view.isSolid(x, y, z) && (byX && run(view, x, y, z, 1, 0) < THIN_WIDTH
+                || byZ && run(view, x, y, z, 0, 1) < THIN_WIDTH
                 || !view.isSolid(x, y + 1, z) && !view.isSolid(x, y - 1, z));
     }
 
@@ -227,7 +239,13 @@ public final class ThinSwell {
      */
     public static Set<Long> structure(VoxelView view, Vec3 point, Vec3 normal, double radius) {
         int[] anchor = anchor(view, point, normal);
-        if (anchor == null || !thin(view, anchor[0], anchor[1], anchor[2])) {
+        if (anchor == null) {
+            return Set.of();
+        }
+        // The anchor's own way, not the bump's: the bump turning at a corner must not make a wall thin and unthin.
+        Vec3 own = tremor.core.surface.SurfaceNormals.smoothNormal(view, anchor[0], anchor[1], anchor[2]);
+        int[] depth = own.isNearZero() ? null : axisStep(own);
+        if (!thin(view, anchor[0], anchor[1], anchor[2], depth)) {
             return Set.of();
         }
         Vec3 c = point;
@@ -242,7 +260,7 @@ public final class ThinSwell {
             for (int[] s : STEPS) {
                 int nx = x + s[0], ny = y + s[1], nz = z + s[2];
                 long key = VoxelPos.pack(nx, ny, nz);
-                if (seen.contains(key) || !view.isKnown(nx, ny, nz) || !thin(view, nx, ny, nz)
+                if (seen.contains(key) || !view.isKnown(nx, ny, nz) || !thin(view, nx, ny, nz, depth)
                         || Vec3.voxelCenter(nx, ny, nz).distanceSquared(c) > radius * radius) {
                     continue;
                 }

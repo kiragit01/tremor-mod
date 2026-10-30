@@ -38,6 +38,11 @@ final class Column {
     final Direction axis;
     /** Smoothed surface normal, refreshed by every collection. */
     Vec3 normal;
+    /**
+     * This frame: the way the column also fills, at a seam where the column behind it goes that way while it goes
+     * along its own axis (a ledge under a hill: the top up, the face sideways); null if none.
+     */
+    Direction cross;
     BlockState state;
     BlockState decoState;
     BlockPos lightPos;

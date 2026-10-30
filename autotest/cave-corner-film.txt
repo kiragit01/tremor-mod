@@ -1,0 +1,233 @@
+# Films the climb of the cave test (stage1-cave, third route: from the floor up a wall to the ceiling of the second
+# room) a frame every tick, the game slowed to 4 ticks a second: the user saw the bump jerk and copies stick out
+# where they should not in a corner.
+waitchunks
+cmd time set noon
+cmd weather clear
+cmd gamerule doDaylightCycle false
+cmd gamerule doWeatherCycle false
+cmd gamerule doMobSpawning false
+cmd kill @e[type=!player]
+cmd gamemode spectator
+cmd effect give @s minecraft:night_vision infinite 0 true
+cmd tremor despawn
+cmd fill -12 37 8 38 52 25 minecraft:stone
+cmd fill -12 37 26 38 52 42 minecraft:stone
+cmd fill -10 40 10 26 50 25 minecraft:air
+cmd fill -10 40 26 26 50 40 minecraft:air
+cmd fill 30 40 20 36 46 30 minecraft:air
+cmd tp @s 17.5 45.4 17.5 -38 4
+wait 40
+waitchunks
+hud off
+cmd tremor spawn -8 40 28
+cmd tremor ai off
+config behavior.stages.dormant.speedFactor 1.0
+config behavior.stages.dormant.amplitudeFactor 1.0
+cmd tp @s 1.5 43.5 30.5 90 -28
+wait 60
+cmd tick rate 4
+cmd tremor goto -2 51 36
+wait 1
+screenshot f000
+wait 1
+screenshot f001
+wait 1
+screenshot f002
+wait 1
+screenshot f003
+wait 1
+screenshot f004
+wait 1
+screenshot f005
+wait 1
+screenshot f006
+wait 1
+screenshot f007
+wait 1
+screenshot f008
+wait 1
+screenshot f009
+wait 1
+screenshot f010
+wait 1
+screenshot f011
+wait 1
+screenshot f012
+wait 1
+screenshot f013
+wait 1
+screenshot f014
+wait 1
+screenshot f015
+wait 1
+screenshot f016
+wait 1
+screenshot f017
+wait 1
+screenshot f018
+wait 1
+screenshot f019
+wait 1
+screenshot f020
+wait 1
+screenshot f021
+wait 1
+screenshot f022
+wait 1
+screenshot f023
+wait 1
+screenshot f024
+wait 1
+screenshot f025
+wait 1
+screenshot f026
+wait 1
+screenshot f027
+wait 1
+screenshot f028
+wait 1
+screenshot f029
+wait 1
+screenshot f030
+wait 1
+screenshot f031
+wait 1
+screenshot f032
+wait 1
+screenshot f033
+wait 1
+screenshot f034
+wait 1
+screenshot f035
+wait 1
+screenshot f036
+wait 1
+screenshot f037
+wait 1
+screenshot f038
+wait 1
+screenshot f039
+wait 1
+screenshot f040
+wait 1
+screenshot f041
+wait 1
+screenshot f042
+wait 1
+screenshot f043
+wait 1
+screenshot f044
+wait 1
+screenshot f045
+wait 1
+screenshot f046
+wait 1
+screenshot f047
+wait 1
+screenshot f048
+wait 1
+screenshot f049
+wait 1
+screenshot f050
+wait 1
+screenshot f051
+wait 1
+screenshot f052
+wait 1
+screenshot f053
+wait 1
+screenshot f054
+wait 1
+screenshot f055
+wait 1
+screenshot f056
+wait 1
+screenshot f057
+wait 1
+screenshot f058
+wait 1
+screenshot f059
+wait 1
+screenshot f060
+wait 1
+screenshot f061
+wait 1
+screenshot f062
+wait 1
+screenshot f063
+wait 1
+screenshot f064
+wait 1
+screenshot f065
+wait 1
+screenshot f066
+wait 1
+screenshot f067
+wait 1
+screenshot f068
+wait 1
+screenshot f069
+wait 1
+screenshot f070
+wait 1
+screenshot f071
+wait 1
+screenshot f072
+wait 1
+screenshot f073
+wait 1
+screenshot f074
+wait 1
+screenshot f075
+wait 1
+screenshot f076
+wait 1
+screenshot f077
+wait 1
+screenshot f078
+wait 1
+screenshot f079
+wait 1
+screenshot f080
+wait 1
+screenshot f081
+wait 1
+screenshot f082
+wait 1
+screenshot f083
+wait 1
+screenshot f084
+wait 1
+screenshot f085
+wait 1
+screenshot f086
+wait 1
+screenshot f087
+wait 1
+screenshot f088
+wait 1
+screenshot f089
+wait 1
+screenshot f090
+wait 1
+screenshot f091
+wait 1
+screenshot f092
+wait 1
+screenshot f093
+wait 1
+screenshot f094
+wait 1
+screenshot f095
+wait 1
+screenshot f096
+wait 1
+screenshot f097
+wait 1
+screenshot f098
+wait 1
+screenshot f099
+cmd tick rate 20
+cmd tremor despawn
+quit

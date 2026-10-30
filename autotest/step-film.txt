@@ -1,0 +1,142 @@
+# Films a big hill crawling over a ledge three blocks high for a GIF (the game slowed to 4 ticks a second, a frame
+# every tick): no hollow between the top going up and the face of the ledge.
+waitchunks
+cmd gamemode spectator
+cmd time set noon
+cmd tremor despawn all
+cmd tremor awaken stop
+cmd tp @s 312.5 206.0 -905.5 90 15
+wait 40
+waitchunks
+cmd fill 240 198 -960 299 199 -840 minecraft:stone
+cmd fill 300 198 -960 360 199 -840 minecraft:stone
+cmd fill 240 200 -960 360 200 -840 minecraft:grass_block
+cmd fill 285 201 -935 315 210 -885 minecraft:air
+cmd fill 290 201 -930 310 202 -906 minecraft:dirt
+cmd fill 290 203 -930 310 203 -906 minecraft:grass_block
+cmd kill @e[type=!player]
+hud off
+cmd tremor spawn 300 201 -896
+cmd tremor ai off
+cmd tremor stage hunting
+cmd tremor hold
+cmd tremor set amplitude 3
+cmd tp @s 309.5 207.0 -899.5 120 25
+wait 60
+cmd tick rate 4
+cmd tremor goto 300 204 -916
+wait 1
+screenshot f00
+wait 1
+screenshot f01
+wait 1
+screenshot f02
+wait 1
+screenshot f03
+wait 1
+screenshot f04
+wait 1
+screenshot f05
+wait 1
+screenshot f06
+wait 1
+screenshot f07
+wait 1
+screenshot f08
+wait 1
+screenshot f09
+wait 1
+screenshot f10
+wait 1
+screenshot f11
+wait 1
+screenshot f12
+wait 1
+screenshot f13
+wait 1
+screenshot f14
+wait 1
+screenshot f15
+wait 1
+screenshot f16
+wait 1
+screenshot f17
+wait 1
+screenshot f18
+wait 1
+screenshot f19
+wait 1
+screenshot f20
+wait 1
+screenshot f21
+wait 1
+screenshot f22
+wait 1
+screenshot f23
+wait 1
+screenshot f24
+wait 1
+screenshot f25
+wait 1
+screenshot f26
+wait 1
+screenshot f27
+wait 1
+screenshot f28
+wait 1
+screenshot f29
+wait 1
+screenshot f30
+wait 1
+screenshot f31
+wait 1
+screenshot f32
+wait 1
+screenshot f33
+wait 1
+screenshot f34
+wait 1
+screenshot f35
+wait 1
+screenshot f36
+wait 1
+screenshot f37
+wait 1
+screenshot f38
+wait 1
+screenshot f39
+wait 1
+screenshot f40
+wait 1
+screenshot f41
+wait 1
+screenshot f42
+wait 1
+screenshot f43
+wait 1
+screenshot f44
+wait 1
+screenshot f45
+wait 1
+screenshot f46
+wait 1
+screenshot f47
+wait 1
+screenshot f48
+wait 1
+screenshot f49
+wait 1
+screenshot f50
+wait 1
+screenshot f51
+wait 1
+screenshot f52
+wait 1
+screenshot f53
+wait 1
+screenshot f54
+wait 1
+screenshot f55
+cmd tick rate 20
+cmd tremor despawn all
+quit
