@@ -122,6 +122,7 @@ public final class TremorConfig {
         public final ForgeConfigSpec.DoubleValue contactAnger;
         public final ForgeConfigSpec.BooleanValue devourMobs;
         public final ForgeConfigSpec.BooleanValue devourItems;
+        public final ForgeConfigSpec.BooleanValue contactStalactites;
         public final ForgeConfigSpec.DoubleValue despawnPlayerDistance;
         public final ForgeConfigSpec.DoubleValue despawnFarSeconds;
         public final ForgeConfigSpec.DoubleValue despawnQuietSeconds;
@@ -390,6 +391,10 @@ public final class TremorConfig {
                             "pulled under: gone for good. What the mod laid down for a player (it never despawns) is",
                             "spared")
                     .translation(KEY + "behavior.contact.devourItems").define("devourItems", true);
+            contactStalactites = b.comment("A player out of reach on a pillar (more than 5 blocks over the entity, on ground",
+                            "narrower than movement.minGroundWidth) is guarded from below; under a ceiling a small bump",
+                            "crawls up over where the player was heard and drops a pointed dripstone on them")
+                    .translation(KEY + "behavior.contact.stalactites").define("stalactites", true);
             b.pop();
 
             b.comment("A naturally spawned entity leaves (sinks and disappears) when no player was near for",

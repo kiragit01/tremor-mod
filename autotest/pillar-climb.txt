@@ -1,5 +1,5 @@
 # Pillars: the tremor no longer crawls on ground narrower than movement.minGroundWidth (3). Sent onto a pillar 2x2
-# seven high it climbed it with the width 1 (as before); with 3 there is no way up (no node), while a pillar 3x3 it
+# seven high it climbed it with the width 1 (as before); with 3 it stops at the pillar's foot, while a pillar 3x3 it
 # still climbs. The copies are tinted red.
 # Run: gradlew runClientAutotest -Ptremor_autotest_script=pillar-climb.txt
 waitchunks
@@ -33,14 +33,13 @@ wait 10
 screenshot 01_width1_2x2
 cmd tremor despawn all
 wait 20
-log --- width 3: no way up the pillar 2x2
+log --- width 3: to the foot of the pillar 2x2
 config movement.minGroundWidth 3
 cmd tremor spawn 753 200 300
 cmd tremor ai off
 cmd tremor stage hunting
 wait 40
 cmd tremor goto 760 207 300
-cmd tremor goto 760 204 299
 wait 200
 cmd tremor info
 screenshot 02_width3_2x2

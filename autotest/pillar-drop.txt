@@ -1,0 +1,50 @@
+# A player out of reach on a pillar 2x2 seven high in a cave: the tremor hears them, guards from below, and a small
+# bump rolls out of its hill, climbs the wall to the ceiling over the player, shakes and drops a stalactite that
+# knocks them off. The copies are tinted red; night vision to see in the cave.
+# Run: gradlew runClientAutotest -Ptremor_autotest_script=pillar-drop.txt
+waitchunks
+cmd gamemode spectator
+cmd time set noon
+cmd tremor despawn all
+cmd tremor awaken stop
+cmd kill @e[type=!player]
+cmd tp @s 820.5 205.0 295.5
+wait 40
+waitchunks
+cmd fill 805 195 285 835 220 315 minecraft:stone
+cmd fill 811 201 286 830 213 305 minecraft:air
+cmd fill 815 201 295 816 207 296 minecraft:stone
+cmd kill @e[type=!player]
+hud off
+tint on
+cmd effect give @s minecraft:night_vision 600 0 true
+cmd tp @s 816.0 208.0 296.0 90 -25
+cmd gamemode survival
+cmd effect give @s minecraft:resistance 600 2 true
+cmd effect give @s minecraft:instant_health 1 4 true
+cmd tremor spawn 821 200 296
+cmd tremor stage hunting
+cmd tremor hold
+wait 40
+cmd tremor voice -10
+view back
+wait 20
+screenshot 01_guard
+wait 30
+screenshot 02_climb
+wait 30
+screenshot 03_climb
+wait 30
+screenshot 04_ceiling
+wait 30
+screenshot 05_after
+cmd tremor info
+wait 60
+screenshot 06_later
+wait 100
+cmd tremor info
+screenshot 07_later
+cmd gamemode spectator
+cmd tremor despawn all
+tint off
+quit
