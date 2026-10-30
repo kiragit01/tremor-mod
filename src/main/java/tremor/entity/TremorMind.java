@@ -422,6 +422,10 @@ final class TremorMind {
      */
     boolean afterMove(long now) {
         perch.tick(now, motion());
+        Vec3 climb = perch.takeClimb();
+        if (climb != null && entity.aiEnabled()) {
+            brain.hear(climb, STRIKE_LOUDNESS); // built up to the player: it goes up for them
+        }
         boolean heard = heardSinceTick;
         heardSinceTick = false;
         if (ambushLook && !AwakeningManager.pullingWith(level, entity.instance())) {

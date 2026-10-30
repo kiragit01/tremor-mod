@@ -1,0 +1,51 @@
+# A player out of reach on a pillar 2x2 seven high under the open sky: the tremor guards from below, and with no
+# ceiling to drop a stalactite from, after 10 s it builds the pillar up to the player, 3 wide, out of the ground
+# around (blocks sink where they are taken and rise around the pillar), then comes up for them. Copies tinted red.
+# Run: gradlew runClientAutotest -Ptremor_autotest_script=pillar-build.txt
+waitchunks
+cmd gamemode spectator
+cmd time set noon
+cmd tremor despawn all
+cmd tremor awaken stop
+cmd kill @e[type=!player]
+cmd tp @s 860.5 210.0 300.5
+wait 40
+waitchunks
+cmd fill 840 194 280 880 199 320 minecraft:dirt
+cmd fill 840 200 280 880 200 320 minecraft:grass_block
+cmd fill 840 201 280 880 215 320 minecraft:air
+cmd fill 860 201 300 861 207 301 minecraft:stone
+cmd kill @e[type=!player]
+hud off
+tint on
+cmd tp @s 861.0 208.0 301.0 90 50
+cmd gamemode survival
+cmd effect give @s minecraft:resistance 600 2 true
+cmd effect give @s minecraft:instant_health 1 4 true
+cmd tremor spawn 866 200 301
+cmd tremor stage hunting
+cmd tremor hold
+wait 40
+cmd tremor voice -10
+view back
+wait 40
+screenshot 01_guard
+wait 200
+screenshot 02_building
+wait 60
+screenshot 03_building
+wait 60
+screenshot 04_building
+wait 80
+screenshot 05_built
+cmd tremor info
+wait 100
+screenshot 06_after
+cmd gamemode spectator
+cmd tp @s 852.5 210.0 292.5
+lookat 860.5 203.0 300.5
+wait 10
+screenshot 07_pillar
+cmd tremor despawn all
+tint off
+quit
