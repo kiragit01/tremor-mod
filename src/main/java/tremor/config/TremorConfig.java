@@ -123,6 +123,7 @@ public final class TremorConfig {
         public final ForgeConfigSpec.BooleanValue devourMobs;
         public final ForgeConfigSpec.BooleanValue devourItems;
         public final ForgeConfigSpec.BooleanValue contactStalactites;
+        public final ForgeConfigSpec.BooleanValue contactBuildUp;
         public final ForgeConfigSpec.DoubleValue despawnPlayerDistance;
         public final ForgeConfigSpec.DoubleValue despawnFarSeconds;
         public final ForgeConfigSpec.DoubleValue despawnQuietSeconds;
@@ -395,6 +396,9 @@ public final class TremorConfig {
                             "narrower than movement.minGroundWidth) is guarded from below; under a ceiling a small bump",
                             "crawls up over where the player was heard and drops a pointed dripstone on them")
                     .translation(KEY + "behavior.contact.stalactites").define("stalactites", true);
+            contactBuildUp = b.comment("After 3 stalactites missed such a player (or after 10 s without a ceiling) it builds the",
+                            "pillar up to them out of the ground around it, a rough heap at least 3 wide, and comes up")
+                    .translation(KEY + "behavior.contact.buildUp").define("buildUp", true);
             b.pop();
 
             b.comment("A naturally spawned entity leaves (sinks and disappears) when no player was near for",

@@ -45,7 +45,8 @@ public final class Devour {
     /** The age of an item that never despawns ({@code ItemEntity.setUnlimitedLifetime}). */
     private static final int UNLIMITED_AGE = -32768;
     /** The tag of a mob being pulled under, saved with it if its chunk unloads meanwhile. */
-    private static final String TAG = "tremor_devoured";
+    /** On a mob being pulled under, or a display of a block on its way ({@link PerchBuild}): it does not come back. */
+    static final String TAG = "tremor_devoured";
 
     private Devour() {
     }
