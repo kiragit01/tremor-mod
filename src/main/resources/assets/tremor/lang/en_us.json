@@ -67,6 +67,7 @@
   "tremor.configuration.sound.pullVolume": "Ground pull volume",
   "tremor.configuration.movement": "Movement",
   "tremor.configuration.movement.maxDiveDepth": "Max dive depth",
+  "tremor.configuration.movement.minGroundWidth": "Narrowest ground",
   "tremor.configuration.movement.diveCost": "Dive cost",
   "tremor.configuration.movement.pathMaxNodes": "Path search node limit",
   "tremor.configuration.movement.pathNodesPerTick": "Path search nodes per tick",

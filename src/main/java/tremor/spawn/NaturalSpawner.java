@@ -376,7 +376,8 @@ public final class NaturalSpawner {
         boolean undergroundOnly = config.undergroundOnly.get();
         Predicate<Vec3> allowed = p -> protection.test(p) && (inView(view, p) || heading.passes(feet, p, halfWidth))
                 && (!undergroundOnly || undergroundAndDark(level, BlockPos.containing(p.x(), p.y() + 0.5, p.z())));
-        SurfaceGraph graph = new SurfaceGraph(new LevelVoxelView(level), TremorConfig.COMMON.maxDiveDepth.get());
+        SurfaceGraph graph = new SurfaceGraph(new LevelVoxelView(level), TremorConfig.COMMON.maxDiveDepth.get(),
+                TremorConfig.COMMON.minGroundWidth.get());
         SurfacePicker.SpawnPick pick = SurfacePicker.spawnPoint(graph, feet, vec(player.getEyePosition()),
                 heading.direction(), config.minDistance.get(), maxDistance(), halfWidth, config.verticalRange.get(),
                 allowed, ThreadLocalRandom.current(), config.attempts.get());

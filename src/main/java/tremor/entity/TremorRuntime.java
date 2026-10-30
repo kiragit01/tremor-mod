@@ -185,7 +185,8 @@ public final class TremorRuntime {
         this.lastTerrainReset = level.getGameTime();
         cache.setTime(lastTerrainReset);
         this.graph = new SurfaceGraph(cache, entity != null
-                ? entity.params().maxDiveDepth() : TremorConfig.COMMON.maxDiveDepth.get());
+                ? entity.params().maxDiveDepth() : TremorConfig.COMMON.maxDiveDepth.get(),
+                TremorConfig.COMMON.minGroundWidth.get());
         // The route is not saved: an entity loaded on its way somewhere plans a new one.
         this.replanRequested = entity != null && entity.target() != null;
     }
@@ -791,7 +792,7 @@ public final class TremorRuntime {
         beginPass();
         cache.setTime(now);
         int depth = entity.params().maxDiveDepth();
-        if (depth != graph.maxDiveDepth()) {
+        if (depth != graph.maxDiveDepth() || TremorConfig.COMMON.minGroundWidth.get() != graph.minWidth()) {
             rebuildGraph(depth); // config reload
         }
         // Before a reset, which forgets the changes: they are still checked against the route.
@@ -1027,7 +1028,7 @@ public final class TremorRuntime {
 
     /** New dive depth: a new graph over the same cache, and a new route through it. */
     private void rebuildGraph(int depth) {
-        graph = new SurfaceGraph(cache, depth);
+        graph = new SurfaceGraph(cache, depth, TremorConfig.COMMON.minGroundWidth.get());
         pursuit.forgetFailure(); // other dives, other places within reach
         requestReplan();
     }
