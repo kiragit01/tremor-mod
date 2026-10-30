@@ -143,7 +143,17 @@ public final class ThinSwell {
         boolean byX = depth == null || depth[0] == 0, byZ = depth == null || depth[2] == 0;
         return view.isSolid(x, y, z) && (byX && run(view, x, y, z, 1, 0) < THIN_WIDTH
                 || byZ && run(view, x, y, z, 0, 1) < THIN_WIDTH
-                || !view.isSolid(x, y + 1, z) && !view.isSolid(x, y - 1, z));
+                || slab(view, x, y, z) && slab(view, x + 1, y, z) | slab(view, x - 1, y, z)
+                | slab(view, x, y, z + 1) | slab(view, x, y, z - 1));
+    }
+
+    /**
+     * Whether the voxel is open over and under it, or not ground at all: a voxel of thick ground under a pit one block
+     * deep is no slab, unless a neighbour is one too or open (the user: under such a pit in a ceiling the block did not
+     * come down with the hill, it swelled as a slab).
+     */
+    private static boolean slab(VoxelView view, int x, int y, int z) {
+        return !view.isSolid(x, y, z) || !view.isSolid(x, y + 1, z) && !view.isSolid(x, y - 1, z);
     }
 
     /**

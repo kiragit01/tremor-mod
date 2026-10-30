@@ -305,6 +305,11 @@ public final class DeformationRenderer {
     private DeformationRenderer() {
     }
 
+    /** Tests only: the copies drawn tinted red, told from the real blocks on shots ({@code tint} of an autotest). */
+    public static void tintCopies(boolean on) {
+        VertexList.tinted = on;
+    }
+
     /** Forgets all baked geometry, e.g. after a resource reload moved the textures around the atlas. */
     public static void invalidate() {
         modelsChanged = true;
