@@ -211,11 +211,14 @@ final class TremorMind {
     private long chaseUntil;
     /** Where the feet of each player who could be taken were at the last look ({@link #lookForPrey}). */
     private final Map<UUID, Vec3> feetBefore = new HashMap<>();
+    /** A player out of reach on a pillar: guarded from below, stalactites dropped from the ceiling. */
+    private final Perch perch;
 
     TremorMind(TremorRuntime runtime, TremorEntity entity) {
         this.runtime = runtime;
         this.level = runtime.level();
         this.entity = entity;
+        this.perch = new Perch(runtime, entity);
         this.params = configParams();
         if (entity.stage() == Stage.AWAKENING && !entity.absorbed()) {
             // Loaded while seeking (a new entity is DORMANT): the seeking is not saved, it calms down at once.
@@ -234,6 +237,16 @@ final class TremorMind {
 
     TremorEntity entity() {
         return entity;
+    }
+
+    /** {@code player} made a sound at {@code at} that the entity heard. */
+    void heardPlayer(UUID player, Vec3 at, long now) {
+        perch.heard(player, at, now);
+    }
+
+    /** The entity is gone: what it sent out goes with it. */
+    void discard() {
+        perch.discard();
     }
 
     /**
@@ -265,6 +278,9 @@ final class TremorMind {
         }
         if (lurkAt != null) {
             return "lies in wait";
+        }
+        if (perch.guarding()) {
+            return "guards";
         }
         return switch (meter.stage()) {
             case DORMANT -> perceived >= params.dormantReactLoudness() ? "investigates" : "ignores it";
@@ -330,6 +346,11 @@ final class TremorMind {
                 return; // lying in wait: the brain waits too
             }
             stopLurking(now, over);
+        }
+        boolean free = entity.aiEnabled() && !entity.frenzy()
+                && entity.targetKind() != TremorEntity.TargetKind.MANUAL;
+        if (perch.guard(now, meter.stage(), free)) {
+            return; // guarding a player out of reach on a pillar: the brain waits
         }
         if (!entity.aiEnabled() || entity.frenzy()) {
             return;
@@ -400,6 +421,7 @@ final class TremorMind {
      * @return true once a leaving entity is gone: the runtime removes it
      */
     boolean afterMove(long now) {
+        perch.tick(now, motion());
         boolean heard = heardSinceTick;
         heardSinceTick = false;
         if (ambushLook && !AwakeningManager.pullingWith(level, entity.instance())) {

@@ -1,0 +1,237 @@
+# Films (a frame every 2 ticks, the game at 10 ticks a second) a player out of reach on a pillar 2x2 seven high in a cave: the tremor hears them, guards from below, and a small
+# bump rolls out of its hill, climbs the wall to the ceiling over the player, shakes and drops a stalactite that
+# knocks them off. The copies are tinted red; night vision to see in the cave.
+# Run: gradlew runClientAutotest -Ptremor_autotest_script=pillar-drop.txt
+waitchunks
+cmd gamemode spectator
+cmd time set noon
+cmd tremor despawn all
+cmd tremor awaken stop
+cmd kill @e[type=!player]
+cmd tp @s 820.5 205.0 295.5
+wait 40
+waitchunks
+cmd fill 805 195 285 835 220 315 minecraft:stone
+cmd fill 811 201 286 830 213 305 minecraft:air
+cmd fill 815 201 295 816 207 296 minecraft:stone
+cmd kill @e[type=!player]
+hud off
+tint on
+cmd effect give @s minecraft:night_vision 600 0 true
+cmd tp @s 816.0 208.0 296.0 90 -25
+cmd gamemode survival
+cmd effect give @s minecraft:resistance 600 2 true
+cmd effect give @s minecraft:instant_health 1 4 true
+cmd tremor spawn 821 200 296
+cmd tremor stage hunting
+cmd tremor hold
+wait 40
+view back
+wait 10
+cmd tick rate 10
+cmd tremor voice -10
+wait 2
+screenshot f000
+wait 2
+screenshot f001
+wait 2
+screenshot f002
+wait 2
+screenshot f003
+wait 2
+screenshot f004
+wait 2
+screenshot f005
+wait 2
+screenshot f006
+wait 2
+screenshot f007
+wait 2
+screenshot f008
+wait 2
+screenshot f009
+wait 2
+screenshot f010
+wait 2
+screenshot f011
+wait 2
+screenshot f012
+wait 2
+screenshot f013
+wait 2
+screenshot f014
+wait 2
+screenshot f015
+wait 2
+screenshot f016
+wait 2
+screenshot f017
+wait 2
+screenshot f018
+wait 2
+screenshot f019
+wait 2
+screenshot f020
+wait 2
+screenshot f021
+wait 2
+screenshot f022
+wait 2
+screenshot f023
+wait 2
+screenshot f024
+wait 2
+screenshot f025
+wait 2
+screenshot f026
+wait 2
+screenshot f027
+wait 2
+screenshot f028
+wait 2
+screenshot f029
+wait 2
+screenshot f030
+wait 2
+screenshot f031
+wait 2
+screenshot f032
+wait 2
+screenshot f033
+wait 2
+screenshot f034
+wait 2
+screenshot f035
+wait 2
+screenshot f036
+wait 2
+screenshot f037
+wait 2
+screenshot f038
+wait 2
+screenshot f039
+wait 2
+screenshot f040
+wait 2
+screenshot f041
+wait 2
+screenshot f042
+wait 2
+screenshot f043
+wait 2
+screenshot f044
+wait 2
+screenshot f045
+wait 2
+screenshot f046
+wait 2
+screenshot f047
+wait 2
+screenshot f048
+wait 2
+screenshot f049
+wait 2
+screenshot f050
+wait 2
+screenshot f051
+wait 2
+screenshot f052
+wait 2
+screenshot f053
+wait 2
+screenshot f054
+wait 2
+screenshot f055
+wait 2
+screenshot f056
+wait 2
+screenshot f057
+wait 2
+screenshot f058
+wait 2
+screenshot f059
+wait 2
+screenshot f060
+wait 2
+screenshot f061
+wait 2
+screenshot f062
+wait 2
+screenshot f063
+wait 2
+screenshot f064
+wait 2
+screenshot f065
+wait 2
+screenshot f066
+wait 2
+screenshot f067
+wait 2
+screenshot f068
+wait 2
+screenshot f069
+wait 2
+screenshot f070
+wait 2
+screenshot f071
+wait 2
+screenshot f072
+wait 2
+screenshot f073
+wait 2
+screenshot f074
+wait 2
+screenshot f075
+wait 2
+screenshot f076
+wait 2
+screenshot f077
+wait 2
+screenshot f078
+wait 2
+screenshot f079
+wait 2
+screenshot f080
+wait 2
+screenshot f081
+wait 2
+screenshot f082
+wait 2
+screenshot f083
+wait 2
+screenshot f084
+wait 2
+screenshot f085
+wait 2
+screenshot f086
+wait 2
+screenshot f087
+wait 2
+screenshot f088
+wait 2
+screenshot f089
+wait 2
+screenshot f090
+wait 2
+screenshot f091
+wait 2
+screenshot f092
+wait 2
+screenshot f093
+wait 2
+screenshot f094
+wait 2
+screenshot f095
+wait 2
+screenshot f096
+wait 2
+screenshot f097
+wait 2
+screenshot f098
+wait 2
+screenshot f099
+cmd tick rate 20
+cmd gamemode spectator
+cmd tremor despawn all
+tint off
+quit

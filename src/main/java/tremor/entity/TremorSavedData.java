@@ -123,6 +123,12 @@ public final class TremorSavedData extends SavedData {
      *
      * @param natural spawned by the world (SPEC 11) rather than by a command
      */
+    /** A new instance number for something drawn as a bump of its own (the small bump of a {@link Perch}). */
+    public int newInstance() {
+        setDirty();
+        return ++lastInstance;
+    }
+
     public TremorEntity spawn(Vec3 position, Vec3 normal, boolean natural, long gameTime) {
         TremorEntity entity = new TremorEntity(++lastInstance, position, normal, natural);
         entities.add(entity);

@@ -21,6 +21,7 @@ import tremor.core.math.VoxelPos;
 import tremor.core.motion.Crawler;
 import tremor.core.path.Path;
 import tremor.core.path.PathSearch;
+import tremor.core.surface.Surface;
 import tremor.core.path.PathSpline;
 import tremor.core.shape.BumpParams;
 import tremor.core.voxel.VoxelCache;
@@ -249,7 +250,9 @@ public final class TremorRuntime {
     /**
      * The graph node for a requested position (SPEC 14.1 spawn / goto): the voxel itself if it is a node; for an open
      * voxel the first solid voxel at most {@value #SNAP_DEPTH} blocks below it, if that is a node; otherwise the node
-     * nearest to the voxel centre within {@value #SNAP_RADIUS} blocks. {@link SurfaceGraph#NO_NODE} if there is none.
+     * nearest to the voxel centre within {@value #SNAP_RADIUS} blocks, where for a pillar too narrow for nodes (that
+     * first solid voxel, or the voxel itself) the voxel is the one under the pillar's foot.
+     * {@link SurfaceGraph#NO_NODE} if there is none.
      */
     public long snap(BlockPos pos) {
         beginPass();
@@ -278,6 +281,7 @@ public final class TremorRuntime {
         int x = VoxelPos.x(node), y = VoxelPos.y(node), z = VoxelPos.z(node);
         TremorEntity old = this.entity;
         if (old != null) {
+            discardMind();
             data.remove(old, level.getGameTime());
             PacketDistributor.sendToPlayersInDimension(level,
                     TremorStatePayload.absent(old.instance(), level.getGameTime()));
@@ -306,7 +310,7 @@ public final class TremorRuntime {
         data.remove(entity, level.getGameTime());
         this.entity = null;
         resetRoute();
-        mind = null;
+        discardMind();
         syncDue = false;
         PacketDistributor.sendToPlayersInDimension(level, TremorStatePayload.absent(entity.instance(),
                 level.getGameTime()));
@@ -676,6 +680,13 @@ public final class TremorRuntime {
         replanRequested = false;
         pursuit.targetSet();
         halt(entity);
+    }
+
+    private void discardMind() {
+        if (mind != null) {
+            mind.discard();
+            mind = null;
+        }
     }
 
     /** The stage behaviour of the entity, made anew for a new entity. */
@@ -1054,7 +1065,7 @@ public final class TremorRuntime {
      * {@value #NODE_RADIUS} blocks, or, if it is deeper in rock than that (loaded, unpaused or given up in the middle
      * of a dive, or its dive was cut), within half the longest dive. {@link SurfaceGraph#NO_NODE} if there is none.
      */
-    private long startNode(Crawler crawler) {
+    long startNode(Crawler crawler) {
         long exit = diveExit(crawler);
         if (exit != SurfaceGraph.NO_NODE) {
             return exit;
@@ -1120,11 +1131,35 @@ public final class TremorRuntime {
                     if (graph.isNode(x, below, z)) {
                         return VoxelPos.pack(x, below, z);
                     }
+                    y = below;
                     break;
                 }
             }
         }
-        return graph.nearestNode(Vec3.voxelCenter(x, y, z), SNAP_RADIUS);
+        // Down a pillar too narrow for nodes (movement.minGroundWidth) to where it stands: a node beside its foot.
+        int foot = y;
+        while (foot > y - SNAP_DEPTH && cache.isSolid(x, foot, z) && !graph.isNode(x, foot, z)
+                && Surface.isSurface(cache, x, foot, z)) {
+            foot--;
+        }
+        return graph.nearestNode(Vec3.voxelCenter(x, foot, z), SNAP_RADIUS);
+    }
+
+    /** A new instance number for something drawn as a bump of its own. */
+    int newInstance() {
+        return data.newInstance();
+    }
+
+    Crawler.NormalSource normals() {
+        return normals;
+    }
+
+    /** {@code player} made a sound at {@code at} that the entity heard. */
+    public void heardPlayer(net.minecraft.world.entity.player.Player player, Vec3 at) {
+        TremorEntity entity = this.entity;
+        if (entity != null) {
+            mind(entity).heardPlayer(player.getUUID(), at, level.getGameTime());
+        }
     }
 
     private Vec3 normalAt(Vec3 position) {

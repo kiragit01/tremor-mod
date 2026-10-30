@@ -296,6 +296,9 @@ public final class VibrationListener {
                 DebugParticles.hearing(level, vibration, perception);
                 tremor.debug.DebugProbe.heard(player, vibration, perception);
                 AwakeningManager.heard(level, entity, player, perception);
+                if (player != null && perception.heard()) {
+                    runtime.heardPlayer(player, vibration.source());
+                }
             }
         }
         AwakeningManager.vibration(level, vibration, player);
