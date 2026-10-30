@@ -67,6 +67,7 @@
   "tremor.configuration.sound.pullVolume": "Громкость затягивания",
   "tremor.configuration.movement": "Движение",
   "tremor.configuration.movement.maxDiveDepth": "Глубина нырка",
+  "tremor.configuration.movement.minGroundWidth": "Самая узкая земля",
   "tremor.configuration.movement.diveCost": "Цена нырка",
   "tremor.configuration.movement.pathMaxNodes": "Лимит узлов поиска пути",
   "tremor.configuration.movement.pathNodesPerTick": "Узлов поиска за тик",

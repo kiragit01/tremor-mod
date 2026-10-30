@@ -12,7 +12,9 @@ import tremor.core.surface.SurfaceNormals;
 /**
  * The surface graph of SPEC 5.2 / 5.4, built lazily from a {@link VoxelView} and memoized per voxel.
  * <p>
- * <b>Nodes</b> are surface voxels ({@link tremor.core.surface.Surface#isSurface}: solid, known, with an open face).
+ * <b>Nodes</b> are surface voxels ({@link tremor.core.surface.Surface#isSurface}: solid, known, with an open face)
+ * whose solid run through them along x and along z, at their height, is at least {@code minWidth} long: the body does
+ * not crawl up a pillar or a wall narrower than that.
  * <p>
  * <b>Skin edges</b> join a node {@code a} to a node {@code b = a + d} in its 26-neighbourhood ({@code d} has
  * {@code m} non-zero components) when the move stays on the skin and never crosses open space:
@@ -141,6 +143,7 @@ public final class SurfaceGraph implements Graph {
 
     private final VoxelView view;
     private final int maxDiveDepth;
+    private final int minWidth;
     /** Longest gap a leap edge crosses (blocks); 0: no leaps. */
     private int maxLeap;
 
@@ -154,13 +157,25 @@ public final class SurfaceGraph implements Graph {
     private final boolean[] node = new boolean[LX.length];
     private final int[] openFaces = new int[LX.length];
 
-    /** @throws IllegalArgumentException unless {@code 0 <= maxDiveDepth <= MAX_DIVE_DEPTH} */
+    /** A graph with nodes on ground of any width. */
     public SurfaceGraph(VoxelView view, int maxDiveDepth) {
+        this(view, maxDiveDepth, 1);
+    }
+
+    /**
+     * @param minWidth the narrowest ground (blocks, along x and along z) that holds nodes; 1 for any
+     * @throws IllegalArgumentException unless {@code 0 <= maxDiveDepth <= MAX_DIVE_DEPTH} and {@code minWidth >= 1}
+     */
+    public SurfaceGraph(VoxelView view, int maxDiveDepth, int minWidth) {
         if (maxDiveDepth < 0 || maxDiveDepth > MAX_DIVE_DEPTH) {
             throw new IllegalArgumentException("maxDiveDepth " + maxDiveDepth + " outside [0, " + MAX_DIVE_DEPTH + "]");
         }
+        if (minWidth < 1) {
+            throw new IllegalArgumentException("minWidth must be >= 1: " + minWidth);
+        }
         this.view = Objects.requireNonNull(view, "view");
         this.maxDiveDepth = maxDiveDepth;
+        this.minWidth = minWidth;
     }
 
     public VoxelView view() {
@@ -181,6 +196,10 @@ public final class SurfaceGraph implements Graph {
 
     public int maxDiveDepth() {
         return maxDiveDepth;
+    }
+
+    public int minWidth() {
+        return minWidth;
     }
 
     public boolean isNode(int x, int y, int z) {
@@ -305,7 +324,7 @@ public final class SurfaceGraph implements Graph {
     public static final long NO_NODE = Long.MIN_VALUE;
 
     /**
-     * Drops memoized data that may depend on the voxel (a box of {@code maxDiveDepth + 2} around it). A
+     * Drops memoized data that may depend on the voxel (a box of {@code maxDiveDepth + max(2, minWidth)} around it). A
      * {@link tremor.core.voxel.VoxelCache} under the graph must be invalidated separately.
      */
     public void invalidate(int x, int y, int z) {
@@ -314,11 +333,11 @@ public final class SurfaceGraph implements Graph {
 
     /**
      * Drops memoized data that may depend on any voxel of the box (inclusive bounds, any order): the box grown by
-     * {@code maxDiveDepth + 2}. For a whole region that may have changed at once, e.g. a cache section read again.
+     * {@code maxDiveDepth + max(2, minWidth)}. For a whole region that may have changed at once, e.g. a cache section read again.
      * A {@link tremor.core.voxel.VoxelCache} under the graph must be invalidated separately.
      */
     public void invalidateBox(int x0, int y0, int z0, int x1, int y1, int z1) {
-        int r = maxDiveDepth + 2;
+        int r = maxDiveDepth + Math.max(2, minWidth); // a dive's far end is a node by the width around it
         int ax = saturate((long) Math.min(x0, x1) - r), bx = saturate((long) Math.max(x0, x1) + r);
         int ay = saturate((long) Math.min(y0, y1) - r), by = saturate((long) Math.max(y0, y1) + r);
         int az = saturate((long) Math.min(z0, z1) - r), bz = saturate((long) Math.max(z0, z1) + r);
@@ -362,7 +381,23 @@ public final class SurfaceGraph implements Graph {
     // ---- edge rules ------------------------------------------------------------------------------------------------
 
     private long withNodeFlag(long m, int x, int y, int z) {
-        return m | NODE_KNOWN | (Surface.isSurface(view, x, y, z) ? NODE : 0);
+        return m | NODE_KNOWN | (Surface.isSurface(view, x, y, z) && wide(x, y, z) ? NODE : 0);
+    }
+
+    /** Whether the solid runs through the voxel along x and along z, at its height, are {@code minWidth} long. */
+    private boolean wide(int x, int y, int z) {
+        return minWidth <= 1 || run(x, y, z, 1, 0) >= minWidth && run(x, y, z, 0, 1) >= minWidth;
+    }
+
+    private int run(int x, int y, int z, int dx, int dz) {
+        int n = 1;
+        for (int k = 1; n < minWidth && view.isSolid(x + k * dx, y, z + k * dz); k++) {
+            n++;
+        }
+        for (int k = 1; n < minWidth && view.isSolid(x - k * dx, y, z - k * dz); k++) {
+            n++;
+        }
+        return n;
     }
 
     private long withEdges(long m, int x, int y, int z) {
@@ -403,7 +438,8 @@ public final class SurfaceGraph implements Graph {
                 }
             }
             openFaces[i] = faces;
-            node[i] = solid[i] && faces != 0 && view.isKnown(bx + LX[i], by + LY[i], bz + LZ[i]);
+            node[i] = solid[i] && faces != 0 && view.isKnown(bx + LX[i], by + LY[i], bz + LZ[i])
+                    && wide(bx + LX[i], by + LY[i], bz + LZ[i]);
         }
     }
 
@@ -467,7 +503,7 @@ public final class SurfaceGraph implements Graph {
             boolean known = view.isKnown(bx, by, bz);
             if (!view.isSolid(bx + ex, by + ey, bz + ez)) {
                 // b surfaces on the far side: a node if known; a face-mate joined by skin needs no dive.
-                return known && (k > 1 || (skin >> DIRECTION_NEIGHBOUR[t] & 1) == 0) ? k : 0;
+                return known && wide(bx, by, bz) && (k > 1 || (skin >> DIRECTION_NEIGHBOUR[t] & 1) == 0) ? k : 0;
             }
             if (!known) {
                 return 0;

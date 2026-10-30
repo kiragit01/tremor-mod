@@ -336,6 +336,33 @@ class SurfaceGraphTest {
     }
 
     @Test
+    void noNodesOnGroundNarrowerThanTheMinimumWidth() {
+        ArrayVoxelGrid g = ArrayVoxelGrid.flatFloor(0);
+        g.fill(-4, 1, 0, -3, 6, 1, true); // a pillar 2 x 2
+        g.fill(2, 1, 0, 4, 6, 2, true); // a pillar 3 x 3
+        g.fill(-4, 1, 6, 4, 3, 6, true); // a wall one block thick
+        SurfaceGraph narrow = new SurfaceGraph(g, 4, 3), any = new SurfaceGraph(g, 4);
+        for (int y = 1; y <= 6; y++) {
+            assertFalse(narrow.isNode(-4, y, 0), "2 x 2 pillar at y " + y);
+            assertTrue(any.isNode(-4, y, 0));
+            assertTrue(narrow.isNode(2, y, 0) && narrow.isNode(3, y, 2), "3 x 3 pillar at y " + y);
+        }
+        assertFalse(narrow.isNode(0, 2, 6), "a wall one block thick");
+        assertTrue(new SurfaceGraph(g, 4, 2).isNode(-4, 3, 0), "a 2 x 2 pillar is wide enough for 2");
+        assertTrue(narrow.isNode(-5, 0, 0) && narrow.isNode(0, 0, 3), "the ground around");
+        for (Edge e : edges(narrow, -5, 0, 0)) {
+            assertTrue(narrow.isNode(e.to()), "an edge onto the pillar: " + e);
+        }
+        // Nor does a dive surface on narrow ground: through a wall into the end of a fin one block wide.
+        ArrayVoxelGrid fin = ArrayVoxelGrid.thinWallBetweenCaves(0, 8, 0, 2);
+        fin.fill(2, 1, 0, 3, 7, 0, true);
+        assertTrue(edges(new SurfaceGraph(fin, 4), 0, 4, 0).contains(dive(3, 4, 0, 3)));
+        SurfaceGraph finGraph = new SurfaceGraph(fin, 4, 3);
+        assertTrue(finGraph.isNode(0, 4, 0));
+        assertTrue(edges(finGraph, 0, 4, 0).stream().noneMatch(e -> !finGraph.isNode(e.to())));
+    }
+
+    @Test
     void divesThroughThickerWallsUpToTheMaximumDepth() {
         for (int thickness = 1; thickness <= 7; thickness++) {
             ArrayVoxelGrid g = ArrayVoxelGrid.thinWallBetweenCaves(0, 8, 0, thickness);
@@ -555,6 +582,24 @@ class SurfaceGraphTest {
                 cache.invalidate(x, y, z);
                 graph.invalidate(x, y, z);
                 assertSameGraph(new SurfaceGraph(g, depth), graph, x0, y0, z0, x1, y1, z1);
+            }
+        }
+    }
+
+    @Test
+    void invalidationMatchesAFreshGraphWithAMinimumWidth() {
+        Random random = new Random(5678);
+        for (int variant = 0; variant < 4; variant++) {
+            int depth = variant, width = 3 + variant % 2 * 2;
+            ArrayVoxelGrid g = randomGrid(random, 18);
+            SurfaceGraph graph = new SurfaceGraph(g, depth, width);
+            int x0 = g.minX + 2, y0 = g.minY + 2, z0 = g.minZ + 2, x1 = g.maxX - 2, y1 = g.maxY - 2, z1 = g.maxZ - 2;
+            assertSameGraph(new SurfaceGraph(g, depth, width), graph, x0, y0, z0, x1, y1, z1);
+            for (int i = 0; i < 25; i++) {
+                int x = g.minX + random.nextInt(18), y = g.minY + random.nextInt(18), z = g.minZ + random.nextInt(18);
+                g.set(x, y, z, !g.isSolid(x, y, z));
+                graph.invalidate(x, y, z);
+                assertSameGraph(new SurfaceGraph(g, depth, width), graph, x0, y0, z0, x1, y1, z1);
             }
         }
     }
