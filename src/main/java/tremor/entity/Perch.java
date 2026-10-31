@@ -52,8 +52,9 @@ import tremor.network.TremorStatePayload;
  * {@value #MAX_DROPS} that missed, or once it has guarded {@value #BUILD_AFTER_TICKS} ticks with no ceiling to drop
  * from ({@code contact.buildUp}), it builds the pillar up out of the ground around, a rough heap ({@link PerchBuild},
  * once per guard, following the player up as they build higher, and on their heels along a bridge aside, widening
- * it); once its core is up, the entity crawls up what it built and along it after the player, every
- * {@value #CLIMB_ORDER_TICKS} ticks to the farthest of it it can get onto, and strikes them as it touches them. Its
+ * it); while it builds, the entity rides up what it builds and along it after the player, every
+ * {@value #CLIMB_ORDER_TICKS} ticks to the farthest or highest of it it can get onto, and strikes them as it touches
+ * them. Its
  * anger holds while it guards (no player waits it out up there), for {@value #MAX_GUARD_TICKS} ticks at most. While a stalactite falls the ground at the foot is an
  * ambush's quicksand for a moment ({@link TremorMind#setTrap}): the throw aims the player into its middle
  * ({@link Strike#aimed}); it ends {@value #LAND_TICKS} ticks after the strike, {@value #MISS_TICKS} after a miss, or at
@@ -233,7 +234,7 @@ final class Perch {
                 return false;
             }
             entity.crawler().face(perch.sub(entity.crawler().position()));
-            if (build != null && now >= nextClimb && build.coreFilled()) {
+            if (build != null && now >= nextClimb) {
                 nextClimb = now + CLIMB_ORDER_TICKS;
                 climb();
             }
@@ -301,9 +302,10 @@ final class Perch {
     }
 
     /**
-     * Sends the body up what it built after the player: to where they were heard last if it can stand there (a
-     * platform, the walkway widened up to them), else to the farthest node along the core's top and the walkway from
-     * it to them; it strikes them as it touches them.
+     * Sends the body up what it builds after the player, while it builds (the user: it waited at the foot until the
+     * end): to where they were heard last if it can stand there (a platform, the walkway widened up to them), else to
+     * the farthest node along the core's top and the walkway from it to them, else to the highest node of what is
+     * built so far, riding up with it; it strikes them as it touches them.
      */
     private void climb() {
         SurfaceGraph graph = runtime.graph();
@@ -316,6 +318,9 @@ final class Perch {
                 if (graph.isNode(p.getX(), p.getY(), p.getZ())) {
                     goal = p;
                 }
+            }
+            if (goal == null) {
+                goal = build.highest(p -> graph.isNode(p.getX(), p.getY(), p.getZ()));
             }
         }
         if (goal != null) {
