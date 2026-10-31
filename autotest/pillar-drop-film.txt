@@ -1,6 +1,7 @@
 # Films (a frame every 2 ticks, the game at 10 ticks a second) a player out of reach on a pillar 2x2 seven high in a cave: the tremor hears them, guards from below, and a small
 # bump rolls out of its hill, climbs the wall to the ceiling over the player, shakes and drops a stalactite that
-# knocks them off. The copies are tinted red; night vision to see in the cave.
+# knocks them off, aimed into the quicksand the ground at the foot has turned into meanwhile: they are pulled under.
+# The copies are tinted red; night vision to see in the cave.
 # Run: gradlew runClientAutotest -Ptremor_autotest_script=pillar-drop.txt
 waitchunks
 cmd gamemode spectator
@@ -230,6 +231,26 @@ wait 2
 screenshot f098
 wait 2
 screenshot f099
+wait 2
+screenshot f100
+wait 2
+screenshot f101
+wait 2
+screenshot f102
+wait 2
+screenshot f103
+wait 2
+screenshot f104
+wait 2
+screenshot f105
+wait 2
+screenshot f106
+wait 2
+screenshot f107
+wait 2
+screenshot f108
+wait 2
+screenshot f109
 cmd tick rate 20
 cmd gamemode spectator
 cmd tremor despawn all
