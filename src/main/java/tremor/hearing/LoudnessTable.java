@@ -15,7 +15,19 @@ public final class LoudnessTable {
     /** Highest loudness an entry may give. */
     public static final double MAX = 1000;
 
+    /** Doors, trapdoors and fence gates ({@code block_open}, {@code block_close}) louder than an arrow (the user). */
     public static final List<String> DEFAULTS = List.of(
+            "minecraft:step=3",
+            "minecraft:hit_ground=8",
+            "minecraft:block_destroy=9",
+            "minecraft:block_place=6",
+            "minecraft:projectile_land=10",
+            "minecraft:explode=20",
+            "minecraft:block_open=14",
+            "minecraft:block_close=14");
+
+    /** The defaults up to 1.2.3. */
+    static final List<String> OLD_DEFAULTS = List.of(
             "minecraft:step=3",
             "minecraft:hit_ground=8",
             "minecraft:block_destroy=6",
@@ -28,6 +40,11 @@ public final class LoudnessTable {
             Pattern.compile("\\s*(?:([a-z0-9_.-]+):)?([a-z0-9_./-]+)\\s*=\\s*([0-9]+(?:\\.[0-9]*)?|\\.[0-9]+)\\s*");
 
     private LoudnessTable() {
+    }
+
+    /** Whether {@code entries} are the defaults of an older version, never changed: they become {@link #DEFAULTS}. */
+    public static boolean outdated(List<?> entries) {
+        return OLD_DEFAULTS.equals(entries);
     }
 
     /** Config validator: a string entry with a valid id and a loudness in [0, {@value #MAX}]. */

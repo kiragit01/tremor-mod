@@ -359,9 +359,17 @@ public final class VibrationListener {
         return entity.hasPassenger(passenger -> passenger instanceof Player);
     }
 
-    /** Event id to loudness, parsed again whenever the config list changes. */
+    /**
+     * Event id to loudness, parsed again whenever the config list changes; the defaults of an older version, never
+     * changed, are replaced with the new ones in the config file too.
+     */
     private static Object2DoubleOpenHashMap<ResourceLocation> table() {
         List<? extends String> entries = TremorConfig.COMMON.loudness.get();
+        if (entries != parsedFrom && LoudnessTable.outdated(entries)) {
+            TremorConfig.COMMON.loudness.set(LoudnessTable.DEFAULTS);
+            TremorConfig.COMMON.loudness.save();
+            entries = TremorConfig.COMMON.loudness.get();
+        }
         if (entries != parsedFrom) {
             Object2DoubleOpenHashMap<ResourceLocation> table = new Object2DoubleOpenHashMap<>();
             LoudnessTable.parse(entries).forEach((id, value) -> {
