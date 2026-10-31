@@ -13,9 +13,11 @@ import tremor.core.math.Vec3;
  *   <li><b>DORMANT</b>: wanders lazily (pauses of about {@code wanderPauseSeconds}, targets from
  *   {@link BrainWorld#wanderTarget} kept {@code minWanderDistance} from the players). Goes after a heard sound only
  *   if it is at least {@code dormantReactLoudness} loud ("investigate").</li>
- *   <li><b>ALERT</b>: on every heard sound it freezes and turns toward it for {@code alertFreezeSeconds}; then creeps
- *   toward the last heard position. With nothing heard for {@code alertLoseInterestSeconds} it goes back to
- *   wandering (the anger meanwhile decays faster, see {@link AngerMeter}).</li>
+ *   <li><b>ALERT</b>: at a sound out of the blue it freezes and turns toward it for {@code alertFreezeSeconds}
+ *   (sounds meanwhile turn it, not drawing the freeze out); then creeps toward the last heard position, each new sound
+ *   redirecting it, and listens there (a sound sends it on, no freeze). With nothing heard for
+ *   {@code alertLoseInterestSeconds} it goes back to wandering (the anger meanwhile decays faster, see
+ *   {@link AngerMeter}).</li>
  *   <li><b>HUNTING</b>: goes straight for each heard sound; arriving with nothing new heard it searches around the
  *   last sound ({@link BrainWorld#searchTarget}, radius {@code huntSearchRadius}) for {@code huntSearchSeconds}, then
  *   wanders.</li>
@@ -109,11 +111,23 @@ public final class Brain {
     private final BehaviorParams params;
     private final SplittableRandom random;
 
+    /**
+     * Half-life (seconds) of the weight of the remembered sound ({@link #hear(Vec3, double, double)}): a sound far from
+     * it is taken only if it angered the entity at least as much as the remembered one still weighs (the user: a mob
+     * walking nearby drew it off a player running and jumping).
+     */
+    static final double MEMORY_HALF_LIFE = 4;
+    /** A sound this near the remembered one (blocks) is the same thing moving on: always taken, the weight kept. */
+    static final double SAME_PLACE = 5;
+
     private Vec3 pendingPosition;
     private double pendingLoudness;
+    private double pendingSalience;
 
     private Vec3 lastHeard;
     private double lastHeardLoudness;
+    /** How much the remembered sound weighed when it was heard (the anger it added). */
+    private double salience;
     private double secondsSinceHeard = Double.POSITIVE_INFINITY;
 
     /** Stage of the last tick; null before the first one. */
@@ -130,16 +144,34 @@ public final class Brain {
         this.timer = drawPause();
     }
 
-    /** A sound the entity heard (perceived >= the hearing threshold) since the last tick. */
-    public void hear(Vec3 position, double perceived) {
+    /**
+     * A sound the entity heard (perceived >= the hearing threshold) since the last tick; {@code salience}: how much it
+     * angered it. Of a tick's sounds the weightiest counts (the loudest of equal ones); it replaces the remembered
+     * sound only if it is near it ({@value #SAME_PLACE} blocks) or weighs at least what the remembered one still does
+     * (halving every {@value #MEMORY_HALF_LIFE} s), else it is ignored: a big bang holds the entity for a while, a
+     * player's steps on from there too, while a mob farther off does not draw it away.
+     */
+    public void hear(Vec3 position, double perceived, double salience) {
         Objects.requireNonNull(position, "position");
-        if (Double.isNaN(perceived)) {
+        if (Double.isNaN(perceived) || Double.isNaN(salience)) {
             return;
         }
-        if (pendingPosition == null || perceived >= pendingLoudness) {
+        if (pendingPosition == null || salience > pendingSalience
+                || salience == pendingSalience && perceived >= pendingLoudness) {
             pendingPosition = position;
             pendingLoudness = perceived;
+            pendingSalience = salience;
         }
+    }
+
+    /** A sound the entity is sure of (a strike that touched a player): taken whatever it remembers. */
+    public void hear(Vec3 position, double perceived) {
+        hear(position, perceived, Double.POSITIVE_INFINITY);
+    }
+
+    /** The weight of the remembered sound now; 0 if none. */
+    private double remembered() {
+        return lastHeard == null ? 0 : salience * Math.pow(0.5, secondsSinceHeard / MEMORY_HALF_LIFE);
     }
 
     /**
@@ -156,13 +188,18 @@ public final class Brain {
         Objects.requireNonNull(world, "world");
         double step = dt > 0 ? dt : 0;
         secondsSinceHeard += step;
-        boolean heard = pendingPosition != null;
+        double memory = remembered();
+        boolean near = lastHeard != null && pendingPosition != null
+                && pendingPosition.distance(lastHeard) <= SAME_PLACE;
+        boolean heard = pendingPosition != null && (near || pendingSalience >= memory);
         if (heard) {
+            salience = Double.isInfinite(pendingSalience) ? memory
+                    : near ? Math.max(memory, pendingSalience) : pendingSalience;
             lastHeard = pendingPosition;
             lastHeardLoudness = pendingLoudness;
             secondsSinceHeard = 0;
-            pendingPosition = null;
         }
+        pendingPosition = null;
         this.stage = stage;
         return switch (stage) {
             case DORMANT -> dormant(step, heard, position, idle, world);
@@ -233,18 +270,25 @@ public final class Brain {
         }
     }
 
+    /**
+     * ALERT: at a sound out of the blue it freezes, turned to it; sounds during the freeze turn it but do not draw the
+     * freeze out (the user: it stood as long as sounds kept coming); then it creeps to the last one, each new one
+     * redirecting it, and listens there; a sound while it listens sends it on, no freeze.
+     */
     private Decision alert(double dt, boolean heard, Vec3 position, boolean idle, BrainWorld world) {
-        if (heard) {
-            mode = Mode.FREEZE;
-            timer = params.alertFreezeSeconds();
-            goal = null;
-            return Decision.freeze(lastHeard, "freeze");
-        }
         switch (mode) {
             case INVESTIGATE, HUNT -> mode = Mode.CREEP;
             case SEARCH -> mode = Mode.LISTEN;
             default -> {
             }
+        }
+        if (heard && mode == Mode.LISTEN) {
+            mode = Mode.CREEP;
+        } else if (heard && mode != Mode.FREEZE && mode != Mode.CREEP) {
+            mode = Mode.FREEZE;
+            timer = params.alertFreezeSeconds();
+            goal = null;
+            return Decision.freeze(lastHeard, "freeze");
         }
         switch (mode) {
             case FREEZE -> {

@@ -325,26 +325,76 @@ class BrainTest {
     }
 
     @Test
-    void newSoundDuringTheFreezeRestartsItAndTurns() {
+    void newSoundDuringTheFreezeTurnsItWithoutDrawingItOut() {
         brain = new Brain(params(100), 1);
         brain.hear(S1, 0.2);
-        assertFreeze(tick(ALERT, true), S1);
+        assertFreeze(tick(ALERT, true), S1); // t = 0
         assertFreeze(tick(ALERT, true), S1);
         brain.hear(S2, 0.15);
-        for (int i = 0; i < 4; i++) {
-            assertFreeze(tick(ALERT, true), S2);
-        }
-        assertGo(tick(ALERT, true), S2, "creep");
+        assertFreeze(tick(ALERT, true), S2); // 0.5
+        assertFreeze(tick(ALERT, true), S2);
+        assertGo(tick(ALERT, true), S2, "creep"); // 1.0: the freeze from the first sound is over
     }
 
     @Test
-    void soundWhileCreepingFreezesAgain() {
+    void soundWhileCreepingRedirectsIt() {
         brain = new Brain(params(100), 1);
         freezeThenCreep(S1);
         assertStays(2, ALERT, false, "creep");
         brain.hear(S2, 0.2);
-        assertFreeze(tick(ALERT, false), S2);
-        assertFreeze(tick(ALERT, true), S2);
+        assertGo(tick(ALERT, false), S2, "creep");
+        assertStay(tick(ALERT, false), "creep");
+    }
+
+    @Test
+    void soundWhileListeningSendsItOnWithoutAFreeze() {
+        brain = new Brain(params(100), 1);
+        freezeThenCreep(S1);
+        here = S1;
+        assertStay(tick(ALERT, true), "listen");
+        brain.hear(S2, 0.2);
+        assertGo(tick(ALERT, true), S2, "creep");
+    }
+
+    // ---------------------------------------------------------------- the remembered sound
+
+    @Test
+    void aWeightySoundHoldsItAgainstLesserOnesFartherOffUntilItFades() {
+        brain = new Brain(params(100), 1);
+        brain.hear(S1, 1.0, 20);
+        assertGo(tick(HUNTING, true), S1, "hunt");
+        brain.hear(S2, 0.3, 2); // a mob far from it: ignored
+        assertStay(tick(HUNTING, false), "hunt");
+        assertEquals(S1, brain.lastHeard());
+        // 20 halves every 4 s: below 2 after some 13.3 s.
+        for (int i = 0; i < 52; i++) {
+            tick(HUNTING, false);
+        }
+        brain.hear(S2, 0.3, 2);
+        tick(HUNTING, false);
+        assertEquals(S2, brain.lastHeard());
+    }
+
+    @Test
+    void aSoundNearTheRememberedOneIsTakenAndKeepsItsWeight() {
+        brain = new Brain(params(100), 1);
+        brain.hear(S1, 1.0, 20);
+        tick(HUNTING, true);
+        Vec3 step = S1.add(3, 0, 0);
+        brain.hear(step, 0.2, 1); // the player walking on from the bang
+        assertGo(tick(HUNTING, true), step, "hunt");
+        brain.hear(S2, 0.3, 2); // still weighs nearly 20
+        tick(HUNTING, false);
+        assertEquals(step, brain.lastHeard());
+    }
+
+    @Test
+    void aStrikeIsTakenWhateverItRemembers() {
+        brain = new Brain(params(100), 1);
+        brain.hear(S1, 1.0, 20);
+        tick(HUNTING, true);
+        brain.hear(S2, 0.5);
+        assertGo(tick(HUNTING, true), S2, "hunt");
     }
 
     @Test

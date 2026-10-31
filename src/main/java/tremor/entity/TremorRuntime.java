@@ -566,7 +566,11 @@ public final class TremorRuntime {
         data.setDirty();
         float before = entity.anger();
         double angerShare = "mob".equals(vibration.note()) ? TremorConfig.COMMON.mobAngerFactor.get() : 1;
-        String reaction = mind(entity).heard(vibration.source(), perceived,
+        // A bang (a vibration with an anger bonus) is noticed even calm, however faint it came (the user: a huge bang
+        // should draw it).
+        double noticed = vibration.angerBonus() > 0
+                ? Math.max(perceived, TremorConfig.COMMON.dormantReactLoudness.get()) : perceived;
+        String reaction = mind(entity).heard(vibration.source(), noticed,
                 perceived * Difficulty.current().anger(TremorConfig.COMMON.angerPerLoudness.get()) * angerShare
                         * (level.dimension() == net.minecraft.world.level.Level.NETHER
                         ? TremorConfig.COMMON.netherAngerFactor.get() : 1)

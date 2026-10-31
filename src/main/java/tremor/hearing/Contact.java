@@ -10,6 +10,7 @@ import net.minecraft.world.level.EmptyBlockGetter;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.state.BlockState;
 import tremor.config.TremorConfig;
+import tremor.core.hearing.Hearing;
 import tremor.core.math.Vec3;
 import tremor.world.LevelVoxelView;
 import tremor.world.LevelVoxelView.ConductivityClass;
@@ -151,14 +152,16 @@ record Contact(Vec3 point, double footing, String note, boolean rustling) {
 
     /**
      * An explosion: of the voxel at its centre and the one below it, the better conductor (the blast of a TNT or a
-     * creeper standing on the ground goes into that ground).
+     * creeper standing on the ground goes into that ground); in the air at least {@link Hearing#AIRBORNE}, it falls
+     * to the ground through the air.
      */
     static Contact ofBlast(LevelVoxelView view, net.minecraft.world.phys.Vec3 pos) {
         BlockPos voxel = BlockPos.containing(pos);
         BlockPos below = voxel.below();
         float here = view.conductivity(voxel.getX(), voxel.getY(), voxel.getZ());
         float under = view.conductivity(below.getX(), below.getY(), below.getZ());
-        return under > here ? new Contact(center(below), under, null) : new Contact(center(voxel), here, null);
+        return under > here ? new Contact(center(below), Math.max(under, Hearing.AIRBORNE), null)
+                : new Contact(center(voxel), Math.max(here, Hearing.AIRBORNE), null);
     }
 
     /**

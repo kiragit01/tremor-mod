@@ -274,7 +274,7 @@ final class TremorMind {
         if (!entity.aiEnabled()) {
             return "ai off";
         }
-        brain.hear(source, perceived);
+        brain.hear(source, perceived, anger);
         if (entity.targetKind() == TremorEntity.TargetKind.MANUAL) {
             return "goto under way";
         }

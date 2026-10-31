@@ -1,0 +1,48 @@
+# An ALERT tremor hears arrows land every second 25 blocks off: it freezes at the first, then creeps to them while
+# they still come (it used to stand frozen as long as they kept coming). Then, calm, it hears TNT go off in the air
+# 11 blocks over the ground (once unheard: only blocks carried sound) and goes for it while cows walk right by it (a
+# player stands still on wool far off: a calm tremor with nobody near sleeps).
+# Run: gradlew runClientAutotest -Ptremor_autotest_script=alert-stimulus.txt
+waitchunks
+cmd gamemode spectator
+cmd time set noon
+cmd tremor despawn all
+cmd tremor awaken stop
+cmd kill @e[type=!player]
+cmd tp @s 860.5 230.0 270.5
+wait 40
+waitchunks
+cmd fill 830 194 280 900 200 320 minecraft:stone
+cmd fill 830 201 280 900 230 320 minecraft:air
+cmd kill @e[type=!player]
+cmd tremor spawn 860 200 300
+cmd tremor anger 30
+wait 20
+cmd summon arrow 885.5 203 300.5 {Motion:[0.0,-1.0,0.0]}
+wait 20
+cmd summon arrow 885.5 203 300.5 {Motion:[0.0,-1.0,0.0]}
+wait 20
+cmd summon arrow 885.5 203 300.5 {Motion:[0.0,-1.0,0.0]}
+wait 30
+cmd tremor info
+wait 40
+cmd tremor info
+cmd kill @e[type=arrow]
+cmd tremor despawn all
+wait 10
+cmd setblock 860 229 270 minecraft:white_wool
+cmd tp @s 860.5 230.0 270.5
+cmd gamemode creative
+cmd tremor spawn 860 200 300
+cmd tremor anger 0
+wait 40
+cmd summon tnt 842.5 212 300.5 {Fuse:3}
+wait 10
+cmd tremor info
+cmd summon cow 862 201 302
+cmd summon cow 858 201 298
+wait 60
+cmd tremor info
+cmd tremor despawn all
+cmd kill @e[type=!player]
+quit
