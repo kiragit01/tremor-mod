@@ -39,22 +39,27 @@ import tremor.network.TremorShapePayload;
 import tremor.network.TremorStatePayload;
 
 /**
- * The answer to a player out of reach on a pillar (the user's design): HUNTING or seeking, the entity heard a player
- * standing on ground too narrow for it ({@code movement.minGroundWidth}) more than {@link AwakeningRules#REACH_HEIGHT}
- * over it, while it is within {@code awakening.reachDistance} of the place. It guards from below: it stands at the
- * foot of the pillar facing there, and its brain waits, so no other sound draws it off. Under a ceiling
+ * The answer to a player out of reach up high (the user's design): HUNTING or seeking, the entity heard a player more
+ * than {@link AwakeningRules#REACH_HEIGHT} over it, while it is within {@code awakening.reachDistance} of the place,
+ * standing on ground too narrow for it ({@code movement.minGroundWidth}: a pillar, a bridge) or that no way leads to
+ * from where it is (a platform on a pillar: {@link #noPath}). It guards from below: it stands under the player facing
+ * there, and its brain waits, so no other sound draws it off; heard higher up, or aside out of reach still (a bridge
+ * out of the pillar), the player is followed. Under a ceiling
  * ({@code contact.stalactites}) a small bump rolls out of its hill, crawls up the walls to the ceiling right over where
  * the player was heard, shakes there and drops a pointed dripstone, then sinks into the ceiling; the stalactite strikes
  * whoever it falls on (the damage of a falling stalactite, the strike's throw toward the entity below) and breaks
  * without a drop. Again every {@value #COOLDOWN_TICKS} ticks while the player stays up there. After
  * {@value #MAX_DROPS} that missed, or once it has guarded {@value #BUILD_AFTER_TICKS} ticks with no ceiling to drop
  * from ({@code contact.buildUp}), it builds the pillar up out of the ground around, a rough heap ({@link PerchBuild},
- * once per guard, following the player up as they build higher); built up to the player, it goes for them. Its
+ * once per guard, following the player up as they build higher, and on their heels along a bridge aside, widening
+ * it); once its core is up, the entity crawls up what it built and along it after the player, every
+ * {@value #CLIMB_ORDER_TICKS} ticks to the farthest of it it can get onto, and strikes them as it touches them. Its
  * anger holds while it guards (no player waits it out up there), for {@value #MAX_GUARD_TICKS} ticks at most. While a stalactite falls the ground at the foot is an
  * ambush's quicksand for a moment ({@link TremorMind#setTrap}): the throw aims the player into its middle
  * ({@link Strike#aimed}); it ends {@value #LAND_TICKS} ticks after the strike, {@value #MISS_TICKS} after a miss, or at
- * once when the player comes down elsewhere. The guard ends once the player is down (or gone, or can
- * no longer be taken) or the entity calmed down below HUNTING. Not saved: the small bump is no entity of the level,
+ * once when the player comes down elsewhere. The guard ends once the player is down (no more than
+ * {@link AwakeningRules#REACH_HEIGHT} over the ground under where they were heard), gone, can no longer be taken, or
+ * got {@value #AWAY_DISTANCE} blocks away, or the entity calmed down below HUNTING. Not saved: the small bump is no entity of the level,
  * only drawn by the clients (its own instance); the stalactite already falling falls on.
  */
 final class Perch {
@@ -62,7 +67,16 @@ final class Perch {
     static final int RECENT_TICKS = 1200;
     /** It gives the guard up after this long (ticks): its anger holds meanwhile, the player could not wait it out. */
     static final int MAX_GUARD_TICKS = 2400;
-    /** The player is still up there while within this (blocks, horizontally) of where it was heard... */
+    /** Following a guarded player aside, it hears them out of reach this far (times {@code reachDistance}). */
+    static final double FOLLOW_REACH = 2;
+    /** The guarded player this far (blocks, horizontally) from where they were heard last got away. */
+    static final double AWAY_DISTANCE = 24;
+    /** Built up, it is sent up what it built after the player every this many ticks. */
+    static final int CLIMB_ORDER_TICKS = 10;
+    /** Whether a way leads to a place is searched again after this long (ticks). */
+    static final int PATH_RECHECK_TICKS = 100;
+    /** The player is still where they were heard within this (blocks, horizontally; heard farther, a guarded player
+     * has moved aside)... */
     static final double STAY_RADIUS = 2;
     /** ...and at most this far below it. */
     static final double STAY_DROP = 2.5;
@@ -132,13 +146,18 @@ final class Perch {
     private Mini mini;
     private FallingBlockEntity falling;
     private Vec3 fellFrom;
-    /** The pillar being built up, or null; once per guard. */
+    /** What it builds up to the player, or null; once per guard. */
     private PerchBuild build;
     private boolean built;
-    /** Built up to the player: where the brain goes next ({@link #takeClimb}). */
-    private Vec3 climb;
+    /** The top of the ground under where the player was heard last. */
+    private int groundY;
+    private long nextClimb;
     /** Game time the trap at the foot ends at. */
     private long trapUntil;
+    /** The last search for a way ({@link #noPath}): to which node, when, and whether none was found. */
+    private long pathGoal = SurfaceGraph.NO_NODE;
+    private long pathCheckedAt;
+    private boolean pathMissing;
 
     /** The small bump: a crawler of its own on the entity's graph, drawn by the clients as a bump of its own. */
     private static final class Mini {
@@ -164,20 +183,35 @@ final class Perch {
     }
 
     /**
-     * A sound of {@code player} the entity heard at {@code at}. The guarded player heard higher up the same pillar
-     * (building it up to get away): the guard, and the pillar it builds, follow them up.
+     * A sound of {@code player} the entity heard at {@code at}. The guarded player heard out of reach still, higher up
+     * (building the pillar up to get away) or aside (a bridge out of it): the guard follows them, the entity going
+     * under them, and so does what it builds.
      */
     void heard(UUID player, Vec3 at, long now) {
         heardPlayer = player;
         heardAt = at;
         heardTime = now;
-        if (player.equals(prey) && at.y() > perch.y() + 0.5
-                && Math.hypot(at.x() - perch.x(), at.z() - perch.z()) <= STAY_RADIUS && perched(at)) {
-            perch = at;
-            int top = topUnder(at);
-            if (build != null && top != Integer.MIN_VALUE) {
-                build.raise(top);
+        if (!player.equals(prey)) {
+            return;
+        }
+        boolean aside = Math.hypot(at.x() - perch.x(), at.z() - perch.z()) > STAY_RADIUS;
+        int top = topUnder(at), ground = groundUnder(at);
+        if (!aside && at.y() <= perch.y() + 0.5 || top == Integer.MIN_VALUE || ground == Integer.MIN_VALUE
+                || !outOfReach(at, ground + 1, perch, TremorConfig.COMMON.awakening.reachDistance.get() * FOLLOW_REACH,
+                now)) {
+            return;
+        }
+        perch = at;
+        groundY = ground;
+        if (build == null) {
+            if (aside) {
+                runtime.brainGo(entity, new Vec3(at.x(), ground + 1, at.z()), TremorEntity.TargetKind.ROAM, 0, false);
             }
+        } else if (!aside) {
+            build.raise(top);
+        } else if (!build.walkTo(new BlockPos(floor(at.x()), top, floor(at.z())))) {
+            build.retarget(floor(at.x()), floor(at.z()), ground, top); // no walkway there: anew under them
+            runtime.brainGo(entity, new Vec3(at.x(), ground + 1, at.z()), TremorEntity.TargetKind.ROAM, 0, false);
         }
     }
 
@@ -199,6 +233,10 @@ final class Perch {
                 return false;
             }
             entity.crawler().face(perch.sub(entity.crawler().position()));
+            if (build != null && now >= nextClimb && build.coreFilled()) {
+                nextClimb = now + CLIMB_ORDER_TICKS;
+                climb();
+            }
             if (build == null && mini == null && falling == null && now >= nextDrop) {
                 boolean stalactites = TremorConfig.COMMON.contactStalactites.get();
                 boolean buildUp = TremorConfig.COMMON.contactBuildUp.get() && !built;
@@ -214,7 +252,9 @@ final class Perch {
             }
             return true;
         }
-        if (!free || !hunting || heardPlayer == null || now - heardTime > RECENT_TICKS || !perched(heardAt)) {
+        if (!free || !hunting || heardPlayer == null || now - heardTime > RECENT_TICKS
+                || !outOfReach(heardAt, entity.crawler().position().y(), entity.crawler().position(),
+                TremorConfig.COMMON.awakening.reachDistance.get(), now)) {
             return false;
         }
         ServerPlayer player = level.getServer().getPlayerList().getPlayer(heardPlayer);
@@ -227,7 +267,12 @@ final class Perch {
         built = false;
         guardSince = now;
         nextDrop = now + SETTLE_TICKS;
-        runtime.brainGo(entity, perch, TremorEntity.TargetKind.ROAM, 0, false); // to the foot of the pillar
+        int ground = groundUnder(perch);
+        groundY = ground != Integer.MIN_VALUE ? ground : floor(entity.crawler().position().y());
+        if (ground != Integer.MIN_VALUE) {
+            runtime.brainGo(entity, new Vec3(perch.x(), ground + 1, perch.z()), TremorEntity.TargetKind.ROAM, 0,
+                    false); // under the player: the foot of the pillar, the ground under the platform
+        }
         Tremor.LOGGER.info(String.format(Locale.ROOT, "Tremor #%d in %s guards %s out of reach at %.1f %.1f %.1f",
                 entity.instance(), level.dimension().location(), player.getGameProfile().getName(), perch.x(),
                 perch.y(), perch.z()));
@@ -249,22 +294,34 @@ final class Perch {
             tickFalling();
         }
         if (build != null && build.tick(now)) {
-            Tremor.LOGGER.info("Tremor #{} in {} built the pillar up ({} blocks, {})", entity.instance(),
-                    level.dimension().location(), build.placed(), build.filled() ? "up to the player"
-                    : prey == null ? "the guard is over" : "no more ground");
-            if (build.filled() && prey != null) {
-                climb = perch;
-                stop("built up to the player");
-            }
+            Tremor.LOGGER.info("Tremor #{} in {} stops building ({} blocks)", entity.instance(),
+                    level.dimension().location(), build.placed());
             build = null;
         }
     }
 
-    /** Where the brain goes now that the pillar is built up to the player (once), or null. */
-    Vec3 takeClimb() {
-        Vec3 at = climb;
-        climb = null;
-        return at;
+    /**
+     * Sends the body up what it built after the player: to where they were heard last if it can stand there (a
+     * platform, the walkway widened up to them), else to the farthest node along the core's top and the walkway from
+     * it to them; it strikes them as it touches them.
+     */
+    private void climb() {
+        SurfaceGraph graph = runtime.graph();
+        int x = floor(perch.x()), top = topUnder(perch), z = floor(perch.z());
+        BlockPos goal = null;
+        if (top != Integer.MIN_VALUE && graph.isNode(x, top, z)) {
+            goal = new BlockPos(x, top, z);
+        } else {
+            for (BlockPos p : build.way()) {
+                if (graph.isNode(p.getX(), p.getY(), p.getZ())) {
+                    goal = p;
+                }
+            }
+        }
+        if (goal != null) {
+            runtime.brainGo(entity, Vec3.voxelCenter(goal.getX(), goal.getY(), goal.getZ()),
+                    TremorEntity.TargetKind.ROAM, 0, false);
+        }
     }
 
     /** The entity is gone: the small bump with it (the clients are told). */
@@ -284,24 +341,73 @@ final class Perch {
     // ---- the guard ----
 
     /**
-     * Whether a sound at {@code at} comes from out of reach on a pillar: more than {@link AwakeningRules#REACH_HEIGHT}
-     * over the entity and within {@code awakening.reachDistance} of it horizontally, on ground too narrow for it (the
-     * first solid voxel at most 2 under the sound is a surface voxel, but no node).
+     * Whether a sound at {@code at} comes from out of reach up high: more than {@link AwakeningRules#REACH_HEIGHT}
+     * over {@code fromY} (the entity, or the ground under the sound) and within {@code reach} of {@code around}
+     * horizontally, standing on a surface voxel (the first solid voxel at most 2 under the sound) that is too narrow
+     * for a node, or a node no way leads to from where the entity is ({@link #noPath}).
      */
-    private boolean perched(Vec3 at) {
-        Vec3 bump = entity.crawler().position();
-        if (at.y() - bump.y() <= AwakeningRules.REACH_HEIGHT || Math.hypot(at.x() - bump.x(), at.z() - bump.z())
-                > TremorConfig.COMMON.awakening.reachDistance.get()) {
+    private boolean outOfReach(Vec3 at, double fromY, Vec3 around, double reach, long now) {
+        if (at.y() - fromY <= AwakeningRules.REACH_HEIGHT || Math.hypot(at.x() - around.x(), at.z() - around.z())
+                > reach) {
             return false;
         }
         SurfaceGraph graph = runtime.graph();
-        int x = floor(at.x()), y0 = floor(at.y()), z = floor(at.z());
-        for (int y = y0; y >= y0 - 2; y--) {
-            if (graph.view().isSolid(x, y, z)) {
-                return !graph.isNode(x, y, z) && Surface.isSurface(graph.view(), x, y, z);
-            }
+        int x = floor(at.x()), top = topUnder(at), z = floor(at.z());
+        if (top == Integer.MIN_VALUE || !Surface.isSurface(graph.view(), x, top, z)) {
+            return false;
         }
-        return false;
+        return !graph.isNode(x, top, z) || noPath(VoxelPos.pack(x, top, z), now);
+    }
+
+    /**
+     * Whether no way leads from where the entity is to {@code goal}: a search as for its route (with the leaps of its
+     * stage), not found within {@code movement.pathMaxNodes}. One for the same goal every {@value #PATH_RECHECK_TICKS}
+     * ticks.
+     */
+    private boolean noPath(long goal, long now) {
+        if (goal == pathGoal && now - pathCheckedAt < PATH_RECHECK_TICKS) {
+            return pathMissing;
+        }
+        long start = runtime.startNode(entity.crawler());
+        if (start == SurfaceGraph.NO_NODE) {
+            return false;
+        }
+        SurfaceGraph graph = runtime.graph();
+        int leap = graph.maxLeap();
+        graph.setMaxLeap(TremorConfig.COMMON.leap(entity.stage(), entity.frenzy()));
+        PathSearch.Status status = new PathSearch(graph, start, goal, TremorConfig.COMMON.pathMaxNodes.get(),
+                entity.params().diveCost()).run();
+        graph.setMaxLeap(leap);
+        pathGoal = goal;
+        pathCheckedAt = now;
+        pathMissing = status != PathSearch.Status.FOUND;
+        return pathMissing;
+    }
+
+    /**
+     * The top of the ground under the column of {@code at}: down what the player stands on (a pillar, as far as its
+     * voxels are surface ones: under it the ground is buried) and the open air under that (a platform, a bridge);
+     * MIN_VALUE if none within {@value #MAX_PILLAR} blocks.
+     */
+    private int groundUnder(Vec3 at) {
+        VoxelView view = runtime.graph().view();
+        int x = floor(at.x()), z = floor(at.z()), y = topUnder(at);
+        if (y == Integer.MIN_VALUE) {
+            return y;
+        }
+        int bottom = y - MAX_PILLAR;
+        while (y > bottom && view.isSolid(x, y, z) && Surface.isSurface(view, x, y, z)) {
+            y--;
+        }
+        while (y > bottom && !view.isSolid(x, y, z)) {
+            y--;
+        }
+        return y > bottom ? y : Integer.MIN_VALUE;
+    }
+
+    /** Whether {@code player} is down: no more than {@link AwakeningRules#REACH_HEIGHT} over the ground under them. */
+    private boolean down(ServerPlayer player) {
+        return player.getY() - (groundY + 1) <= AwakeningRules.REACH_HEIGHT;
     }
 
     /** The block the feet stand on at {@code at}: the first solid one at most 2 under it; MIN_VALUE if none. */
@@ -330,7 +436,11 @@ final class Perch {
         if (!AwakeningManager.takeable(player)) {
             return "the player can no longer be taken";
         }
-        return near(player, perch) ? null : "the player is down";
+        if (player.onGround() && down(player)) {
+            return "the player is down";
+        }
+        return Math.hypot(player.getX() - perch.x(), player.getZ() - perch.z()) > AWAY_DISTANCE
+                ? "the player got away" : null;
     }
 
     private void stop(String why) {
@@ -347,23 +457,13 @@ final class Perch {
     }
 
     /**
-     * Starts building the pillar up: from the ground it stands on (down the pillar from the block under the player's
-     * feet, while it is too narrow for a node) to that block.
+     * Starts building up to the player: from the ground under them ({@link #groundUnder}) to the block under their
+     * feet.
      */
     private void startBuild() {
         built = true;
-        SurfaceGraph graph = runtime.graph();
-        VoxelView view = graph.view();
-        int x = floor(perch.x()), z = floor(perch.z()), top = topUnder(perch);
-        if (top == Integer.MIN_VALUE) {
-            return;
-        }
-        int foot = top;
-        while (foot > top - MAX_PILLAR && view.isSolid(x, foot, z) && !graph.isNode(x, foot, z)
-                && Surface.isSurface(view, x, foot, z)) {
-            foot--;
-        }
-        if (foot >= top) {
+        int x = floor(perch.x()), z = floor(perch.z()), top = topUnder(perch), foot = groundUnder(perch);
+        if (top == Integer.MIN_VALUE || foot == Integer.MIN_VALUE || foot >= top) {
             return;
         }
         build = new PerchBuild(level, x, z, foot, top);
@@ -547,7 +647,7 @@ final class Perch {
         if (player == null || player.level() != level || !AwakeningManager.takeable(player)) {
             return "the player is gone";
         }
-        return player.onGround() && !near(player, perch) ? "the player came down elsewhere" : null;
+        return player.onGround() && down(player) ? "the player came down elsewhere" : null;
     }
 
     /**

@@ -1,0 +1,49 @@
+# A platform 5x5 on a pillar 2x2 seven high (the user: on a platform the tremor no longer saw a pillar): no way leads
+# up to it, so the tremor guards from below and builds up under the platform, then comes up. Copies tinted red.
+# Run: gradlew runClientAutotest -Ptremor_autotest_script=pillar-platform.txt
+waitchunks
+cmd gamemode spectator
+cmd time set noon
+cmd tremor despawn all
+cmd tremor awaken stop
+cmd kill @e[type=!player]
+cmd tp @s 860.5 210.0 300.5
+wait 40
+waitchunks
+cmd fill 840 194 280 880 199 320 minecraft:dirt
+cmd fill 840 200 280 880 200 320 minecraft:grass_block
+cmd fill 840 201 280 880 215 320 minecraft:air
+cmd fill 860 201 300 861 206 301 minecraft:stone
+cmd fill 858 207 298 862 207 302 minecraft:stone
+cmd kill @e[type=!player]
+hud off
+tint on
+cmd tp @s 862.3 208.0 302.3 -45 40
+cmd gamemode survival
+cmd effect give @s minecraft:resistance 600 2 true
+cmd effect give @s minecraft:instant_health 1 4 true
+cmd tremor spawn 866 200 301
+cmd tremor stage hunting
+cmd tremor anger 70
+wait 40
+cmd tremor voice 0
+view back
+wait 300
+screenshot 01_building
+wait 300
+screenshot 02_building
+wait 300
+screenshot 03_after
+cmd tremor info
+cmd gamemode spectator
+cmd tp @s 850.5 213.0 290.5
+lookat 860.5 203.0 300.5
+wait 10
+screenshot 04_heap
+cmd tp @s 871.5 213.0 311.5
+lookat 860.5 203.0 300.5
+wait 10
+screenshot 05_heap_back
+cmd tremor despawn all
+tint off
+quit
