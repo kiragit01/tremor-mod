@@ -36,22 +36,23 @@ import tremor.world.TremorTags;
  * The ground raised around a pillar the entity cannot climb (the user's design: after stalactites that missed, or
  * without a ceiling, it builds the pillar up out of the ground around): an inverted cave rather than a tower (the user:
  * the world is chaos, a neat 3x3 looks made). The 3x3 around the column the player was heard on, from the foot up to
- * the block under their feet, is filled with blocks of the ground around, its top two layers whole (it comes up there,
- * beside the player), below them with holes; a trunk around it leans aside from layer to layer, blocks and short
- * branches stick out of it, and a rough heap rises around it ({@link #plan}). Each block sinks into the ground where it
- * is taken (a block display going down, the block gone) and comes out of what it holds on to where it goes, the block
- * under it or one beside it (a display sliding out, then the block): any open cell with something to hold on to, at
- * random among the lowest {@value #RAGGED} + 1 layers of those (a cell of the core first, mostly), every
- * {@value #MIN_INTERVAL} to {@value #MAX_INTERVAL} ticks, more at a time the bigger the plan and the longer it has
- * built. The player building higher raises it ({@link #raise}). Going aside along a bridge out of the top, the player
- * is followed on their heels ({@link #walkTo}, the user's idea): once the core is up, the walkway along their trail is
- * filled where broken and widened a block each side, from the heap on (a block slides out of the one before it), so the
- * entity crawls after them; heard too far from where they were before, it builds anew under them ({@link #retarget}),
- * what is built stays. Idle with nothing left, it waits for more until it is {@link #finish}ed. Taken from the top of
- * the ground {@value #SOURCE_MIN} to {@value #SOURCE_MAX} blocks around the column, scattered over that disc (at
- * random, the nearer the likelier: the user saw a square pit), the next layer once the top one is taken; its top found
- * from {@value #SOURCE_HEIGHT} over the foot down (a build on a heap built before takes from the ground far below): a
- * whole block of the skin with ground under it, never one a crater keeps (a block entity, {@code #tremor:protected},
+ * the block under their feet, is filled whole with blocks of the ground around (it comes up on top, beside the player);
+ * a trunk around it, with holes and a lumpy shell hiding it, leans aside from layer to layer, blocks and short branches
+ * stick out of it, and a rough heap rises around it ({@link #plan}). Each block sinks into the ground where it is taken
+ * (a block display going down, the block gone) and comes out of what it holds on to where it goes, the block under it
+ * or one beside it (a display sliding out, then the block): any open cell with something to hold on to, at random among
+ * the lowest {@value #RAGGED} + 1 layers of those (a cell of the core first, mostly), every {@value #MIN_INTERVAL} to
+ * {@value #MAX_INTERVAL} ticks, more at a time the bigger the plan and the longer it has built. The player building
+ * higher raises it ({@link #raise}). Going aside along a bridge out of the top, the player is followed on their heels
+ * ({@link #walkTo}, the user's idea): once the core is up, the walkway along their trail is filled where broken and
+ * widened a block each side, from the heap on (a block slides out of the one before it), so the entity crawls after
+ * them; heard too far from where they were before, it builds anew under them ({@link #retarget}), what is built stays.
+ * Idle with nothing left, it waits for more until it is {@link #finish}ed. Taken from the top of the ground
+ * {@value #SOURCE_MIN} to {@value #SOURCE_MAX} blocks around the column, scattered over that disc (at random, the
+ * nearer the likelier: the user saw a square pit), at half a chance the one under it soon after (pits of every
+ * depth), the next layer once the top one is taken; its top found from
+ * {@value #SOURCE_HEIGHT} over the foot down (a build on a heap built before takes from the ground far below): a whole
+ * block of the skin with ground under it, never one a crater keeps (a block entity, {@code #tremor:protected},
  * unbreakable, magma, a fluid, the spawn protection, outside the world border); a plant on it goes. The block keeps its
  * state: an ore goes into the pillar, nothing is lost. The displays carry the tag of devoured mobs: left by a server
  * stopping mid-way, they do not come back.
@@ -74,8 +75,10 @@ final class PerchBuild {
     static final int LEAN_MAX = 2;
     /** The heap around the trunk rises to this share of the pillar's height (its columns, at random, lower out). */
     static final double HEAP_SHARE = 0.6;
-    /** A cell of the trunk below its top two layers is left open at this chance (the user: holes, an inverted cave). */
+    /** A cell of the leaning trunk below its top two layers is left open at this chance (the user: holes)... */
     static final double HOLE_CHANCE = 0.12;
+    /** ...and a cell of the ring around it filled at this one, a lumpy shell hiding the core (the 3x3 showed). */
+    static final double SHELL_CHANCE = 0.45;
     /** Out of each layer of the trunk a block sticks out at this chance, going on a block farther at the next. */
     static final double STICK_CHANCE = 0.55;
     static final double BRANCH_CHANCE = 0.35;
@@ -99,6 +102,12 @@ final class PerchBuild {
     static final int MAX_STRIDE = 16;
     /** The ground is taken at random, the nearer the likelier: the share into the nearest-first list, to this power. */
     static final double SOURCE_SKEW = 1.6;
+    /**
+     * Taking a block, the one under it is taken soon too (among the next {@value #DIG_SOON}) at this chance (the
+     * user: strong unevenness, not the ground a layer at a time).
+     */
+    static final double DIG_DEEPER = 0.5;
+    static final int DIG_SOON = 8;
     /** Ticks a block sinks where it is taken, and comes out where it goes, at first... */
     static final int SLIDE_TICKS = 6;
     /** ...a tick less for every {@value #SPEED_UP_TICKS} ticks it has built, down to this. */
@@ -426,9 +435,10 @@ final class PerchBuild {
      * out, at {@value #SPIKE_CHANCE} one next to the trunk nearly as high), from the ground up (where it dips under the
      * foot, from as far as {@value #DIP} down); and the trunk, a layer at a time: a 3x3 a block aside from the one
      * below at {@value #LEAN_CHANCE} (at most {@value #LEAN_MAX} from the core), with the core, the 3x3 right under the
-     * player, in every layer; below the top two layers a cell of it left open at {@value #HOLE_CHANCE}, and a block
-     * sticking out of its side at {@value #STICK_CHANCE}, a block farther at {@value #BRANCH_CHANCE}: an inverted cave
-     * rather than a tower (the user).
+     * player, whole in every layer (from the ground: a dip under it filled); below the top two layers a cell of the
+     * leaning 3x3 left open at {@value #HOLE_CHANCE}, a lumpy shell around it (each cell of the ring at
+     * {@value #SHELL_CHANCE}), and a block sticking out of its side at {@value #STICK_CHANCE}, a block farther at
+     * {@value #BRANCH_CHANCE}: an inverted cave rather than a tower (the user).
      */
     private void plan() {
         Random r = new Random(seed);
@@ -466,13 +476,23 @@ final class PerchBuild {
             int y = footY + h;
             for (int dz = -1; dz <= 1; dz++) {
                 for (int dx = -1; dx <= 1; dx++) {
-                    double hole = r.nextDouble(), leanHole = r.nextDouble();
-                    if (solid || hole >= HOLE_CHANCE) {
-                        BlockPos p = new BlockPos(x + dx, y, z + dz);
+                    double leanHole = r.nextDouble();
+                    // The core whole, from the ground (a dip under it filled): a hole in it left the cell over it
+                    // nothing to hold on to, and the core, so the walkway and coming up, never done (the user's play).
+                    for (int cy = y; cy == y || h == 1 && cy > footY - DIP
+                            && open(level.getBlockState(new BlockPos(x + dx, cy, z + dz))); cy--) {
+                        BlockPos p = new BlockPos(x + dx, cy, z + dz);
                         cells.add(p);
                         core.add(p);
                     }
                     if (solid || leanHole >= HOLE_CHANCE) {
+                        cells.add(new BlockPos(x + ox + dx, y, z + oz + dz));
+                    }
+                }
+            }
+            for (int dz = -2; dz <= 2; dz++) {
+                for (int dx = -2; dx <= 2; dx++) {
+                    if (Math.max(Math.abs(dx), Math.abs(dz)) == 2 && r.nextDouble() < SHELL_CHANCE && !solid) {
                         cells.add(new BlockPos(x + ox + dx, y, z + oz + dz));
                     }
                 }
@@ -528,6 +548,10 @@ final class PerchBuild {
             while (!sources.isEmpty()) {
                 BlockPos p = sources.remove((int) (sources.size() * Math.pow(random.nextDouble(), SOURCE_SKEW)));
                 if (takeable(p)) {
+                    if (random.nextDouble() < DIG_DEEPER) {
+                        // The one under it soon too: pits of every depth rather than the ground a layer at a time.
+                        sources.add(random.nextInt(Math.min(sources.size(), DIG_SOON) + 1), p.below());
+                    }
                     return p;
                 }
             }
@@ -565,7 +589,10 @@ final class PerchBuild {
         return state.isAir() || state.canBeReplaced() && state.getFluidState().isEmpty();
     }
 
-    /** A whole block of the skin with open space (or a plant) over it and ground under it, as a crater would carve. */
+    /**
+     * A whole block of the skin with open space (or a plant) over it and ground under it, as a crater would carve, and
+     * no fluid beside or over it (the pit would fill).
+     */
     private boolean takeable(BlockPos p) {
         if (level.isOutsideBuildHeight(p.getY()) || !level.getWorldBorder().isWithinBounds(p) || spawnProtected(p)
                 || level.getChunkSource().getChunkNow(p.getX() >> 4, p.getZ() >> 4) == null) {
@@ -577,8 +604,16 @@ final class PerchBuild {
                 || state.getBlock() instanceof Fallable || !state.isCollisionShapeFullBlock(level, p)) {
             return false;
         }
-        return open(level.getBlockState(p.above()))
-                && level.getBlockState(p.below()).isCollisionShapeFullBlock(level, p.below());
+        if (!open(level.getBlockState(p.above()))
+                || !level.getBlockState(p.below()).isCollisionShapeFullBlock(level, p.below())) {
+            return false;
+        }
+        for (Direction d : Direction.Plane.HORIZONTAL) {
+            if (!level.getFluidState(p.relative(d)).isEmpty()) {
+                return false; // the pit would fill
+            }
+        }
+        return level.getFluidState(p.above()).isEmpty();
     }
 
     private boolean spawnProtected(BlockPos p) {
