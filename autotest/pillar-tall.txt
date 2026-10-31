@@ -1,0 +1,58 @@
+# A pillar built up to twenty-five high, then a bridge out of its top (the user: on a very high pillar the tremor did
+# not follow a player building aside): heard on top of a pillar 2x2 seven high, the player builds it up and walks out
+# along the bridge without a sound; the tremor, guarding, feels them through the pillar, builds under the ground (the
+# trunk all the way up, the heap around capped), comes up beside them and follows along the bridge. Copies tinted red.
+# Run: gradlew runClientAutotest -Ptremor_autotest_script=pillar-tall.txt
+waitchunks
+cmd gamemode spectator
+cmd time set noon
+cmd tremor despawn all
+cmd tremor awaken stop
+cmd kill @e[type=!player]
+cmd tp @s 860.5 210.0 300.5
+wait 40
+waitchunks
+cmd fill 840 194 280 880 199 320 minecraft:dirt
+cmd fill 840 200 280 880 200 320 minecraft:grass_block
+cmd fill 840 201 280 880 218 320 minecraft:air
+cmd fill 840 219 280 880 236 320 minecraft:air
+cmd fill 860 201 300 861 207 301 minecraft:stone
+cmd kill @e[type=!player]
+hud off
+tint on
+cmd tp @s 861.0 208.0 301.0 90 30
+cmd gamemode survival
+cmd effect give @s minecraft:resistance 600 2 true
+cmd effect give @s minecraft:instant_health 1 4 true
+cmd tremor spawn 866 200 301
+cmd tremor stage hunting
+cmd tremor anger 70
+wait 40
+cmd tremor voice 0
+view back
+wait 60
+log --- builds it up to 25 without a sound
+cmd fill 860 208 300 861 225 301 minecraft:stone
+cmd tp @s 861.0 226.0 301.0 90 30
+wait 200
+screenshot 01_building
+log --- and walks out along a bridge
+cmd fill 862 225 301 873 225 301 minecraft:stone
+cmd tp @s 866.5 226.0 301.5 90 30
+wait 40
+cmd tp @s 870.5 226.0 301.5 90 30
+wait 200
+screenshot 02_on_bridge
+wait 200
+screenshot 03_later
+wait 200
+screenshot 04_later
+cmd tremor info
+cmd gamemode spectator
+cmd tp @s 866.5 232.0 282.5
+lookat 864.5 214.0 301.5
+wait 10
+screenshot 05_overview
+cmd tremor despawn all
+tint off
+quit

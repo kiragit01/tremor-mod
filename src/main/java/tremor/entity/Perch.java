@@ -44,24 +44,26 @@ import tremor.network.TremorStatePayload;
  * standing on ground too narrow for it ({@code movement.minGroundWidth}: a pillar, a bridge) or that no way leads to
  * from where it is (a platform on a pillar: {@link #noPath}). It guards from below: it stands under the player facing
  * there, and its brain waits, so no other sound draws it off; heard higher up, or aside out of reach still (a bridge
- * out of the pillar), the player is followed. Under a ceiling
- * ({@code contact.stalactites}) a small bump rolls out of its hill, crawls up the walls to the ceiling right over where
- * the player was heard, shakes there and drops a pointed dripstone, then sinks into the ceiling; the stalactite strikes
- * whoever it falls on (the damage of a falling stalactite, the strike's throw toward the entity below) and breaks
- * without a drop. Again every {@value #COOLDOWN_TICKS} ticks while the player stays up there. After
+ * out of the pillar), or felt so every {@value #FEEL_TICKS} ticks (too high up to be heard), the player is followed.
+ * Under a ceiling ({@code contact.stalactites}) a small bump rolls out of its hill, crawls up the walls to the ceiling
+ * right over where the player was heard, shakes there and drops a pointed dripstone, then sinks into the ceiling; the
+ * stalactite strikes whoever it falls on (the damage of a falling stalactite, the strike's throw toward the entity
+ * below) and breaks without a drop. Again every {@value #COOLDOWN_TICKS} ticks while the player stays up there. After
  * {@value #MAX_DROPS} that missed, or once it has guarded {@value #BUILD_AFTER_TICKS} ticks with no ceiling to drop
  * from ({@code contact.buildUp}), it builds the pillar up out of the ground around, a rough heap ({@link PerchBuild},
- * once per guard, following the player up as they build higher, and on their heels along a bridge aside, widening
- * it); while it builds, the entity rides up what it builds and along it after the player, every
- * {@value #CLIMB_ORDER_TICKS} ticks to the farthest or highest of it it can get onto, and strikes them as it touches
- * them. Its
- * anger holds while it guards (no player waits it out up there), for {@value #MAX_GUARD_TICKS} ticks at most. While a stalactite falls the ground at the foot is an
+ * once per guard, following the player up as they build higher, and on their heels along a bridge aside, widening it).
+ * It builds under the ground (the user: blocks put under its hill looked unclear): its bump goes down
+ * {@value #SINK_TICKS} ticks before the first block, stays down while there is anything to build, and once the core is
+ * up and nothing is left it comes up beside the player ({@link #emerge}) and goes after them every
+ * {@value #CLIMB_ORDER_TICKS} ticks, striking them as it touches them; more to build (the player higher, or aside), it
+ * goes under again. The guard over, it is up at once where it is. Its anger holds while it guards (no player waits it
+ * out up there), for {@value #MAX_GUARD_TICKS} ticks at most. While a stalactite falls the ground at the foot is an
  * ambush's quicksand for a moment ({@link TremorMind#setTrap}): the throw aims the player into its middle
  * ({@link Strike#aimed}); it ends {@value #LAND_TICKS} ticks after the strike, {@value #MISS_TICKS} after a miss, or at
  * once when the player comes down elsewhere. The guard ends once the player is down (no more than
  * {@link AwakeningRules#REACH_HEIGHT} over the ground under where they were heard), gone, can no longer be taken, or
- * got {@value #AWAY_DISTANCE} blocks away, or the entity calmed down below HUNTING. Not saved: the small bump is no entity of the level,
- * only drawn by the clients (its own instance); the stalactite already falling falls on.
+ * got {@value #AWAY_DISTANCE} blocks away, or the entity calmed down below HUNTING. Not saved: the small bump is no
+ * entity of the level, only drawn by the clients (its own instance); the stalactite already falling falls on.
  */
 final class Perch {
     /** A sound of the player older than this (ticks) finds no perch. */
@@ -72,8 +74,19 @@ final class Perch {
     static final double FOLLOW_REACH = 2;
     /** The guarded player this far (blocks, horizontally) from where they were heard last got away. */
     static final double AWAY_DISTANCE = 24;
-    /** Built up, it is sent up what it built after the player every this many ticks. */
+    /** Up beside the player, it is sent after them every this many ticks. */
     static final int CLIMB_ORDER_TICKS = 10;
+    /** It goes under the ground this long (ticks) before the first block of what it builds... */
+    static final int SINK_TICKS = 50;
+    /** ...and this long when more comes to build while it is up. */
+    static final int RESINK_TICKS = 20;
+    /**
+     * Guarding, it feels where the player stands every this many ticks, through what it is pressed against (a player
+     * high up a tall pillar is too far to be heard).
+     */
+    static final int FEEL_TICKS = 20;
+    /** It comes up on a node at most this far from the player's feet. */
+    static final int EMERGE_RADIUS = 2;
     /** Whether a way leads to a place is searched again after this long (ticks). */
     static final int PATH_RECHECK_TICKS = 100;
     /** The player is still where they were heard within this (blocks, horizontally; heard farther, a guarded player
@@ -108,7 +121,7 @@ final class Perch {
     /** Without a ceiling (or stalactites) it builds once it has guarded this long (ticks). */
     static final int BUILD_AFTER_TICKS = 200;
     /** The ground the pillar stands on is looked for at most this far under the player's feet. */
-    static final int MAX_PILLAR = 48;
+    static final int MAX_PILLAR = 384;
     /** The trap at the foot waits this long after the stalactite falls for the player to come down into it... */
     static final int TRAP_TICKS = 60;
     /** ...and this long after the stalactite strikes the player (the flight down)... */
@@ -153,6 +166,10 @@ final class Perch {
     /** The top of the ground under where the player was heard last. */
     private int groundY;
     private long nextClimb;
+    /** Its bump is under the ground: it builds ({@link #hidden}); and the game time it builds from. */
+    private boolean hidden;
+    private long buildFrom;
+    private long nextFeel;
     /** Game time the trap at the foot ends at. */
     private long trapUntil;
     /** The last search for a way ({@link #noPath}): to which node, when, and whether none was found. */
@@ -220,6 +237,11 @@ final class Perch {
         return prey != null;
     }
 
+    /** Whether its bump is down under the ground while it builds up to the player (the clients see nothing). */
+    boolean hidden() {
+        return hidden;
+    }
+
     /**
      * Before the brain: starts, keeps or ends the guard ({@code free}: nothing else holds the entity, no goto, a
      * frenzy, ai off). True while it guards: the brain waits.
@@ -234,19 +256,33 @@ final class Perch {
                 return false;
             }
             entity.crawler().face(perch.sub(entity.crawler().position()));
-            if (build != null && now >= nextClimb) {
-                nextClimb = now + CLIMB_ORDER_TICKS;
-                climb();
+            if (now >= nextFeel) {
+                nextFeel = now + FEEL_TICKS;
+                ServerPlayer player = level.getServer().getPlayerList().getPlayer(prey);
+                if (player != null && player.onGround()) {
+                    heard(prey, new Vec3(player.getX(), player.getY(), player.getZ()), now); // felt, not heard
+                }
+            }
+            if (build != null) {
+                if (hidden && now >= buildFrom && build.idle()) {
+                    emerge(now, build.coreFilled());
+                } else if (!hidden && !build.idle()) {
+                    hidden = true; // more to build (the player went higher or aside): under again until it is done
+                    buildFrom = now + RESINK_TICKS;
+                } else if (!hidden && now >= nextClimb) {
+                    nextClimb = now + CLIMB_ORDER_TICKS;
+                    chase();
+                }
             }
             if (build == null && mini == null && falling == null && now >= nextDrop) {
                 boolean stalactites = TremorConfig.COMMON.contactStalactites.get();
                 boolean buildUp = TremorConfig.COMMON.contactBuildUp.get() && !built;
                 if (buildUp && (drops >= MAX_DROPS || !stalactites && now - guardSince >= BUILD_AFTER_TICKS)) {
-                    startBuild();
+                    startBuild(now);
                 } else if (stalactites && send(now)) {
                     nextDrop = now + COOLDOWN_TICKS;
                 } else if (buildUp && now - guardSince >= BUILD_AFTER_TICKS) {
-                    startBuild(); // no ceiling over the player, or no way up to it
+                    startBuild(now); // no ceiling over the player, or no way up to it
                 } else {
                     nextDrop = now + RETRY_TICKS;
                 }
@@ -294,7 +330,7 @@ final class Perch {
         if (falling != null) {
             tickFalling();
         }
-        if (build != null && build.tick(now)) {
+        if (build != null && now >= buildFrom && build.tick(now)) {
             Tremor.LOGGER.info("Tremor #{} in {} stops building ({} blocks)", entity.instance(),
                     level.dimension().location(), build.placed());
             build = null;
@@ -302,30 +338,32 @@ final class Perch {
     }
 
     /**
-     * Sends the body up what it builds after the player, while it builds (the user: it waited at the foot until the
-     * end): to where they were heard last if it can stand there (a platform, the walkway widened up to them), else to
-     * the farthest node along the core's top and the walkway from it to them, else to the highest node of what is
-     * built so far, riding up with it; it strikes them as it touches them.
+     * Comes up out of the ground: {@code built} up to the player, beside them, on the block under their feet where
+     * they were heard last if it can stand there, else on the nearest it can within {@value #EMERGE_RADIUS} blocks;
+     * otherwise (no ground left to take, nowhere to stand) where it is.
      */
-    private void climb() {
+    private void emerge(long now, boolean built) {
         SurfaceGraph graph = runtime.graph();
         int x = floor(perch.x()), top = topUnder(perch), z = floor(perch.z());
-        BlockPos goal = null;
-        if (top != Integer.MIN_VALUE && graph.isNode(x, top, z)) {
-            goal = new BlockPos(x, top, z);
-        } else {
-            for (BlockPos p : build.way()) {
-                if (graph.isNode(p.getX(), p.getY(), p.getZ())) {
-                    goal = p;
-                }
-            }
-            if (goal == null) {
-                goal = build.highest(p -> graph.isNode(p.getX(), p.getY(), p.getZ()));
-            }
+        long node = !built ? SurfaceGraph.NO_NODE : top != Integer.MIN_VALUE && graph.isNode(x, top, z)
+                ? VoxelPos.pack(x, top, z) : graph.nearestNode(perch, EMERGE_RADIUS);
+        hidden = false;
+        if (node == SurfaceGraph.NO_NODE) {
+            return;
         }
-        if (goal != null) {
-            runtime.brainGo(entity, Vec3.voxelCenter(goal.getX(), goal.getY(), goal.getZ()),
-                    TremorEntity.TargetKind.ROAM, 0, false);
+        runtime.relocate(entity, node);
+        nextClimb = now + CLIMB_ORDER_TICKS;
+        Vec3 at = VoxelPos.center(node);
+        level.playSound(null, at.x(), at.y(), at.z(), SoundEvents.ROOTED_DIRT_BREAK, SoundSource.HOSTILE, 1.5f, 0.5f);
+        Tremor.LOGGER.info("Tremor #{} in {} comes up beside the player at {}", entity.instance(),
+                level.dimension().location(), VoxelPos.toString(node));
+    }
+
+    /** Up beside the player: after them, to where they were heard last if it can stand there, from where it strikes. */
+    private void chase() {
+        int x = floor(perch.x()), top = topUnder(perch), z = floor(perch.z());
+        if (top != Integer.MIN_VALUE && runtime.graph().isNode(x, top, z)) {
+            runtime.brainGo(entity, Vec3.voxelCenter(x, top, z), TremorEntity.TargetKind.ROAM, 0, false);
         }
     }
 
@@ -453,6 +491,7 @@ final class Perch {
                 level.dimension().location(), why, drops);
         prey = null;
         perch = null;
+        hidden = false; // up where it is
         if (mini != null) {
             mini.sinking = true;
         }
@@ -465,13 +504,15 @@ final class Perch {
      * Starts building up to the player: from the ground under them ({@link #groundUnder}) to the block under their
      * feet.
      */
-    private void startBuild() {
+    private void startBuild(long now) {
         built = true;
         int x = floor(perch.x()), z = floor(perch.z()), top = topUnder(perch), foot = groundUnder(perch);
         if (top == Integer.MIN_VALUE || foot == Integer.MIN_VALUE || foot >= top) {
             return;
         }
         build = new PerchBuild(level, x, z, foot, top);
+        hidden = true; // under the ground first, then the heap rises
+        buildFrom = now + SINK_TICKS;
         Tremor.LOGGER.info("Tremor #{} in {} builds the pillar up at {} {} from {} to {} ({} stalactites missed)",
                 entity.instance(), level.dimension().location(), x, z, foot + 1, top, drops);
     }
