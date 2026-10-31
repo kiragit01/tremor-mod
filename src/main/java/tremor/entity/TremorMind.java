@@ -153,7 +153,7 @@ final class TremorMind {
      * Let go by its ambush, it hunts the player who got away for this long without rising to the top of its anger
      * (ticks): a chase, not an Awakening at once.
      */
-    static final int CHASE_TICKS = 300;
+    static final int CHASE_TICKS = 160;
     /** Ticks between two looks for a player to lie in wait for ({@link #lookForPrey}). */
     static final int LOOK_TICKS = 10;
     /** After a chance not taken it looks again this long later (ticks). */
@@ -196,6 +196,8 @@ final class TremorMind {
     private long lurkSince;
     /** It lies in wait by a command ({@link #lurkNow}): it does not give up for nobody being near. */
     private boolean lurkForced;
+    /** Lying in wait it is the trap at a pillar's foot ({@link #setTrap}): over when the perch says, whatever the stage. */
+    private boolean perchTrap;
     /** Game time before which it does not lie in wait (again). */
     private long lurkAgain;
     /** How far its bump has gone into lying in wait, 0..1, for the clients ({@link Ambush#fade}). */
@@ -218,7 +220,7 @@ final class TremorMind {
         this.runtime = runtime;
         this.level = runtime.level();
         this.entity = entity;
-        this.perch = new Perch(runtime, entity);
+        this.perch = new Perch(runtime, entity, this);
         this.params = configParams();
         if (entity.stage() == Stage.AWAKENING && !entity.absorbed()) {
             // Loaded while seeking (a new entity is DORMANT): the seeking is not saved, it calms down at once.
@@ -1099,6 +1101,30 @@ final class TremorMind {
         lurk(now, "a player is coming");
     }
 
+    /**
+     * Lies in wait right here as the trap at a pillar's foot ({@link Perch}, the user's idea): the quicksand of an
+     * ambush for whoever comes down, for as long as the perch says ({@link Perch#trapOver}), whatever the stage.
+     * Returns its middle, or null where it cannot (ambushes switched off, not on a floor, ground that cannot turn to
+     * mud, lying in wait already).
+     */
+    Vec3 setTrap(long now) {
+        Crawler crawler = entity.crawler();
+        if (!TremorConfig.COMMON.ambush.enabled.get() || lurkAt != null || crawler.diving()
+                || crawler.normal().y() < Ambush.FLOOR_NORMAL_Y
+                || !tremor.awakening.Quicksand.fits(level, skin(), TremorConfig.COMMON.ambush.triggerRadius.get())) {
+            return null;
+        }
+        lurk(now, "a trap at the foot of a pillar");
+        lurkForced = true;
+        perchTrap = true;
+        return lurkAt;
+    }
+
+    /** The middle of the trap at a pillar's foot it lies in wait as, or null. */
+    Vec3 trap() {
+        return perchTrap ? lurkAt : null;
+    }
+
     /** Whether it may lie in wait now by itself: switched on, not paused, ALERT or HUNTING on a floor, free. */
     private boolean mayLurkNow(long now) {
         Crawler crawler = entity.crawler();
@@ -1113,6 +1139,7 @@ final class TremorMind {
         lurkAt = skin();
         lurkSince = now;
         lurkForced = false;
+        perchTrap = false;
         feetBefore.clear();
         runtime.dropTarget(entity);
         Tremor.LOGGER.info(String.format(Locale.ROOT, "Tremor #%d in %s lies in wait at %.1f %.1f %.1f (%s, %s)",
@@ -1125,6 +1152,10 @@ final class TremorMind {
         TremorConfig.Ambush config = TremorConfig.COMMON.ambush;
         if (!config.enabled.get()) {
             return "ambushes switched off";
+        }
+        if (perchTrap) {
+            return !entity.aiEnabled() ? "ai off" : entity.frenzy() ? "a frenzy"
+                    : entity.targetKind() == TremorEntity.TargetKind.MANUAL ? "a goto" : perch.trapOver(now);
         }
         Stage stage = meter.stage();
         if (stage != Stage.ALERT && stage != Stage.HUNTING) {

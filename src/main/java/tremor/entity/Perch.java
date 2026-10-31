@@ -49,7 +49,10 @@ import tremor.network.TremorStatePayload;
  * without a drop. Again every {@value #COOLDOWN_TICKS} ticks while the player stays up there. After
  * {@value #MAX_DROPS} that missed, or once it has guarded {@value #BUILD_AFTER_TICKS} ticks with no ceiling to drop
  * from ({@code contact.buildUp}), it builds the pillar up out of the ground around, a rough heap ({@link PerchBuild},
- * once per guard); built up to the player, it goes for them. The guard ends once the player is down (or gone, or can
+ * once per guard); built up to the player, it goes for them. While a stalactite falls the ground at the foot is an
+ * ambush's quicksand for a moment ({@link TremorMind#setTrap}): the throw aims the player into its middle
+ * ({@link Strike#aimed}); it ends {@value #LAND_TICKS} ticks after the strike, {@value #MISS_TICKS} after a miss, or at
+ * once when the player comes down elsewhere. The guard ends once the player is down (or gone, or can
  * no longer be taken) or the entity calmed down below HUNTING. Not saved: the small bump is no entity of the level,
  * only drawn by the clients (its own instance); the stalactite already falling falls on.
  */
@@ -88,6 +91,19 @@ final class Perch {
     static final int BUILD_AFTER_TICKS = 200;
     /** The ground the pillar stands on is looked for at most this far under the player's feet. */
     static final int MAX_PILLAR = 48;
+    /** The trap at the foot waits this long after the stalactite falls for the player to come down into it... */
+    static final int TRAP_TICKS = 60;
+    /** ...and this long after the stalactite strikes the player (the flight down)... */
+    static final int LAND_TICKS = 40;
+    /** ...but only this long after one that struck nobody. */
+    static final int MISS_TICKS = 10;
+    /** Steps (blocks) a top is measured in, toward the trap; and the widest top looked at. */
+    static final double EDGE_STEP = 0.25;
+    static final double MAX_TOP = 4;
+    /** Thrown off a top, a player is this much past its edge (half the width, and room) before coming back down. */
+    static final double EDGE_CLEAR = 0.7;
+    /** The fastest throw toward the trap (blocks per tick, across). */
+    static final double MAX_THROW = 1.5;
     /** Damage of the stalactite, as a vanilla one falling from high up (scaled by the difficulty). */
     static final double DAMAGE = 6;
     private static final BlockState STALACTITE = Blocks.POINTED_DRIPSTONE.defaultBlockState()
@@ -97,6 +113,7 @@ final class Perch {
     private final TremorRuntime runtime;
     private final ServerLevel level;
     private final TremorEntity entity;
+    private final TremorMind mind;
 
     /** The player heard last, where and when. */
     private UUID heardPlayer;
@@ -117,6 +134,8 @@ final class Perch {
     private boolean built;
     /** Built up to the player: where the brain goes next ({@link #takeClimb}). */
     private Vec3 climb;
+    /** Game time the trap at the foot ends at. */
+    private long trapUntil;
 
     /** The small bump: a crawler of its own on the entity's graph, drawn by the clients as a bump of its own. */
     private static final class Mini {
@@ -134,10 +153,11 @@ final class Perch {
         }
     }
 
-    Perch(TremorRuntime runtime, TremorEntity entity) {
+    Perch(TremorRuntime runtime, TremorEntity entity, TremorMind mind) {
         this.runtime = runtime;
         this.level = runtime.level();
         this.entity = entity;
+        this.mind = mind;
     }
 
     /** A sound of {@code player} the entity heard at {@code at}. */
@@ -380,6 +400,9 @@ final class Perch {
             m.ticks = 0;
             if (m.shaking) {
                 play(SoundEvents.POINTED_DRIPSTONE_FALL, m.dropAt, 1.5f, 0.6f);
+                if (prey != null && mind.setTrap(now) != null) {
+                    trapUntil = now + SHAKE_TICKS + TRAP_TICKS; // the ground at the foot turns to quicksand
+                }
             }
         }
         if (m.shaking && !m.sinking) {
@@ -436,6 +459,7 @@ final class Perch {
     private void tickFalling() {
         FallingBlockEntity f = falling;
         if (f.isRemoved()) {
+            trapUntil = Math.min(trapUntil, level.getGameTime() + MISS_TICKS);
             shatter(f);
             return;
         }
@@ -444,6 +468,7 @@ final class Perch {
                     && Math.hypot(player.getX() - f.getX(), player.getZ() - f.getZ()) <= HIT_RADIUS
                     && f.getY() <= player.getEyeY() + 0.3 && f.getY() >= player.getY() - 0.5) {
                 hit(player, f);
+                trapUntil = Math.max(trapUntil, level.getGameTime() + LAND_TICKS);
                 f.discard();
                 shatter(f);
                 return;
@@ -465,21 +490,55 @@ final class Perch {
         if (damage > 0) {
             player.hurt(level.damageSources().fallingStalactite(f), damage);
         }
-        Vec3 below = entity.crawler().position();
-        double dx = below.x() - player.getX(), dz = below.z() - player.getZ(), d = Math.hypot(dx, dz);
-        if (d < 0.3) {
-            net.minecraft.world.phys.Vec3 look = player.getLookAngle();
-            dx = -look.x;
-            dz = -look.z;
-            d = Math.max(1e-6, Math.hypot(dx, dz));
+        Vec3 target = mind.trap();
+        if (target == null) {
+            Crawler c = entity.crawler();
+            target = c.position().add(c.normal().scale(0.5)); // beside it, on its skin
         }
+        // Knockback resistance shortens the throw, as it does any knockback.
         double scale = 1 - Math.max(0, Math.min(1, player.getAttributeValue(Attributes.KNOCKBACK_RESISTANCE)));
-        double speed = config.contactKnockback.get() * scale;
-        player.setDeltaMovement(dx / d * speed, config.contactLift.get() * scale, dz / d * speed);
+        double lift = config.contactLift.get() * scale;
+        Vec3 feet = new Vec3(player.getX(), player.getY(), player.getZ());
+        Vec3 v = Strike.aimed(feet, target, lift, MAX_THROW, offTheTop(feet, target));
+        player.setDeltaMovement(v.x() * scale, lift, v.z() * scale);
         player.connection.send(new ClientboundSetEntityMotionPacket(player));
         player.hurtMarked = false;
         Tremor.LOGGER.info("Tremor #{}: the stalactite strikes {} ({} damage, fell {} blocks)", entity.instance(),
                 player.getGameProfile().getName(), damage, String.format(Locale.ROOT, "%.1f", fellFrom.y() - f.getY()));
+    }
+
+    /**
+     * Why the trap at the foot ends now ({@link TremorMind#setTrap}), or null: its time is up, the player is gone, or
+     * came down elsewhere (one who comes down into it is caught before this is asked).
+     */
+    String trapOver(long now) {
+        if (now >= trapUntil) {
+            return "nobody came down into the trap";
+        }
+        ServerPlayer player = prey == null ? null : level.getServer().getPlayerList().getPlayer(prey);
+        if (player == null || player.level() != level || !AwakeningManager.takeable(player)) {
+            return "the player is gone";
+        }
+        return player.onGround() && !near(player, perch) ? "the player came down elsewhere" : null;
+    }
+
+    /**
+     * How far across (blocks) a player at {@code feet} goes toward {@code target} to be off the top they stand on, by
+     * their width and a little more; 0 if they stand on nothing.
+     */
+    private double offTheTop(Vec3 feet, Vec3 target) {
+        double dx = target.x() - feet.x(), dz = target.z() - feet.z(), d = Math.hypot(dx, dz);
+        VoxelView view = runtime.graph().view();
+        int y = floor(feet.y() - 0.5);
+        if (d < 1e-6 || !view.isSolid(floor(feet.x()), y, floor(feet.z()))) {
+            return 0;
+        }
+        for (double s = EDGE_STEP; s < MAX_TOP; s += EDGE_STEP) {
+            if (!view.isSolid(floor(feet.x() + dx / d * s), y, floor(feet.z() + dz / d * s))) {
+                return s + EDGE_CLEAR;
+            }
+        }
+        return MAX_TOP;
     }
 
     private void play(SoundEvent sound, BlockPos at, float volume, float pitch) {
