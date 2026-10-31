@@ -18,6 +18,11 @@ import tremor.core.math.Vec3;
  * stone) is not damped by those leaves, though leaves are insulating: the samples of its way from the source on, as
  * long as they lie in leaves ({@link Foliage}), conduct at its footing. Leaves farther along the way, past anything
  * else, damp as their class: a band of leaves between a source and the listener still muffles it.
+ * <p>
+ * A source above the listener is also heard the way down under it and then across to the listener, if that is the
+ * better way: down it, open voxels conduct at least {@value #AIRBORNE}, sound falling through the air to the ground
+ * (the user: why only through blocks?). A player on a pillar is heard down the pillar, one on a bridge or a platform
+ * through the air under it, a blast in the air through the ground under it.
  */
 public final class Hearing {
     /** The blocks a source can rustle in (leaves, {@code #tremor:rustling}), as its way to the listener sees them. */
@@ -26,6 +31,9 @@ public final class Hearing {
         /** Whether the voxel rustles. */
         boolean rustles(int x, int y, int z);
     }
+
+    /** Conductivity at least of an open voxel on the way down under a source. */
+    public static final double AIRBORNE = 0.3;
 
     private Hearing() {
     }
@@ -59,7 +67,17 @@ public final class Hearing {
         }
         double resistance = averageResistance(view, source, listener, params.sampleStep(), params.minConductivity(),
                 foliage, footing);
-        return strength / (1 + distance * resistance);
+        double perceived = strength / (1 + distance * resistance);
+        double down = source.y() - listener.y();
+        if (down > 1) {
+            Vec3 under = new Vec3(source.x(), listener.y(), source.z());
+            double across = under.distance(listener);
+            double way = down * averageResistance(view, source, under, params.sampleStep(), params.minConductivity(),
+                    foliage, footing, AIRBORNE)
+                    + across * averageResistance(view, under, listener, params.sampleStep(), params.minConductivity());
+            perceived = Math.max(perceived, strength / (1 + way));
+        }
+        return perceived;
     }
 
     /**
@@ -79,6 +97,12 @@ public final class Hearing {
      */
     public static double averageResistance(VoxelView view, Vec3 from, Vec3 to, double step, double minConductivity,
                                            Foliage foliage, double foliageConductivity) {
+        return averageResistance(view, from, to, step, minConductivity, foliage, foliageConductivity, 0);
+    }
+
+    /** As above, where an open voxel conducts at least {@code airborne}. */
+    private static double averageResistance(VoxelView view, Vec3 from, Vec3 to, double step, double minConductivity,
+                                            Foliage foliage, double foliageConductivity, double airborne) {
         double dx = to.x() - from.x(), dy = to.y() - from.y(), dz = to.z() - from.z();
         double distance = Math.sqrt(dx * dx + dy * dy + dz * dz);
         int n = Math.max(1, (int) Math.ceil(distance / step));
@@ -91,6 +115,9 @@ public final class Hearing {
             int z = (int) Math.floor(from.z() + dz * t);
             inFoliage = inFoliage && foliage.rustles(x, y, z);
             double conductivity = inFoliage ? foliageConductivity : view.conductivity(x, y, z);
+            if (airborne > conductivity && view.isOpen(x, y, z)) {
+                conductivity = airborne;
+            }
             sum += 1.0 / Math.max(conductivity, minConductivity);
         }
         return sum / n;

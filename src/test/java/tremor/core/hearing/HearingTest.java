@@ -59,6 +59,25 @@ class HearingTest {
     }
 
     @Test
+    void aSourceUpOnAPillarIsHeardDownItAndOneOnAPlatformThroughTheAirUnderIt() {
+        ArrayVoxelGrid g = stoneGround();
+        Vec3 listener = Vec3.voxelCenter(4, -1, 0), top = Vec3.voxelCenter(0, 14, 0);
+        double inTheAir = Hearing.perceived(g, top, listener, 3, STONE, PARAMS);
+        for (int y = 0; y <= 14; y++) {
+            g.set(0, y, 0, true).setConductivity(0, y, 0, STONE);
+        }
+        double onThePillar = Hearing.perceived(g, top, listener, 3, STONE, PARAMS);
+        double straight = 3 * STONE / (1 + top.distance(listener) * Hearing.averageResistance(g, top, listener,
+                PARAMS.sampleStep(), PARAMS.minConductivity()));
+        assertTrue(onThePillar > PARAMS.threshold() && onThePillar > 10 * straight, onThePillar + " vs " + straight);
+        assertTrue(inTheAir > straight && inTheAir < onThePillar, inTheAir + " vs " + onThePillar);
+        // Below the listener nothing changes: the straight way only.
+        Vec3 low = Vec3.voxelCenter(0, -6, 0), deep = Vec3.voxelCenter(4, -1, 0);
+        assertEquals(3 * STONE / (1 + low.distance(deep) / STONE), Hearing.perceived(g, low, deep, 3, STONE, PARAMS),
+                1e-9);
+    }
+
+    @Test
     void gravelDampsMoreThanStone() {
         ArrayVoxelGrid g = stoneGround();
         for (int x = 4; x <= 8; x++) {
