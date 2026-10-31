@@ -394,8 +394,8 @@ public final class TremorConfig {
                             "pulled under: gone for good. What the mod laid down for a player (it never despawns) is",
                             "spared")
                     .translation(KEY + "behavior.contact.devourItems").define("devourItems", true);
-            contactStalactites = b.comment("A player out of reach on a pillar (more than 5 blocks over the entity, on ground",
-                            "narrower than movement.minGroundWidth) is guarded from below; under a ceiling a small bump",
+            contactStalactites = b.comment("A player out of reach up high (more than 5 blocks over the entity, on a pillar, a",
+                            "platform or a bridge it cannot get onto) is guarded from below; under a ceiling a small bump",
                             "crawls up over where the player was heard and drops a pointed dripstone on them")
                     .translation(KEY + "behavior.contact.stalactites").define("stalactites", true);
             contactBuildUp = b.comment("After 3 stalactites missed such a player (or after 10 s without a ceiling) it builds the",

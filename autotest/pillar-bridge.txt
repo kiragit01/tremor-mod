@@ -1,0 +1,70 @@
+# On the player's heels along a bridge (the user: built up and going aside, the tremor should follow, widening the
+# bridge, and fill it again where the player breaks it behind them): a bridge one block wide out of the top of a
+# pillar 2x2 seven high; the tremor builds the heap up under the pillar, the player walks out along the bridge, heard
+# every three blocks, and breaks three blocks of it behind them; it widens the bridge along their trail, filling the
+# gap, and crawls after them. Copies tinted red.
+# Run: gradlew runClientAutotest -Ptremor_autotest_script=pillar-bridge.txt
+waitchunks
+cmd gamemode spectator
+cmd time set noon
+cmd tremor despawn all
+cmd tremor awaken stop
+cmd kill @e[type=!player]
+cmd tp @s 860.5 210.0 300.5
+wait 40
+waitchunks
+cmd fill 840 194 280 880 199 320 minecraft:dirt
+cmd fill 840 200 280 880 200 320 minecraft:grass_block
+cmd fill 840 201 280 880 215 320 minecraft:air
+cmd fill 860 201 300 861 207 301 minecraft:stone
+cmd fill 862 207 301 873 207 301 minecraft:stone
+cmd kill @e[type=!player]
+hud off
+tint on
+cmd tp @s 861.0 208.0 301.0 90 30
+cmd gamemode survival
+cmd effect give @s minecraft:resistance 600 2 true
+cmd effect give @s minecraft:instant_health 1 4 true
+cmd tremor spawn 866 200 301
+cmd tremor stage hunting
+cmd tremor anger 70
+wait 40
+cmd tremor voice 0
+view back
+wait 260
+screenshot 01_heap
+cmd tp @s 865.5 208.0 301.5 90 30
+wait 10
+cmd tremor voice 0
+wait 60
+cmd tp @s 868.5 208.0 301.5 90 30
+wait 10
+cmd tremor voice 0
+wait 60
+cmd tp @s 871.5 208.0 301.5 90 30
+wait 10
+cmd tremor voice 0
+wait 60
+log --- the player breaks the bridge behind them
+cmd fill 864 207 301 866 207 301 minecraft:air
+wait 10
+cmd tremor voice 0
+wait 100
+screenshot 02_walking
+wait 150
+screenshot 03_heap_up
+wait 150
+screenshot 04_widening
+wait 150
+screenshot 05_widening
+wait 150
+screenshot 06_after
+cmd tremor info
+cmd gamemode spectator
+cmd tp @s 866.5 216.0 289.5
+lookat 866.5 205.0 301.5
+wait 10
+screenshot 07_overview
+cmd tremor despawn all
+tint off
+quit
