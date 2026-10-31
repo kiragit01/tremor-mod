@@ -49,7 +49,8 @@ import tremor.network.TremorStatePayload;
  * without a drop. Again every {@value #COOLDOWN_TICKS} ticks while the player stays up there. After
  * {@value #MAX_DROPS} that missed, or once it has guarded {@value #BUILD_AFTER_TICKS} ticks with no ceiling to drop
  * from ({@code contact.buildUp}), it builds the pillar up out of the ground around, a rough heap ({@link PerchBuild},
- * once per guard); built up to the player, it goes for them. While a stalactite falls the ground at the foot is an
+ * once per guard, following the player up as they build higher); built up to the player, it goes for them. Its
+ * anger holds while it guards (no player waits it out up there), for {@value #MAX_GUARD_TICKS} ticks at most. While a stalactite falls the ground at the foot is an
  * ambush's quicksand for a moment ({@link TremorMind#setTrap}): the throw aims the player into its middle
  * ({@link Strike#aimed}); it ends {@value #LAND_TICKS} ticks after the strike, {@value #MISS_TICKS} after a miss, or at
  * once when the player comes down elsewhere. The guard ends once the player is down (or gone, or can
@@ -58,7 +59,9 @@ import tremor.network.TremorStatePayload;
  */
 final class Perch {
     /** A sound of the player older than this (ticks) finds no perch. */
-    static final int RECENT_TICKS = 600;
+    static final int RECENT_TICKS = 1200;
+    /** It gives the guard up after this long (ticks): its anger holds meanwhile, the player could not wait it out. */
+    static final int MAX_GUARD_TICKS = 2400;
     /** The player is still up there while within this (blocks, horizontally) of where it was heard... */
     static final double STAY_RADIUS = 2;
     /** ...and at most this far below it. */
@@ -160,11 +163,22 @@ final class Perch {
         this.mind = mind;
     }
 
-    /** A sound of {@code player} the entity heard at {@code at}. */
+    /**
+     * A sound of {@code player} the entity heard at {@code at}. The guarded player heard higher up the same pillar
+     * (building it up to get away): the guard, and the pillar it builds, follow them up.
+     */
     void heard(UUID player, Vec3 at, long now) {
         heardPlayer = player;
         heardAt = at;
         heardTime = now;
+        if (player.equals(prey) && at.y() > perch.y() + 0.5
+                && Math.hypot(at.x() - perch.x(), at.z() - perch.z()) <= STAY_RADIUS && perched(at)) {
+            perch = at;
+            int top = topUnder(at);
+            if (build != null && top != Integer.MIN_VALUE) {
+                build.raise(top);
+            }
+        }
     }
 
     boolean guarding() {
@@ -178,7 +192,8 @@ final class Perch {
     boolean guard(long now, Stage stage, boolean free) {
         boolean hunting = stage == Stage.HUNTING || stage == Stage.AWAKENING;
         if (prey != null) {
-            String over = !free ? "held by something else" : !hunting ? "calmed down" : preyLeft();
+            String over = !free ? "held by something else" : !hunting ? "calmed down"
+                    : now - guardSince > MAX_GUARD_TICKS ? "it gave up" : preyLeft();
             if (over != null) {
                 stop(over);
                 return false;
@@ -235,7 +250,8 @@ final class Perch {
         }
         if (build != null && build.tick(now)) {
             Tremor.LOGGER.info("Tremor #{} in {} built the pillar up ({} blocks, {})", entity.instance(),
-                    level.dimension().location(), build.placed(), build.filled() ? "up to the player" : "no more ground");
+                    level.dimension().location(), build.placed(), build.filled() ? "up to the player"
+                    : prey == null ? "the guard is over" : "no more ground");
             if (build.filled() && prey != null) {
                 climb = perch;
                 stop("built up to the player");
@@ -270,7 +286,7 @@ final class Perch {
     /**
      * Whether a sound at {@code at} comes from out of reach on a pillar: more than {@link AwakeningRules#REACH_HEIGHT}
      * over the entity and within {@code awakening.reachDistance} of it horizontally, on ground too narrow for it (the
-     * first solid voxel at most 2 under the sound is no node).
+     * first solid voxel at most 2 under the sound is a surface voxel, but no node).
      */
     private boolean perched(Vec3 at) {
         Vec3 bump = entity.crawler().position();
@@ -282,10 +298,22 @@ final class Perch {
         int x = floor(at.x()), y0 = floor(at.y()), z = floor(at.z());
         for (int y = y0; y >= y0 - 2; y--) {
             if (graph.view().isSolid(x, y, z)) {
-                return !graph.isNode(x, y, z);
+                return !graph.isNode(x, y, z) && Surface.isSurface(graph.view(), x, y, z);
             }
         }
         return false;
+    }
+
+    /** The block the feet stand on at {@code at}: the first solid one at most 2 under it; MIN_VALUE if none. */
+    private int topUnder(Vec3 at) {
+        VoxelView view = runtime.graph().view();
+        int x = floor(at.x()), y0 = floor(at.y()), z = floor(at.z());
+        for (int y = y0; y >= y0 - 2; y--) {
+            if (view.isSolid(x, y, z)) {
+                return y;
+            }
+        }
+        return Integer.MIN_VALUE;
     }
 
     private static boolean near(ServerPlayer player, Vec3 at) {
@@ -326,16 +354,16 @@ final class Perch {
         built = true;
         SurfaceGraph graph = runtime.graph();
         VoxelView view = graph.view();
-        int x = floor(perch.x()), z = floor(perch.z()), top = floor(perch.y());
-        while (top > floor(perch.y()) - 2 && !view.isSolid(x, top, z)) {
-            top--;
+        int x = floor(perch.x()), z = floor(perch.z()), top = topUnder(perch);
+        if (top == Integer.MIN_VALUE) {
+            return;
         }
         int foot = top;
         while (foot > top - MAX_PILLAR && view.isSolid(x, foot, z) && !graph.isNode(x, foot, z)
                 && Surface.isSurface(view, x, foot, z)) {
             foot--;
         }
-        if (!view.isSolid(x, top, z) || foot >= top) {
+        if (foot >= top) {
             return;
         }
         build = new PerchBuild(level, x, z, foot, top);

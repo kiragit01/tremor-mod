@@ -1,0 +1,48 @@
+# A silent player on a pillar 2x2 seven high, the tremor hunting (its anger not held): it guards from below for a
+# minute, its anger holding (the user: it calmed down and forgot them up there). Stalactites and building switched
+# off, so only the guard runs. Copies tinted red.
+# Run: gradlew runClientAutotest -Ptremor_autotest_script=pillar-guard.txt
+waitchunks
+cmd gamemode spectator
+cmd time set noon
+cmd tremor despawn all
+cmd tremor awaken stop
+cmd kill @e[type=!player]
+cmd tp @s 860.5 210.0 300.5
+wait 40
+waitchunks
+cmd fill 840 194 280 880 199 320 minecraft:dirt
+cmd fill 840 200 280 880 200 320 minecraft:grass_block
+cmd fill 840 201 280 880 215 320 minecraft:air
+cmd fill 860 201 300 861 207 301 minecraft:stone
+cmd kill @e[type=!player]
+hud off
+config behavior.contact.stalactites false
+config behavior.contact.buildUp false
+tint on
+cmd tp @s 861.0 208.0 301.0 90 50
+cmd gamemode survival
+cmd effect give @s minecraft:resistance 600 2 true
+cmd effect give @s minecraft:instant_health 1 4 true
+cmd tremor spawn 866 200 301
+cmd tremor stage hunting
+cmd tremor anger 70
+wait 40
+cmd tremor info
+cmd tremor voice -10
+wait 3
+cmd tremor info
+view back
+wait 40
+cmd tremor info
+wait 157
+cmd tremor info
+wait 400
+cmd tremor info
+wait 600
+cmd tremor info
+screenshot 01_still_guarding
+cmd gamemode spectator
+cmd tremor despawn all
+tint off
+quit

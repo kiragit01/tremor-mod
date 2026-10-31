@@ -25,7 +25,7 @@ cmd effect give @s minecraft:resistance 600 2 true
 cmd effect give @s minecraft:instant_health 1 4 true
 cmd tremor spawn 821 200 296
 cmd tremor stage hunting
-cmd tremor hold
+cmd tremor anger 70
 wait 40
 view back
 wait 10
