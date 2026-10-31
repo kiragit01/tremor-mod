@@ -53,6 +53,14 @@ cmd tp @s 866.5 232.0 282.5
 lookat 864.5 214.0 301.5
 wait 10
 screenshot 05_overview
+cmd tp @s 871.5 216.0 291.5
+lookat 861.0 212.0 301.0
+wait 10
+screenshot 06_trunk
+cmd tp @s 851.5 208.0 309.5
+lookat 861.0 210.0 301.0
+wait 10
+screenshot 07_trunk_back
 cmd tremor despawn all
 tint off
 quit
