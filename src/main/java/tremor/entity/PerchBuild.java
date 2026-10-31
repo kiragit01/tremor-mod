@@ -39,8 +39,9 @@ import tremor.world.TremorTags;
  * and rises out of the block below where it goes (a display coming up, then the block): any open cell with ground
  * under it, at random among the lowest {@value #RAGGED} + 1 layers of those, one every {@value #MIN_INTERVAL} to
  * {@value #MAX_INTERVAL} ticks. Taken from the top of the ground {@value #MIN_RING} to {@value #MAX_RING} blocks around
- * the column (at random among the {@value #SOURCE_CHOICE} nearest left), at most
- * {@value #SOURCE_HEIGHT} above or below the foot: a whole block of the skin with ground under it, never one a crater
+ * the column (at random among the {@value #SOURCE_CHOICE} nearest left), its top found from
+ * {@value #SOURCE_HEIGHT} over the foot down (a build on a heap built before takes from the ground far below): a whole
+ * block of the skin with ground under it, never one a crater
  * keeps (a block entity, {@code #tremor:protected}, unbreakable, magma, a fluid, the spawn protection, outside the
  * world border); a plant on it goes. The block keeps its state: an ore goes into the pillar, nothing is lost. The
  * displays carry the tag of devoured mobs: left by a server stopping mid-way, they do not come back.
@@ -64,13 +65,15 @@ final class PerchBuild {
     /** Blocks are taken this far around the column (Chebyshev, blocks): a free ring around the heap stays. */
     static final int MIN_RING = HEAP_RING + 2;
     static final int MAX_RING = 9;
-    /** The ground is taken at most this far above or below the foot. */
+    /** The ground is taken from its top at most this far over the foot, down to {@value #SOURCE_DEPTH} under it. */
     static final int SOURCE_HEIGHT = 3;
+    static final int SOURCE_DEPTH = 48;
     /** How far a display goes down: into the block below, not flush with its top (no flicker of two faces). */
     private static final float DOWN = -0.98f;
 
     private final ServerLevel level;
-    private final int x, z, footY, topY;
+    private final int x, z, footY;
+    private int topY;
     private final List<Move> moves = new ArrayList<>();
     /** Cells a block is on its way to. */
     private final Set<BlockPos> pending = new HashSet<>();
@@ -117,6 +120,31 @@ final class PerchBuild {
     /** Whether every cell of the core up to the top is filled: the pillar is wide enough to climb. */
     boolean filled() {
         return filled;
+    }
+
+    /**
+     * The player built the pillar higher: the core goes up to {@code top} (the block now under the feet), and a build
+     * that had filled up goes on.
+     */
+    void raise(int top) {
+        if (top <= topY) {
+            return;
+        }
+        if (plan != null) {
+            for (int y = topY + 1; y <= top; y++) {
+                for (int dz = -1; dz <= 1; dz++) {
+                    for (int dx = -1; dx <= 1; dx++) {
+                        BlockPos p = new BlockPos(x + dx, y, z + dz);
+                        plan.add(p);
+                        core.add(p);
+                    }
+                }
+            }
+        }
+        topY = top;
+        if (filled) {
+            filled = done = false;
+        }
     }
 
     /** No more blocks set off; those under way go on to their place ({@link #tick} until it is over). */
@@ -250,7 +278,7 @@ final class PerchBuild {
                 if (Math.max(Math.abs(dx), Math.abs(dz)) < MIN_RING) {
                     continue;
                 }
-                for (int y = footY + SOURCE_HEIGHT; y >= footY - SOURCE_HEIGHT; y--) {
+                for (int y = footY + SOURCE_HEIGHT; y >= footY - SOURCE_DEPTH; y--) {
                     BlockPos p = new BlockPos(x + dx, y, z + dz);
                     if (!open(level.getBlockState(p))) {
                         if (takeable(p)) {

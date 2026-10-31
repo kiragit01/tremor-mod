@@ -335,7 +335,8 @@ final class TremorMind {
             if (seeking.tick(TremorRuntime.TICK_SECONDS, TremorConfig.COMMON.awakening.seekSeconds.get())) {
                 calmDown();
             }
-        } else {
+        } else if (!perch.guarding()) {
+            // Guarding a player up a pillar the anger holds (the user: it calmed down and forgot them up there).
             meter.tick(TremorRuntime.TICK_SECONDS, secondsSinceHeard(now));
         }
         settle(before);

@@ -1,0 +1,49 @@
+# The player builds the pillar higher while the tremor builds it up (the user: it would not build on): its build
+# follows them up, to the new top, before it comes up for them. Copies tinted red.
+# Run: gradlew runClientAutotest -Ptremor_autotest_script=pillar-raise.txt
+waitchunks
+cmd gamemode spectator
+cmd time set noon
+cmd tremor despawn all
+cmd tremor awaken stop
+cmd kill @e[type=!player]
+cmd tp @s 860.5 210.0 300.5
+wait 40
+waitchunks
+cmd fill 840 194 280 880 199 320 minecraft:dirt
+cmd fill 840 200 280 880 200 320 minecraft:grass_block
+cmd fill 840 201 280 880 215 320 minecraft:air
+cmd fill 860 201 300 861 207 301 minecraft:stone
+cmd kill @e[type=!player]
+hud off
+tint on
+cmd tp @s 860.3 208.0 300.3 -45 40
+cmd gamemode survival
+cmd effect give @s minecraft:resistance 600 2 true
+cmd effect give @s minecraft:instant_health 1 4 true
+cmd tremor spawn 866 200 301
+cmd tremor stage hunting
+cmd tremor anger 70
+wait 40
+cmd tremor voice 0
+view back
+wait 260
+screenshot 01_building
+log --- the player builds four higher
+cmd fill 860 208 300 860 211 300 minecraft:stone
+cmd tp @s 860.5 212.0 300.5
+wait 10
+cmd tremor voice 0
+wait 100
+screenshot 02_building_on
+wait 400
+screenshot 03_built
+cmd tremor info
+cmd gamemode spectator
+cmd tp @s 850.5 214.0 290.5
+lookat 860.5 206.0 300.5
+wait 10
+screenshot 04_pillar
+cmd tremor despawn all
+tint off
+quit
