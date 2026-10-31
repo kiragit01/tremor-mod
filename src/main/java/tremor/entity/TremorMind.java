@@ -402,6 +402,9 @@ final class TremorMind {
         if (lurkAt != null) {
             amplitude = Math.min(amplitude, Ambush.HEIGHT); // lying in wait: low (the clients draw it wide)
         }
+        if (perch.hidden()) {
+            amplitude = 0; // under the ground while it builds up to a player out of reach
+        }
         // Giving way, it hurries off whatever its stage.
         double speed = base.maxSpeed() * TremorConfig.COMMON.speedFactor(yielding ? Stage.HUNTING : stage)
                 * (level.dimension() == net.minecraft.world.level.Level.NETHER

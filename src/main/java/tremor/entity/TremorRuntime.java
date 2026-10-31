@@ -1145,6 +1145,20 @@ public final class TremorRuntime {
         return graph.nearestNode(Vec3.voxelCenter(x, foot, z), SNAP_RADIUS);
     }
 
+    /**
+     * Moves the entity at once to the centre of {@code node}, standing, with the surface normal there: it comes up out
+     * of the ground there ({@link Perch}: its bump was down while it built). The clients see its bump, still down, go
+     * across.
+     */
+    void relocate(TremorEntity entity, long node) {
+        forget(entity);
+        int x = VoxelPos.x(node), y = VoxelPos.y(node), z = VoxelPos.z(node);
+        entity.crawler().setPosition(VoxelPos.center(node), graph.normal(x, y, z));
+        diveFrom = diveTo = SurfaceGraph.NO_NODE;
+        data.setDirty();
+        syncDue = true;
+    }
+
     /** A new instance number for something drawn as a bump of its own. */
     int newInstance() {
         return data.newInstance();

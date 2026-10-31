@@ -9,7 +9,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Random;
 import java.util.Set;
-import java.util.function.Predicate;
 
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
@@ -40,22 +39,22 @@ import tremor.world.TremorTags;
  * so the pillar becomes wide enough to climb ({@code movement.minGroundWidth} 3); a trunk around it leans a block aside
  * now and then from layer to layer, and around it a rough heap rises out to {@value #HEAP_RING} blocks, its columns of
  * random heights, lower the farther out, now and then one nearly as high as the core (the user: a neat 3x3 looked
- * static, and the first heap still too even). Each block sinks into the ground where it is taken (a block display
- * going down, the block gone) and rises out of the block below where it goes (a display coming up, then the block):
- * any open cell with ground under it, at random among the lowest {@value #RAGGED} + 1 layers of those (a cell of the
- * core first, mostly), one every {@value #MIN_INTERVAL} to {@value #MAX_INTERVAL} ticks. The player building higher
- * raises it ({@link #raise}). Going aside along a bridge out of the top, the player is followed on their heels
- * ({@link #walkTo}, the user's idea): once the core is up, the walkway along their trail is filled where broken and
- * widened a block each side, from the heap on (a block slides out of the one before it), so the entity crawls after
- * them; heard too far from where they were before, it builds anew under them ({@link #retarget}), what is built stays. Idle with nothing
- * left, it waits for more until it is {@link #finish}ed. Taken from the top of the ground {@value #SOURCE_MIN} to
- * {@value #SOURCE_MAX} blocks around the column, scattered over that disc (at random, the nearer the likelier: the
- * user saw a square pit), the next layer once the top one is taken; its top found from
- * {@value #SOURCE_HEIGHT} over the foot down (a build on a heap built before takes from the ground far below): a whole
- * block of the skin with ground under it, never one a crater
- * keeps (a block entity, {@code #tremor:protected}, unbreakable, magma, a fluid, the spawn protection, outside the
- * world border); a plant on it goes. The block keeps its state: an ore goes into the pillar, nothing is lost. The
- * displays carry the tag of devoured mobs: left by a server stopping mid-way, they do not come back.
+ * static, and the first heap still too even). Each block sinks into the ground where it is taken (a block display going
+ * down, the block gone) and rises out of the block below where it goes (a display coming up, then the block): any open
+ * cell with ground under it, at random among the lowest {@value #RAGGED} + 1 layers of those (a cell of the core first,
+ * mostly), one every {@value #MIN_INTERVAL} to {@value #MAX_INTERVAL} ticks. The player building higher raises it
+ * ({@link #raise}). Going aside along a bridge out of the top, the player is followed on their heels ({@link #walkTo},
+ * the user's idea): once the core is up, the walkway along their trail is filled where broken and widened a block each
+ * side, from the heap on (a block slides out of the one before it), so the entity crawls after them; heard too far from
+ * where they were before, it builds anew under them ({@link #retarget}), what is built stays. Idle with nothing left,
+ * it waits for more until it is {@link #finish}ed. Taken from the top of the ground {@value #SOURCE_MIN} to
+ * {@value #SOURCE_MAX} blocks around the column, scattered over that disc (at random, the nearer the likelier: the user
+ * saw a square pit), the next layer once the top one is taken; its top found from {@value #SOURCE_HEIGHT} over the foot
+ * down (a build on a heap built before takes from the ground far below): a whole block of the skin with ground under
+ * it, never one a crater keeps (a block entity, {@code #tremor:protected}, unbreakable, magma, a fluid, the spawn
+ * protection, outside the world border); a plant on it goes. The block keeps its state: an ore goes into the pillar,
+ * nothing is lost. The displays carry the tag of devoured mobs: left by a server stopping mid-way, they do not come
+ * back.
  */
 final class PerchBuild {
     /** Ticks between two blocks set off, at random. */
@@ -73,6 +72,18 @@ final class PerchBuild {
     static final double LEAN_CHANCE = 0.45;
     /** ...and at most this far from the core. */
     static final int LEAN_MAX = 2;
+    /** The heap around the trunk is at most this high, however tall the pillar (the trunk goes all the way up). */
+    static final int HEAP_MAX = 10;
+    /** One more block is set off at a time for every this many cells of the plan (a tall pillar is built faster). */
+    static final int CELLS_PER_BLOCK = 100;
+    /**
+     * Under each cell of the walkway hangs a block at this chance, one stands on it at the next (the user: harder to
+     * walk on); under and over each cell beside it at the last two.
+     */
+    static final double HANG_CHANCE = 0.4;
+    static final double OVER_CHANCE = 0.3;
+    static final double SIDE_UNDER_CHANCE = 0.3;
+    static final double SIDE_OVER_CHANCE = 0.3;
     /** A column of the plan goes down this far under the foot where the ground dips. */
     static final int DIP = 3;
     /** Heard farther than this (blocks, across) from where they were heard before, the player is built for anew. */
@@ -108,8 +119,7 @@ final class PerchBuild {
     private List<BlockPos> sources;
     /** Where the player was heard in order since they went aside ({@link #walkTo}). */
     private final List<BlockPos> trail = new ArrayList<>();
-    /** The walkway along the trail from the core's top, and its cells and those beside it, in its order. */
-    private List<BlockPos> path = List.of();
+    /** The cells of the walkway along the trail from the core's top, and those beside it, in its order. */
     private List<BlockPos> walk = List.of();
     /** Each cell of the walkway or beside it, and the cell it slides out of. */
     private final Map<BlockPos, BlockPos> sides = new HashMap<>();
@@ -137,14 +147,14 @@ final class PerchBuild {
         }
     }
 
-    /** Around column {@code x, z}, from the layer over {@code footY} (the ground the pillar stands on) to {@code topY}. */
+    /** Around column {@code x, z}, from the layer over {@code footY} (the ground under the player) to {@code topY}. */
     PerchBuild(ServerLevel level, int x, int z, int footY, int topY) {
         this.level = level;
         this.x = x;
         this.z = z;
         this.footY = footY;
         this.topY = topY;
-        this.heapHeight = topY - footY;
+        this.heapHeight = Math.min(topY - footY, HEAP_MAX);
         this.seed = BlockPos.asLong(x, footY, z);
         this.random = new Random(seed);
     }
@@ -153,30 +163,14 @@ final class PerchBuild {
         return placed;
     }
 
+    /** Whether there is nothing to build now (all of it in place, or nothing left to take) until more comes. */
+    boolean idle() {
+        return done && moves.isEmpty();
+    }
+
     /** Whether every cell of the core up to the top is filled: the pillar is wide enough to climb. */
     boolean coreFilled() {
         return plan != null && !core.isEmpty() && core.stream().noneMatch(p -> open(level.getBlockState(p)));
-    }
-
-    /** The highest cell of the plan that {@code stand} takes (built, and the entity can stand on it), or null. */
-    BlockPos highest(Predicate<BlockPos> stand) {
-        BlockPos best = null;
-        if (plan != null) {
-            for (BlockPos p : plan) {
-                if ((best == null || p.getY() > best.getY()) && stand.test(p)) {
-                    best = p;
-                }
-            }
-        }
-        return best;
-    }
-
-    /** The top of the core under where the player was, then the walkway from it to them (in its order). */
-    List<BlockPos> way() {
-        List<BlockPos> way = new ArrayList<>();
-        way.add(new BlockPos(x, topY, z));
-        way.addAll(path);
-        return way;
     }
 
     /**
@@ -209,21 +203,39 @@ final class PerchBuild {
         for (BlockPos w : way) {
             sides.putIfAbsent(w, before);
             order.add(w);
+            hang(w, w.below(), HANG_CHANCE, on, order);
+            hang(w, w.above(), OVER_CHANCE, on, order);
             for (Direction d : Direction.Plane.HORIZONTAL) {
                 BlockPos n = w.relative(d);
                 if (!on.contains(n)) {
                     sides.putIfAbsent(n, w);
                     if (w.equals(sides.get(n))) {
                         order.add(n);
+                        hang(n, n.below(), SIDE_UNDER_CHANCE, on, order);
+                        hang(n, n.above(), SIDE_OVER_CHANCE, on, order);
                     }
                 }
             }
             before = w;
         }
-        path = way;
         walk = order;
         reopen();
         return true;
+    }
+
+    /**
+     * A block at {@code cell}, coming out of {@code from}, at {@code chance} (the same for the same cell every time the
+     * walkway is laid again): the walkway raggeder, hanging under it and standing on it and its sides (never where
+     * somebody stands: {@link #fillable}).
+     */
+    private void hang(BlockPos from, BlockPos cell, double chance, Set<BlockPos> on, List<BlockPos> order) {
+        if (on.contains(cell) || new Random(cell.asLong() ^ seed).nextDouble() >= chance) {
+            return;
+        }
+        sides.putIfAbsent(cell, from);
+        if (from.equals(sides.get(cell))) {
+            order.add(cell);
+        }
     }
 
     /** The cells from {@code a} (not included) straight to {@code b}, a step across at a time, the height spread. */
@@ -273,11 +285,10 @@ final class PerchBuild {
         this.z = z;
         footY = foot;
         topY = top;
-        heapHeight = top - foot;
+        heapHeight = Math.min(top - foot, HEAP_MAX);
         seed = BlockPos.asLong(x, foot, z);
         plan = null;
         sources = null;
-        path = List.of();
         walk = List.of();
         trail.clear();
         reopen();
@@ -306,15 +317,19 @@ final class PerchBuild {
         }
         if (!done && now >= nextAt) {
             nextAt = now + MIN_INTERVAL + random.nextInt(MAX_INTERVAL - MIN_INTERVAL + 1);
-            BlockPos to = nextCell();
-            if (to == null) {
-                done = true;
-            } else if (to != WAIT) {
-                BlockPos from = nextSource();
-                if (from == null) {
+            for (int k = plan == null ? 1 : 1 + plan.size() / CELLS_PER_BLOCK; k > 0 && !done; k--) {
+                BlockPos to = nextCell();
+                if (to == null) {
                     done = true;
+                } else if (to == WAIT) {
+                    break;
                 } else {
-                    start(from, to);
+                    BlockPos from = nextSource();
+                    if (from == null) {
+                        done = true;
+                    } else {
+                        start(from, to);
+                    }
                 }
             }
         }
@@ -346,9 +361,9 @@ final class PerchBuild {
 
     /**
      * The next cell to fill: once the core is up, the first one of the walkway or beside it that is open, with the cell
-     * it comes out of in place; otherwise one of the plan: open, with ground under it (no block on its way there), at random among the
-     * lowest {@value #RAGGED} + 1 layers of those, one of the core at {@value #CORE_FIRST}. {@link #WAIT} while none is
-     * ready but blocks are on their way, null once nothing is left.
+     * it comes out of in place; otherwise one of the plan: open, with ground under it (no block on its way there), at
+     * random among the lowest {@value #RAGGED} + 1 layers of those, one of the core at {@value #CORE_FIRST}.
+     * {@link #WAIT} while none is ready but blocks are on their way, null once nothing is left.
      */
     private BlockPos nextCell() {
         if (plan == null) {
@@ -502,7 +517,7 @@ final class PerchBuild {
         return state.isAir() || state.canBeReplaced() && state.getFluidState().isEmpty();
     }
 
-    /** A whole block of the skin with open space (or a plant) over it and ground under it, that a crater would carve. */
+    /** A whole block of the skin with open space (or a plant) over it and ground under it, as a crater would carve. */
     private boolean takeable(BlockPos p) {
         if (level.isOutsideBuildHeight(p.getY()) || !level.getWorldBorder().isWithinBounds(p) || spawnProtected(p)
                 || level.getChunkSource().getChunkNow(p.getX() >> 4, p.getZ() >> 4) == null) {
@@ -519,7 +534,8 @@ final class PerchBuild {
     }
 
     private boolean spawnProtected(BlockPos p) {
-        int radius = level.dimension() == Level.OVERWORLD ? Math.max(0, level.getServer().getSpawnProtectionRadius()) : 0;
+        int radius = level.dimension() == Level.OVERWORLD
+                ? Math.max(0, level.getServer().getSpawnProtectionRadius()) : 0;
         BlockPos spawn = level.getSharedSpawnPos();
         return radius > 0 && Math.max(Math.abs(p.getX() - spawn.getX()), Math.abs(p.getZ() - spawn.getZ())) <= radius;
     }
