@@ -1,0 +1,31 @@
+# Doors are loud (the user: louder than an arrow): a player standing still opens and closes a door 14 blocks from a
+# calm tremor under a stone floor; "tremor info" must show block_open / block_close heard and the anger up.
+# Run: gradlew runClientAutotest -Ptremor_autotest_script=door-hear.txt
+waitchunks
+cmd gamemode spectator
+cmd time set noon
+cmd tremor despawn all
+cmd tremor awaken stop
+cmd kill @e[type=!player]
+cmd tp @s 860.5 210.0 300.5
+wait 40
+waitchunks
+cmd fill 840 194 280 880 200 320 minecraft:stone
+cmd fill 840 201 280 880 215 320 minecraft:air
+cmd setblock 862 201 300 minecraft:oak_door[half=lower,facing=west]
+cmd setblock 862 202 300 minecraft:oak_door[half=upper,facing=west]
+cmd kill @e[type=!player]
+cmd tp @s 860.5 201.0 300.5 -90 20
+cmd gamemode survival
+cmd tremor spawn 874 200 307
+cmd tremor stage dormant
+wait 60
+cmd tremor info
+hold use 2
+wait 30
+cmd tremor info
+hold use 2
+wait 30
+cmd tremor info
+cmd tremor despawn all
+quit

@@ -1,0 +1,57 @@
+# A player on a pillar of doors and blocks (door, block, door, block, door; the user found the tremor did not care
+# about one): standing on the top door, out of reach, the tremor must guard and build up to them as for any pillar.
+# Copies tinted red.
+# Run: gradlew runClientAutotest -Ptremor_autotest_script=pillar-doors.txt
+waitchunks
+cmd gamemode spectator
+cmd time set noon
+cmd tremor despawn all
+cmd tremor awaken stop
+cmd kill @e[type=!player]
+cmd tp @s 860.5 210.0 300.5
+wait 40
+waitchunks
+cmd fill 840 194 280 880 199 320 minecraft:dirt
+cmd fill 840 200 280 880 200 320 minecraft:grass_block
+cmd fill 840 201 280 880 215 320 minecraft:air
+cmd setblock 860 201 300 minecraft:oak_door[half=lower,facing=east]
+cmd setblock 860 202 300 minecraft:oak_door[half=upper,facing=east]
+cmd setblock 860 203 300 minecraft:stone
+cmd setblock 860 204 300 minecraft:oak_door[half=lower,facing=east]
+cmd setblock 860 205 300 minecraft:oak_door[half=upper,facing=east]
+cmd setblock 860 206 300 minecraft:stone
+cmd setblock 860 207 300 minecraft:oak_door[half=lower,facing=east]
+cmd setblock 860 208 300 minecraft:oak_door[half=upper,facing=east]
+cmd kill @e[type=!player]
+hud off
+tint on
+cmd tp @s 860.2 209.0 300.5 90 50
+cmd gamemode survival
+cmd effect give @s minecraft:resistance 600 2 true
+cmd effect give @s minecraft:instant_health 1 4 true
+cmd tremor spawn 866 200 301
+cmd tremor stage hunting
+cmd tremor anger 70
+wait 40
+cmd tremor voice 0
+view back
+wait 40
+screenshot 01_guard
+cmd tremor info
+wait 200
+screenshot 02_building
+wait 120
+screenshot 03_building
+wait 140
+screenshot 04_built
+cmd tremor info
+wait 100
+screenshot 05_after
+cmd gamemode spectator
+cmd tp @s 852.5 210.0 292.5
+lookat 860.5 203.0 300.5
+wait 10
+screenshot 06_pillar
+cmd tremor despawn all
+tint off
+quit

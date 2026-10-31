@@ -396,7 +396,7 @@ final class Perch {
         }
         SurfaceGraph graph = runtime.graph();
         int x = floor(at.x()), top = topUnder(at), z = floor(at.z());
-        if (top == Integer.MIN_VALUE || !Surface.isSurface(graph.view(), x, top, z)) {
+        if (top == Integer.MIN_VALUE || !Surface.isSurface(pillarView(), x, top, z)) {
             return false;
         }
         return !graph.isNode(x, top, z) || noPath(VoxelPos.pack(x, top, z), now);
@@ -430,10 +430,10 @@ final class Perch {
     /**
      * The top of the ground under the column of {@code at}: down what the player stands on (a pillar, as far as its
      * voxels are surface ones: under it the ground is buried) and the open air under that (a platform, a bridge);
-     * MIN_VALUE if none within {@value #MAX_PILLAR} blocks.
+     * MIN_VALUE if none within {@value #MAX_PILLAR} blocks. Doors and the like are of the pillar ({@link #pillarView}).
      */
     private int groundUnder(Vec3 at) {
-        VoxelView view = runtime.graph().view();
+        VoxelView view = pillarView();
         int x = floor(at.x()), z = floor(at.z()), y = topUnder(at);
         if (y == Integer.MIN_VALUE) {
             return y;
@@ -453,9 +453,12 @@ final class Perch {
         return player.getY() - (groundY + 1) <= AwakeningRules.REACH_HEIGHT;
     }
 
-    /** The block the feet stand on at {@code at}: the first solid one at most 2 under it; MIN_VALUE if none. */
+    /**
+     * The block the feet stand on at {@code at}: the first solid one ({@link #pillarView}) at most 2 under it;
+     * MIN_VALUE if none.
+     */
     private int topUnder(Vec3 at) {
-        VoxelView view = runtime.graph().view();
+        VoxelView view = pillarView();
         int x = floor(at.x()), y0 = floor(at.y()), z = floor(at.z());
         for (int y = y0; y >= y0 - 2; y--) {
             if (view.isSolid(x, y, z)) {
@@ -463,6 +466,40 @@ final class Perch {
             }
         }
         return Integer.MIN_VALUE;
+    }
+
+    /**
+     * The graph's view in which anything with a collision is solid too, a door, a trapdoor, a fence: a player stands on
+     * it and a pillar can be built of it, though the entity does not crawl on it (the user built one of doors and
+     * blocks; the ground was found on a block in its middle).
+     */
+    private VoxelView pillarView() {
+        VoxelView view = runtime.graph().view();
+        return new VoxelView() {
+            @Override
+            public boolean isSolid(int x, int y, int z) {
+                if (view.isSolid(x, y, z)) {
+                    return true; // unloaded voxels too: the state below is read only where it is loaded
+                }
+                BlockPos p = new BlockPos(x, y, z);
+                return !level.getBlockState(p).getCollisionShape(level, p).isEmpty();
+            }
+
+            @Override
+            public float conductivity(int x, int y, int z) {
+                return view.conductivity(x, y, z);
+            }
+
+            @Override
+            public boolean isProtected(int x, int y, int z) {
+                return view.isProtected(x, y, z);
+            }
+
+            @Override
+            public boolean isKnown(int x, int y, int z) {
+                return view.isKnown(x, y, z);
+            }
+        };
     }
 
     private static boolean near(ServerPlayer player, Vec3 at) {

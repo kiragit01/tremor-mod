@@ -14,9 +14,20 @@ class LoudnessTableTest {
     @Test
     void defaultsMatchTheSpecTable() {
         Map<String, Double> table = LoudnessTable.parse(LoudnessTable.DEFAULTS);
-        assertEquals(Map.of("minecraft:step", 3.0, "minecraft:hit_ground", 8.0, "minecraft:block_destroy", 6.0,
-                "minecraft:block_place", 4.0, "minecraft:projectile_land", 10.0, "minecraft:explode", 20.0), table);
+        assertEquals(Map.of("minecraft:step", 3.0, "minecraft:hit_ground", 8.0, "minecraft:block_destroy", 9.0,
+                "minecraft:block_place", 6.0, "minecraft:projectile_land", 10.0, "minecraft:explode", 20.0,
+                "minecraft:block_open", 14.0, "minecraft:block_close", 14.0), table);
         LoudnessTable.DEFAULTS.forEach(entry -> assertTrue(LoudnessTable.isValid(entry), entry));
+    }
+
+    @Test
+    void onlyTheOldDefaultsUntouchedAreOutdated() {
+        assertTrue(LoudnessTable.outdated(new java.util.ArrayList<>(LoudnessTable.OLD_DEFAULTS)));
+        assertFalse(LoudnessTable.outdated(LoudnessTable.DEFAULTS));
+        List<String> changed = new java.util.ArrayList<>(LoudnessTable.OLD_DEFAULTS);
+        changed.set(0, "minecraft:step=2");
+        assertFalse(LoudnessTable.outdated(changed));
+        assertFalse(LoudnessTable.outdated(List.of()));
     }
 
     @Test

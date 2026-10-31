@@ -2,6 +2,7 @@ package tremor.hearing;
 
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
+import net.minecraft.tags.BlockTags;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.vehicle.Boat;
@@ -112,14 +113,40 @@ record Contact(Vec3 point, double footing, String note, boolean rustling) {
     }
 
     /**
-     * A block event (placed, broken, hit by a projectile) at {@code pos}: that voxel, with the conductivity of
-     * {@code state} (the affected block) if given, else of the block there.
+     * A block event (placed, broken, hit by a projectile, a door opened by redstone) at {@code pos}: that voxel, with
+     * the conductivity of {@code state} (the affected block) if given, else of the block there; a door and the like
+     * pass it on to what holds them ({@link #holder}).
      */
     static Contact ofBlock(LevelVoxelView view, net.minecraft.world.phys.Vec3 pos, BlockState state) {
         BlockPos voxel = BlockPos.containing(pos);
-        double footing = state != null ? LevelVoxelView.conductivity(state)
-                : view.conductivity(voxel.getX(), voxel.getY(), voxel.getZ());
-        return new Contact(center(voxel), footing, null);
+        BlockPos holder = holder(view, voxel, state != null ? state : view.stateAt(voxel.getX(), voxel.getY(),
+                voxel.getZ()));
+        double footing = holder.equals(voxel) && state != null ? LevelVoxelView.conductivity(state)
+                : view.conductivity(holder.getX(), holder.getY(), holder.getZ());
+        return new Contact(center(holder), footing, null);
+    }
+
+    /**
+     * What a door, trapdoor, fence gate or fence at {@code pos} ({@code state}) passes a vibration on to: the first
+     * block under it that is none of these, if that has a collision shape; else, and for any other block, {@code pos}
+     * (the user stood on a pillar of doors and blocks unheard: the doors, wooden, damped their steps).
+     */
+    private static BlockPos holder(LevelVoxelView view, BlockPos pos, BlockState state) {
+        if (!hinged(state)) {
+            return pos;
+        }
+        BlockPos p = pos.below();
+        for (int i = 0; i < 2 && hinged(view.stateAt(p.getX(), p.getY(), p.getZ())); i++) {
+            p = p.below();
+        }
+        BlockState under = view.stateAt(p.getX(), p.getY(), p.getZ());
+        return under != null && !hinged(under) && !under.getCollisionShape(EmptyBlockGetter.INSTANCE, p).isEmpty()
+                ? p : pos;
+    }
+
+    private static boolean hinged(BlockState state) {
+        return state != null && (state.is(BlockTags.DOORS) || state.is(BlockTags.TRAPDOORS)
+                || state.is(BlockTags.FENCE_GATES) || state.is(BlockTags.FENCES));
     }
 
     /**
@@ -147,12 +174,13 @@ record Contact(Vec3 point, double footing, String note, boolean rustling) {
      * Contact through the block a source stands or lands on: its conductivity, except that a block of
      * {@code #tremor:rustling} (leaves) rustles, louder than stone ({@link SoundRules#footing}, note
      * {@code rustling}); the leaves it rustles in do not damp it on its way, leaves farther on still conduct as their
-     * class ({@link Vibration#foliage}).
+     * class ({@link Vibration#foliage}). A door and the like pass it on to what holds them ({@link #holder}).
      */
     private static Contact onGround(LevelVoxelView view, BlockPos ground) {
-        float conductivity = view.conductivity(ground.getX(), ground.getY(), ground.getZ());
+        BlockPos at = holder(view, ground, view.stateAt(ground.getX(), ground.getY(), ground.getZ()));
+        float conductivity = view.conductivity(at.getX(), at.getY(), at.getZ());
         boolean rustling = rustles(view, ground.getX(), ground.getY(), ground.getZ());
-        return new Contact(center(ground), SoundRules.footing(conductivity, rustling,
+        return new Contact(center(at), SoundRules.footing(conductivity, rustling,
                 TremorConfig.COMMON.rustlingFactor.get()), rustling ? "rustling" : null, rustling);
     }
 
