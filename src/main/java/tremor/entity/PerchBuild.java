@@ -34,28 +34,27 @@ import tremor.world.TremorTags;
 
 /**
  * The ground raised around a pillar the entity cannot climb (the user's design: after stalactites that missed, or
- * without a ceiling, it builds the pillar up out of the ground around): an inverted cave rather than a tower (the
- * user: the world is chaos, a neat 3x3 looks made). The 3x3 around the column the player was heard on, from the foot
- * up to the block under their feet, is filled with blocks of the ground around, its top two layers whole (it comes up
- * there, beside the player), below them with holes; a trunk around it leans aside from layer to layer, blocks and
- * short branches stick out of it, and a rough heap rises around it ({@link #plan}). Each block sinks into the ground
- * where it is taken (a block display going down, the block gone) and comes out of what it holds on to where it goes,
- * the block under it or one beside it (a display sliding out, then the block): any open cell with something to hold
- * on to, at random among the lowest {@value #RAGGED} + 1 layers of those (a cell of the core first, mostly), every
+ * without a ceiling, it builds the pillar up out of the ground around): an inverted cave rather than a tower (the user:
+ * the world is chaos, a neat 3x3 looks made). The 3x3 around the column the player was heard on, from the foot up to
+ * the block under their feet, is filled with blocks of the ground around, its top two layers whole (it comes up there,
+ * beside the player), below them with holes; a trunk around it leans aside from layer to layer, blocks and short
+ * branches stick out of it, and a rough heap rises around it ({@link #plan}). Each block sinks into the ground where it
+ * is taken (a block display going down, the block gone) and comes out of what it holds on to where it goes, the block
+ * under it or one beside it (a display sliding out, then the block): any open cell with something to hold on to, at
+ * random among the lowest {@value #RAGGED} + 1 layers of those (a cell of the core first, mostly), every
  * {@value #MIN_INTERVAL} to {@value #MAX_INTERVAL} ticks, more at a time the bigger the plan and the longer it has
- * built. The player building higher raises it
- * ({@link #raise}). Going aside along a bridge out of the top, the player is followed on their heels ({@link #walkTo},
- * the user's idea): once the core is up, the walkway along their trail is filled where broken and widened a block each
- * side, from the heap on (a block slides out of the one before it), so the entity crawls after them; heard too far from
- * where they were before, it builds anew under them ({@link #retarget}), what is built stays. Idle with nothing left,
- * it waits for more until it is {@link #finish}ed. Taken from the top of the ground {@value #SOURCE_MIN} to
- * {@value #SOURCE_MAX} blocks around the column, scattered over that disc (at random, the nearer the likelier: the user
- * saw a square pit), the next layer once the top one is taken; its top found from {@value #SOURCE_HEIGHT} over the foot
- * down (a build on a heap built before takes from the ground far below): a whole block of the skin with ground under
- * it, never one a crater keeps (a block entity, {@code #tremor:protected}, unbreakable, magma, a fluid, the spawn
- * protection, outside the world border); a plant on it goes. The block keeps its state: an ore goes into the pillar,
- * nothing is lost. The displays carry the tag of devoured mobs: left by a server stopping mid-way, they do not come
- * back.
+ * built. The player building higher raises it ({@link #raise}). Going aside along a bridge out of the top, the player
+ * is followed on their heels ({@link #walkTo}, the user's idea): once the core is up, the walkway along their trail is
+ * filled where broken and widened a block each side, from the heap on (a block slides out of the one before it), so the
+ * entity crawls after them; heard too far from where they were before, it builds anew under them ({@link #retarget}),
+ * what is built stays. Idle with nothing left, it waits for more until it is {@link #finish}ed. Taken from the top of
+ * the ground {@value #SOURCE_MIN} to {@value #SOURCE_MAX} blocks around the column, scattered over that disc (at
+ * random, the nearer the likelier: the user saw a square pit), the next layer once the top one is taken; its top found
+ * from {@value #SOURCE_HEIGHT} over the foot down (a build on a heap built before takes from the ground far below): a
+ * whole block of the skin with ground under it, never one a crater keeps (a block entity, {@code #tremor:protected},
+ * unbreakable, magma, a fluid, the spawn protection, outside the world border); a plant on it goes. The block keeps its
+ * state: an ore goes into the pillar, nothing is lost. The displays carry the tag of devoured mobs: left by a server
+ * stopping mid-way, they do not come back.
  */
 final class PerchBuild {
     /** Ticks between two blocks set off, at random. */
@@ -100,10 +99,10 @@ final class PerchBuild {
     static final int MAX_STRIDE = 16;
     /** The ground is taken at random, the nearer the likelier: the share into the nearest-first list, to this power. */
     static final double SOURCE_SKEW = 1.6;
-    /** Ticks a block sinks where it is taken... */
-    static final int SINK_TICKS = 8;
-    /** ...and rises where it goes. */
-    static final int RISE_TICKS = 8;
+    /** Ticks a block sinks where it is taken, and comes out where it goes, at first... */
+    static final int SLIDE_TICKS = 6;
+    /** ...a tick less for every {@value #SPEED_UP_TICKS} ticks it has built, down to this. */
+    static final int MIN_SLIDE_TICKS = 3;
     /** Blocks are taken this far around the column (blocks, across): a free ring around the heap stays. */
     static final double SOURCE_MIN = HEAP_RING + 1.5;
     static final double SOURCE_MAX = 14;
@@ -120,8 +119,9 @@ final class PerchBuild {
     /** The plan's seed, of the column: the same plan again after a raise, only taller. */
     private long seed;
     private final List<Move> moves = new ArrayList<>();
-    /** Cells a block is on its way to. */
+    /** Cells a block is on its way to, and those it has put a block in. */
     private final Set<BlockPos> pending = new HashSet<>();
+    private final Set<BlockPos> built = new HashSet<>();
     /** Every cell to fill, the core's and the heap's; null until the first is chosen. */
     private List<BlockPos> plan;
     private final Set<BlockPos> core = new HashSet<>();
@@ -147,15 +147,18 @@ final class PerchBuild {
         final BlockPos to;
         /** The block it comes out of where it goes: the one under it, or the walkway's beside it. */
         final BlockPos support;
+        /** Ticks it sinks, and comes out. */
+        final int slide;
         int ticks;
         boolean landed;
         Display.BlockDisplay shown;
 
-        Move(BlockState state, BlockPos from, BlockPos to, BlockPos support) {
+        Move(BlockState state, BlockPos from, BlockPos to, BlockPos support, int slide) {
             this.state = state;
             this.from = from;
             this.to = to;
             this.support = support;
+            this.slide = slide;
         }
     }
 
@@ -345,7 +348,7 @@ final class PerchBuild {
                     if (from == null) {
                         done = true;
                     } else {
-                        start(from, to);
+                        start(from, to, now);
                     }
                 }
             }
@@ -489,8 +492,10 @@ final class PerchBuild {
     }
 
     /**
-     * What a block at {@code p} holds on to, so it can be put there: the block under it, or else one beside it (it
-     * slides out of that one: holes and overhangs build); none on its way. Null if there is nothing.
+     * What a block at {@code p} holds on to, so it can be put there: the block under it, or else one beside it that it
+     * built itself (it slides out of that one: holes and overhangs build out of what is built, never out of the
+     * player's pillar; the user: a ring at their feet rose before the trunk got there); none on its way. Null if
+     * there is nothing.
      */
     private BlockPos holder(BlockPos p) {
         BlockPos below = p.below();
@@ -499,7 +504,7 @@ final class PerchBuild {
         }
         for (Direction d : Direction.Plane.HORIZONTAL) {
             BlockPos n = p.relative(d);
-            if (!pending.contains(n) && !open(level.getBlockState(n))) {
+            if (built.contains(n) && !pending.contains(n) && !open(level.getBlockState(n))) {
                 return n;
             }
         }
@@ -585,7 +590,7 @@ final class PerchBuild {
 
     // ---- a block on its way ----
 
-    private void start(BlockPos from, BlockPos to) {
+    private void start(BlockPos from, BlockPos to, long now) {
         BlockState state = level.getBlockState(from);
         if (!level.getBlockState(from.above()).isAir()) {
             level.removeBlock(from.above(), false); // a plant on it
@@ -593,7 +598,8 @@ final class PerchBuild {
         level.setBlock(from, Blocks.AIR.defaultBlockState(), Block.UPDATE_ALL);
         level.playSound(null, from, state.getSoundType().getBreakSound(), SoundSource.BLOCKS, 0.8f, 0.6f);
         BlockPos holder = sides.containsKey(to) ? sides.get(to) : holder(to);
-        Move m = new Move(state, from, to, holder != null ? holder : to.below());
+        int slide = Math.max(MIN_SLIDE_TICKS, SLIDE_TICKS - (int) ((now - startedAt) / SPEED_UP_TICKS));
+        Move m = new Move(state, from, to, holder != null ? holder : to.below(), slide);
         m.shown = display(state, from, 0, 0, 0);
         pending.add(to);
         moves.add(m);
@@ -603,26 +609,27 @@ final class PerchBuild {
     private boolean step(Move m) {
         m.ticks++;
         if (m.ticks == 1) {
-            slide(m.shown, 0, DOWN, 0, SINK_TICKS);
-        } else if (m.ticks == SINK_TICKS + 1) {
+            slide(m.shown, 0, DOWN, 0, m.slide);
+        } else if (m.ticks == m.slide + 1) {
             m.shown.discard();
             m.shown = display(m.state, m.to, -DOWN * (m.support.getX() - m.to.getX()),
                     -DOWN * (m.support.getY() - m.to.getY()), -DOWN * (m.support.getZ() - m.to.getZ()));
-        } else if (m.ticks == SINK_TICKS + 2) {
-            slide(m.shown, 0, 0, 0, RISE_TICKS);
+        } else if (m.ticks == m.slide + 2) {
+            slide(m.shown, 0, 0, 0, m.slide);
             level.playSound(null, m.to, m.state.getSoundType().getPlaceSound(), SoundSource.BLOCKS, 0.8f, 0.7f);
-        } else if (m.ticks == SINK_TICKS + RISE_TICKS + 2) {
+        } else if (m.ticks == 2 * m.slide + 2) {
             m.landed = true;
             pending.remove(m.to);
             if (fillable(m.to)) {
                 level.setBlock(m.to, m.state, Block.UPDATE_ALL);
+                built.add(m.to);
                 placed++;
             } else if (level.getBlockState(m.from).isAir()) {
                 level.setBlock(m.from, m.state, Block.UPDATE_ALL); // somebody stands there: it goes back
             }
             level.sendParticles(new BlockParticleOption(ParticleTypes.BLOCK, m.state), m.to.getX() + 0.5,
                     m.to.getY() + 0.1, m.to.getZ() + 0.5, 8, 0.4, 0.05, 0.4, 0);
-        } else if (m.ticks > SINK_TICKS + RISE_TICKS + 2) {
+        } else if (m.ticks > 2 * m.slide + 2) {
             m.shown.discard();
             m.shown = null;
             return true;
