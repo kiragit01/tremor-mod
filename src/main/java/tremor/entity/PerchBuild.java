@@ -34,15 +34,16 @@ import tremor.world.TremorTags;
 
 /**
  * The ground raised around a pillar the entity cannot climb (the user's design: after stalactites that missed, or
- * without a ceiling, it builds the pillar up out of the ground around): every open cell of the 3x3 around the column
- * the player was heard on, from the foot up to the block under the feet, is filled with a block of the ground around,
- * so the pillar becomes wide enough to climb ({@code movement.minGroundWidth} 3); a trunk around it leans a block aside
- * now and then from layer to layer, and around it a rough heap rises out to {@value #HEAP_RING} blocks, its columns of
- * random heights, lower the farther out, now and then one nearly as high as the core (the user: a neat 3x3 looked
- * static, and the first heap still too even). Each block sinks into the ground where it is taken (a block display going
- * down, the block gone) and rises out of the block below where it goes (a display coming up, then the block): any open
- * cell with ground under it, at random among the lowest {@value #RAGGED} + 1 layers of those (a cell of the core first,
- * mostly), one every {@value #MIN_INTERVAL} to {@value #MAX_INTERVAL} ticks. The player building higher raises it
+ * without a ceiling, it builds the pillar up out of the ground around): an inverted cave rather than a tower (the
+ * user: the world is chaos, a neat 3x3 looks made). The 3x3 around the column the player was heard on, from the foot
+ * up to the block under their feet, is filled with blocks of the ground around, its top two layers whole (it comes up
+ * there, beside the player), below them with holes; a trunk around it leans aside from layer to layer, blocks and
+ * short branches stick out of it, and a rough heap rises around it ({@link #plan}). Each block sinks into the ground
+ * where it is taken (a block display going down, the block gone) and comes out of what it holds on to where it goes,
+ * the block under it or one beside it (a display sliding out, then the block): any open cell with something to hold
+ * on to, at random among the lowest {@value #RAGGED} + 1 layers of those (a cell of the core first, mostly), every
+ * {@value #MIN_INTERVAL} to {@value #MAX_INTERVAL} ticks, more at a time the bigger the plan and the longer it has
+ * built. The player building higher raises it
  * ({@link #raise}). Going aside along a bridge out of the top, the player is followed on their heels ({@link #walkTo},
  * the user's idea): once the core is up, the walkway along their trail is filled where broken and widened a block each
  * side, from the heap on (a block slides out of the one before it), so the entity crawls after them; heard too far from
@@ -59,7 +60,7 @@ import tremor.world.TremorTags;
 final class PerchBuild {
     /** Ticks between two blocks set off, at random. */
     static final int MIN_INTERVAL = 1;
-    static final int MAX_INTERVAL = 4;
+    static final int MAX_INTERVAL = 3;
     /** The next cell is any of those this many layers over the lowest one ready... */
     static final int RAGGED = 2;
     /** ...a cell of the core at this chance, if one is ready. */
@@ -72,10 +73,19 @@ final class PerchBuild {
     static final double LEAN_CHANCE = 0.45;
     /** ...and at most this far from the core. */
     static final int LEAN_MAX = 2;
-    /** The heap around the trunk is at most this high, however tall the pillar (the trunk goes all the way up). */
-    static final int HEAP_MAX = 10;
-    /** One more block is set off at a time for every this many cells of the plan (a tall pillar is built faster). */
-    static final int CELLS_PER_BLOCK = 100;
+    /** The heap around the trunk rises to this share of the pillar's height (its columns, at random, lower out). */
+    static final double HEAP_SHARE = 0.6;
+    /** A cell of the trunk below its top two layers is left open at this chance (the user: holes, an inverted cave). */
+    static final double HOLE_CHANCE = 0.12;
+    /** Out of each layer of the trunk a block sticks out at this chance, going on a block farther at the next. */
+    static final double STICK_CHANCE = 0.55;
+    static final double BRANCH_CHANCE = 0.35;
+    /** One more block is set off at a time for every this many cells of the plan (a tall pillar is built faster)... */
+    static final int CELLS_PER_BLOCK = 80;
+    /** ...and for every this many ticks it has built (the higher the player goes, the faster it builds)... */
+    static final int SPEED_UP_TICKS = 200;
+    /** ...up to this many at a time. */
+    static final int MAX_AT_ONCE = 8;
     /**
      * Under each cell of the walkway hangs a block at this chance, one stands on it at the next (the user: harder to
      * walk on); under and over each cell beside it at the last two.
@@ -124,6 +134,8 @@ final class PerchBuild {
     /** Each cell of the walkway or beside it, and the cell it slides out of. */
     private final Map<BlockPos, BlockPos> sides = new HashMap<>();
     private long nextAt;
+    /** Game time it set its first block off at. */
+    private long startedAt = Long.MIN_VALUE;
     /** No more blocks set off: filled up, nothing left to take, or {@link #finish}ed ({@link #stopped}). */
     private boolean done;
     private boolean stopped;
@@ -154,7 +166,7 @@ final class PerchBuild {
         this.z = z;
         this.footY = footY;
         this.topY = topY;
-        this.heapHeight = Math.min(topY - footY, HEAP_MAX);
+        this.heapHeight = (int) Math.round((topY - footY) * HEAP_SHARE);
         this.seed = BlockPos.asLong(x, footY, z);
         this.random = new Random(seed);
     }
@@ -285,7 +297,7 @@ final class PerchBuild {
         this.z = z;
         footY = foot;
         topY = top;
-        heapHeight = Math.min(top - foot, HEAP_MAX);
+        heapHeight = (int) Math.round((top - foot) * HEAP_SHARE);
         seed = BlockPos.asLong(x, foot, z);
         plan = null;
         sources = null;
@@ -317,7 +329,12 @@ final class PerchBuild {
         }
         if (!done && now >= nextAt) {
             nextAt = now + MIN_INTERVAL + random.nextInt(MAX_INTERVAL - MIN_INTERVAL + 1);
-            for (int k = plan == null ? 1 : 1 + plan.size() / CELLS_PER_BLOCK; k > 0 && !done; k--) {
+            if (startedAt == Long.MIN_VALUE) {
+                startedAt = now;
+            }
+            int atOnce = Math.min(MAX_AT_ONCE, 1 + (plan == null ? 0 : plan.size() / CELLS_PER_BLOCK)
+                    + (int) ((now - startedAt) / SPEED_UP_TICKS));
+            for (int k = atOnce; k > 0 && !done; k--) {
                 BlockPos to = nextCell();
                 if (to == null) {
                     done = true;
@@ -361,7 +378,7 @@ final class PerchBuild {
 
     /**
      * The next cell to fill: once the core is up, the first one of the walkway or beside it that is open, with the cell
-     * it comes out of in place; otherwise one of the plan: open, with ground under it (no block on its way there), at
+     * it comes out of in place; otherwise one of the plan: open, with something to hold on to ({@link #holder}), at
      * random among the lowest {@value #RAGGED} + 1 layers of those, one of the core at {@value #CORE_FIRST}.
      * {@link #WAIT} while none is ready but blocks are on their way, null once nothing is left.
      */
@@ -381,8 +398,7 @@ final class PerchBuild {
         List<BlockPos> ready = new ArrayList<>();
         int lowest = Integer.MAX_VALUE;
         for (BlockPos p : plan) {
-            if (!pending.contains(p) && !pending.contains(p.below()) && !open(level.getBlockState(p.below()))
-                    && fillable(p)) {
+            if (!pending.contains(p) && fillable(p) && holder(p) != null) {
                 ready.add(p);
                 lowest = Math.min(lowest, p.getY());
             }
@@ -402,29 +418,39 @@ final class PerchBuild {
     }
 
     /**
-     * The cells to fill, from the column's seed: the heap (columns of random heights out to {@value #HEAP_RING},
-     * lower the farther out, at {@value #SPIKE_CHANCE} one next to the trunk nearly as high as the core), the trunk
-     * (a 3x3 a layer, a block aside from the one below at {@value #LEAN_CHANCE}, at most {@value #LEAN_MAX} from the
-     * core), and
-     * the core, 3x3 right under the player up to the top. Every column from the ground up: where the ground dips
-     * under the foot, from as far as {@value #DIP} down.
+     * The cells to fill, from the column's seed (the same plan again after a raise, only taller): the heap (columns of
+     * random heights out to {@value #HEAP_RING}, up to {@value #HEAP_SHARE} of the pillar's height, lower the farther
+     * out, at {@value #SPIKE_CHANCE} one next to the trunk nearly as high), from the ground up (where it dips under the
+     * foot, from as far as {@value #DIP} down); and the trunk, a layer at a time: a 3x3 a block aside from the one
+     * below at {@value #LEAN_CHANCE} (at most {@value #LEAN_MAX} from the core), with the core, the 3x3 right under the
+     * player, in every layer; below the top two layers a cell of it left open at {@value #HOLE_CHANCE}, and a block
+     * sticking out of its side at {@value #STICK_CHANCE}, a block farther at {@value #BRANCH_CHANCE}: an inverted cave
+     * rather than a tower (the user).
      */
     private void plan() {
         Random r = new Random(seed);
         int height = topY - footY;
-        Map<Long, Integer> tops = new HashMap<>();
+        Set<BlockPos> cells = new HashSet<>();
         for (int dz = -HEAP_RING; dz <= HEAP_RING; dz++) {
             for (int dx = -HEAP_RING; dx <= HEAP_RING; dx++) {
                 double spike = r.nextDouble(), share = r.nextDouble();
                 int ring = Math.max(Math.abs(dx), Math.abs(dz));
                 if (ring > 1) {
                     double most = heapHeight * (1 - (ring - 1) / (double) HEAP_RING);
-                    int h = ring == 2 && spike < SPIKE_CHANCE ? heapHeight - 1 - (int) (share * 2)
-                            : (int) Math.floor(share * (most + 1));
-                    tops.merge(column(x + dx, z + dz), Math.min(h, height), Math::max);
+                    int h = Math.min(height, ring == 2 && spike < SPIKE_CHANCE ? heapHeight - 1 - (int) (share * 2)
+                            : (int) Math.floor(share * (most + 1)));
+                    int base = footY + 1;
+                    while (base > footY + 1 - DIP
+                            && open(level.getBlockState(new BlockPos(x + dx, base - 1, z + dz)))) {
+                        base--;
+                    }
+                    for (int y = base; y <= footY + h; y++) {
+                        cells.add(new BlockPos(x + dx, y, z + dz));
+                    }
                 }
             }
         }
+        core.clear();
         int ox = 0, oz = 0;
         for (int h = 1; h <= height; h++) {
             double lean = r.nextDouble();
@@ -433,34 +459,51 @@ final class PerchBuild {
                 ox = Math.max(-LEAN_MAX, Math.min(LEAN_MAX, ox + (way == 0 ? 1 : way == 1 ? -1 : 0)));
                 oz = Math.max(-LEAN_MAX, Math.min(LEAN_MAX, oz + (way == 2 ? 1 : way == 3 ? -1 : 0)));
             }
+            boolean solid = h >= height - 1; // the top two layers whole: it comes up there, beside the player
+            int y = footY + h;
             for (int dz = -1; dz <= 1; dz++) {
                 for (int dx = -1; dx <= 1; dx++) {
-                    tops.merge(column(x + ox + dx, z + oz + dz), h, Math::max);
-                    tops.merge(column(x + dx, z + dz), height, Math::max);
+                    double hole = r.nextDouble(), leanHole = r.nextDouble();
+                    if (solid || hole >= HOLE_CHANCE) {
+                        BlockPos p = new BlockPos(x + dx, y, z + dz);
+                        cells.add(p);
+                        core.add(p);
+                    }
+                    if (solid || leanHole >= HOLE_CHANCE) {
+                        cells.add(new BlockPos(x + ox + dx, y, z + oz + dz));
+                    }
+                }
+            }
+            double stick = r.nextDouble(), branch = r.nextDouble();
+            int side = r.nextInt(4), along = r.nextInt(3) - 1;
+            if (stick < STICK_CHANCE) {
+                int sx = side == 0 ? 2 : side == 1 ? -2 : along, sz = side == 2 ? 2 : side == 3 ? -2 : along;
+                cells.add(new BlockPos(x + ox + sx, y, z + oz + sz));
+                if (branch < BRANCH_CHANCE) {
+                    cells.add(new BlockPos(x + ox + sx + Integer.signum(sx) * (Math.abs(sx) == 2 ? 1 : 0), y,
+                            z + oz + sz + Integer.signum(sz) * (Math.abs(sz) == 2 ? 1 : 0)));
                 }
             }
         }
-        plan = new ArrayList<>();
-        core.clear();
-        for (Map.Entry<Long, Integer> e : tops.entrySet()) {
-            int cx = (int) (e.getKey() >> 32), cz = (int) (long) e.getKey();
-            boolean inCore = Math.abs(cx - x) <= 1 && Math.abs(cz - z) <= 1;
-            int base = footY + 1;
-            while (base > footY + 1 - DIP && open(level.getBlockState(new BlockPos(cx, base - 1, cz)))) {
-                base--;
-            }
-            for (int y = base; y <= footY + e.getValue(); y++) {
-                BlockPos p = new BlockPos(cx, y, cz);
-                plan.add(p);
-                if (inCore) {
-                    core.add(p);
-                }
-            }
-        }
+        plan = new ArrayList<>(cells);
     }
 
-    private static long column(int x, int z) {
-        return (long) x << 32 | z & 0xFFFFFFFFL;
+    /**
+     * What a block at {@code p} holds on to, so it can be put there: the block under it, or else one beside it (it
+     * slides out of that one: holes and overhangs build); none on its way. Null if there is nothing.
+     */
+    private BlockPos holder(BlockPos p) {
+        BlockPos below = p.below();
+        if (!pending.contains(below) && !open(level.getBlockState(below))) {
+            return below;
+        }
+        for (Direction d : Direction.Plane.HORIZONTAL) {
+            BlockPos n = p.relative(d);
+            if (!pending.contains(n) && !open(level.getBlockState(n))) {
+                return n;
+            }
+        }
+        return null;
     }
 
     private boolean fillable(BlockPos p) {
@@ -549,7 +592,8 @@ final class PerchBuild {
         }
         level.setBlock(from, Blocks.AIR.defaultBlockState(), Block.UPDATE_ALL);
         level.playSound(null, from, state.getSoundType().getBreakSound(), SoundSource.BLOCKS, 0.8f, 0.6f);
-        Move m = new Move(state, from, to, sides.getOrDefault(to, to.below()));
+        BlockPos holder = sides.containsKey(to) ? sides.get(to) : holder(to);
+        Move m = new Move(state, from, to, holder != null ? holder : to.below());
         m.shown = display(state, from, 0, 0, 0);
         pending.add(to);
         moves.add(m);
