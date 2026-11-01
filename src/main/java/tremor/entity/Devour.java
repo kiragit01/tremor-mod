@@ -28,7 +28,8 @@ import java.util.WeakHashMap;
  * Animals and monsters the bump touches are pulled under and gone (the user's wish after the first play: the entity
  * hunts other creatures too and swallows them whole, without a crater): a taken mob stops (no AI, no physics, no
  * damage), sinks into the ground over {@link #SINK_TICKS} with the dust of the ground it sinks through and a crack,
- * and is removed without drops or experience. Bosses ({@code #c:bosses}), {@code #tremor:undevourable} and mobs a
+ * and dies, swallowed by the ground (the damage of the ground's pull), without drops or experience: its death counts
+ * (a player: MCA villagers just vanished and could not be brought back; a pet's owner is told). Bosses ({@code #c:bosses}), {@code #tremor:undevourable} and mobs a
  * player rides are never taken. Kept per level in memory: a mob half under when the level is saved simply stays
  * where it was (it is not saved as taken). Server thread only; ticked by {@link #onLevelTick}, registered by
  * {@link Tremor}.
@@ -48,7 +49,43 @@ public final class Devour {
     /** On a mob being pulled under, or a display of a block on its way ({@link PerchBuild}): it does not come back. */
     static final String TAG = "tremor_devoured";
 
+    /** The damage type of the ground's pull ({@code data/tremor/damage_type/swallowed.json}). */
+    private static final net.minecraft.resources.ResourceKey<net.minecraft.world.damagesource.DamageType> SWALLOWED =
+            net.minecraft.resources.ResourceKey.create(Registries.DAMAGE_TYPE,
+                    new ResourceLocation(Tremor.MODID, "swallowed"));
+
+    /** The mob being killed right now ({@link #swallow}): its drops are cancelled. */
+    private static Mob dying;
+
     private Devour() {
+    }
+
+    /**
+     * {@code mob}, under the ground, dies swallowed by it: let go of first (the tag off, or a mod bringing it back would
+     * have it cancelled as it joins), no experience, its drops cancelled ({@link #onDrops}); one that will not die (a
+     * modded mob immune to it) is removed.
+     */
+    private static void swallow(ServerLevel level, Mob mob) {
+        mob.removeTag(TAG);
+        mob.setInvulnerable(false);
+        mob.skipDropExperience();
+        dying = mob;
+        try {
+            mob.hurt(new net.minecraft.world.damagesource.DamageSource(level.registryAccess()
+                    .registryOrThrow(Registries.DAMAGE_TYPE).getHolderOrThrow(SWALLOWED)), Float.MAX_VALUE);
+        } finally {
+            dying = null;
+        }
+        if (mob.isAlive()) {
+            mob.discard();
+        }
+    }
+
+    /** A mob swallowed by the ground ({@link #swallow}) drops nothing. Registered by {@link Tremor}. */
+    public static void onDrops(net.minecraftforge.event.entity.living.LivingDropsEvent event) {
+        if (event.getEntity() == dying) {
+            event.setCanceled(true);
+        }
     }
 
     /** Whether the bump may take {@code mob}: alive, not taken yet, no boss, not undevourable, ridden by no player. */
@@ -140,8 +177,8 @@ public final class Devour {
                         mob.getY() + height, mob.getZ(), 6, mob.getBbWidth() / 2, 0.1, mob.getBbWidth() / 2, 0.05);
             }
             if (ticks >= SINK_TICKS) {
-                mob.discard();
                 it.remove();
+                swallow(level, mob);
             } else {
                 entry.setValue(ticks);
             }

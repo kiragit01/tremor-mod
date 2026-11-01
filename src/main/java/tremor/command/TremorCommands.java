@@ -105,6 +105,9 @@ public final class TremorCommands {
                 .then(Commands.literal("spawn")
                         .executes(ctx -> spawn(ctx, null))
                         .then(Commands.literal("natural").executes(TremorCommands::spawnNatural))
+                        .then(Commands.literal("near").then(Commands.argument("player",
+                                net.minecraft.commands.arguments.EntityArgument.player())
+                                .executes(TremorCommands::spawnNear)))
                         .then(Commands.argument("pos", BlockPosArgument.blockPos())
                                 .executes(ctx -> spawn(ctx, BlockPosArgument.getBlockPos(ctx, "pos")))))
                 .then(Commands.literal("despawn").executes(ctx -> despawn(ctx, false))
@@ -409,6 +412,27 @@ public final class TremorCommands {
             return 0;
         }
         answer(source, () -> Component.literal(outcome.message()));
+        return outcome.entity().instance();
+    }
+
+    /**
+     * {@code /tremor spawn near <player>}: a natural spawn point around that player as {@code /tremor spawn natural}
+     * finds one for them, and the entity ALERT and coming for them (a player raising the tension for friends away
+     * from them; one that never heard them would be dull, the user).
+     */
+    private static int spawnNear(CommandContext<CommandSourceStack> ctx) throws CommandSyntaxException {
+        CommandSourceStack source = ctx.getSource();
+        ServerPlayer target = net.minecraft.commands.arguments.EntityArgument.getPlayer(ctx, "player");
+        NaturalSpawner.Outcome outcome = NaturalSpawner.spawnNow(target);
+        TremorRuntime runtime = outcome.entity() == null ? null
+                : TremorManager.byInstance(target.serverLevel(), outcome.entity().instance());
+        if (runtime == null) {
+            source.sendFailure(Component.literal(outcome.message()));
+            return 0;
+        }
+        runtime.comeFor(target);
+        answer(source, () -> Component.literal(outcome.message() + "; alert, coming for "
+                + target.getGameProfile().getName()));
         return outcome.entity().instance();
     }
 
