@@ -1,0 +1,45 @@
+# While the hill swallows a player (rooted), they look around freely: the camera is not pulled back to yaw 0, pitch 0
+# whenever the root puts them back in place (the user: it snapped to a base position as they were pulled in). The
+# server's rotation of the player is printed while they turn.
+# Run: gradlew runClientAutotest -Ptremor_autotest_script=root-look.txt
+waitchunks
+cmd gamemode spectator
+cmd time set noon
+cmd tremor despawn all
+cmd tremor awaken stop
+cmd kill @e[type=!player]
+cmd tp @s 860.5 201.0 300.5
+wait 40
+waitchunks
+cmd fill 840 194 280 880 199 320 minecraft:dirt
+cmd fill 840 200 280 880 200 320 minecraft:grass_block
+cmd fill 840 201 280 880 215 320 minecraft:air
+cmd tp @s 860.5 201.0 300.5 90 30
+cmd gamemode survival
+cmd effect give @s minecraft:instant_health 1 4 true
+config awakening.buildupSeconds 4
+cmd tremor spawn 860 200 310
+wait 20
+cmd tremor awaken
+look 90 30
+wait 50
+cmd data get entity @s Rotation
+wait 15
+cmd data get entity @s Rotation
+wait 15
+cmd data get entity @s Rotation
+wait 15
+cmd data get entity @s Rotation
+look 140 -20
+wait 10
+cmd data get entity @s Rotation
+look 200 45
+wait 10
+cmd data get entity @s Rotation
+wait 10
+cmd data get entity @s Rotation
+wait 100
+cmd tremor hollow leave
+cmd tremor awaken stop
+cmd tremor despawn all
+quit

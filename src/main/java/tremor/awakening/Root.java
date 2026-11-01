@@ -92,7 +92,8 @@ final class Root {
         sync(player);
         hold(player);
         if (held == player) {
-            player.connection.teleport(anchor.x, anchor.y, anchor.z, 0, 0, RelativeMovement.ROTATION);
+            player.connection.teleport(anchor.x, anchor.y, anchor.z, player.getYRot(), player.getXRot(),
+                    RelativeMovement.ROTATION);
         }
     }
 
@@ -138,8 +139,10 @@ final class Root {
         if (AwakeningRules.strayed(vec(anchor), vec(at), TOLERANCE, drop)) {
             double y = drop ? Math.min(at.y, anchor.y) : anchor.y;
             if (what == player) {
-                // Rotation relative with no change: the player keeps looking around.
-                player.connection.teleport(anchor.x, y, anchor.z, 0, 0, RelativeMovement.ROTATION);
+                // The rotation given is the target, sent relative to the current one: unchanged, the player keeps
+                // looking around (0, 0 snapped the camera to the south and the horizon, the user).
+                player.connection.teleport(anchor.x, y, anchor.z, player.getYRot(), player.getXRot(),
+                        RelativeMovement.ROTATION);
             } else {
                 what.setDeltaMovement(Vec3.ZERO);
                 what.teleportTo(anchor.x, y, anchor.z);
