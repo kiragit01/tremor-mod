@@ -81,6 +81,11 @@ final class PerchBuild {
     static final double HOLE_CHANCE = 0.12;
     /** ...and a cell of the ring around it filled at this one, a lumpy shell hiding the core (the 3x3 showed). */
     static final double SHELL_CHANCE = 0.45;
+    /**
+     * ...and each cell around the core at this one ({@link #coreShell}): where the trunk leans away, a flat side of the
+     * core showed on pillars 64+ high (the user).
+     */
+    static final double CORE_SHELL_CHANCE = 0.35;
     /** Out of each layer of the trunk a block sticks out at this chance, going on a block farther at the next. */
     static final double STICK_CHANCE = 0.55;
     static final double BRANCH_CHANCE = 0.35;
@@ -255,7 +260,7 @@ final class PerchBuild {
      * somebody stands: {@link #fillable}).
      */
     private void hang(BlockPos from, BlockPos cell, double chance, Set<BlockPos> on, List<BlockPos> order) {
-        if (on.contains(cell) || new Random(cell.asLong() ^ seed).nextDouble() >= chance) {
+        if (on.contains(cell) || draw(cell) >= chance) {
             return;
         }
         sides.putIfAbsent(cell, from);
@@ -437,9 +442,10 @@ final class PerchBuild {
      * out, at {@value #SPIKE_CHANCE} one next to the trunk nearly as high), from the ground up (where it dips under the
      * foot, from as far as {@value #DIP} down); and the trunk, a layer at a time: a 3x3 a block aside from the one
      * below at {@value #LEAN_CHANCE} (at most {@value #LEAN_MAX} from the core), with the core, the 3x3 right under the
-     * player, whole in every layer (from the ground: a dip under it filled); below the top two layers a cell of the
-     * leaning 3x3 left open at {@value #HOLE_CHANCE}, a lumpy shell around it (each cell of the ring at
-     * {@value #SHELL_CHANCE}), and a block sticking out of its side at {@value #STICK_CHANCE}, a block farther at
+     * player, whole in every layer (from the ground: a dip under it filled), around all of their pillar
+     * ({@link #wrap}); below the top two layers a cell of the leaning 3x3 left open at {@value #HOLE_CHANCE}, a lumpy
+     * shell around it (each cell of the ring at {@value #SHELL_CHANCE}) and around the core (at
+     * {@value #CORE_SHELL_CHANCE}), and a block sticking out of its side at {@value #STICK_CHANCE}, a block farther at
      * {@value #BRANCH_CHANCE}: an inverted cave rather than a tower (the user).
      */
     private void plan() {
@@ -492,6 +498,10 @@ final class PerchBuild {
                     }
                 }
             }
+            wrap(y, cells);
+            if (!solid) {
+                coreShell(y, cells);
+            }
             for (int dz = -2; dz <= 2; dz++) {
                 for (int dx = -2; dx <= 2; dx++) {
                     if (Math.max(Math.abs(dx), Math.abs(dz)) == 2 && r.nextDouble() < SHELL_CHANCE && !solid) {
@@ -511,6 +521,62 @@ final class PerchBuild {
             }
         }
         plan = new ArrayList<>(cells);
+    }
+
+    /**
+     * The core wraps the player's pillar too: around each block of it in the 3x3 of the layer at {@code y} (not one
+     * it built), the cells beside it (a pillar 2x2 showed through the shell, the user).
+     */
+    private void wrap(int y, Set<BlockPos> cells) {
+        for (int dz = -1; dz <= 1; dz++) {
+            for (int dx = -1; dx <= 1; dx++) {
+                BlockPos p = new BlockPos(x + dx, y, z + dz);
+                if (open(level.getBlockState(p)) || built.contains(p)) {
+                    continue;
+                }
+                for (int ez = -1; ez <= 1; ez++) {
+                    for (int ex = -1; ex <= 1; ex++) {
+                        BlockPos n = p.offset(ex, 0, ez);
+                        cells.add(n);
+                        core.add(n);
+                    }
+                }
+            }
+        }
+    }
+
+    /**
+     * A number in [0, 1) drawn from {@code cell} and the column's seed: the same every time, unrelated cell to cell
+     * (a {@code Random} seeded so gave cells one over the other the same: the shell came in stripes all the way up).
+     */
+    private double draw(BlockPos cell) {
+        long h = cell.asLong() ^ seed;
+        h = (h ^ (h >>> 33)) * 0xFF51AFD7ED558CCDL;
+        h = (h ^ (h >>> 33)) * 0xC4CEB9FE1A85EC53L;
+        return ((h ^ (h >>> 33)) >>> 11) * 0x1.0p-53;
+    }
+
+    /**
+     * A lumpy shell around the core's outline in the layer at {@code y}: each cell beside it at
+     * {@value #CORE_SHELL_CHANCE}, drawn from the cell (whatever the outline, the same cells on a raise).
+     */
+    private void coreShell(int y, Set<BlockPos> cells) {
+        List<BlockPos> outline = new ArrayList<>();
+        for (BlockPos c : core) {
+            if (c.getY() == y) {
+                outline.add(c);
+            }
+        }
+        for (BlockPos c : outline) {
+            for (int ez = -1; ez <= 1; ez++) {
+                for (int ex = -1; ex <= 1; ex++) {
+                    BlockPos n = c.offset(ex, 0, ez);
+                    if (!core.contains(n) && draw(n) < CORE_SHELL_CHANCE) {
+                        cells.add(n);
+                    }
+                }
+            }
+        }
     }
 
     /**
@@ -587,6 +653,14 @@ final class PerchBuild {
         return found;
     }
 
+    /**
+     * A whole block, to stand on or to look at: mud and soul sand count, a little lower to stand on (the user: in a
+     * mangrove swamp none was taken).
+     */
+    private boolean whole(BlockState state, BlockPos p) {
+        return state.isCollisionShapeFullBlock(level, p) || state.isSolidRender(level, p);
+    }
+
     private static boolean open(BlockState state) {
         return state.isAir() || state.canBeReplaced() && state.getFluidState().isEmpty();
     }
@@ -603,11 +677,11 @@ final class PerchBuild {
         BlockState state = level.getBlockState(p);
         if (state.hasBlockEntity() || state.is(TremorTags.PROTECTED) || state.getDestroySpeed(level, p) < 0
                 || state.is(Blocks.MAGMA_BLOCK) || state.is(BlockTags.LEAVES) || !state.getFluidState().isEmpty()
-                || packed(state) == null || !state.isCollisionShapeFullBlock(level, p)) {
+                || packed(state) == null || !whole(state, p)) {
             return false;
         }
         if (!open(level.getBlockState(p.above()))
-                || !level.getBlockState(p.below()).isCollisionShapeFullBlock(level, p.below())) {
+                || !whole(level.getBlockState(p.below()), p.below())) {
             return false;
         }
         for (Direction d : Direction.Plane.HORIZONTAL) {
