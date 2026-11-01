@@ -115,6 +115,10 @@ final class TremorMind {
             ResourceLocation.fromNamespaceAndPath(Tremor.MODID, "tremor"));
     /** The nearest player within this distance is the one wandering shows the bump to (SPEC 5.6). */
     static final double VIEWER_RANGE = 128;
+    /** {@link #comeFor}: it senses the player until this near (blocks)... */
+    static final double COME_NEAR = 12;
+    /** ...or for at most this long (ticks). */
+    static final long COME_TICKS = 1200;
     /** How far up and down from the entity a wander target is looked for in its column. */
     static final int WANDER_VERTICAL_RANGE = 8;
     /**
@@ -179,6 +183,10 @@ final class TremorMind {
     private Brain brain;
     /** A vibration was heard since the last tick (eventful for the despawn clock). */
     private boolean heardSinceTick;
+    /** {@link #comeFor}: the player it comes for (null if none), the anger it keeps, until when. */
+    private UUID comingFor;
+    private double comeAnger;
+    private long comeUntil;
     private int leavingTicks;
     /** {@link #alone}: what it found, and when it looked. */
     private boolean alone;
@@ -244,6 +252,36 @@ final class TremorMind {
     /** {@code player} made a sound at {@code at} that the entity heard. */
     void heardPlayer(UUID player, Vec3 at, long now) {
         perch.heard(player, at, now);
+    }
+
+    /**
+     * {@code /tremor spawn near}: it comes for {@code player}, sensing where they are every second (kept at least
+     * ALERT, {@code alert}) until it is within {@value #COME_NEAR} blocks of them, or {@value #COME_TICKS} ticks have
+     * passed; then it hears them as ever (still, they gave it nothing to go on: it lost interest half way, the user).
+     */
+    void comeFor(UUID player, Vec3 at, double alert, long now) {
+        comingFor = player;
+        comeAnger = alert;
+        comeUntil = now + COME_TICKS;
+        felt(at);
+    }
+
+    /** Once a second while it comes for a player ({@link #comeFor}). */
+    private void coming(long now) {
+        if (comingFor == null || now % 20 != 0) {
+            return;
+        }
+        ServerPlayer player = level.getServer().getPlayerList().getPlayer(comingFor);
+        Vec3 at = entity.crawler().position();
+        if (player == null || player.level() != level || now > comeUntil
+                || player.distanceToSqr(at.x(), at.y(), at.z()) <= COME_NEAR * COME_NEAR) {
+            comingFor = null;
+            return;
+        }
+        if (meter.anger() < comeAnger) {
+            setAnger(comeAnger);
+        }
+        felt(new Vec3(player.getX(), player.getY(), player.getZ()));
     }
 
     /** The guarded player came down at {@code at} ({@link Perch}): the brain is sure where they are. */
@@ -332,6 +370,7 @@ final class TremorMind {
         if (entity.leaving() || entity.absorbed()) {
             return; // its anger no longer matters, or it stays at the top
         }
+        coming(now);
         Stage before = entity.stage();
         if (angerHeld) {
             // A route for filming: its look stays as it was set.

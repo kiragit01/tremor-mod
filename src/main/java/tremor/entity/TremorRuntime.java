@@ -356,6 +356,26 @@ public final class TremorRuntime {
     }
 
     /**
+     * {@code /tremor spawn near}: the entity is at least ALERT ({@value #COME_FOR_ANGER} over its threshold) and comes
+     * for {@code player}, sensing where they are until it is near ({@link TremorMind#comeFor}).
+     * @throws IllegalStateException if there is no entity
+     */
+    public void comeFor(net.minecraft.world.entity.player.Player player) {
+        TremorEntity entity = requireEntity();
+        double alert = TremorConfig.COMMON.alertAt.get() + COME_FOR_ANGER;
+        if (entity.anger() < alert) {
+            mind(entity).setAnger(alert);
+        }
+        Vec3 at = new Vec3(player.getX(), player.getY(), player.getZ());
+        mind(entity).comeFor(player.getUUID(), at, alert, level.getGameTime());
+        heardPlayer(player, at);
+        data.setDirty();
+    }
+
+    /** {@link #comeFor}: the anger this much over the ALERT threshold. */
+    static final double COME_FOR_ANGER = 10;
+
+    /**
      * Debug ({@code /tremor anger}, SPEC 14.1): sets the anger and the stage it implies; a stage change is marked by
      * its sound and sent to the players as usual. @throws IllegalStateException if there is no entity
      */
