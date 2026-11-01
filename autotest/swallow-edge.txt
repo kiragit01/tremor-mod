@@ -1,0 +1,68 @@
+# The swallowing hill must cover the player whole where the ground under them is uneven (the user: on the edge of a
+# block a step higher the low side stayed open) and in shallow water (a player: in a sewer, standing in 1-2 blocks of
+# water, the hill did not close over them). Third person, copies tinted red.
+# Run: gradlew runClientAutotest -Ptremor_autotest_script=swallow-edge.txt
+waitchunks
+cmd gamemode spectator
+cmd time set noon
+cmd tremor despawn all
+cmd tremor awaken stop
+cmd kill @e[type=!player]
+cmd tp @s 860.5 205.0 300.5
+wait 40
+waitchunks
+cmd fill 830 194 280 890 199 360 minecraft:dirt
+cmd fill 830 200 280 890 200 360 minecraft:grass_block
+cmd fill 830 201 280 890 215 360 minecraft:air
+cmd fill 860 201 280 890 201 320 minecraft:grass_block
+cmd fill 850 198 330 870 199 350 minecraft:water
+cmd fill 850 200 330 870 200 350 minecraft:water
+cmd effect give @s minecraft:night_vision infinite 0 true
+config awakening.buildupSeconds 4
+hud off
+tint on
+log --- the edge of a step: half on the high block, half over the low one
+cmd tp @s 860.0 202.0 300.5 180 20
+cmd gamemode survival
+cmd effect give @s minecraft:instant_health 1 4 true
+cmd tremor spawn 860 200 312
+wait 20
+cmd tremor awaken
+view back
+wait 85
+screenshot 01_edge_start
+wait 20
+screenshot 02_edge_rising
+wait 20
+screenshot 03_edge_risen
+wait 20
+screenshot 04_edge_over
+view first
+cmd gamemode spectator
+cmd tremor hollow leave
+cmd tremor awaken stop
+cmd tremor despawn all
+wait 40
+log --- water 3 deep, swimming at the top as the swallowing starts (the user: then no hill rose at all)
+cmd tp @s 860.5 200.5 340.5 180 20
+cmd gamemode survival
+cmd effect give @s minecraft:instant_health 1 4 true
+cmd tremor spawn 860 197 352
+wait 30
+cmd tremor awaken
+view back
+hold jump 84
+screenshot 05_water_start
+wait 20
+screenshot 06_water_rising
+wait 20
+screenshot 07_water_risen
+wait 20
+screenshot 08_water_over
+view first
+cmd gamemode spectator
+cmd tremor hollow leave
+cmd tremor awaken stop
+cmd tremor despawn all
+tint off
+quit

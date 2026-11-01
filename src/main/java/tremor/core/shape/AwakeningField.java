@@ -11,7 +11,9 @@ import tremor.core.math.Vec3;
  * <pre>
  * breath · zoneFade(p) · swell(p)            the zone breathes, fading out at its edge (AwakeningShape#zoneFade), in
  *                                            broad uneven swells (AwakeningShape#swell) so that flat ground heaves
- * + hill · exp(-|p - focus|²/σ²)             the hill under the swallowed player
+ * + hill · exp(-|p - focus|²/σ²)             the hill under the swallowed player, standing level from their
+ * + lift                                     feet: ground under them (the low side of a step, the floor under
+ *                                            shallow water) rises the more, up to LIFT blocks (#lift)
  * + Σ Ripple.height(ring, |p - origin|, age)  a ring per step
  * </pre>
  * Distances to the hill and to the rings are measured in 3D: on a floor that is the distance along the ground, and in
@@ -24,6 +26,12 @@ import tremor.core.math.Vec3;
  * ({@code hillSpeed}) shakes dust off its flanks.
  */
 public final class AwakeningField implements GroundField {
+    /**
+     * At most this much more the ground under the feet of the swallowed player rises, so that the hill stands level
+     * from their feet ({@link #lift}).
+     */
+    static final double LIFT = 3;
+
     /** A ring running out from a step, as it is drawn this frame. */
     public record Ring(Vec3 origin, double ageSeconds, RippleParams params) {
         public Ring {
@@ -100,7 +108,7 @@ public final class AwakeningField implements GroundField {
         ringZ = new double[n];
         frontSq = new double[n];
         tailSq = new double[n];
-        double max = breath + hill;
+        double max = breath + hill + (hill > 0 ? LIFT * share() : 0);
         for (int i = 0; i < n; i++) {
             Ring ring = this.rings.get(i);
             RippleParams p = ring.params();
@@ -131,10 +139,12 @@ public final class AwakeningField implements GroundField {
                     * AwakeningShape.swell(x, y, z);
         }
         if (hill > 0) {
-            double dx = x - focus.x(), dy = y - focus.y(), dz = z - focus.z();
-            double d2 = dx * dx + dy * dy + dz * dz;
+            double dx = x - focus.x(), dz = z - focus.z(), dh2 = dx * dx + dz * dz;
+            double under = focus.y() - (y + 0.5);
+            double dy = under > 0 ? -0.5 : y - focus.y();
+            double d2 = dh2 + dy * dy;
             if (d2 < hillCutSq) {
-                h += AwakeningShape.hill(hill, params.hillSigma(), d2);
+                h += AwakeningShape.hill(hill, params.hillSigma(), d2) + lift(under, dh2, share());
             }
         }
         for (int i = 0, n = ringX.length; i < n; i++) {
@@ -147,6 +157,25 @@ public final class AwakeningField implements GroundField {
             h += Ripple.height(ring.params(), Math.sqrt(d2), ring.ageSeconds());
         }
         return h;
+    }
+
+    /**
+     * The hill stands level from the feet of the swallowed player: a voxel whose top is {@code under} blocks under
+     * them (the low side of a step they stand on the edge of, the floor under shallow water; the user saw the low side
+     * stay open) is measured as if level with them, and rises by that much more, up to {@link #LIFT}, fading out
+     * sideways as the hill does ({@code dh2}: the squared distance across), with its {@code share} of the full hill.
+     */
+    private double lift(double under, double dh2, double share) {
+        if (under <= 0) {
+            return 0;
+        }
+        double sigma = params.hillSigma();
+        return Math.min(under, LIFT) * share * Math.exp(-dh2 / (sigma * sigma));
+    }
+
+    /** How far the hill has risen, 0..1 of its full height. */
+    private double share() {
+        return params.hillHeight() > 0 ? Math.min(1, hill / params.hillHeight()) : 1;
     }
 
     /** Upper bound of {@code |at(p)|} anywhere: the breath, the hill and every running ring at full height. */
@@ -206,9 +235,11 @@ public final class AwakeningField implements GroundField {
     /** The breathing at its peak and the hill at its full height ({@link AwakeningParams#hillHeight}). */
     @Override
     public double swellAhead(double x, double y, double z) {
-        double dx = x - focus.x(), dy = y - focus.y(), dz = z - focus.z();
-        return peakBreath(x, y, z)
-                + AwakeningShape.hill(params.hillHeight(), params.hillSigma(), dx * dx + dy * dy + dz * dz);
+        double dx = x - focus.x(), dz = z - focus.z(), dh2 = dx * dx + dz * dz;
+        double under = focus.y() - (y + 0.5);
+        double dy = under > 0 ? -0.5 : y - focus.y();
+        return peakBreath(x, y, z) + AwakeningShape.hill(params.hillHeight(), params.hillSigma(), dh2 + dy * dy)
+                + lift(under, dh2, 1);
     }
 
     /** The zone's centre. */

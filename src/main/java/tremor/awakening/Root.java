@@ -4,6 +4,7 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.core.Holder;
 import net.minecraft.core.SectionPos;
 import net.minecraft.network.protocol.game.ClientboundMoveVehiclePacket;
+import net.minecraft.network.protocol.game.ClientboundSetEntityMotionPacket;
 import net.minecraft.network.protocol.game.ClientboundUpdateAttributesPacket;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerPlayer;
@@ -58,6 +59,10 @@ import java.util.UUID;
 final class Root {
     /** The player is put back once this far (blocks) from the anchor sideways, or this far above (or below) it. */
     static final double TOLERANCE = 0.3;
+    /** A player is pulled down through water this fast (blocks per tick) ({@link #pullDown})... */
+    static final double PULL_SPEED = 0.15;
+    /** ...for at most this long. */
+    static final int PULL_TICKS = 60;
 
     /** Id of the modifiers; the client knows a rooted player by it ({@code ClientRoot.ROOT_MODIFIER}: the same). */
     private static final UUID ID = UUID.nameUUIDFromBytes((Tremor.MODID + ":awakening_root")
@@ -82,6 +87,10 @@ final class Root {
     private Entity held;
     /** Where {@link #held} is held. */
     private Vec3 anchor;
+    /** Where a player pulled down through water goes ({@link #pullDown}); NaN if none is. */
+    private double pullTo = Double.NaN;
+    /** Ticks the pull may still take. */
+    private int pullTicks;
 
     /**
      * Roots the player where it stands (or on its vehicle, if it cannot get off safely): the modifiers are sent to it
@@ -138,7 +147,8 @@ final class Root {
         }
         player.resetFallDistance();
         Vec3 at = what.position();
-        boolean drop = mayDrop(level, new Vec3(anchor.x, at.y, anchor.z));
+        boolean pulled = what == player && pull(player);
+        boolean drop = pulled || mayDrop(level, new Vec3(anchor.x, at.y, anchor.z));
         if (AwakeningRules.strayed(vec(anchor), vec(at), TOLERANCE, drop)) {
             double y = drop ? Math.min(at.y, anchor.y) : anchor.y;
             if (what == player) {
@@ -181,6 +191,7 @@ final class Root {
         }
         held = null;
         anchor = null;
+        pullTo = Double.NaN;
         player.resetFallDistance();
         player = null;
     }
@@ -208,6 +219,60 @@ final class Root {
         BlockPos.MutableBlockPos pos = new BlockPos.MutableBlockPos();
         int from = Math.min(Mth.floor(at.y), level.getMaxBuildHeight() - 1);
         return AwakeningRules.mayDrop(y -> cell(level, pos.set(x, y, z)), from, level.getMinBuildHeight());
+    }
+
+    /**
+     * The rooted player in water is pulled down onto the floor at {@code floorY} (the user: a swimmer was not
+     * swallowed; then a jump straight there was too sudden): their client is sent a sinking motion every tick, at
+     * {@value #PULL_SPEED} blocks a tick, and the anchor follows them down, until they are there (at most
+     * {@value #PULL_TICKS} ticks).
+     */
+    void pullDown(double floorY) {
+        pullTo = floorY;
+        pullTicks = PULL_TICKS;
+    }
+
+    /** One tick of {@link #pullDown}: true while it pulls. */
+    private boolean pull(ServerPlayer player) {
+        if (Double.isNaN(pullTo)) {
+            return false;
+        }
+        if (player.getY() - pullTo <= 0.05 || --pullTicks < 0) {
+            pullTo = Double.NaN;
+            return false;
+        }
+        player.setDeltaMovement(0, -PULL_SPEED, 0);
+        player.connection.send(new ClientboundSetEntityMotionPacket(player));
+        anchor = new Vec3(anchor.x, Math.max(pullTo, Math.min(anchor.y, player.getY())), anchor.z);
+        return true;
+    }
+
+    /** A swimming player is pulled down at most this far onto the floor ({@link #floorUnderWater}). */
+    static final int MAX_PULL_DOWN = 8;
+
+    /**
+     * Where a player in water stands once pulled down onto the floor under it: the top of the first block with a
+     * collision under the water, at most {@value #MAX_PULL_DOWN} blocks down; null if the player is not in water, or
+     * no floor is that near (only water, then something else, on the way down).
+     */
+    static Vec3 floorUnderWater(ServerPlayer player) {
+        if (!player.isInWater()) {
+            return null;
+        }
+        Level level = player.level();
+        BlockPos.MutableBlockPos pos = new BlockPos.MutableBlockPos();
+        int x = Mth.floor(player.getX()), z = Mth.floor(player.getZ()), feet = Mth.floor(player.getY());
+        for (int y = feet; y >= feet - MAX_PULL_DOWN && y >= level.getMinBuildHeight(); y--) {
+            BlockState state = level.getBlockState(pos.set(x, y, z));
+            var shape = state.getCollisionShape(level, pos);
+            if (!shape.isEmpty()) {
+                return new Vec3(player.getX(), y + shape.max(net.minecraft.core.Direction.Axis.Y), player.getZ());
+            }
+            if (!state.getFluidState().is(FluidTags.WATER)) {
+                return null;
+            }
+        }
+        return null;
     }
 
     private static AwakeningRules.Cell cell(Level level, BlockPos pos) {
