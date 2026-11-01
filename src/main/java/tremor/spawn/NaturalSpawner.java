@@ -9,7 +9,9 @@ import net.minecraft.server.level.ChunkTrackingView;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.Difficulty;
+import net.minecraft.world.entity.monster.Monster;
 import net.minecraft.world.level.Level;
+import net.minecraft.world.level.LightLayer;
 import net.minecraft.world.level.levelgen.Heightmap;
 import net.neoforged.neoforge.event.level.LevelEvent;
 import net.neoforged.neoforge.event.tick.LevelTickEvent;
@@ -338,11 +340,12 @@ public final class NaturalSpawner {
     }
 
     /**
-     * Whether a spawn point at {@code pos} is under the ground and dark there as monsters need it: a cave or a mine,
-     * not a lit house (its roof alone would count it as under the ground).
+     * Whether a spawn point at {@code pos} is in a cave: under the ground, where no light of the sky reaches (the light
+     * of the sky leaks in sideways under an overhang or a tree, whatever the time; the user saw a tremor appear there
+     * at night when darkness was the test).
      */
-    private static boolean undergroundAndDark(ServerLevel level, BlockPos pos) {
-        return underground(level, pos) && level.getMaxLocalRawBrightness(pos) < DARK_LIGHT;
+    private static boolean inCave(ServerLevel level, BlockPos pos) {
+        return level.getBrightness(LightLayer.SKY, pos) == 0 && underground(level, pos);
     }
 
     private static double chance(SpawnRules.Conditions conditions) {
@@ -369,9 +372,12 @@ public final class NaturalSpawner {
         SpawnProtection protection = protection(level);
         ChunkTrackingView view = player.getChunkTrackingView();
         double halfWidth = config.routeHalfWidth.get();
-        boolean undergroundOnly = config.undergroundOnly.get();
+        boolean sky = level.dimensionType().hasSkyLight(); // the Nether, the End: neither applies
+        boolean cavesOnly = sky && config.undergroundOnly.get(), darkOnly = sky && config.darkOnly.get();
         Predicate<Vec3> allowed = p -> protection.test(p) && (inView(view, p) || heading.passes(feet, p, halfWidth))
-                && (!undergroundOnly || undergroundAndDark(level, BlockPos.containing(p.x(), p.y() + 0.5, p.z())));
+                && (!cavesOnly || inCave(level, BlockPos.containing(p.x(), p.y() + 0.5, p.z())))
+                && (!darkOnly || Monster.isDarkEnoughToSpawn(level, BlockPos.containing(p.x(), p.y() + 0.5, p.z()),
+                level.getRandom()));
         SurfaceGraph graph = new SurfaceGraph(new LevelVoxelView(level), TremorConfig.COMMON.maxDiveDepth.get(),
                 TremorConfig.COMMON.minGroundWidth.get());
         SurfacePicker.SpawnPick pick = SurfacePicker.spawnPoint(graph, feet, vec(player.getEyePosition()),
