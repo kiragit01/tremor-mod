@@ -1,6 +1,7 @@
 package tremor.awakening;
 
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
 import net.minecraft.core.Holder;
 import net.minecraft.core.SectionPos;
 import net.minecraft.network.protocol.game.ClientboundMoveVehiclePacket;
@@ -263,7 +264,7 @@ final class Root {
             BlockState state = level.getBlockState(pos.set(x, y, z));
             var shape = state.getCollisionShape(level, pos);
             if (!shape.isEmpty()) {
-                return new Vec3(player.getX(), y + shape.max(net.minecraft.core.Direction.Axis.Y), player.getZ());
+                return new Vec3(player.getX(), y + shape.max(Direction.Axis.Y), player.getZ());
             }
             if (!state.getFluidState().is(FluidTags.WATER)) {
                 return null;

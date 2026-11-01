@@ -517,15 +517,27 @@ final class Perch {
             return "the player can no longer be taken";
         }
         if (player.onGround() && down(player)) {
-            return "the player is down";
+            return DOWN;
         }
         return Math.hypot(player.getX() - perch.x(), player.getZ() - perch.z()) > AWAY_DISTANCE
                 ? "the player got away" : null;
     }
 
+    /** Why a guard ends when the player came down: the brain is told where they are ({@link #stop}). */
+    private static final String DOWN = "the player is down";
+
+    /**
+     * Ends the guard. If the player came down ({@link #DOWN}: thrown off, or jumped), the brain learns where they are,
+     * felt as they landed: high up on what it built it would hardly hear them below (the user), so it comes down
+     * after them.
+     */
     private void stop(String why) {
         Tremor.LOGGER.info("Tremor #{} in {} stops guarding ({}, {} stalactites)", entity.instance(),
                 level.dimension().location(), why, drops);
+        ServerPlayer player = DOWN.equals(why) ? level.getServer().getPlayerList().getPlayer(prey) : null;
+        if (player != null) {
+            mind.felt(new Vec3(player.getX(), player.getY(), player.getZ()));
+        }
         prey = null;
         perch = null;
         hidden = false; // up where it is

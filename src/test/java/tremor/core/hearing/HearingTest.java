@@ -71,7 +71,9 @@ class HearingTest {
                 PARAMS.sampleStep(), PARAMS.minConductivity()));
         assertTrue(onThePillar > PARAMS.threshold() && onThePillar > 10 * straight, onThePillar + " vs " + straight);
         assertTrue(inTheAir > straight && inTheAir < onThePillar, inTheAir + " vs " + onThePillar);
-        // Below the listener nothing changes: the straight way only.
+        // Up on the pillar it hears the ground beside it the same way back.
+        assertEquals(onThePillar, Hearing.perceived(g, listener, top, 3, STONE, PARAMS), 1e-9);
+        // Within rock nothing changes: the straight way is the best.
         Vec3 low = Vec3.voxelCenter(0, -6, 0), deep = Vec3.voxelCenter(4, -1, 0);
         assertEquals(3 * STONE / (1 + low.distance(deep) / STONE), Hearing.perceived(g, low, deep, 3, STONE, PARAMS),
                 1e-9);
