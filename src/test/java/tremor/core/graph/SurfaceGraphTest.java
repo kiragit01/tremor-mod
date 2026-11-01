@@ -953,4 +953,36 @@ class SurfaceGraphTest {
         }
         return expanded;
     }
+
+    @Test
+    void cavesOnlyHoldsNoNodeWhereTheSkyLightReaches() {
+        ArrayVoxelGrid g = ArrayVoxelGrid.flatFloor(0);
+        VoxelView skyEast = new VoxelView() { // the sky's light reaches the open air east of x = 0
+            @Override
+            public boolean isSolid(int x, int y, int z) {
+                return g.isSolid(x, y, z);
+            }
+
+            @Override
+            public float conductivity(int x, int y, int z) {
+                return g.conductivity(x, y, z);
+            }
+
+            @Override
+            public boolean isProtected(int x, int y, int z) {
+                return false;
+            }
+
+            @Override
+            public boolean isSkyLit(int x, int y, int z) {
+                return x >= 0 && !g.isSolid(x, y, z);
+            }
+        };
+        SurfaceGraph anywhere = new SurfaceGraph(skyEast, 2, 1);
+        SurfaceGraph caves = new SurfaceGraph(skyEast, 2, 1, true);
+        assertTrue(anywhere.isNode(-4, 0, 0) && anywhere.isNode(4, 0, 0));
+        assertTrue(caves.isNode(-4, 0, 0));
+        assertFalse(caves.isNode(4, 0, 0));
+        assertTrue(caves.cavesOnly() && !anywhere.cavesOnly());
+    }
 }

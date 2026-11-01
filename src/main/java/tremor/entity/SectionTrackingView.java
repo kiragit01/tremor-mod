@@ -71,6 +71,11 @@ final class SectionTrackingView implements VoxelView {
     }
 
     @Override
+    public boolean isSkyLit(int x, int y, int z) {
+        return view.isSkyLit(x, y, z);
+    }
+
+    @Override
     public boolean isProtected(int x, int y, int z) {
         return view.isProtected(x, y, z);
     }

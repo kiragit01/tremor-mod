@@ -21,6 +21,11 @@ public interface VoxelView {
         return !isSolid(x, y, z);
     }
 
+    /** Whether the light of the sky reaches the voxel; never for a view without light. */
+    default boolean isSkyLit(int x, int y, int z) {
+        return false;
+    }
+
     /**
      * {@code false} for voxels the view has no data for (unloaded chunks, outside the world). Such voxels read as
      * solid, so nothing can pass through them, but they are never part of the surface either: the entity must not

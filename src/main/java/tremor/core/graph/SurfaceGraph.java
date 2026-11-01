@@ -144,6 +144,7 @@ public final class SurfaceGraph implements Graph {
     private final VoxelView view;
     private final int maxDiveDepth;
     private final int minWidth;
+    private final boolean cavesOnly;
     /** Longest gap a leap edge crosses (blocks); 0: no leaps. */
     private int maxLeap;
 
@@ -167,6 +168,15 @@ public final class SurfaceGraph implements Graph {
      * @throws IllegalArgumentException unless {@code 0 <= maxDiveDepth <= MAX_DIVE_DEPTH} and {@code minWidth >= 1}
      */
     public SurfaceGraph(VoxelView view, int maxDiveDepth, int minWidth) {
+        this(view, maxDiveDepth, minWidth, false);
+    }
+
+    /**
+     * @param cavesOnly no nodes where the light of the sky reaches ({@link VoxelView#isSkyLit} on an open face): the
+     *                  entity keeps to caves
+     */
+    public SurfaceGraph(VoxelView view, int maxDiveDepth, int minWidth, boolean cavesOnly) {
+        this.cavesOnly = cavesOnly;
         if (maxDiveDepth < 0 || maxDiveDepth > MAX_DIVE_DEPTH) {
             throw new IllegalArgumentException("maxDiveDepth " + maxDiveDepth + " outside [0, " + MAX_DIVE_DEPTH + "]");
         }
@@ -200,6 +210,10 @@ public final class SurfaceGraph implements Graph {
 
     public int minWidth() {
         return minWidth;
+    }
+
+    public boolean cavesOnly() {
+        return cavesOnly;
     }
 
     public boolean isNode(int x, int y, int z) {
@@ -381,7 +395,23 @@ public final class SurfaceGraph implements Graph {
     // ---- edge rules ------------------------------------------------------------------------------------------------
 
     private long withNodeFlag(long m, int x, int y, int z) {
-        return m | NODE_KNOWN | (Surface.isSurface(view, x, y, z) && wide(x, y, z) ? NODE : 0);
+        return m | NODE_KNOWN | (Surface.isSurface(view, x, y, z) && holds(x, y, z) ? NODE : 0);
+    }
+
+    /** Whether a solid voxel of the skin holds a node: wide enough ({@link #wide}), and dark if {@link #cavesOnly}. */
+    private boolean holds(int x, int y, int z) {
+        return wide(x, y, z) && !(cavesOnly && skyLit(x, y, z));
+    }
+
+    /** Whether the light of the sky reaches an open voxel beside it. */
+    private boolean skyLit(int x, int y, int z) {
+        for (int t = 0; t < 6; t++) {
+            int nx = x + DX[t], ny = y + DY[t], nz = z + DZ[t];
+            if (view.isOpen(nx, ny, nz) && view.isSkyLit(nx, ny, nz)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     /** Whether the solid runs through the voxel along x and along z, at its height, are {@code minWidth} long. */
@@ -439,7 +469,7 @@ public final class SurfaceGraph implements Graph {
             }
             openFaces[i] = faces;
             node[i] = solid[i] && faces != 0 && view.isKnown(bx + LX[i], by + LY[i], bz + LZ[i])
-                    && wide(bx + LX[i], by + LY[i], bz + LZ[i]);
+                    && holds(bx + LX[i], by + LY[i], bz + LZ[i]);
         }
     }
 
@@ -503,7 +533,7 @@ public final class SurfaceGraph implements Graph {
             boolean known = view.isKnown(bx, by, bz);
             if (!view.isSolid(bx + ex, by + ey, bz + ez)) {
                 // b surfaces on the far side: a node if known; a face-mate joined by skin needs no dive.
-                return known && wide(bx, by, bz) && (k > 1 || (skin >> DIRECTION_NEIGHBOUR[t] & 1) == 0) ? k : 0;
+                return known && holds(bx, by, bz) && (k > 1 || (skin >> DIRECTION_NEIGHBOUR[t] & 1) == 0) ? k : 0;
             }
             if (!known) {
                 return 0;

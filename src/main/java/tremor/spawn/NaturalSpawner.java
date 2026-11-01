@@ -379,7 +379,7 @@ public final class NaturalSpawner {
                 && (!darkOnly || Monster.isDarkEnoughToSpawn(level, BlockPos.containing(p.x(), p.y() + 0.5, p.z()),
                 level.getRandom()));
         SurfaceGraph graph = new SurfaceGraph(new LevelVoxelView(level), TremorConfig.COMMON.maxDiveDepth.get(),
-                TremorConfig.COMMON.minGroundWidth.get());
+                TremorConfig.COMMON.minGroundWidth.get(), TremorConfig.COMMON.cavesOnly(level));
         SurfacePicker.SpawnPick pick = SurfacePicker.spawnPoint(graph, feet, vec(player.getEyePosition()),
                 heading.direction(), config.minDistance.get(), maxDistance(), halfWidth, config.verticalRange.get(),
                 allowed, ThreadLocalRandom.current(), config.attempts.get());
