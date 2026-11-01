@@ -121,6 +121,8 @@ public final class LevelVoxelView implements VoxelView {
 
     private final Level level;
     private final BlockPos.MutableBlockPos cursor = new BlockPos.MutableBlockPos();
+    /** For {@link #isSkyLit}, apart from {@link #cursor}. */
+    private final BlockPos.MutableBlockPos light = new BlockPos.MutableBlockPos();
     private LevelChunk chunk;
     private long chunkKey = Long.MIN_VALUE;
 
@@ -166,6 +168,13 @@ public final class LevelVoxelView implements VoxelView {
     @Override
     public boolean isKnown(int x, int y, int z) {
         return y >= level.getMaxBuildHeight() || stateAt(x, y, z) != null;
+    }
+
+    /** In a dimension with a sky, its light level there above 0. */
+    @Override
+    public boolean isSkyLit(int x, int y, int z) {
+        return level.dimensionType().hasSkyLight()
+                && level.getBrightness(net.minecraft.world.level.LightLayer.SKY, light.set(x, y, z)) > 0;
     }
 
     @Override

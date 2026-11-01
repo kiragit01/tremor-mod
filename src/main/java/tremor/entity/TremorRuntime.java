@@ -187,7 +187,7 @@ public final class TremorRuntime {
         cache.setTime(lastTerrainReset);
         this.graph = new SurfaceGraph(cache, entity != null
                 ? entity.params().maxDiveDepth() : TremorConfig.COMMON.maxDiveDepth.get(),
-                TremorConfig.COMMON.minGroundWidth.get());
+                TremorConfig.COMMON.minGroundWidth.get(), TremorConfig.COMMON.cavesOnly(level));
         // The route is not saved: an entity loaded on its way somewhere plans a new one.
         this.replanRequested = entity != null && entity.target() != null;
     }
@@ -827,7 +827,8 @@ public final class TremorRuntime {
         beginPass();
         cache.setTime(now);
         int depth = entity.params().maxDiveDepth();
-        if (depth != graph.maxDiveDepth() || TremorConfig.COMMON.minGroundWidth.get() != graph.minWidth()) {
+        if (depth != graph.maxDiveDepth() || TremorConfig.COMMON.minGroundWidth.get() != graph.minWidth()
+                || TremorConfig.COMMON.cavesOnly(level) != graph.cavesOnly()) {
             rebuildGraph(depth); // config reload
         }
         // Before a reset, which forgets the changes: they are still checked against the route.
@@ -1063,7 +1064,8 @@ public final class TremorRuntime {
 
     /** New dive depth: a new graph over the same cache, and a new route through it. */
     private void rebuildGraph(int depth) {
-        graph = new SurfaceGraph(cache, depth, TremorConfig.COMMON.minGroundWidth.get());
+        graph = new SurfaceGraph(cache, depth, TremorConfig.COMMON.minGroundWidth.get(),
+                TremorConfig.COMMON.cavesOnly(level));
         pursuit.forgetFailure(); // other dives, other places within reach
         requestReplan();
     }
@@ -1166,8 +1168,32 @@ public final class TremorRuntime {
                 && Surface.isSurface(cache, x, foot, z)) {
             foot--;
         }
-        return graph.nearestNode(Vec3.voxelCenter(x, foot, z), SNAP_RADIUS);
+        long node = graph.nearestNode(Vec3.voxelCenter(x, foot, z), SNAP_RADIUS);
+        return node == SurfaceGraph.NO_NODE && graph.cavesOnly() ? caveUnder(x, foot, z) : node;
     }
+
+    /**
+     * {@code movement.cavesOnly}: a point up in the sky's light (a player heard on the surface) goes to the cave
+     * under it: down through the rock, at most {@value #CAVE_SNAP_DEPTH} blocks, to the first open voxel, and to the
+     * node at its floor or the nearest within {@value #SNAP_RADIUS}; NO_NODE if none.
+     */
+    private long caveUnder(int x, int y, int z) {
+        for (int below = y - 1; below >= y - CAVE_SNAP_DEPTH; below--) {
+            if (!cache.isOpen(x, below, z)) {
+                continue;
+            }
+            int floor = below - 1;
+            while (floor > below - SNAP_DEPTH && cache.isOpen(x, floor, z)) {
+                floor--;
+            }
+            return graph.isNode(x, floor, z) ? VoxelPos.pack(x, floor, z)
+                    : graph.nearestNode(Vec3.voxelCenter(x, floor, z), SNAP_RADIUS);
+        }
+        return SurfaceGraph.NO_NODE;
+    }
+
+    /** {@link #caveUnder}: how far down it looks for a cave. */
+    static final int CAVE_SNAP_DEPTH = 32;
 
     /**
      * Moves the entity at once to the centre of {@code node}, standing, with the surface normal there: it comes up out

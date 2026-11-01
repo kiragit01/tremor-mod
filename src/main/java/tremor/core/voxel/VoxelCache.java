@@ -64,6 +64,12 @@ public final class VoxelCache implements VoxelView {
         return source.conductivity(x, y, z);
     }
 
+    /** Not cached: read from the source. */
+    @Override
+    public boolean isSkyLit(int x, int y, int z) {
+        return source.isSkyLit(x, y, z);
+    }
+
     @Override
     public boolean isProtected(int x, int y, int z) {
         return source.isProtected(x, y, z);

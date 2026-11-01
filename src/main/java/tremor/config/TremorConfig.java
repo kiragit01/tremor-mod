@@ -23,6 +23,11 @@ public final class TremorConfig {
     }
 
     public static final class Common {
+        /** {@link #cavesOnly} in {@code level}: on, and the dimension has a sky. */
+        public boolean cavesOnly(net.minecraft.world.level.Level level) {
+            return cavesOnly.get() && level.dimensionType().hasSkyLight();
+        }
+
         /** How hard the mod is as a whole ({@link Difficulty}): it scales the settings below. */
         public final ForgeConfigSpec.EnumValue<Difficulty> difficulty;
         public final ForgeConfigSpec.DoubleValue amplitude;
@@ -36,6 +41,7 @@ public final class TremorConfig {
 
         public final ForgeConfigSpec.IntValue maxDiveDepth;
         public final ForgeConfigSpec.IntValue minGroundWidth;
+        public final ForgeConfigSpec.BooleanValue cavesOnly;
         public final ForgeConfigSpec.IntValue leapDormant;
         public final ForgeConfigSpec.IntValue leapAlert;
         public final ForgeConfigSpec.IntValue leapHunting;
@@ -168,6 +174,10 @@ public final class TremorConfig {
             minGroundWidth = b.comment("The narrowest ground (blocks) the entity crawls on: it does not climb pillars or walls",
                             "narrower than this, so a player high enough on one is out of reach. 1: anywhere")
                     .translation(KEY + "movement.minGroundWidth").defineInRange("minGroundWidth", 3, 1, 5);
+            cavesOnly = b.comment("Whether the entity keeps to caves: it never crawls where the light of the sky reaches,",
+                            "appears only in caves and takes nobody standing in the sky's light, so the surface is",
+                            "safe from it. Only in dimensions with a sky")
+                    .translation(KEY + "movement.cavesOnly").define("cavesOnly", false);
             leapDormant = leap(b, "leapDormant", "DORMANT", 1);
             leapAlert = leap(b, "leapAlert", "ALERT", 2);
             leapHunting = leap(b, "leapHunting", "HUNTING", 3);

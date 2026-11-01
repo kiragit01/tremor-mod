@@ -1,0 +1,49 @@
+# movement.cavesOnly: the tremor keeps to caves. A tunnel under the ground with a shaft up to the sky at its east end:
+# a spawn on the surface fails, one in the tunnel works; it comes along the tunnel under a player heard on the surface
+# but never into the shaft's light (the sky's light runs some 15 blocks into the tunnel), nor out of it.
+# Run: gradlew runClientAutotest -Ptremor_autotest_script=caves-only.txt
+waitchunks
+cmd gamerule commandModificationBlockLimit 2147483647
+cmd gamemode spectator
+cmd time set noon
+cmd tremor despawn all
+cmd tremor awaken stop
+cmd kill @e[type=!player]
+cmd tp @s 860.5 210.0 300.5
+wait 40
+waitchunks
+cmd fill 830 170 270 890 199 330 minecraft:stone
+cmd fill 830 200 270 890 200 330 minecraft:grass_block
+cmd fill 830 201 270 890 260 330 minecraft:air
+cmd fill 835 185 299 887 188 303 minecraft:air
+cmd fill 885 189 299 887 200 303 minecraft:air
+config movement.cavesOnly true
+wait 40
+log --- a spawn on the surface: none
+cmd tremor spawn 850 200 290
+log --- a spawn in the tunnel
+cmd tremor spawn 840 184 301
+cmd tremor stage hunting
+cmd tremor anger 85
+wait 20
+log --- a player on the surface over the tunnel speaks
+cmd tp @s 862.5 201.0 301.5
+cmd gamemode survival
+cmd tremor voice 0
+wait 120
+cmd tremor info
+log --- the player over the tunnel near the shaft speaks: it comes along the tunnel to where the light starts, no further
+cmd tp @s 882.5 201.0 301.5
+cmd tremor voice 0
+wait 60
+cmd tremor voice 0
+wait 60
+cmd tremor voice 0
+wait 60
+cmd tremor voice 0
+wait 60
+cmd tremor info
+cmd gamemode spectator
+config movement.cavesOnly false
+cmd tremor despawn all
+quit

@@ -574,6 +574,10 @@ public final class AwakeningManager {
      * The roam of the seeking entity keeps away from these players (its mind, {@code tremor.entity.TremorMind}).
      */
     public static boolean takeable(ServerPlayer player) {
+        if (TremorConfig.COMMON.cavesOnly(player.level()) && player.level().getBrightness(
+                net.minecraft.world.level.LightLayer.SKY, net.minecraft.core.BlockPos.containing(player.getEyePosition())) > 0) {
+            return false; // movement.cavesOnly: the surface is safe
+        }
         return player.isAlive() && player.gameMode.getGameModeForPlayer() == GameType.SURVIVAL
                 && HollowManager.event(player) == null && targetOf(player.getUUID()) == null;
     }
