@@ -16,8 +16,14 @@ final class VertexList implements VertexConsumer {
     /** How far (blocks) a face turned inside out ({@link #emitInside}) lies inside the face of the voxel. */
     static final float INSET_HALF = 0.002f;
 
+    /** How far (blocks) a corner may lie off the face of the voxel and the quad still count as on that face. */
+    static final float ON_FACE = 1e-4f;
+
     private float[] data = new float[STRIDE * 24];
     private int size; // in vertices
+    /** Per quad, the {@link Direction} ordinal of the face of the voxel it lies on, or -1; worked out for {@link #faced}. */
+    private byte[] faces;
+    private int faced = -1;
 
     int size() {
         return size;
@@ -54,6 +60,55 @@ final class VertexList implements VertexConsumer {
             put(out, d[o] + dx, d[o + 1] + dy, d[o + 2] + dz, tint(Float.floatToRawIntBits(d[o + 8])), d[o + 3],
                     d[o + 4], Float.floatToRawIntBits(d[o + 9]), d[o + 5], d[o + 6], d[o + 7]);
         }
+    }
+
+    /**
+     * Emits every quad but those on a face of the voxel whose bit is set in {@code hidden} (by {@link Direction}
+     * ordinal), translated by {@code (dx, dy, dz)}; returns how many vertices it emitted. Quads only.
+     */
+    int emitCulled(VertexConsumer out, float dx, float dy, float dz, int hidden) {
+        if (hidden == 0) {
+            emit(out, dx, dy, dz);
+            return size;
+        }
+        byte[] face = faces();
+        float[] d = data;
+        int emitted = 0;
+        for (int q = 0; q + 4 <= size; q += 4) {
+            int f = face[q >> 2];
+            if (f >= 0 && (hidden >> f & 1) != 0) {
+                continue;
+            }
+            for (int i = q, o = q * STRIDE; i < q + 4; i++, o += STRIDE) {
+                put(out, d[o] + dx, d[o + 1] + dy, d[o + 2] + dz, tint(Float.floatToRawIntBits(d[o + 8])), d[o + 3],
+                        d[o + 4], Float.floatToRawIntBits(d[o + 9]), d[o + 5], d[o + 6], d[o + 7]);
+            }
+            emitted += 4;
+        }
+        return emitted;
+    }
+
+    /** {@link #faces}, worked out again if vertices were recorded since. */
+    private byte[] faces() {
+        if (faced == size) {
+            return faces;
+        }
+        int quads = size / 4;
+        faces = new byte[quads];
+        float[] d = data;
+        for (int q = 0; q < quads; q++) {
+            int first = q * 4 * STRIDE;
+            Direction dir = Direction.getNearest(d[first + 5], d[first + 6], d[first + 7]);
+            int axis = dir.getAxis().ordinal(); // x 0, y 1, z 2: the offset of the coordinate in a vertex
+            float plane = dir.getAxisDirection() == Direction.AxisDirection.POSITIVE ? 1 : 0;
+            boolean on = true;
+            for (int j = 0; j < 4 && on; j++) {
+                on = Math.abs(d[first + j * STRIDE + axis] - plane) <= ON_FACE;
+            }
+            faces[q] = (byte) (on ? dir.ordinal() : -1);
+        }
+        faced = size;
+        return faces;
     }
 
     /**

@@ -1108,8 +1108,10 @@ final class AutoTestRunner {
         report.raw(String.format(Locale.ROOT, "  avg fps     %.1f", r.avgFps()));
         report.raw(String.format(Locale.ROOT, "  frame ms    mean %.2f | p50 %.2f | p95 %.2f | p99 %.2f | max %.2f",
                 r.meanMs(), r.p50Ms(), r.p95Ms(), r.p99Ms(), r.maxMs()));
-        report.raw(String.format(Locale.ROOT, "  renderer    frames %d | avg %.3f ms/frame | avg copies %.1f | avg vertices %.1f",
-                r.renderer().frames(), r.renderer().avgMillis(), r.renderer().avgCopies(), r.renderer().avgVertices()));
+        report.raw(String.format(Locale.ROOT, "  renderer    frames %d | avg %.3f ms/frame (%.3f working it out, %.3f to the GPU) | avg copies %.1f | avg vertices %.1f",
+                r.renderer().frames(), r.renderer().avgMillis(), RenderStats.avgPrepareMillis(),
+                RenderStats.avgUploadMillis(),
+                r.renderer().avgCopies(), r.renderer().avgVertices()));
         RenderStats.Motion motion = r.renderer().motion();
         if (motion.frames() > 0) {
             report.raw(String.format(Locale.ROOT,

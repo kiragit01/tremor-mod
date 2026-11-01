@@ -202,7 +202,8 @@ public final class DeformationRenderer {
     }
 
     /** Columns (baked or not yet) by packed position, reused across collections, the bump's and the zone's alike. */
-    private static final Map<Long, Column> columns = new HashMap<>();
+    private static final it.unimi.dsi.fastutil.longs.Long2ObjectOpenHashMap<Column> columns =
+            new it.unimi.dsi.fastutil.longs.Long2ObjectOpenHashMap<>();
     /**
      * The cells a thin structure swells into under the hill of an Awakening ({@link ThinSwell},
      * {@link GroundField#swellCenter}), and the voxels of that structure, which the zone leaves where they are; none
@@ -357,6 +358,7 @@ public final class DeformationRenderer {
                 long start = System.nanoTime();
                 frameReady = prepare(event);
                 if (frameReady) {
+                    RenderStats.recordPrepare(System.nanoTime() - start);
                     for (RenderType layer : OPAQUE) {
                         draw(layer);
                     }
@@ -502,6 +504,7 @@ public final class DeformationRenderer {
         for (int i = 0, n = drawn.size(); i < n; i++) {
             Column col = drawn.get(i);
             col.cross = frameWarp || col.fill || col.h < 1 ? null : seam(seams, col);
+            col.drawnStamp = frameStamp;
         }
         if (frameWarp) {
             for (int i = 0, n = drawn.size(); i < n; i++) {
@@ -1337,11 +1340,12 @@ public final class DeformationRenderer {
                 for (int k = 0; k < stack; k++) {
                     if (frameWarp) {
                         emitWarped(consumer, mesh, col, k, bx, by, bz, 0, 0, 0);
+                        frameVertices += mesh.size();
                     } else {
                         double off = col.h - k;
                         float x = bx + (float) (ax * off), y = by + (float) (ay * off);
                         float z = bz + (float) (az * off);
-                        mesh.emit(consumer, x, y, z);
+                        frameVertices += mesh.emitCulled(consumer, x, y, z, hidden(col, k, off));
                         if (x <= 0 && x + 1 >= 0 && y <= 0 && y + 1 >= 0 && z <= 0 && z + 1 >= 0) {
                             // The camera is inside this copy (a hill risen around the player): seen from inside,
                             // its faces would be culled and show what lies beyond them, the sky over the hill.
@@ -1349,7 +1353,6 @@ public final class DeformationRenderer {
                             frameVertices += mesh.size();
                         }
                     }
-                    frameVertices += mesh.size();
                 }
                 frameCopies += stack;
                 if (col.cross != null && !frameWarp) {
@@ -1383,9 +1386,40 @@ public final class DeformationRenderer {
         }
         RenderSystem.enablePolygonOffset();
         RenderSystem.polygonOffset(POLYGON_OFFSET_FACTOR, POLYGON_OFFSET_UNITS);
+        long start = System.nanoTime();
         out.endBatch(layer);
+        RenderStats.recordUpload(System.nanoTime() - start);
         RenderSystem.polygonOffset(0f, 0f);
         RenderSystem.disablePolygonOffset();
+    }
+
+    /**
+     * The faces of copy {@code k} of the stack of {@code col} (at {@code off} along its axis) that cannot show, as
+     * {@link Direction} ordinal bits (the user: draw no phantom hidden by other phantoms); none unless its block is a
+     * whole opaque one: its bottom (on the copy under it, or in the block itself), its top but for the highest copy
+     * (under the copy over it), and a side where the column beside it is drawn this frame along the same axis, of a
+     * whole opaque block too, and as high: the block and the stack there cover from its foot to {@code h + 1}.
+     */
+    private static int hidden(Column col, int k, double off) {
+        if (!col.cube) {
+            return 0;
+        }
+        Direction a = col.axis;
+        int hidden = 1 << a.getOpposite().ordinal();
+        if (k > 0) {
+            hidden |= 1 << a.ordinal();
+        }
+        for (Direction d : Direction.values()) {
+            if (d.getAxis() == a.getAxis()) {
+                continue;
+            }
+            Column side = columns.get(VoxelPos.pack(col.x + d.getStepX(), col.y + d.getStepY(), col.z + d.getStepZ()));
+            if (side != null && side.drawnStamp == frameStamp && side.cube && !side.fill && side.axis == a
+                    && side.h >= off) {
+                hidden |= 1 << d.ordinal();
+            }
+        }
+        return hidden;
     }
 
     /**
@@ -1444,6 +1478,7 @@ public final class DeformationRenderer {
         BlockState deco = view.stateAt(decoPos.getX(), decoPos.getY(), decoPos.getZ());
         col.state = state;
         col.decoState = deco;
+        col.cube = state != null && state.isSolidRender(level, source);
         if (state == null || state.getRenderShape() != RenderShape.MODEL) {
             col.lightPos = null;
             return;

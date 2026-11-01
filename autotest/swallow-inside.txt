@@ -1,0 +1,52 @@
+# Seen from inside: the swallowing hill closes over the player's eyes in first person (the user: inside it the faces of
+# the copies show; none of them may go missing with the faces no one can see left out). Copies tinted red.
+# Run: gradlew runClientAutotest -Ptremor_autotest_script=swallow-inside.txt
+waitchunks
+cmd gamerule commandModificationBlockLimit 2147483647
+cmd gamemode spectator
+cmd time set noon
+cmd tremor despawn all
+cmd tremor awaken stop
+cmd kill @e[type=!player]
+cmd tp @s 860.5 205.0 300.5
+wait 40
+waitchunks
+cmd fill 830 194 280 890 199 360 minecraft:dirt
+cmd fill 830 200 280 890 200 360 minecraft:grass_block
+cmd fill 830 201 280 890 215 360 minecraft:air
+cmd fill 860 201 280 890 201 320 minecraft:grass_block
+cmd fill 850 198 330 870 199 350 minecraft:water
+cmd fill 850 200 330 870 200 350 minecraft:water
+cmd effect give @s minecraft:night_vision infinite 0 true
+config awakening.buildupSeconds 4
+hud off
+tint on
+log --- flat ground, first person, looking about as the hill rises
+cmd tp @s 850.5 201.0 300.5 90 10
+cmd gamemode survival
+cmd effect give @s minecraft:instant_health 1 4 true
+cmd tremor spawn 850 200 312
+wait 20
+cmd tremor awaken
+wait 84
+screenshot 01_start
+wait 8
+screenshot 02_rising
+look 0 -30
+wait 6
+screenshot 03_up
+look 200 20
+wait 6
+screenshot 04_aside
+look 120 70
+wait 6
+screenshot 05_down
+look 300 0
+wait 6
+screenshot 06_around
+cmd gamemode spectator
+cmd tremor hollow leave
+cmd tremor awaken stop
+cmd tremor despawn all
+tint off
+quit

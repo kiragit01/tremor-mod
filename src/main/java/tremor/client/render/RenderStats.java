@@ -21,6 +21,8 @@ public final class RenderStats {
     private static long nanos;
     private static long copies;
     private static long vertices;
+    /** Of {@link #nanos}: the part spent working out the frame (heights, bakes, the columns to draw), not drawing. */
+    private static long prepare;
 
     private static boolean hasLast;
     private static double lastX, lastY, lastZ;
@@ -42,6 +44,29 @@ public final class RenderStats {
         nanos += frameNanos;
         copies += frameCopies;
         vertices += frameVertices;
+    }
+
+    /** Of {@link #nanos}: the part spent handing the drawn vertices to the GPU (the batches ended). */
+    private static long upload;
+
+    /** Of a recorded frame's time, the part spent handing its vertices to the GPU ({@link #upload}). */
+    public static void recordUpload(long uploadNanos) {
+        upload += uploadNanos;
+    }
+
+    /** Average of {@link #recordUpload} over the recorded frames, ms. */
+    public static double avgUploadMillis() {
+        return frames == 0 ? 0 : upload / 1e6 / frames;
+    }
+
+    /** Of a recorded frame's time, the part spent working it out ({@link #prepare}). */
+    public static void recordPrepare(long prepareNanos) {
+        prepare += prepareNanos;
+    }
+
+    /** Average of {@link #recordPrepare} over the recorded frames, ms. */
+    public static double avgPrepareMillis() {
+        return frames == 0 ? 0 : prepare / 1e6 / frames;
     }
 
     /** Called once per frame with the interpolated bump centre that frame was drawn with. */
@@ -82,6 +107,8 @@ public final class RenderStats {
     }
 
     public static void reset() {
+        prepare = 0;
+        upload = 0;
         frames = 0;
         nanos = 0;
         copies = 0;
