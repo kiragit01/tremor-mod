@@ -1345,10 +1345,14 @@ public final class DeformationRenderer {
                         double off = col.h - k;
                         float x = bx + (float) (ax * off), y = by + (float) (ay * off);
                         float z = bz + (float) (az * off);
-                        frameVertices += mesh.emitCulled(consumer, x, y, z, hidden(col, k, off));
-                        if (x <= 0 && x + 1 >= 0 && y <= 0 && y + 1 >= 0 && z <= 0 && z + 1 >= 0) {
-                            // The camera is inside this copy (a hill risen around the player): seen from inside,
-                            // its faces would be culled and show what lies beyond them, the sky over the hill.
+                        // Near the camera every face: swallowed by the hill off the middle of a block, the copy
+                        // beside the one it is in showed hollow, the face toward it left out (the user).
+                        boolean near = within(x, y, z, NEAR_CAMERA);
+                        frameVertices += mesh.emitCulled(consumer, x, y, z, near ? 0 : hidden(col, k, off));
+                        if (near && within(x, y, z, INSIDE_MARGIN)) {
+                            // The camera is inside this copy, or so near it that the view starts inside it (a hill
+                            // risen around the player): seen from inside, its faces would be culled and show what
+                            // lies beyond them, the sky over the hill.
                             mesh.emitInside(consumer, x, y, z, insideShade);
                             frameVertices += mesh.size();
                         }
@@ -1391,6 +1395,19 @@ public final class DeformationRenderer {
         RenderStats.recordUpload(System.nanoTime() - start);
         RenderSystem.polygonOffset(0f, 0f);
         RenderSystem.disablePolygonOffset();
+    }
+
+    /** Within this distance (blocks) of the camera a copy draws all its faces ({@link #draw}). */
+    private static final float NEAR_CAMERA = 2;
+    /**
+     * A copy the camera is this near (blocks) is drawn inside out too: the view begins a little in front of the camera
+     * (the near plane), inside the copy beside the one it is in when it stands by its edge.
+     */
+    private static final float INSIDE_MARGIN = 0.15f;
+
+    /** Whether the camera (the origin) is within {@code margin} of the copy of a voxel at {@code (x, y, z)}. */
+    private static boolean within(float x, float y, float z, float margin) {
+        return x <= margin && x + 1 >= -margin && y <= margin && y + 1 >= -margin && z <= margin && z + 1 >= -margin;
     }
 
     /**

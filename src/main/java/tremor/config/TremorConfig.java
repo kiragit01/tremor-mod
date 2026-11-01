@@ -128,6 +128,8 @@ public final class TremorConfig {
         public final ForgeConfigSpec.DoubleValue contactAnger;
         public final ForgeConfigSpec.BooleanValue devourMobs;
         public final ForgeConfigSpec.BooleanValue devourItems;
+        public final ForgeConfigSpec.ConfigValue<java.util.List<? extends String>> spareMobs;
+        public final ForgeConfigSpec.BooleanValue spareTamed;
         public final ForgeConfigSpec.BooleanValue contactStalactites;
         public final ForgeConfigSpec.BooleanValue contactBuildUp;
         public final ForgeConfigSpec.DoubleValue despawnPlayerDistance;
@@ -402,6 +404,12 @@ public final class TremorConfig {
                             "pulled under: gone for good. What the mod laid down for a player (it never despawns) is",
                             "spared")
                     .translation(KEY + "behavior.contact.devourItems").define("devourItems", true);
+            spareMobs = b.comment("Mobs the bump never takes: entity ids (\"minecraft:villager\") or entity tags",
+                            "(\"#minecraft:raiders\"), e.g. [\"minecraft:villager\", \"minecraft:wolf\"]")
+                    .translation(KEY + "behavior.contact.spareMobs")
+                    .defineListAllowEmpty(List.of("spareMobs"), List::of, tremor.entity.Devour::isSpareEntry);
+            spareTamed = b.comment("Whether the bump never takes a tamed animal (a pet with an owner, from any mod)")
+                    .translation(KEY + "behavior.contact.spareTamed").define("spareTamed", false);
             contactStalactites = b.comment("A player out of reach up high (more than 5 blocks over the entity, on a pillar, a",
                             "platform or a bridge it cannot get onto) is guarded from below; under a ceiling a small bump",
                             "crawls up over where the player was heard and drops a pointed dripstone on them")

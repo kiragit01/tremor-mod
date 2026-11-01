@@ -390,7 +390,8 @@ record Script(Path path, List<Step> steps) {
             return raw;
         }
         if (current instanceof List) {
-            throw new IllegalArgumentException("lists cannot be set by a config step, edit the config file instead");
+            // Comma-separated, [] for none.
+            return raw.equals("[]") ? List.of() : Arrays.stream(raw.split(",")).map(String::trim).toList();
         }
         throw new IllegalArgumentException("values of type " + (current == null ? "null" : current.getClass().getName())
                 + " cannot be set by a config step");
