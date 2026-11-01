@@ -3,6 +3,7 @@
 # water, the hill did not close over them). Third person, copies tinted red.
 # Run: gradlew runClientAutotest -Ptremor_autotest_script=swallow-edge.txt
 waitchunks
+cmd gamerule commandModificationBlockLimit 2147483647
 cmd gamemode spectator
 cmd time set noon
 cmd tremor despawn all

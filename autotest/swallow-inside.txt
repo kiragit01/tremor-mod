@@ -2,6 +2,7 @@
 # the copies show; none of them may go missing with the faces no one can see left out). Copies tinted red.
 # Run: gradlew runClientAutotest -Ptremor_autotest_script=swallow-inside.txt
 waitchunks
+cmd gamerule commandModificationBlockLimit 2147483647
 cmd gamemode spectator
 cmd time set noon
 cmd tremor despawn all
