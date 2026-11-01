@@ -1,0 +1,54 @@
+# Performance bench, the Awakening only (perf-bench.txt cut short): client frame times and the renderer's copies and vertices (bench), the server's tick
+# (/tick query; the tremor's own in /tremor info), over: nothing, a crawling tremor, the big bump of the peak, the
+# breathing zone of an Awakening, the swallowing hill, the hollow, a crater digging, a pillar 70 high being built.
+# Run: gradlew runClientAutotest -Ptremor_autotest_script=perf-zone.txt (main only: /tick)
+waitchunks
+cmd gamemode spectator
+cmd time set noon
+cmd tremor despawn all
+cmd tremor awaken stop
+cmd kill @e[type=!player]
+cmd gamerule doMobSpawning false
+cmd tp @s 860.5 215.0 270.5 0 25
+wait 40
+waitchunks
+cmd fill 830 188 270 890 193 330 minecraft:stone
+cmd fill 830 194 270 890 199 330 minecraft:dirt
+cmd fill 830 200 270 890 200 330 minecraft:grass_block
+cmd fill 830 201 270 890 208 330 minecraft:air
+cmd fill 830 209 270 890 216 330 minecraft:air
+cmd fill 830 217 270 890 224 330 minecraft:air
+cmd fill 830 225 270 890 232 330 minecraft:air
+cmd fill 830 233 270 890 240 330 minecraft:air
+cmd fill 830 241 270 890 248 330 minecraft:air
+cmd fill 830 249 270 890 256 330 minecraft:air
+cmd fill 830 257 270 890 264 330 minecraft:air
+cmd fill 830 265 270 890 272 330 minecraft:air
+cmd fill 830 273 270 890 280 330 minecraft:air
+cmd fill 830 281 270 890 288 330 minecraft:air
+cmd fill 830 289 270 890 289 330 minecraft:air
+hud off
+fps 260
+wait 40
+log --- 0. nothing
+bench baseline 200
+cmd tick query
+log --- 3. the breathing zone of an Awakening (the player standing still)
+config awakening.buildupSeconds 25
+cmd tp @s 860.5 201.0 300.5 0 30
+cmd gamemode survival
+cmd effect give @s minecraft:resistance 600 4 true
+cmd tremor spawn 860 200 318
+wait 20
+cmd tremor awaken
+wait 100
+view back
+bench zone_breathing 200
+cmd tick query
+log --- 4. the swallowing hill
+wait 150
+bench swallow_hill 40
+cmd tick query
+cmd tremor awaken stop
+cmd tremor despawn all
+quit

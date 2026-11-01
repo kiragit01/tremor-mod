@@ -145,7 +145,33 @@ public final class AwakeningGround {
             }
         }
         return new AwakeningField(PARAMS, state.center(), state.radius(), breath * release,
-                PARAMS.breathEnd() * release, state.focus(), hill * release, rings);
+                PARAMS.breathEnd() * release, state.focus(), hill * release, 0, rings, AwakeningGround::swell);
+    }
+
+    /**
+     * The swells of the breathing at a voxel ({@link AwakeningShape#swell}), worked out once and remembered (the noise
+     * was a fifth of the renderer's time in a zone); by the voxel the point lies in, they change little within one.
+     * Forgotten once more than {@value #MAX_SWELLS} are remembered.
+     */
+    private static double swell(double x, double y, double z) {
+        long key = tremor.core.math.VoxelPos.pack((int) Math.floor(x), (int) Math.floor(y), (int) Math.floor(z));
+        double s = SWELLS.get(key);
+        if (Double.isNaN(s)) {
+            if (SWELLS.size() >= MAX_SWELLS) {
+                SWELLS.clear();
+            }
+            s = AwakeningShape.swell(x, y, z);
+            SWELLS.put(key, s);
+        }
+        return s;
+    }
+
+    private static final int MAX_SWELLS = 1 << 18;
+    private static final it.unimi.dsi.fastutil.longs.Long2DoubleOpenHashMap SWELLS =
+            new it.unimi.dsi.fastutil.longs.Long2DoubleOpenHashMap();
+
+    static {
+        SWELLS.defaultReturnValue(Double.NaN);
     }
 
     /**

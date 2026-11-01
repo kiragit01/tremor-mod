@@ -32,6 +32,12 @@ public final class AwakeningField implements GroundField {
      */
     static final double LIFT = 3;
 
+    /** The swells of the breathing at a point ({@link AwakeningShape#swell}, or one that remembers them). */
+    @FunctionalInterface
+    public interface Swells {
+        double at(double x, double y, double z);
+    }
+
     /** A ring running out from a step, as it is drawn this frame. */
     public record Ring(Vec3 origin, double ageSeconds, RippleParams params) {
         public Ring {
@@ -58,6 +64,7 @@ public final class AwakeningField implements GroundField {
     /** Squared radius of each ring's tail, -1 while the train still covers the origin: nothing moves within it. */
     private final double[] tailSq;
     private final double maxHeight;
+    private final Swells swells;
 
     /**
      * @param center     centre of the zone
@@ -84,6 +91,16 @@ public final class AwakeningField implements GroundField {
      */
     public AwakeningField(AwakeningParams params, Vec3 center, double radius, double breath, double peakBreath,
                           Vec3 focus, double hill, double hillSpeed, List<Ring> rings) {
+        this(params, center, radius, breath, peakBreath, focus, hill, hillSpeed, rings, AwakeningShape::swell);
+    }
+
+    /**
+     * The same, with the swells of the breathing taken from {@code swells} (they never change: the renderer remembers
+     * them rather than work the noise out for every voxel every frame).
+     */
+    public AwakeningField(AwakeningParams params, Vec3 center, double radius, double breath, double peakBreath,
+                          Vec3 focus, double hill, double hillSpeed, List<Ring> rings, Swells swells) {
+        this.swells = Objects.requireNonNull(swells, "swells");
         this.params = Objects.requireNonNull(params, "params");
         this.center = Objects.requireNonNull(center, "center");
         this.focus = Objects.requireNonNull(focus, "focus");
@@ -136,7 +153,7 @@ public final class AwakeningField implements GroundField {
         if (breath > 0) {
             double dx = x - center.x(), dz = z - center.z();
             h += breath * AwakeningShape.zoneFade(params, radius, Math.sqrt(dx * dx + dz * dz), y - center.y())
-                    * AwakeningShape.swell(x, y, z);
+                    * swells.at(x, y, z);
         }
         if (hill > 0) {
             double dx = x - focus.x(), dz = z - focus.z(), dh2 = dx * dx + dz * dz;

@@ -53,6 +53,10 @@ final class Column {
     final Map<RenderType, VertexList> decoMeshes = new IdentityHashMap<>();
     /** Whether the meshes were baked; columns start unbaked and are baked once they rise above the threshold. */
     boolean baked;
+    /** Its block is a whole opaque block: its copies hide what lies behind their faces ({@code DeformationRenderer}). */
+    boolean cube;
+    /** The frame it was last drawn in (a frame's {@code stamp}). */
+    int drawnStamp;
     long lastUsed;
     /** Frame number {@link #h}, {@link #inBump} and {@link #inZone} were last set for. */
     int stamp;
