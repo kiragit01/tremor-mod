@@ -17,9 +17,11 @@ import net.minecraft.world.phys.Vec3;
 import net.neoforged.neoforge.common.Tags;
 import net.neoforged.neoforge.event.tick.LevelTickEvent;
 import tremor.Tremor;
+import tremor.config.TremorConfig;
 import tremor.sound.TremorSounds;
 
 import java.util.IdentityHashMap;
+import java.util.List;
 import java.util.Iterator;
 import java.util.Map;
 import java.util.WeakHashMap;
@@ -90,7 +92,8 @@ public final class Devour {
 
     /** Whether the bump may take {@code mob}: alive, not taken yet, no boss, not undevourable, ridden by no player. */
     public static boolean takeable(ServerLevel level, Mob mob) {
-        if (!mob.isAlive() || mob.getType().is(Tags.EntityTypes.BOSSES) || mob.getType().is(UNDEVOURABLE)) {
+        if (!mob.isAlive() || mob.getType().is(Tags.EntityTypes.BOSSES) || mob.getType().is(UNDEVOURABLE)
+                || spared(mob)) {
             return false;
         }
         for (Entity passenger : mob.getIndirectPassengers()) {
@@ -100,6 +103,38 @@ public final class Devour {
         }
         Map<Mob, Integer> taken = TAKEN.get(level);
         return taken == null || !taken.containsKey(mob);
+    }
+
+    /**
+     * Whether the config spares {@code mob}: its type or a tag of it in {@code contact.spareMobs}, or tamed with
+     * {@code contact.spareTamed} (a player: villagers and pets eaten; a datapack tag was beyond most players).
+     */
+    private static boolean spared(Mob mob) {
+        if (TremorConfig.COMMON.spareTamed.get() && mob instanceof net.minecraft.world.entity.OwnableEntity pet
+                && pet.getOwnerUUID() != null) {
+            return true;
+        }
+        List<? extends String> entries = TremorConfig.COMMON.spareMobs.get();
+        if (entries.isEmpty()) {
+            return false;
+        }
+        ResourceLocation id = net.minecraft.core.registries.BuiltInRegistries.ENTITY_TYPE.getKey(mob.getType());
+        for (String entry : entries) {
+            if (entry.startsWith("#")) {
+                ResourceLocation tag = ResourceLocation.tryParse(entry.substring(1));
+                if (tag != null && mob.getType().is(TagKey.create(Registries.ENTITY_TYPE, tag))) {
+                    return true;
+                }
+            } else if (id.equals(ResourceLocation.tryParse(entry))) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /** Config validator of {@code contact.spareMobs}: an entity id, or {@code #} and a tag id. */
+    public static boolean isSpareEntry(Object entry) {
+        return entry instanceof String s && ResourceLocation.tryParse(s.startsWith("#") ? s.substring(1) : s) != null;
     }
 
     /** Whether the bump may take {@code item}: one lying about, not one the mod laid down to stay (never despawns). */

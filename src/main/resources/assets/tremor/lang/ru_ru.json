@@ -141,6 +141,8 @@
   "tremor.configuration.behavior.contact.lift": "Подброс при отбрасывании",
   "tremor.configuration.behavior.contact.anger": "Агрессия за удар",
   "tremor.configuration.behavior.contact.devourMobs": "Поглощать животных и монстров",
+  "tremor.configuration.behavior.contact.spareMobs": "Мобы, которых она не трогает",
+  "tremor.configuration.behavior.contact.spareTamed": "Не трогать приручённых",
   "tremor.configuration.behavior.contact.devourItems": "Поглощать предметы на земле",
   "tremor.configuration.behavior.contact.stalactites": "Сталактиты на столбы",
   "tremor.configuration.behavior.contact.buildUp": "Надстраивать столбы",

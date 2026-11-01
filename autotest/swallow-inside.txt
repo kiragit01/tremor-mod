@@ -1,5 +1,6 @@
 # Seen from inside: the swallowing hill closes over the player's eyes in first person (the user: inside it the faces of
-# the copies show; none of them may go missing with the faces no one can see left out). Copies tinted red.
+# the copies show; none of them may go missing with the faces no one can see left out; standing off the middle of a
+# block, none may look hollow inside). Copies tinted red.
 # Run: gradlew runClientAutotest -Ptremor_autotest_script=swallow-inside.txt
 waitchunks
 cmd gamerule commandModificationBlockLimit 2147483647
@@ -44,6 +45,34 @@ screenshot 05_down
 look 300 0
 wait 6
 screenshot 06_around
+cmd gamemode spectator
+cmd tremor hollow leave
+cmd tremor awaken stop
+cmd tremor despawn all
+wait 40
+log --- off the middle of a block (by an edge and a corner), first person: no copy may look hollow inside (the user)
+cmd tp @s 850.97 201.0 300.04 90 10
+cmd gamemode survival
+cmd effect give @s minecraft:instant_health 1 4 true
+cmd tremor spawn 850 200 312
+wait 20
+cmd tremor awaken
+wait 90
+screenshot 11_start
+wait 8
+screenshot 12_rising
+look 0 -30
+wait 6
+screenshot 13_up
+look 200 20
+wait 6
+screenshot 14_aside
+look 120 70
+wait 6
+screenshot 15_down
+look 300 0
+wait 6
+screenshot 16_around
 cmd gamemode spectator
 cmd tremor hollow leave
 cmd tremor awaken stop
