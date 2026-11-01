@@ -26,6 +26,18 @@ class AwakeningFieldTest {
         return new AwakeningField.Ring(origin, age, AwakeningShape.stepRipple(P, strength));
     }
 
+    /** The hill as it stands level from the feet at the focus ({@code AwakeningField#lift}). */
+    private static double hillAt(double hill, double x, double y, double z) {
+        double dx = x - FOCUS.x(), dz = z - FOCUS.z(), dh2 = dx * dx + dz * dz, under = FOCUS.y() - (y + 0.5);
+        double dy = under > 0 ? -0.5 : y - FOCUS.y(), sigma = P.hillSigma();
+        if (dh2 + dy * dy >= sigma * sigma * Math.log(1000)) {
+            return 0;
+        }
+        double lift = under <= 0 ? 0 : Math.min(under, AwakeningField.LIFT) * Math.min(1, hill / P.hillHeight())
+                * Math.exp(-dh2 / (sigma * sigma));
+        return AwakeningShape.hill(hill, sigma, dh2 + dy * dy) + lift;
+    }
+
     private static double horizontal(Vec3 a, double x, double z) {
         return Math.hypot(x - a.x(), z - a.z());
     }
@@ -88,7 +100,9 @@ class AwakeningFieldTest {
         double tolerance = hill / 1000; // the hill is left out where it is below a thousandth of its peak
         Random random = new Random(42);
         for (int i = 0; i < 2000; i++) {
-            double x = FOCUS.x() + random.nextGaussian() * 4, y = FOCUS.y() + random.nextGaussian() * 3;
+            // At or over the feet (under them the hill stands level from them, see the next test).
+            double x = FOCUS.x() + random.nextGaussian() * 4;
+            double y = FOCUS.y() - 0.5 + Math.abs(random.nextGaussian()) * 3;
             double z = FOCUS.z() + random.nextGaussian() * 4;
             double breath = 0.4 * AwakeningShape.zoneFade(P, RADIUS, horizontal(CENTER, x, z), y - CENTER.y())
                     * AwakeningShape.swell(x, y, z);
@@ -101,6 +115,27 @@ class AwakeningFieldTest {
         Vec3 edge = new Vec3(CENTER.x() + RADIUS - 1, CENTER.y(), CENTER.z());
         AwakeningField atEdge = new AwakeningField(P, CENTER, RADIUS, 0, 0, edge, hill, List.of());
         assertEquals(hill, atEdge.at(edge.x(), edge.y(), edge.z()), 1e-12);
+    }
+
+    @Test
+    void groundUnderTheFeetRisesSoTheHillStandsLevelFromThem() {
+        double hill = P.hillHeight();
+        AwakeningField f = field(0, hill, List.of());
+        // The voxel under the feet, and one a step lower beside it: its top comes as high as the first one's.
+        double under = f.at(FOCUS.x(), FOCUS.y() - 0.5, FOCUS.z());
+        double low = f.at(FOCUS.x() + 1, FOCUS.y() - 1.5, FOCUS.z());
+        double level = f.at(FOCUS.x() + 1, FOCUS.y() - 0.5, FOCUS.z());
+        double sigma = P.hillSigma();
+        assertEquals(level + Math.exp(-1 / (sigma * sigma)), low, 1e-9); // a block more, fading as the hill does
+        // The floor three blocks under a player held up in water rises by three more; deeper only by three.
+        assertEquals(under + 3, f.at(FOCUS.x(), FOCUS.y() - 3.5, FOCUS.z()), 1e-9);
+        assertEquals(under + 3, f.at(FOCUS.x(), FOCUS.y() - 6.5, FOCUS.z()), 1e-9);
+        // Half risen, half the lift; far across, none.
+        AwakeningField half = field(0, hill / 2, List.of());
+        assertEquals(half.at(FOCUS.x(), FOCUS.y() - 0.5, FOCUS.z()) + 1.5,
+                half.at(FOCUS.x(), FOCUS.y() - 3.5, FOCUS.z()), 1e-9);
+        assertEquals(0, f.at(FOCUS.x() + 12, FOCUS.y() - 2.5, FOCUS.z()), 1e-9);
+        assertTrue(f.maxHeight() >= under + 3);
     }
 
     @Test
@@ -145,7 +180,7 @@ class AwakeningFieldTest {
             double z = CENTER.z() + random.nextGaussian() * 15;
             double expected = 0.25 * AwakeningShape.zoneFade(P, RADIUS, horizontal(CENTER, x, z), y - CENTER.y())
                     * AwakeningShape.swell(x, y, z)
-                    + AwakeningShape.hill(1.5, P.hillSigma(), new Vec3(x, y, z).distanceSquared(FOCUS));
+                    + hillAt(1.5, x, y, z);
             for (AwakeningField.Ring r : rings) {
                 double d = Math.sqrt(new Vec3(x, y, z).distanceSquared(r.origin()));
                 expected += Ripple.height(r.params(), d, r.ageSeconds());
@@ -162,7 +197,8 @@ class AwakeningFieldTest {
         List<AwakeningField.Ring> rings = List.of(ring(step, 0.3, 3), ring(step, 0.32, 3), ring(step, 5, 1));
         AwakeningField f = field(0.4, 3, rings);
         double running = 0.6 * (1 - 0.3 / 1.5) + 0.6 * (1 - 0.32 / 1.5);
-        assertEquals(0.4 + 3 + running, f.maxHeight(), 1e-12);
+        double lift = AwakeningField.LIFT * Math.min(1, 3 / P.hillHeight());
+        assertEquals(0.4 + 3 + lift + running, f.maxHeight(), 1e-12);
         Random random = new Random(45);
         for (int i = 0; i < 20000; i++) {
             double x = step.x() + random.nextGaussian() * 6, y = step.y() + random.nextGaussian();

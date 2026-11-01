@@ -589,8 +589,19 @@ final class Awakening {
             darken(player);
         }
         if (clock.over(now)) {
+            net.minecraft.world.phys.Vec3 floor = Root.floorUnderWater(player);
+            double drop = floor == null ? 0 : player.getY() - floor.y;
+            if (drop > 0.1) {
+                // Swimming: pulled down onto the floor, the hill rises from there (the user: none rose otherwise).
+                Tremor.LOGGER.info(String.format(Locale.ROOT, "Awakening #%d: %s is pulled %.1f blocks down onto the "
+                        + "floor under the water", id, targetName, drop));
+                at = vec(floor);
+            }
             focus = at;
             root.start(player);
+            if (drop > 0.1) {
+                root.pullDown(floor.y);
+            }
             setPhase(Phase.SWALLOWING, now, TremorConfig.COMMON.awakening.swallowTicks.get());
             Tremor.LOGGER.info("Awakening #{}: {} did not get out, the ground swallows them at {}", id, targetName,
                     text(focus));
