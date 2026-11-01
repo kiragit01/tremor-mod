@@ -14,10 +14,12 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.core.particles.BlockParticleOption;
 import net.minecraft.core.particles.ParticleTypes;
+import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.FloatTag;
 import net.minecraft.nbt.ListTag;
 import net.minecraft.nbt.NbtUtils;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.sounds.SoundSource;
 import net.minecraft.tags.BlockTags;
@@ -54,7 +56,8 @@ import tremor.world.TremorTags;
  * {@value #SOURCE_HEIGHT} over the foot down (a build on a heap built before takes from the ground far below): a whole
  * block of the skin with ground under it, never one a crater keeps (a block entity, {@code #tremor:protected},
  * unbreakable, magma, a fluid, the spawn protection, outside the world border); a plant on it goes. The block keeps its
- * state: an ore goes into the pillar, nothing is lost. The displays carry the tag of devoured mobs: left by a server
+ * state: an ore goes into the pillar, nothing is lost; one that falls is packed into its stone ({@link #packed}: sand
+ * into sandstone). The displays carry the tag of devoured mobs: left by a server
  * stopping mid-way, they do not come back.
  */
 final class PerchBuild {
@@ -601,7 +604,7 @@ final class PerchBuild {
         BlockState state = level.getBlockState(p);
         if (state.hasBlockEntity() || state.is(TremorTags.PROTECTED) || state.getDestroySpeed(level, p) < 0
                 || state.is(Blocks.MAGMA_BLOCK) || state.is(BlockTags.LEAVES) || !state.getFluidState().isEmpty()
-                || state.getBlock() instanceof Fallable || !state.isCollisionShapeFullBlock(level, p)) {
+                || packed(state) == null || !state.isCollisionShapeFullBlock(level, p)) {
             return false;
         }
         if (!open(level.getBlockState(p.above()))
@@ -614,6 +617,27 @@ final class PerchBuild {
             }
         }
         return level.getFluidState(p.above()).isEmpty();
+    }
+
+    /**
+     * What a taken block becomes in what it builds: itself, or for one that falls the stone it packs into, so nothing
+     * it builds falls (the user: on sand it built nothing): {@code X_sand} into {@code X_sandstone}, gravel into
+     * cobblestone, {@code X_concrete_powder} into {@code X_concrete}; null for one that falls and packs into nothing
+     * (never taken).
+     */
+    static BlockState packed(BlockState state) {
+        if (!(state.getBlock() instanceof Fallable)) {
+            return state;
+        }
+        ResourceLocation id = BuiltInRegistries.BLOCK.getKey(state.getBlock());
+        String path = id.getPath();
+        String to = path.equals("gravel") ? "cobblestone" : path.endsWith("sand") ? path + "stone"
+                : path.endsWith("_concrete_powder") ? path.substring(0, path.length() - "_powder".length()) : null;
+        if (to == null) {
+            return null;
+        }
+        Block block = BuiltInRegistries.BLOCK.get(ResourceLocation.fromNamespaceAndPath(id.getNamespace(), to));
+        return block == Blocks.AIR ? null : block.defaultBlockState();
     }
 
     private boolean spawnProtected(BlockPos p) {
@@ -634,8 +658,9 @@ final class PerchBuild {
         level.playSound(null, from, state.getSoundType().getBreakSound(), SoundSource.BLOCKS, 0.8f, 0.6f);
         BlockPos holder = sides.containsKey(to) ? sides.get(to) : holder(to);
         int slide = Math.max(MIN_SLIDE_TICKS, SLIDE_TICKS - (int) ((now - startedAt) / SPEED_UP_TICKS));
-        Move m = new Move(state, from, to, holder != null ? holder : to.below(), slide);
-        m.shown = display(state, from, 0, 0, 0);
+        BlockState placed = packed(state);
+        Move m = new Move(placed, from, to, holder != null ? holder : to.below(), slide);
+        m.shown = display(placed, from, 0, 0, 0);
         pending.add(to);
         moves.add(m);
     }
