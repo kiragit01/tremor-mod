@@ -113,16 +113,20 @@ class ScriptTest {
     @Test
     void configValuesOfAnotherTypeAreRejected() {
         Object[][] cases = {{3, "1.5"}, {3, "3000000000"}, {3L, "x"}, {0.5, "NaN"}, {0.5, "1e999"}, {0.5, "half"},
-                {true, "yes"}, {Mode.SLOW, "medium"}, {List.of("a"), "b"}, {'c', "d"}};
+                {true, "yes"}, {Mode.SLOW, "medium"}, {'c', "d"}};
         for (Object[] c : cases) {
             assertThrows(IllegalArgumentException.class, () -> Script.configValue(c[0], (String) c[1]),
                     c[0] + " <- " + c[1]);
         }
         assertEquals("expected one of SLOW, FAST: 'medium'", assertThrows(IllegalArgumentException.class,
                 () -> Script.configValue(Mode.SLOW, "medium")).getMessage());
-        String error = assertThrows(IllegalArgumentException.class,
-                () -> Script.configValue(List.of("a"), "b")).getMessage();
-        assertTrue(error.startsWith("lists cannot be set"), error);
+    }
+
+    @Test
+    void listsAreCommaSeparatedAndEmptyAsBrackets() {
+        assertEquals(List.of("minecraft:cow", "#minecraft:raiders"),
+                Script.configValue(List.of("a"), "minecraft:cow, #minecraft:raiders"));
+        assertEquals(List.of(), Script.configValue(List.of("a"), "[]"));
     }
 
     @Test
