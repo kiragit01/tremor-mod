@@ -51,7 +51,8 @@ public final class Devour {
 
     /** The damage type of the ground's pull ({@code data/tremor/damage_type/swallowed.json}). */
     private static final net.minecraft.resources.ResourceKey<net.minecraft.world.damagesource.DamageType> SWALLOWED =
-            net.minecraft.resources.ResourceKey.create(Registries.DAMAGE_TYPE, ResourceLocation.fromNamespaceAndPath(Tremor.MODID, "swallowed"));
+            net.minecraft.resources.ResourceKey.create(Registries.DAMAGE_TYPE,
+                    ResourceLocation.fromNamespaceAndPath(Tremor.MODID, "swallowed"));
 
     /** The mob being killed right now ({@link #swallow}): its drops are cancelled. */
     private static Mob dying;
