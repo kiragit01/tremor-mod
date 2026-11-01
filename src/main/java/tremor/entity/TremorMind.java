@@ -246,6 +246,11 @@ final class TremorMind {
         perch.heard(player, at, now);
     }
 
+    /** The guarded player came down at {@code at} ({@link Perch}): the brain is sure where they are. */
+    void felt(Vec3 at) {
+        brain.hear(at, STRIKE_LOUDNESS);
+    }
+
     /** The entity is gone: what it sent out goes with it. */
     void discard() {
         perch.discard();

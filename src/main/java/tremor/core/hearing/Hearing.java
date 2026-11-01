@@ -22,7 +22,9 @@ import tremor.core.math.Vec3;
  * A source above the listener is also heard the way down under it and then across to the listener, if that is the
  * better way: down it, open voxels conduct at least {@value #AIRBORNE}, sound falling through the air to the ground
  * (the user: why only through blocks?). A player on a pillar is heard down the pillar, one on a bridge or a platform
- * through the air under it, a blast in the air through the ground under it.
+ * through the air under it, a blast in the air through the ground under it. A listener above the source likewise
+ * hears it across to under the listener and up what it stands on (the user: high on what it built, it never heard
+ * the player it had thrown off).
  */
 public final class Hearing {
     /** The blocks a source can rustle in (leaves, {@code #tremor:rustling}), as its way to the listener sees them. */
@@ -69,12 +71,16 @@ public final class Hearing {
                 foliage, footing);
         double perceived = strength / (1 + distance * resistance);
         double down = source.y() - listener.y();
+        double step = params.sampleStep(), min = params.minConductivity();
         if (down > 1) {
             Vec3 under = new Vec3(source.x(), listener.y(), source.z());
-            double across = under.distance(listener);
-            double way = down * averageResistance(view, source, under, params.sampleStep(), params.minConductivity(),
-                    foliage, footing, AIRBORNE)
-                    + across * averageResistance(view, under, listener, params.sampleStep(), params.minConductivity());
+            double way = down * averageResistance(view, source, under, step, min, foliage, footing, AIRBORNE)
+                    + under.distance(listener) * averageResistance(view, under, listener, step, min);
+            perceived = Math.max(perceived, strength / (1 + way));
+        } else if (down < -1) {
+            Vec3 under = new Vec3(listener.x(), source.y(), listener.z());
+            double way = source.distance(under) * averageResistance(view, source, under, step, min, foliage, footing, 0)
+                    - down * averageResistance(view, under, listener, step, min, null, 0, AIRBORNE);
             perceived = Math.max(perceived, strength / (1 + way));
         }
         return perceived;
