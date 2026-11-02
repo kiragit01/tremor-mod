@@ -1,6 +1,8 @@
-# A player up on a tree crown (the user: on leaves the swallowing goes wrong). Guarded there, the crown gives way under
-# them (dropping as decaying leaves do) and they fall; then, up on a crown again when a swallowing starts, the leaves
-# give way and they are pulled down to the ground, the hill rising there. Third person, copies tinted red.
+# A player up in a tree (the user: on leaves the swallowing went wrong; leaves vanishing at once, or the tree sinking
+# whole, looked wrong). Guarded there, the tremor shakes the trunk and the crown falls from its edges in (dropping as
+# decaying leaves do) till they fall; then, up in a tree again, standing where four leaves meet when a swallowing
+# starts, a ragged funnel opens under them within a second and they are pulled down to the ground, the hill rising
+# there. Third person, copies tinted red.
 # Run: gradlew runClientAutotest -Ptremor_autotest_script=swallow-leaves.txt
 waitchunks
 cmd gamerule commandModificationBlockLimit 2147483647
@@ -16,12 +18,13 @@ cmd fill 830 188 270 890 193 330 minecraft:stone
 cmd fill 830 194 270 890 199 330 minecraft:dirt
 cmd fill 830 200 270 890 200 330 minecraft:grass_block
 cmd fill 830 201 270 890 260 330 minecraft:air
-cmd fill 856 205 296 864 207 304 minecraft:oak_leaves[persistent=true]
-cmd fill 857 208 297 863 208 303 minecraft:oak_leaves[persistent=true]
-cmd fill 860 201 300 860 207 300 minecraft:oak_log
+cmd fill 860 201 300 860 208 300 minecraft:oak_log
+cmd fill 856 205 296 864 207 304 minecraft:oak_leaves replace minecraft:air
+cmd fill 857 208 297 863 208 303 minecraft:oak_leaves replace minecraft:air
+cmd fill 858 209 298 862 209 302 minecraft:oak_leaves
 hud off
 tint on
-cmd tp @s 861.5 209.0 301.5 90 30
+cmd tp @s 862.5 210.0 302.5 90 30
 cmd gamemode survival
 cmd effect give @s minecraft:resistance 600 4 true
 cmd tremor spawn 868 200 301
@@ -30,38 +33,105 @@ cmd tremor anger 85
 wait 40
 cmd tremor voice 0
 view back
-wait 50
-screenshot 01_guarded
-wait 30
-screenshot 02_giving_way
-wait 30
-screenshot 03_fallen
+wait 10
+screenshot 01_guard
+wait 10
+screenshot 02_guard
+wait 10
+screenshot 03_guard
+wait 10
+screenshot 04_guard
+wait 10
+screenshot 05_guard
+wait 10
+screenshot 06_guard
+wait 10
+screenshot 07_guard
+wait 10
+screenshot 08_guard
+wait 10
+screenshot 09_guard
+wait 10
+screenshot 10_guard
+wait 10
+screenshot 11_guard
+wait 10
+screenshot 12_guard
+wait 10
+screenshot 13_guard
+wait 10
+screenshot 14_guard
+wait 10
+screenshot 15_guard
+wait 10
+screenshot 16_guard
+wait 10
+screenshot 17_guard
+wait 10
+screenshot 18_guard
+wait 10
+screenshot 19_guard
+wait 10
+screenshot 20_guard
 cmd tremor info
 cmd execute if entity @e[type=item,distance=..20]
-log --- a swallowing up on a crown
+log --- a swallowing up in a tree, where four leaves meet
 cmd gamemode spectator
+cmd tremor awaken stop
 cmd tremor despawn all
+wait 20
 cmd kill @e[type=!player]
-cmd fill 856 205 296 864 207 304 minecraft:oak_leaves[persistent=true]
-cmd fill 857 208 297 863 208 303 minecraft:oak_leaves[persistent=true]
-cmd fill 860 201 300 860 207 300 minecraft:oak_log
+cmd fill 856 205 296 864 207 304 minecraft:oak_leaves replace minecraft:air
+cmd fill 857 208 297 863 208 303 minecraft:oak_leaves replace minecraft:air
+cmd fill 858 209 298 862 209 302 minecraft:oak_leaves
 config awakening.buildupSeconds 4
-cmd tp @s 862.5 209.0 302.5 90 30
+cmd tp @s 862.0 210.0 302.0 90 30
 cmd gamemode survival
 cmd tremor spawn 868 200 301
 wait 20
 cmd tremor awaken
-wait 84
-screenshot 11_swallow_start
-wait 15
-screenshot 12_pulled
-wait 15
-screenshot 13_hill
-wait 15
-screenshot 14_over
+wait 64
+wait 4
+screenshot 31_swallow
+wait 4
+screenshot 32_swallow
+wait 4
+screenshot 33_swallow
+wait 4
+screenshot 34_swallow
+wait 4
+screenshot 35_swallow
+wait 4
+screenshot 36_swallow
+wait 4
+screenshot 37_swallow
+wait 4
+screenshot 38_swallow
+wait 4
+screenshot 39_swallow
+wait 4
+screenshot 40_swallow
+wait 4
+screenshot 41_swallow
+wait 4
+screenshot 42_swallow
+wait 4
+screenshot 43_swallow
+wait 4
+screenshot 44_swallow
+wait 4
+screenshot 45_swallow
+log --- what the funnel left, the Awakening stopped: from above, from below
 cmd gamemode spectator
 cmd tremor hollow leave
 cmd tremor awaken stop
+view first
+cmd tp @s 862.0 222.0 302.0 0 90
+wait 20
+screenshot 51_above
+cmd tp @s 862.0 202.0 302.0 0 -90
+wait 10
+screenshot 52_below
 cmd tremor despawn all
 tint off
 quit
