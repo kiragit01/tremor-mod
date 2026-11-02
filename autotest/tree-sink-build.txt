@@ -1,0 +1,37 @@
+# A tree with a player's build against its trunk (a security review: a log build touching a crown went under with it):
+# a plank wall beside the trunk; guarded up in the crown, only the leaves go under, the trunk and the wall stay.
+# Run: gradlew runClientAutotest -Ptremor_autotest_script=tree-sink-build.txt
+waitchunks
+cmd gamerule commandModificationBlockLimit 2147483647
+cmd gamemode spectator
+cmd time set noon
+cmd tremor despawn all
+cmd tremor awaken stop
+cmd kill @e[type=!player]
+cmd tp @s 860.5 215.0 290.5
+wait 40
+waitchunks
+cmd fill 830 188 270 890 193 330 minecraft:stone
+cmd fill 830 194 270 890 199 330 minecraft:dirt
+cmd fill 830 200 270 890 200 330 minecraft:grass_block
+cmd fill 830 201 270 890 260 330 minecraft:air
+cmd fill 860 201 300 860 207 300 minecraft:oak_log
+cmd fill 861 201 300 861 203 300 minecraft:oak_planks
+cmd fill 856 205 296 864 207 304 minecraft:oak_leaves replace minecraft:air
+cmd fill 857 208 297 863 208 303 minecraft:oak_leaves
+cmd tp @s 861.5 209.0 301.5 90 30
+cmd gamemode survival
+cmd effect give @s minecraft:resistance 600 4 true
+cmd tremor spawn 868 200 301
+cmd tremor stage hunting
+cmd tremor anger 85
+wait 40
+cmd tremor voice 0
+wait 160
+log --- the leaves went under; the trunk and the wall are still there
+cmd execute if block 860 204 300 minecraft:oak_log
+cmd execute if block 861 202 300 minecraft:oak_planks
+cmd execute if block 858 206 298 minecraft:oak_leaves
+cmd gamemode spectator
+cmd tremor despawn all
+quit
