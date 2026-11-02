@@ -70,7 +70,8 @@ public final class Crown {
      * What goes under with {@code player}: the tree they stand on, within {@value #RADIUS} blocks across, at most
      * {@value #MAX_BLOCKS} blocks: its natural leaves, joined also diagonally, and its plain logs, joined face to face
      * (a security review: a player's log build touching a crown went with it); if a log touches anything but leaves,
-     * logs, ground or open air (planks, a fence, a torch...), it is a build, and only the leaves go. Never a block the
+     * logs, ground or open air (planks, a fence, a torch...), or a log it did not take, or no log stands on the ground,
+     * or the tree was cut short at the limit, it is a build, and only the leaves go. Never a block the
      * crater would keep ({@link #kept}). If they stand on leaves no tree grew (laid by a player), the column of them
      * under their feet ({@link #below}).
      */
@@ -111,13 +112,21 @@ public final class Crown {
                 }
             }
         }
+        // Cut short with more of it left: not sure what it is (a security review: logs beyond the reach were not seen).
+        built |= !queue.isEmpty() && leaves.size() + logs.size() >= MAX_BLOCKS;
+        Set<BlockPos> taken = new HashSet<>(logs);
+        boolean rooted = false;
         for (BlockPos p : logs) {
             for (net.minecraft.core.Direction d : net.minecraft.core.Direction.values()) {
-                BlockState n = level.getBlockState(p.relative(d));
+                BlockPos np = p.relative(d);
+                BlockState n = level.getBlockState(np);
                 built |= !(n.isAir() || n.canBeReplaced() || n.is(BlockTags.LEAVES) || n.is(BlockTags.LOGS)
-                        || n.is(BlockTags.DIRT));
+                        || n.is(BlockTags.DIRT))
+                        || n.is(BlockTags.LOGS) && !taken.contains(np); // logs go on beyond what it took: a build
+                rooted |= d == net.minecraft.core.Direction.DOWN && n.is(BlockTags.DIRT);
             }
         }
+        built |= !logs.isEmpty() && !rooted; // a tree's trunk grows out of the ground
         if (!built) {
             leaves.addAll(logs);
         }
