@@ -590,11 +590,19 @@ final class Awakening {
         }
         if (clock.over(now)) {
             net.minecraft.world.phys.Vec3 floor = Root.floorUnderWater(player);
+            if (floor == null && tremor.entity.Crown.under(player)) {
+                // Up on leaves: the crown gives way, and the hill rises from the ground under it (the user).
+                for (net.minecraft.core.BlockPos leaf : tremor.entity.Crown.below(player)) {
+                    tremor.entity.Crown.crumble(level, leaf);
+                }
+                floor = Root.floorBelow(player);
+            }
             double drop = floor == null ? 0 : player.getY() - floor.y;
             if (drop > 0.1) {
-                // Swimming: pulled down onto the floor, the hill rises from there (the user: none rose otherwise).
+                // Swimming, or the crown gave way: pulled down onto the floor, the hill rises from there (the user:
+                // none rose otherwise).
                 Tremor.LOGGER.info(String.format(Locale.ROOT, "Awakening #%d: %s is pulled %.1f blocks down onto the "
-                        + "floor under the water", id, targetName, drop));
+                        + "floor", id, targetName, drop));
                 at = vec(floor);
             }
             focus = at;

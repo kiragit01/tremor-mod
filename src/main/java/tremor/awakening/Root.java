@@ -63,7 +63,7 @@ final class Root {
     /** A player is pulled down through water this fast (blocks per tick) ({@link #pullDown})... */
     static final double PULL_SPEED = 0.15;
     /** ...for at most this long. */
-    static final int PULL_TICKS = 60;
+    static final int PULL_TICKS = 160;
 
     /** Id of the modifiers; the client knows a rooted player by it ({@code ClientRoot.ROOT_MODIFIER}: the same). */
     private static final UUID ID = UUID.nameUUIDFromBytes((Tremor.MODID + ":awakening_root")
@@ -256,6 +256,31 @@ final class Root {
      * collision under the water, at most {@value #MAX_PULL_DOWN} blocks down; null if the player is not in water, or
      * no floor is that near (only water, then something else, on the way down).
      */
+    /**
+     * Where a player stands once pulled down through open air onto the floor under them (a crown gave way under them,
+     * {@link tremor.entity.Crown}): the top of the first block with a collision under the feet, at most
+     * {@value #MAX_FALL} blocks down; null if none.
+     */
+    static Vec3 floorBelow(ServerPlayer player) {
+        Level level = player.level();
+        BlockPos.MutableBlockPos pos = new BlockPos.MutableBlockPos();
+        int x = Mth.floor(player.getX()), z = Mth.floor(player.getZ()), feet = Mth.floor(player.getY() - 1e-3);
+        for (int y = feet; y >= feet - MAX_FALL && y >= level.getMinBuildHeight(); y--) {
+            BlockState state = level.getBlockState(pos.set(x, y, z));
+            var shape = state.getCollisionShape(level, pos);
+            if (!shape.isEmpty()) {
+                return new Vec3(player.getX(), y + shape.max(Direction.Axis.Y), player.getZ());
+            }
+            if (!state.getFluidState().isEmpty()) {
+                return null;
+            }
+        }
+        return null;
+    }
+
+    /** {@link #floorBelow}: how far down it looks. */
+    static final int MAX_FALL = 24;
+
     static Vec3 floorUnderWater(ServerPlayer player) {
         if (!player.isInWater()) {
             return null;
