@@ -439,7 +439,11 @@ final class Perch {
             return y;
         }
         int bottom = y - MAX_PILLAR;
-        while (y > bottom && view.isSolid(x, y, z) && Surface.isSurface(view, x, y, z)) {
+        VoxelView ground = runtime.graph().view();
+        // Down a door or a crown of leaves even where it is all round (buried): no ground the entity crawls on (the
+        // user: up on a tree it took the leaves inside the crown for the ground, and guarded and let go every tick).
+        while (y > bottom && view.isSolid(x, y, z)
+                && (Surface.isSurface(view, x, y, z) || !ground.isSolid(x, y, z))) {
             y--;
         }
         while (y > bottom && !view.isSolid(x, y, z)) {
