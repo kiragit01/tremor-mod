@@ -1,0 +1,288 @@
+# Film (main only): leaves giving way up in a tree, the crown falling from its edges in, then a funnel at a swallowing.
+# Run: gradlew runClientAutotest -Ptremor_autotest_script=leaves-crumble-film.txt
+waitchunks
+cmd gamerule commandModificationBlockLimit 2147483647
+cmd gamemode spectator
+cmd time set noon
+cmd tremor despawn all
+cmd tremor awaken stop
+cmd kill @e[type=!player]
+cmd tp @s 860.5 215.0 290.5
+wait 40
+waitchunks
+cmd fill 830 188 270 890 193 330 minecraft:stone
+cmd fill 830 194 270 890 199 330 minecraft:dirt
+cmd fill 830 200 270 890 200 330 minecraft:grass_block
+cmd fill 830 201 270 890 260 330 minecraft:air
+cmd fill 860 201 300 860 208 300 minecraft:oak_log
+cmd fill 856 205 296 864 207 304 minecraft:oak_leaves replace minecraft:air
+cmd fill 857 208 297 863 208 303 minecraft:oak_leaves replace minecraft:air
+cmd fill 858 209 298 862 209 302 minecraft:oak_leaves
+hud off
+tint on
+cmd tp @s 862.5 210.0 302.5 90 30
+cmd gamemode survival
+cmd effect give @s minecraft:resistance 600 4 true
+cmd tremor spawn 868 200 301
+cmd tremor stage hunting
+cmd tremor anger 85
+wait 40
+cmd tremor voice 0
+view back
+wait 60
+cmd tick rate 5
+wait 2
+screenshot g000
+wait 2
+screenshot g001
+wait 2
+screenshot g002
+wait 2
+screenshot g003
+wait 2
+screenshot g004
+wait 2
+screenshot g005
+wait 2
+screenshot g006
+wait 2
+screenshot g007
+wait 2
+screenshot g008
+wait 2
+screenshot g009
+wait 2
+screenshot g010
+wait 2
+screenshot g011
+wait 2
+screenshot g012
+wait 2
+screenshot g013
+wait 2
+screenshot g014
+wait 2
+screenshot g015
+wait 2
+screenshot g016
+wait 2
+screenshot g017
+wait 2
+screenshot g018
+wait 2
+screenshot g019
+wait 2
+screenshot g020
+wait 2
+screenshot g021
+wait 2
+screenshot g022
+wait 2
+screenshot g023
+wait 2
+screenshot g024
+wait 2
+screenshot g025
+wait 2
+screenshot g026
+wait 2
+screenshot g027
+wait 2
+screenshot g028
+wait 2
+screenshot g029
+wait 2
+screenshot g030
+wait 2
+screenshot g031
+wait 2
+screenshot g032
+wait 2
+screenshot g033
+wait 2
+screenshot g034
+wait 2
+screenshot g035
+wait 2
+screenshot g036
+wait 2
+screenshot g037
+wait 2
+screenshot g038
+wait 2
+screenshot g039
+wait 2
+screenshot g040
+wait 2
+screenshot g041
+wait 2
+screenshot g042
+wait 2
+screenshot g043
+wait 2
+screenshot g044
+wait 2
+screenshot g045
+wait 2
+screenshot g046
+wait 2
+screenshot g047
+wait 2
+screenshot g048
+wait 2
+screenshot g049
+wait 2
+screenshot g050
+wait 2
+screenshot g051
+wait 2
+screenshot g052
+wait 2
+screenshot g053
+wait 2
+screenshot g054
+wait 2
+screenshot g055
+wait 2
+screenshot g056
+wait 2
+screenshot g057
+wait 2
+screenshot g058
+wait 2
+screenshot g059
+wait 2
+screenshot g060
+wait 2
+screenshot g061
+wait 2
+screenshot g062
+wait 2
+screenshot g063
+wait 2
+screenshot g064
+wait 2
+screenshot g065
+wait 2
+screenshot g066
+wait 2
+screenshot g067
+wait 2
+screenshot g068
+wait 2
+screenshot g069
+cmd tick rate 20
+log --- a swallowing up in a tree, where four leaves meet
+cmd gamemode spectator
+cmd tremor awaken stop
+cmd tremor despawn all
+wait 20
+cmd kill @e[type=!player]
+cmd fill 856 205 296 864 207 304 minecraft:oak_leaves replace minecraft:air
+cmd fill 857 208 297 863 208 303 minecraft:oak_leaves replace minecraft:air
+cmd fill 858 209 298 862 209 302 minecraft:oak_leaves
+config awakening.buildupSeconds 4
+cmd tp @s 862.0 210.0 302.0 90 30
+cmd gamemode survival
+cmd tremor spawn 868 200 301
+wait 20
+cmd tremor awaken
+wait 70
+cmd tick rate 5
+wait 1
+screenshot s000
+wait 1
+screenshot s001
+wait 1
+screenshot s002
+wait 1
+screenshot s003
+wait 1
+screenshot s004
+wait 1
+screenshot s005
+wait 1
+screenshot s006
+wait 1
+screenshot s007
+wait 1
+screenshot s008
+wait 1
+screenshot s009
+wait 1
+screenshot s010
+wait 1
+screenshot s011
+wait 1
+screenshot s012
+wait 1
+screenshot s013
+wait 1
+screenshot s014
+wait 1
+screenshot s015
+wait 1
+screenshot s016
+wait 1
+screenshot s017
+wait 1
+screenshot s018
+wait 1
+screenshot s019
+wait 1
+screenshot s020
+wait 1
+screenshot s021
+wait 1
+screenshot s022
+wait 1
+screenshot s023
+wait 1
+screenshot s024
+wait 1
+screenshot s025
+wait 1
+screenshot s026
+wait 1
+screenshot s027
+wait 1
+screenshot s028
+wait 1
+screenshot s029
+wait 1
+screenshot s030
+wait 1
+screenshot s031
+wait 1
+screenshot s032
+wait 1
+screenshot s033
+wait 1
+screenshot s034
+wait 1
+screenshot s035
+wait 1
+screenshot s036
+wait 1
+screenshot s037
+wait 1
+screenshot s038
+wait 1
+screenshot s039
+wait 1
+screenshot s040
+wait 1
+screenshot s041
+wait 1
+screenshot s042
+wait 1
+screenshot s043
+wait 1
+screenshot s044
+cmd tick rate 20
+cmd gamemode spectator
+cmd tremor hollow leave
+cmd tremor awaken stop
+cmd tremor despawn all
+tint off
+quit

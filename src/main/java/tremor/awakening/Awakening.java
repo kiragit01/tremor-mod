@@ -591,11 +591,8 @@ final class Awakening {
         if (clock.over(now)) {
             net.minecraft.world.phys.Vec3 floor = Root.floorUnderWater(player);
             if (floor == null && tremor.entity.Crown.under(player)) {
-                // Up on leaves: the crown gives way, and the hill rises from the ground under it (the user).
-                for (net.minecraft.core.BlockPos leaf : tremor.entity.Crown.below(player)) {
-                    tremor.entity.Crown.crumble(level, leaf);
-                }
-                floor = Root.floorBelow(player);
+                // Up on leaves: a funnel opens under them, and the hill rises from the ground under it (the user).
+                floor = Root.floorBelow(player, tremor.entity.Crown.funnel(level, player));
             }
             double drop = floor == null ? 0 : player.getY() - floor.y;
             if (drop > 0.1) {
