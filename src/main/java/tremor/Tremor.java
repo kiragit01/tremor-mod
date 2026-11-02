@@ -70,6 +70,7 @@ public final class Tremor {
         game.addListener(tremor.entity.Routes::onLevelTick);
         game.addListener(tremor.entity.Routes::onServerStopped);
         game.addListener(tremor.entity.Devour::onLevelTick);
+        game.addListener(tremor.entity.Crown::onLevelTick);
         game.addListener(tremor.entity.Devour::onDrops);
         game.addListener(tremor.entity.Devour::onEntityJoin);
         game.addListener(tremor.entity.Devour::onServerStopped);
