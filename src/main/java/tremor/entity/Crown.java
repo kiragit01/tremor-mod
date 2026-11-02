@@ -67,9 +67,12 @@ public final class Crown {
     }
 
     /**
-     * What goes under with {@code player}: the tree they stand on (natural leaves and logs joined to them, also
-     * diagonally, within {@value #RADIUS} blocks across, at most {@value #MAX_BLOCKS}); if they stand on leaves no tree
-     * grew (laid by a player), the column of them under their feet ({@link #below}).
+     * What goes under with {@code player}: the tree they stand on, within {@value #RADIUS} blocks across, at most
+     * {@value #MAX_BLOCKS} blocks: its natural leaves, joined also diagonally, and its plain logs, joined face to face
+     * (a security review: a player's log build touching a crown went with it); if a log touches anything but leaves,
+     * logs, ground or open air (planks, a fence, a torch...), it is a build, and only the leaves go. Never a block the
+     * crater would keep ({@link #kept}). If they stand on leaves no tree grew (laid by a player), the column of them
+     * under their feet ({@link #below}).
      */
     public static List<BlockPos> what(Player player) {
         Level level = player.level();
@@ -77,32 +80,78 @@ public final class Crown {
         if (!natural(level.getBlockState(start))) {
             return below(player);
         }
-        List<BlockPos> found = new ArrayList<>();
+        List<BlockPos> leaves = new ArrayList<>(), logs = new ArrayList<>();
         Set<BlockPos> seen = new HashSet<>(List.of(start));
         ArrayDeque<BlockPos> queue = new ArrayDeque<>(List.of(start));
-        while (!queue.isEmpty() && found.size() < MAX_BLOCKS) {
+        boolean built = false;
+        while (!queue.isEmpty() && leaves.size() + logs.size() < MAX_BLOCKS) {
             BlockPos p = queue.poll();
             BlockState state = level.getBlockState(p);
-            if (!(natural(state) || state.is(BlockTags.LOGS)) || state.hasBlockEntity()
+            boolean leaf = natural(state), log = !leaf && plainLog(state);
+            if (!(leaf || log)
                     || Math.max(Math.abs(p.getX() - start.getX()), Math.abs(p.getZ() - start.getZ())) > RADIUS) {
                 continue;
             }
-            found.add(p);
+            if (kept(level, p, state)) {
+                built |= log;
+                continue;
+            }
+            (leaf ? leaves : logs).add(p);
             for (int dy = -1; dy <= 1; dy++) {
                 for (int dz = -1; dz <= 1; dz++) {
                     for (int dx = -1; dx <= 1; dx++) {
+                        boolean face = Math.abs(dx) + Math.abs(dy) + Math.abs(dz) == 1;
                         BlockPos n = p.offset(dx, dy, dz);
-                        if (seen.add(n)) {
+                        // From a log only to its faces; from a leaf a log only at a face too (a fence post beside it is
+                        // not reached diagonally).
+                        if ((face || leaf && !plainLog(level.getBlockState(n))) && seen.add(n)) {
                             queue.add(n);
                         }
                     }
                 }
             }
         }
-        return found;
+        for (BlockPos p : logs) {
+            for (net.minecraft.core.Direction d : net.minecraft.core.Direction.values()) {
+                BlockState n = level.getBlockState(p.relative(d));
+                built |= !(n.isAir() || n.canBeReplaced() || n.is(BlockTags.LEAVES) || n.is(BlockTags.LOGS)
+                        || n.is(BlockTags.DIRT));
+            }
+        }
+        if (!built) {
+            leaves.addAll(logs);
+        }
+        return leaves;
     }
 
-    /** The leaves under {@code player}, a column {@value #REACH} either side of theirs, for as long as there are any. */
+    /** A log as trees grow it: of {@code #logs}, but no stripped log and no wood (bark all round: building blocks). */
+    private static boolean plainLog(BlockState state) {
+        if (!state.is(BlockTags.LOGS)) {
+            return false;
+        }
+        String path = net.minecraft.core.registries.BuiltInRegistries.BLOCK.getKey(state.getBlock()).getPath();
+        return !path.startsWith("stripped_") && !path.endsWith("_wood") && !path.endsWith("_hyphae");
+    }
+
+    /**
+     * Whether {@code p} stays as a crater keeps what it must: a block entity, {@code #tremor:protected}, unbreakable,
+     * the spawn protection, outside the world border.
+     */
+    private static boolean kept(Level level, BlockPos p, BlockState state) {
+        if (state.hasBlockEntity() || state.is(tremor.world.TremorTags.PROTECTED) || state.getDestroySpeed(level, p) < 0
+                || !level.getWorldBorder().isWithinBounds(p)) {
+            return true;
+        }
+        int radius = level.dimension() == Level.OVERWORLD && level.getServer() != null
+                ? Math.max(0, level.getServer().getSpawnProtectionRadius()) : 0;
+        BlockPos spawn = level.getSharedSpawnPos();
+        return radius > 0 && Math.max(Math.abs(p.getX() - spawn.getX()), Math.abs(p.getZ() - spawn.getZ())) <= radius;
+    }
+
+    /**
+     * The leaves under {@code player}, a column {@value #REACH} either side of theirs, for as long as there are any,
+     * but those the crater would keep ({@link #kept}).
+     */
     static List<BlockPos> below(Player player) {
         Level level = player.level();
         BlockPos feet = player.getOnPos();
@@ -112,9 +161,12 @@ public final class Crown {
             for (int dz = -REACH; dz <= REACH; dz++) {
                 for (int dx = -REACH; dx <= REACH; dx++) {
                     BlockPos p = feet.offset(dx, -dy, dz);
-                    if (level.getBlockState(p).is(BlockTags.LEAVES)) {
-                        found.add(p);
+                    BlockState state = level.getBlockState(p);
+                    if (state.is(BlockTags.LEAVES)) {
                         any = true;
+                        if (!kept(level, p, state)) {
+                            found.add(p);
+                        }
                     }
                 }
             }
