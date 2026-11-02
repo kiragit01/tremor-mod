@@ -86,12 +86,10 @@ final class Perch {
      */
     static final int FEEL_TICKS = 20;
     /**
-     * Guarding a player up on leaves, the crown gives way under them after this many ticks ({@link Crown}), and again
-     * this long after if they are still on leaves...
+     * Guarding a player up on leaves, it drags the tree under them after this many ticks ({@link Crown}), and again
+     * this long after if they are on leaves still.
      */
     static final int CROWN_RETRY_TICKS = 60;
-    /** ...crumbling this many leaves a tick, the highest first. */
-    static final int CROWN_PER_TICK = 3;
     /** It comes up on a node at most this far from the player's feet. */
     static final int EMERGE_RADIUS = 2;
     /** Whether a way leads to a place is searched again after this long (ticks). */
@@ -177,9 +175,7 @@ final class Perch {
     private boolean hidden;
     private long buildFrom;
     private long nextFeel;
-    /** The leaves of a crown giving way under the guarded player, the next to crumble first ({@link Crown}). */
-    private final java.util.ArrayDeque<BlockPos> crown = new java.util.ArrayDeque<>();
-    /** When the crown under the guarded player may give way (again). */
+    /** When the tree under the guarded player may be dragged under (again, if they are on leaves still). */
     private long nextCrown;
     /** Game time the trap at the foot ends at. */
     private long trapUntil;
@@ -272,11 +268,10 @@ final class Perch {
                 ServerPlayer player = level.getServer().getPlayerList().getPlayer(prey);
                 if (player != null && player.onGround()) {
                     heard(prey, new Vec3(player.getX(), player.getY(), player.getZ()), now); // felt, not heard
-                    if (crown.isEmpty() && now >= nextCrown && Crown.under(player)) {
-                        // Up on a tree: no ground to crawl or build on there; the crown gives way under them (the user).
-                        crown.addAll(Crown.below(player));
+                    if (now >= nextCrown && Crown.under(player)) {
+                        // Up on a tree: no ground to crawl or build on there; it drags the tree under (the user).
+                        Crown.sink(level, Crown.what(player));
                         nextCrown = now + CROWN_RETRY_TICKS;
-                        play(SoundEvents.AZALEA_LEAVES_BREAK, player.getOnPos(), 1.5f, 0.5f);
                     }
                 }
             }
@@ -341,9 +336,6 @@ final class Perch {
     void tick(long now, MotionParams motion) {
         if (prey != null && (entity.leaving() || entity.absorbed())) {
             stop(entity.leaving() ? "leaving" : "taken by an Awakening");
-        }
-        for (int i = 0; i < CROWN_PER_TICK && !crown.isEmpty(); i++) {
-            Crown.crumble(level, crown.poll());
         }
         if (mini != null) {
             tickMini(now, motion);

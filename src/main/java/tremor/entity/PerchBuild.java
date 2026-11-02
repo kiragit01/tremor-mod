@@ -784,7 +784,7 @@ final class PerchBuild {
     }
 
     /** Moves the display by {@code dx, dy, dz}, smoothly over {@code ticks} on the clients (as {@code /data merge}). */
-    private static void slide(Display.BlockDisplay shown, float dx, float dy, float dz, int ticks) {
+    static void slide(Display.BlockDisplay shown, float dx, float dy, float dz, int ticks) {
         CompoundTag tag = shown.saveWithoutId(new CompoundTag());
         tag.put("transformation", transformation(dx, dy, dz));
         tag.putInt("interpolation_duration", ticks);
