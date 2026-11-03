@@ -97,12 +97,15 @@ final class PerchBuild {
     static final int MAX_AT_ONCE = 8;
     /**
      * Under each cell of the walkway hangs a block at this chance, one stands on it at the next (the user: harder to
-     * walk on); under and over each cell beside it at the last two.
+     * walk on); under and over each cell beside it at the next two; out beyond one beside it at the next, and under one
+     * hanging another at the last (the user: bulkier, more chaotic).
      */
-    static final double HANG_CHANCE = 0.4;
+    static final double HANG_CHANCE = 0.55;
     static final double OVER_CHANCE = 0.3;
-    static final double SIDE_UNDER_CHANCE = 0.3;
+    static final double SIDE_UNDER_CHANCE = 0.45;
     static final double SIDE_OVER_CHANCE = 0.3;
+    static final double SIDE_FAR_CHANCE = 0.4;
+    static final double DEEP_CHANCE = 0.4;
     /** A column of the plan goes down this far under the foot where the ground dips. */
     static final int DIP = 3;
     /** Heard farther than this (blocks, across) from where they were heard before, the player is built for anew. */
@@ -234,7 +237,9 @@ final class PerchBuild {
         for (BlockPos w : way) {
             sides.putIfAbsent(w, before);
             order.add(w);
-            hang(w, w.below(), HANG_CHANCE, on, order);
+            if (hang(w, w.below(), HANG_CHANCE, on, order)) {
+                hang(w.below(), w.below(2), DEEP_CHANCE, on, order);
+            }
             hang(w, w.above(), OVER_CHANCE, on, order);
             for (Direction d : Direction.Plane.HORIZONTAL) {
                 BlockPos n = w.relative(d);
@@ -242,8 +247,14 @@ final class PerchBuild {
                     sides.putIfAbsent(n, w);
                     if (w.equals(sides.get(n))) {
                         order.add(n);
-                        hang(n, n.below(), SIDE_UNDER_CHANCE, on, order);
+                        if (hang(n, n.below(), SIDE_UNDER_CHANCE, on, order)) {
+                            hang(n.below(), n.below(2), DEEP_CHANCE, on, order);
+                        }
                         hang(n, n.above(), SIDE_OVER_CHANCE, on, order);
+                        BlockPos far = n.relative(d);
+                        if (hang(n, far, SIDE_FAR_CHANCE, on, order)) {
+                            hang(far, far.below(), SIDE_UNDER_CHANCE, on, order);
+                        }
                     }
                 }
             }
@@ -257,16 +268,18 @@ final class PerchBuild {
     /**
      * A block at {@code cell}, coming out of {@code from}, at {@code chance} (the same for the same cell every time the
      * walkway is laid again): the walkway raggeder, hanging under it and standing on it and its sides (never where
-     * somebody stands: {@link #fillable}).
+     * somebody stands: {@link #fillable}). Whether it comes out of {@code from}.
      */
-    private void hang(BlockPos from, BlockPos cell, double chance, Set<BlockPos> on, List<BlockPos> order) {
+    private boolean hang(BlockPos from, BlockPos cell, double chance, Set<BlockPos> on, List<BlockPos> order) {
         if (on.contains(cell) || draw(cell) >= chance) {
-            return;
+            return false;
         }
         sides.putIfAbsent(cell, from);
-        if (from.equals(sides.get(cell))) {
-            order.add(cell);
+        if (!from.equals(sides.get(cell))) {
+            return false;
         }
+        order.add(cell);
+        return true;
     }
 
     /** The cells from {@code a} (not included) straight to {@code b}, a step across at a time, the height spread. */

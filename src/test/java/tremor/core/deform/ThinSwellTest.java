@@ -42,12 +42,28 @@ class ThinSwellTest {
     }
 
     @Test
-    void aSlabOneBlockThickSwellsOverAndUnder() {
+    void aSlabOneBlockThickRisesAsGround() {
+        // A bridge is drawn as plain ground (the user: the swelling round a lumpy bridge jerked from shape to shape).
         ArrayVoxelGrid g = new ArrayVoxelGrid(-12, -12, -12, 12, 12, 12, false).fill(-9, 0, -9, 9, 0, 9, true);
         BumpFrame frame = BumpFrame.of(new Vec3(0.5, 1.0, 0.5), Vec3.UNIT_Y, Vec3.UNIT_X);
         ThinSwell.Result result = ThinSwell.apply(g, frame, PARAMS, PARAMS.influenceRadius(), collect(g, frame));
-        assertTrue(contains(result.fills(), 0, 1, 0), "over it");
-        assertTrue(contains(result.fills(), 0, -1, 0), "under it");
+        assertTrue(result.fills().isEmpty(), "no swelling round it");
+        assertTrue(result.points().stream().anyMatch(p -> p.x() == 0 && p.y() == 0 && p.z() == 0
+                && p.normal().equals(Vec3.UNIT_Y)), "its top rises straight up");
+        assertTrue(result.points().stream().noneMatch(p -> p.y() != 0), "nothing under it or beside it moves");
+    }
+
+    @Test
+    void onABridgeTheBumpIsDrawnUpright() {
+        ArrayVoxelGrid slab = new ArrayVoxelGrid(-12, -12, -12, 12, 12, 12, false).fill(-9, 0, -9, 9, 0, 9, true);
+        Vec3 aside = new Vec3(0.7, 0.7, 0).normalize();
+        Vec3 n = ThinSwell.drawnNormal(slab, new Vec3(0.5, 1.0, 0.5), aside);
+        assertEquals(0, n.x(), 1e-9);
+        assertEquals(1, n.y(), 1e-9);
+        Vec3 under = ThinSwell.drawnNormal(slab, new Vec3(0.5, 0.0, 0.5), new Vec3(0.3, -0.9, 0).normalize());
+        assertEquals(-1, under.y(), 1e-9, "under it: straight down");
+        ArrayVoxelGrid ground = ArrayVoxelGrid.flatFloor(0);
+        assertEquals(aside, ThinSwell.drawnNormal(ground, new Vec3(0.5, 1.0, 0.5), aside), "thick ground: as it is");
     }
 
     @Test
