@@ -301,6 +301,15 @@ public final class DeformationRenderer {
         long collectTick;
         /** This frame's height field; null while it draws nothing. */
         HeightField field;
+        /**
+         * The cells a thin structure under the entity swells into ({@link ThinSwell}), by cell: those of the last
+         * collection, growing, and those before it still going down (the user: on a walkway of a few blocks the
+         * swelling popped in and out), all in {@link #active} too.
+         */
+        final Map<Long, Column> fills = new HashMap<>();
+        /** The normal it is drawn along, as of game time {@link #normalAt} ({@link #drawn}); null at first. */
+        Vec3 normal;
+        double normalAt = Double.NaN;
     }
 
     private DeformationRenderer() {
@@ -409,11 +418,13 @@ public final class DeformationRenderer {
 
         frameStamp++;
         frameColumns.clear();
+        double now = tick + partialTick;
         for (int b = 0; b < frameBumps.size(); b++) {
             Bump bump = frameBumps.get(b);
             for (int i = 0, n = bump.active.size(); i < n; i++) {
                 Column col = bump.active.get(i);
-                double h = col.fill ? fillCoverage(bump.field, col) : bump.field.at(col.cx, col.cy, col.cz);
+                double h = col.fill ? fillCoverage(bump.field, col, rise(col, now))
+                        : bump.field.at(col.cx, col.cy, col.cz);
                 if (col.stamp != frameStamp) {
                     col.stamp = frameStamp;
                     col.inBump = true;
@@ -532,7 +543,7 @@ public final class DeformationRenderer {
             }
             if (frameBumps.size() < MAX_BUMPS) {
                 Bump bump = bumps.computeIfAbsent(state.instance(), instance -> new Bump());
-                bump.field = bump(level, state, bump, frameBumps.isEmpty(), tick);
+                bump.field = bump(level, state, bump, frameBumps.isEmpty(), tick, tick + partialTick);
                 if (bump.field != null) {
                     frameBumps.add(bump);
                 }
@@ -657,8 +668,8 @@ public final class DeformationRenderer {
      * @param nearest the entity nearest to the camera, whose centre the frame statistics follow
      */
     private static HeightField bump(ClientLevel level, ClientTremor.RenderState state, Bump bump, boolean nearest,
-                                    long tick) {
-        BumpFrame frame = state.frame();
+                                    long tick, double now) {
+        BumpFrame frame = drawn(level, bump, state.frame(), tick, now);
         BumpParams params = state.params();
         RippleParams ripple = runningRipple(state.rippleAgeSeconds(),
                 Ripple.visibility(params.amplitude(), state.fullAmplitude()));
@@ -962,8 +973,26 @@ public final class DeformationRenderer {
         for (SurfacePoint p : thin.points()) {
             bump.active.add(column(p, tick));
         }
+        for (Column col : bump.fills.values()) {
+            col.swelling = false;
+        }
         for (ThinSwell.Fill f : thin.fills()) {
-            bump.active.add(fill(f, tick));
+            long key = VoxelPos.pack(f.x(), f.y(), f.z());
+            Column old = bump.fills.get(key), col = fill(f, tick);
+            if (old == null) {
+                col.swell = 0;
+                col.swellAt = Double.NaN;
+            } else if (old != col) {
+                col.swell = old.swell; // the same cell out of another voxel: as far up as it was
+                col.swellAt = old.swellAt;
+            }
+            col.swelling = true;
+            bump.fills.put(key, col);
+        }
+        bump.fills.values().removeIf(col -> !col.swelling && col.swell <= 0);
+        for (Column col : bump.fills.values()) {
+            col.lastUsed = tick;
+            bump.active.add(col);
         }
         Vec3 c = frame.center();
         bump.collectX = c.x();
@@ -1083,12 +1112,50 @@ public final class DeformationRenderer {
         zoneSwellAt = null;
     }
 
+    /** The drawn normal of a bump follows its target over about this many ticks ({@link #drawn})... */
+    static final double DRAWN_NORMAL_TICKS = 5;
+    /** ...unless it was not drawn for this long: then it is the target at once. */
+    static final double DRAWN_NORMAL_GAP = 10;
+
+    /**
+     * The frame a bump is drawn in: the entity's, its normal turned upright on ground one block thick
+     * ({@link ThinSwell#drawnNormal}), and following that over about {@value #DRAWN_NORMAL_TICKS} ticks (the user: on a
+     * lumpy bridge it jerked from a pillar to sticking out sideways and back).
+     */
+    private static BumpFrame drawn(ClientLevel level, Bump bump, BumpFrame frame, long tick, double now) {
+        source.begin(level);
+        voxels.setTime(tick);
+        Vec3 target = ThinSwell.drawnNormal(voxels, frame.center(), frame.normal());
+        double dt = Double.isNaN(bump.normalAt) ? Double.POSITIVE_INFINITY : Math.max(0, now - bump.normalAt);
+        if (bump.normal == null || dt > DRAWN_NORMAL_GAP) {
+            bump.normal = target;
+        } else {
+            Vec3 n = bump.normal.lerp(target, 1 - Math.exp(-dt / DRAWN_NORMAL_TICKS));
+            bump.normal = n.isNearZero() ? target : n.normalize();
+        }
+        bump.normalAt = now;
+        return new BumpFrame(frame.center(), bump.normal, frame.forward());
+    }
+
+    /** The swelling of thin ground around the entity grows, or goes down, over this many ticks ({@link Column#swell}). */
+    static final double SWELL_FADE_TICKS = 10;
+
+    /** How far the swelling at a fill cell of a bump is up at game time {@code now}, growing or going down. */
+    private static double rise(Column col, double now) {
+        if (col.swellAt != now) {
+            double step = Double.isNaN(col.swellAt) ? 0 : Math.max(0, now - col.swellAt) / SWELL_FADE_TICKS;
+            col.swell = Math.max(0, Math.min(1, col.swell + (col.swelling ? step : -step)));
+            col.swellAt = now;
+        }
+        return col.swell;
+    }
+
     /**
      * How far a cell a thin structure swells into is filled this frame ({@link ThinSwell#coverage}): from the height of
-     * the field at its source.
+     * the field at its source, and how far the swelling is up ({@code swell}, 0 to 1).
      */
-    private static double fillCoverage(HeightField field, Column col) {
-        double height = Math.max(0, field.at(col.sx, col.sy, col.sz));
+    private static double fillCoverage(HeightField field, Column col, double swell) {
+        double height = Math.max(0, field.at(col.sx, col.sy, col.sz)) * swell;
         return ThinSwell.coverage(ThinSwell.SWELL * height * ThinSwell.breath(field.time(), col.x, col.y, col.z)
                 * ThinSwell.falloff(field.frame(), field.params().sigmaSide(), col.sx, col.sy, col.sz), col.fillDistance);
     }

@@ -51,6 +51,14 @@ public final class ThinSwell {
     static final double BREATH_SCALE = 3.0;
     /** A voxel of the structure swelling less than this (blocks) fills nothing. */
     static final double MIN_SWELL = 0.05;
+    /**
+     * Ground at most this thick (blocks, open beyond) is a bridge; where at least {@value #BRIDGE_SHARE} of the ground
+     * around the entity is, the bump is drawn as on plain ground ({@link #apply}), its tops rising within
+     * {@value #BRIDGE_BAND} blocks of its height.
+     */
+    static final int BRIDGE_THICKNESS = 3;
+    static final double BRIDGE_SHARE = 0.5;
+    static final int BRIDGE_BAND = 3;
     /** At most this many voxels of the structure are looked at (a long thin wall). */
     static final int MAX_STRUCTURE = 1024;
     /** The six steps to the face neighbours of a voxel. */
@@ -108,6 +116,11 @@ public final class ThinSwell {
      */
     public static Result apply(VoxelView view, BumpFrame frame, BumpParams params, double radius,
                                List<SurfacePoint> points) {
+        int dir = frame.normal().y() < 0 ? -1 : 1;
+        int[] a = anchor(view, frame.center(), frame.normal());
+        if (a != null && bridgeShare(view, a, dir) >= BRIDGE_SHARE) {
+            return new Result(bridgeTops(view, frame.center(), radius, dir), List.of());
+        }
         int[] axis = axisStep(frame.normal());
         List<SurfacePoint> kept = new ArrayList<>(points.size());
         for (SurfacePoint p : points) {
@@ -154,6 +167,77 @@ public final class ThinSwell {
      */
     private static boolean slab(VoxelView view, int x, int y, int z) {
         return !view.isSolid(x, y, z) || !view.isSolid(x, y + 1, z) && !view.isSolid(x, y - 1, z);
+    }
+
+    /**
+     * The normal a bump at {@code point} is drawn along: on a bridge ({@link #bridgeShare}: ground a few blocks thick,
+     * open over and under), turned upright, or straight down if the entity is under it, the more so the more of the
+     * ground around is that thin (all of it from {@value #BRIDGE_SHARE} on); elsewhere {@code normal} itself. The user: on a lumpy bridge the entity's
+     * own normal swings from side to side, pulled by the open sides, and the bump jerked from a pillar to sticking out
+     * sideways and back.
+     */
+    public static Vec3 drawnNormal(VoxelView view, Vec3 point, Vec3 normal) {
+        int[] a = anchor(view, point, normal);
+        if (a == null) {
+            return normal;
+        }
+        int dir = normal.y() < 0 ? -1 : 1;
+        double w = Math.min(1, bridgeShare(view, a, dir) / BRIDGE_SHARE);
+        if (w == 0) {
+            return normal;
+        }
+        Vec3 upright = new Vec3(0, dir, 0);
+        Vec3 n = normal.lerp(upright, w);
+        return n.isNearZero() ? upright : n.normalize();
+    }
+
+    /**
+     * The share of the solid ground around voxel {@code a} (5x5 at its height) open within {@value #BRIDGE_THICKNESS}
+     * blocks behind it, {@code dir} being the side the entity is on (+1 over it, -1 under it): how much of it is a
+     * bridge rather than ground.
+     */
+    static double bridgeShare(VoxelView view, int[] a, int dir) {
+        int solid = 0, thin = 0;
+        for (int dz = -2; dz <= 2; dz++) {
+            for (int dx = -2; dx <= 2; dx++) {
+                int x = a[0] + dx, z = a[2] + dz;
+                if (!view.isSolid(x, a[1], z)) {
+                    continue;
+                }
+                solid++;
+                for (int k = 1; k <= BRIDGE_THICKNESS; k++) {
+                    int y = a[1] - k * dir;
+                    if (view.isOpen(x, y, z) && view.isKnown(x, y, z)) {
+                        thin++;
+                        break;
+                    }
+                }
+            }
+        }
+        return solid == 0 ? 0 : (double) thin / solid;
+    }
+
+    /**
+     * The tops of a bridge within {@code radius} (across) of {@code center} and {@value #BRIDGE_BAND} blocks of its
+     * height: solid voxels open on the entity's side ({@code dir}), each to rise straight that way.
+     */
+    private static List<SurfacePoint> bridgeTops(VoxelView view, Vec3 center, double radius, int dir) {
+        Vec3 up = new Vec3(0, dir, 0);
+        int r = (int) Math.ceil(radius);
+        int cx = (int) Math.floor(center.x()), cy = (int) Math.floor(center.y()), cz = (int) Math.floor(center.z());
+        List<SurfacePoint> tops = new ArrayList<>();
+        for (int y = cy - BRIDGE_BAND; y <= cy + BRIDGE_BAND; y++) {
+            for (int z = cz - r; z <= cz + r; z++) {
+                for (int x = cx - r; x <= cx + r; x++) {
+                    double ex = x + 0.5 - center.x(), ez = z + 0.5 - center.z();
+                    if (ex * ex + ez * ez <= radius * radius && view.isSolid(x, y, z) && view.isOpen(x, y + dir, z)
+                            && view.isKnown(x, y + dir, z)) {
+                        tops.add(new SurfacePoint(x, y, z, up));
+                    }
+                }
+            }
+        }
+        return tops;
     }
 
     /**

@@ -27,15 +27,23 @@ import net.neoforged.neoforge.event.tick.LevelTickEvent;
  * wrong, and leaves vanishing a 3x3 at once, or the tree sinking whole, looked wrong): guarded there, the tremor shakes
  * the trunk and the crown falls from its edges in to the trunk ({@link #shake}); reached there, a ragged funnel opens
  * under them within a second ({@link #funnel}). The leaves crumble as decaying leaves do, dropping what they drop.
- * Only leaves that grew on a tree, and never a block the crater keeps ({@link #kept}); under leaves a player laid, only
- * those right under them. No log is ever taken. Kept per level in memory; server thread only, ticked by
+ * The crown that falls is only of leaves that grew on a tree; the funnel takes leaves a player laid too (the user: a
+ * floor and walls of leaves built high up held the tremor off, and a build of leaves is no great loss). Never a block
+ * the crater keeps ({@link #kept}); no log is ever taken. Kept per level in memory; server thread only, ticked by
  * {@link #onLevelTick}, registered by {@code tremor.Tremor}.
  */
 public final class Crown {
-    /** The crown that falls is this far (blocks, across) from the player's feet at most... */
+    /**
+     * The crown that falls is about this far (blocks) from the player's feet, all round...
+     */
     static final int RADIUS = 6;
-    /** ...and this many leaves of it at most, the nearest. */
-    static final int MAX_LEAVES = 400;
+    /**
+     * ...give or take this much in great lobes round it, and {@value #RAGGED} more leaf by leaf (the user: in a dense
+     * canopy a neat square was eaten out of it)...
+     */
+    static final double LOBES = 1.5;
+    /** ...and this many leaves of it at most (the canopy of a whole forest), the nearest. */
+    static final int MAX_LEAVES = 1500;
     /** The crown falls over this many ticks, from its edges in. */
     static final int SHAKE_TICKS = 80;
     /** A funnel opens over this many ticks... */
@@ -70,8 +78,9 @@ public final class Crown {
 
     /**
      * The tremor shakes the trunk of the tree {@code player} is up in: its crown (natural leaves joined to those under
-     * them, also diagonally, within {@value #RADIUS} blocks across) falls over {@value #SHAKE_TICKS} ticks, from the
-     * edges in to its middle, the edge ragged. Under leaves a player laid: the funnel instead.
+     * them, also diagonally, about {@value #RADIUS} blocks round, the edge lobed and ragged) falls over
+     * {@value #SHAKE_TICKS} ticks, from the edges in to its middle, the edge ragged as it goes. On leaves a player
+     * laid (a build of leaves): the funnel instead.
      */
     public static void shake(ServerLevel level, Player player) {
         BlockPos start = player.getOnPos();
@@ -79,14 +88,19 @@ public final class Crown {
             funnel(level, player);
             return;
         }
+        RandomSource random = level.getRandom();
+        double phase3 = random.nextDouble() * 2 * Math.PI, phase5 = random.nextDouble() * 2 * Math.PI;
         List<BlockPos> crown = new ArrayList<>();
         Set<BlockPos> seen = new HashSet<>(List.of(start));
         ArrayDeque<BlockPos> queue = new ArrayDeque<>(List.of(start));
         while (!queue.isEmpty() && crown.size() < MAX_LEAVES) {
             BlockPos p = queue.poll();
             BlockState state = level.getBlockState(p);
-            if (!natural(state) || kept(level, p, state)
-                    || Math.max(Math.abs(p.getX() - start.getX()), Math.abs(p.getZ() - start.getZ())) > RADIUS) {
+            int ox = p.getX() - start.getX(), oz = p.getZ() - start.getZ();
+            double angle = Math.atan2(oz, ox);
+            double reach = RADIUS + LOBES * (0.6 * Math.sin(3 * angle + phase3) + 0.4 * Math.sin(5 * angle + phase5))
+                    + (random.nextDouble() * 2 - 1) * RAGGED;
+            if (!natural(state) || kept(level, p, state) || Math.hypot(ox, oz) > reach) {
                 continue;
             }
             crown.add(p);
@@ -111,7 +125,6 @@ public final class Crown {
         }
         mx /= crown.size();
         mz /= crown.size();
-        RandomSource random = level.getRandom();
         List<Keyed> order = new ArrayList<>(crown.size());
         for (BlockPos p : crown) {
             // From the edges in: the farther from the middle, the sooner, give or take (a ragged edge).
@@ -129,7 +142,7 @@ public final class Crown {
      * {@value #FUNNEL_RADIUS} blocks from them at the top, narrower each layer down to {@value #FUNNEL_MIN_RADIUS}, the
      * edge straying by up to {@value #RAGGED} every layer anew, crumbling in no neat order, roughly from the top and the
      * middle out; the leaves right under them (all four blocks where they stand on the corner of four) go down to the
-     * last, so they fall through. Natural leaves only, but for those right under them.
+     * last, so they fall through. Leaves a player laid too.
      *
      * @return the leaves that go
      */
@@ -150,12 +163,12 @@ public final class Crown {
                     if (!state.is(BlockTags.LEAVES) || kept(level, p, state)) {
                         continue;
                     }
-                    // Under the player's feet: the shaft they fall down, whoever laid it.
+                    // Under the player's feet: the shaft they fall down.
                     boolean underFeet = x + 1 > px - half && x < px + half && z + 1 > pz - half && z < pz + half;
                     double d = Math.hypot(x + 0.5 - px, z + 0.5 - pz);
                     double reach = Math.max(FUNNEL_MIN_RADIUS, FUNNEL_RADIUS - dy * FUNNEL_NARROWING)
                             + (random.nextDouble() * 2 - 1) * RAGGED;
-                    if (underFeet || natural(state) && d <= reach) {
+                    if (underFeet || d <= reach) {
                         order.add(new Keyed(p, dy + d * 0.5 + random.nextDouble() * 1.2));
                         going.add(p);
                         any = true;

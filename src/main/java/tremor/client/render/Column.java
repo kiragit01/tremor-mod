@@ -57,6 +57,13 @@ final class Column {
     boolean cube;
     /** The frame it was last drawn in (a frame's {@code stamp}). */
     int drawnStamp;
+    /**
+     * For a fill cell of a bump: how far its swelling is up (0 to 1) as of game time {@code swellAt}, and whether it
+     * grows (in the structure the entity is on) or goes down (no longer): it neither pops in nor out (the user).
+     */
+    double swell;
+    double swellAt = Double.NaN;
+    boolean swelling;
     long lastUsed;
     /** Frame number {@link #h}, {@link #inBump} and {@link #inZone} were last set for. */
     int stamp;
