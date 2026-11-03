@@ -10,7 +10,7 @@ For NeoForge 1.21.1 and Forge 1.20.1.
 
 ## How it plays
 
-The creature hears sounds through the ground: jumps, steps, breaking and placing blocks, explosions, dropped items, and arrows, snowballs and eggs when they hit the ground. Sound travels differently depending on the surface: far through stone, more muffled through sand and gravel, and wool and carpets make almost no sound at all. If you sneak or stand still, it won't hear you.
+The creature hears sounds through the ground: jumps, steps, breaking and placing blocks, doors, trapdoors and fence gates slamming, explosions, dropped items, and arrows, snowballs and eggs when they hit the ground. Sound travels differently depending on the surface: far through stone, more muffled through sand and gravel, and wool and carpets make almost no sound at all. If you sneak or stand still, it won't hear you.
 
 While it hears nothing, it just wanders around nearby. If there are sounds close by, it starts getting irritated and becomes wary. At that moment it may send rings of waves around itself, listening, and if you make noise right then, it starts hunting and goes for the last sound it heard. While hunting it can react to mobs too and pull them under the ground. Keep making noise and it reaches its last stage of anger, where it gets even faster and more aggressive, and if it reaches a player, the Awakening begins.
 
@@ -20,11 +20,15 @@ Everything in detail, with numbers and all the small stuff, is in the [guide](GU
 
 **How often does it show up?**
 
-By itself, every now and then, 40 to 80 blocks from you. On the surface in daylight it's rare, on average about once every 10–15 minutes. At night, in the dark, in caves and deep underground it's much more often. If no player comes near it for a long time, or nothing happens for a long time, it sinks into the ground and disappears. In the config you can tune its spawning: make it appear only underground in unlit places, and change how often it shows up.
+By itself, every now and then, 40 to 80 blocks from you. On the surface in daylight it's rare, on average about once every 10–15 minutes. At night, in the dark, in caves and deep underground it's much more often. If no player comes near it for a long time, or nothing happens for a long time, it sinks into the ground and disappears. In the config you can tune its spawning: only in caves, only in the dark, and how often it shows up. Or you can make it never come to the surface at all.
 
 **Does it follow me all the time?**
 
 No, it isn't tied to a player. It can be right nearby, never hear you, and just leave.
+
+**What if I climb a pillar or a tree?**
+
+That won't save you. If you're up high and it can't crawl to you, it guards you from below. If there's a ceiling, it drops stalactites on you, and under the open sky it sinks underground and builds its own crooked way up to you out of the ground around, then comes up beside you. Bridges and platforms won't help either. On a tree, the creature "shakes the trunk" and the leaves fall. A hut of leaves won't save you either: a funnel just crumbles away under you.
 
 **What happens if it reaches me?**
 
@@ -64,7 +68,7 @@ Difficulty is one switch: Calm, Normal, Hard, Nightmare. It's `difficulty` at th
 
 ## For admins and testing
 
-The `/tremor` commands are for operators only: `spawn`, `despawn`, `info`, `stage`, `awaken`, `restore`, `difficulty` and more, Tab will suggest the rest. There's also a multitool (`/give @s tremor:debug_probe`): in your hand it shows what the nearest creature is doing, right click lures it to where you're looking, sneak + right click opens its menu.
+The `/tremor` commands are for operators only: `spawn`, `spawn near <player>` (the creature appears near that player, already wary, and crawls towards them), `despawn`, `info`, `stage`, `awaken`, `restore`, `difficulty` and more, Tab will suggest the rest. There's also a multitool (`/give @s tremor:debug_probe`): in your hand it shows what the nearest creature is doing, right click lures it to where you're looking, sneak + right click opens its menu.
 
 ## Building from source
 
