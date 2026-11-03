@@ -12,7 +12,7 @@ Every 30 seconds there's a roll for each player. The base chance is 4%, and it g
 
 It doesn't appear in the first minute after you join or change dimension, within 32 blocks of the world spawn or of players' beds and respawn anchors, or on Peaceful.
 
-In the config you can make it appear only where no sky is seen and it's dark, the way all hostile mobs spawn (`spawn.undergroundOnly`, off by default).
+In the config you can make it appear only in real caves the sky's light doesn't reach (`spawn.undergroundOnly`), and/or only where it's dark enough for hostile mobs (`spawn.darkOnly`). Both are off by default. And `movement.cavesOnly` makes it never come to the surface at all: it doesn't crawl where the sky's light reaches, appears only in caves and leaves alone anyone standing under the open sky. It only works in dimensions with a sky, the Nether isn't affected.
 
 One creature per part of the world. A new one won't appear within 500 blocks of another, and there are at most 4 in a dimension. If two come closer than 100 blocks, the calmer one turns away, calms down and sinks into the ground. (These settings may change later.)
 
@@ -25,6 +25,9 @@ A creature that appeared by itself also leaves by itself: when no player has bee
 It only hears what goes through the ground: steps, jumps, landings, broken and placed blocks, explosions, and anything that falls on the ground, like arrows, snowballs and thrown items. It hears mobs too, but barely gets angry at them (it still reacts); what really makes it angry is players.
 
 - What you walk on matters. Stone carries sound far, sand and gravel less, wool and carpets almost nothing. Leaves rustle under your feet louder than a step on stone.
+- Doors, trapdoors and fence gates slam loudly. Placing and breaking blocks is heard well too.
+- If you stand on a door, a trapdoor or a fence, your steps go into the block under them.
+- Sound from above reaches the ground under you: on a pillar you're heard through the pillar itself, on a bridge or a platform through the air under you, but worse. An explosion in the air is heard too.
 - Sprinting is the loudest thing, apart from falls. Riding a horse or a minecart is louder than walking.
 - Sneaking and standing still make no sound.
 - It never hears further than 96 blocks, and most sounds it hears from much closer.
@@ -38,13 +41,15 @@ It only hears what goes through the ground: steps, jumps, landings, broken and p
 It has an anger level from 0 to 100. Everything it hears adds to it, and the anger cools down by itself over time, three times faster after 20 seconds of quiet.
 
 - Calm (below 25). It wanders around its area. It reacts only to louder sounds.
-- Wary (from 25). It freezes and sends waves and pulses across the ground. That's it listening, three times better than usual. If you make noise at that moment, it goes for the source of the vibrations. If you freeze, it loses interest after a while.
+- Wary (from 25). At the first sound it freezes and sends waves across the ground: that's it listening, three times better than usual. Then it crawls to where the noise was and listens there again. New sounds on the way turn it toward them. If you freeze, it loses interest after a while.
 - Hunting (from 60). Fast, goes for everything it hears. If it comes to where the sound was and finds no one, it searches the area around for a while.
 - Peak (100). It goes for sounds even faster and more aggressively, and while it searches, its anger stays at the maximum. If its mound gets closer than 8 blocks to you (and not much higher or lower than you), the Awakening begins. If it reaches no one in 35 seconds, it cools down to hunting. How to shake it off: stop making noise and quietly walk more than 12 blocks away from where it heard you, or freeze and hope it doesn't reach you.
 
+It remembers what angered it the most, and that cools down over time. So a mob walking nearby is less likely to lure it away from a player running and jumping, and an explosion draws it even when it's calm.
+
 It crawls over any surface: floors, walls, cave ceilings. It can go through up to 4 blocks of rock to another surface and jumps across air: 1 block when calm, 2 when wary, 3 when hunting, 5 in a frenzy. It looks like the hill pouring over from one side to the other.
 
-If it runs into you while hunting (or at its peak), it hits: about 2 hearts, and it knocks you back, which makes you make a sound. Animals and monsters it runs into get pulled under the ground.
+If it runs into you while hunting (or at its peak), it hits: about 2 hearts, and it knocks you back, which makes you make a sound. Animals and monsters it runs into get pulled under the ground and die. To keep it off some mobs, you can list them in the config in `contact.spareMobs`, for example `["minecraft:villager", "minecraft:wolf"]`, or whole groups by tag, for example `"#minecraft:raiders"`. And `contact.spareTamed` protects every tamed pet from any mod. Or turn it off altogether (`contact.devourMobs`).
 
 Items lying on the ground get pulled under too when it crawls over them (when it isn't calm). There's no getting them back. It only leaves alone things the mod itself gave back to a player, after the hollow for example: those never despawn either. This can be turned off in the config (`contact.devourItems`).
 
@@ -56,12 +61,34 @@ Step on it and the ground turns into quicksand. You have about 2 seconds to get 
 
 If you dig up the spot where it lies in wait, it goes into a rage and comes for whoever dug. If you got out of the quicksand in time, it starts hunting. It waits for up to 40 seconds and can lie in wait again after 90.
 
+## Climbing up high
+
+It doesn't crawl on raised ground narrower than 3 blocks (`movement.minGroundWidth`), so it can't get up a pillar or a thin wall. But if you're more than 5 blocks above the ground and it can't crawl to you, it doesn't leave: it guards you from below (for up to 2 minutes).
+
+- If there's a ceiling, it sends a small mound up. It crawls across the ceiling over you, shakes and drops a stalactite. At that moment the creature turns into quicksand for a second, and the hit knocks you into it.
+- If there's no ceiling, or three stalactites missed, after 10 seconds it sinks underground and builds a heap up to you out of the ground around: a crooked trunk with holes and growths. Pits stay around where it took the ground. The longer it builds, the faster. Once it's done, it comes up right beside you.
+- Build higher and it builds higher. Walk off sideways along a bridge and it follows, growing blocks around the bridge, even if you break it behind you.
+- Pillars of doors and trapdoors don't help, and neither does sand (it packs it into sandstone).
+- If it knocked you down, it comes down after you.
+
+Stalactites and building can be turned off: `contact.stalactites` and `contact.buildUp`.
+
+## Climbing a tree
+
+It doesn't crawl on leaves, but it doesn't bump into them either: it goes along the ground under the crown. If you're up a tree and it can't get to you, after 3 seconds it starts "shaking the trunk". The crown around you (about 6 blocks) falls from the edges in to the trunk in about 4 seconds. Still on leaves — it shakes again.
+
+If the Awakening catches you on leaves, a ragged funnel crumbles away under you within a second, you fall to the ground, and the hill rises there instead.
+
+A hut or a floor of your own leaves won't save you either: the same funnel opens under you, up to 12 layers deep.
+
+In all this it doesn't touch spawn protection, the world border or blocks tagged `#tremor:protected`.
+
 ## The Awakening
 
 This is when it reached you at the peak of its anger (or almost at once after a thrown shard, more on that below).
 
 1. The build-up. The whole area within 32 blocks of where you stood becomes the creature. Sounds go quiet, the ground breathes, and every step there spreads across the ground in rings. You have 7 seconds to get out of the circle. The ground grabs at your feet: the longer it goes, the slower you are and the weaker your jumps, and for the last third your vision goes dark. Got out — that's it, you got away.
-2. The swallow. If you didn't escape in time, a hill rises under you, holds you in place and closes over you. The screen goes dark.
+2. The swallow. If you didn't escape in time, a hill rises under you, holds you in place and closes over you. The screen goes dark. If you're in water, you get pulled down to the bottom, and if you're on leaves, they crumble away under you. You can look around freely the whole time.
 
 However it ends, after an Awakening the creature itself is gone: it goes deep.
 
