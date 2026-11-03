@@ -1,0 +1,361 @@
+# Film (main only): the tremor crawls to the player along a lumpy bridge in the air, a block wide here, three there,
+# blocks hanging under it and standing on it (the user: on such bridges, built over a canopy, it looked buggy as it
+# crawled: the swelling of thin ground popped in and out). Copies tinted red.
+# Run: gradlew runClientAutotest -Ptremor_autotest_script=thin-path-film.txt
+waitchunks
+cmd gamerule commandModificationBlockLimit 2147483647
+cmd gamemode spectator
+cmd time set noon
+cmd tremor despawn all
+cmd tremor awaken stop
+cmd kill @e[type=!player]
+cmd tp @s 865.5 215.0 290.5
+wait 40
+waitchunks
+cmd fill 830 188 270 900 199 330 minecraft:dirt
+cmd fill 830 200 270 900 200 330 minecraft:grass_block
+cmd fill 830 201 270 900 260 330 minecraft:air
+cmd fill 844 210 297 850 210 303 minecraft:dirt
+cmd fill 851 210 299 876 210 301 minecraft:dirt
+cmd setblock 851 211 299 minecraft:dirt
+cmd setblock 851 209 300 minecraft:dirt
+cmd setblock 851 208 300 minecraft:dirt
+cmd setblock 851 210 301 minecraft:air
+cmd setblock 851 210 302 minecraft:dirt
+cmd setblock 852 211 299 minecraft:cobblestone
+cmd setblock 852 209 301 minecraft:dirt
+cmd setblock 852 211 301 minecraft:dirt
+cmd setblock 852 210 302 minecraft:dirt
+cmd setblock 853 210 299 minecraft:air
+cmd setblock 853 210 302 minecraft:dirt
+cmd setblock 854 210 298 minecraft:dirt
+cmd setblock 855 209 300 minecraft:dirt
+cmd setblock 855 211 301 minecraft:dirt
+cmd setblock 856 209 299 minecraft:dirt
+cmd setblock 856 209 300 minecraft:dirt
+cmd setblock 856 211 301 minecraft:dirt
+cmd setblock 857 209 299 minecraft:dirt
+cmd setblock 857 208 299 minecraft:dirt
+cmd setblock 857 209 300 minecraft:cobblestone
+cmd setblock 857 208 300 minecraft:dirt
+cmd setblock 857 210 301 minecraft:air
+cmd setblock 857 210 302 minecraft:dirt
+cmd setblock 858 211 299 minecraft:cobblestone
+cmd setblock 858 209 300 minecraft:dirt
+cmd setblock 858 209 301 minecraft:dirt
+cmd setblock 859 209 299 minecraft:cobblestone
+cmd setblock 859 208 299 minecraft:dirt
+cmd setblock 859 209 300 minecraft:dirt
+cmd setblock 859 208 300 minecraft:dirt
+cmd setblock 860 209 299 minecraft:dirt
+cmd setblock 860 209 301 minecraft:dirt
+cmd setblock 860 211 301 minecraft:dirt
+cmd setblock 860 210 298 minecraft:dirt
+cmd setblock 860 210 302 minecraft:dirt
+cmd setblock 861 209 299 minecraft:cobblestone
+cmd setblock 861 208 299 minecraft:dirt
+cmd setblock 861 211 299 minecraft:cobblestone
+cmd setblock 861 209 300 minecraft:cobblestone
+cmd setblock 861 208 300 minecraft:dirt
+cmd setblock 861 209 301 minecraft:dirt
+cmd setblock 861 208 301 minecraft:dirt
+cmd setblock 861 210 298 minecraft:dirt
+cmd setblock 861 210 302 minecraft:dirt
+cmd setblock 862 209 300 minecraft:cobblestone
+cmd setblock 862 208 300 minecraft:dirt
+cmd setblock 862 209 301 minecraft:cobblestone
+cmd setblock 862 208 301 minecraft:dirt
+cmd setblock 862 210 302 minecraft:dirt
+cmd setblock 863 210 299 minecraft:air
+cmd setblock 863 209 301 minecraft:dirt
+cmd setblock 863 208 301 minecraft:dirt
+cmd setblock 863 211 301 minecraft:dirt
+cmd setblock 864 209 299 minecraft:dirt
+cmd setblock 864 209 301 minecraft:dirt
+cmd setblock 864 210 298 minecraft:dirt
+cmd setblock 864 210 302 minecraft:dirt
+cmd setblock 865 209 301 minecraft:dirt
+cmd setblock 865 208 301 minecraft:dirt
+cmd setblock 865 211 301 minecraft:dirt
+cmd setblock 865 210 298 minecraft:dirt
+cmd setblock 865 210 302 minecraft:dirt
+cmd setblock 867 209 299 minecraft:cobblestone
+cmd setblock 867 209 300 minecraft:dirt
+cmd setblock 867 209 301 minecraft:dirt
+cmd setblock 867 208 301 minecraft:dirt
+cmd setblock 867 210 302 minecraft:dirt
+cmd setblock 868 209 300 minecraft:dirt
+cmd setblock 868 208 300 minecraft:dirt
+cmd setblock 869 209 299 minecraft:dirt
+cmd setblock 869 208 299 minecraft:dirt
+cmd setblock 869 211 299 minecraft:dirt
+cmd setblock 869 209 300 minecraft:dirt
+cmd setblock 869 209 301 minecraft:cobblestone
+cmd setblock 870 209 300 minecraft:cobblestone
+cmd setblock 870 208 300 minecraft:dirt
+cmd setblock 870 209 301 minecraft:cobblestone
+cmd setblock 870 210 302 minecraft:dirt
+cmd setblock 871 211 299 minecraft:dirt
+cmd setblock 871 209 300 minecraft:dirt
+cmd setblock 871 208 300 minecraft:dirt
+cmd setblock 872 209 300 minecraft:dirt
+cmd setblock 872 210 298 minecraft:dirt
+cmd setblock 873 209 299 minecraft:dirt
+cmd setblock 873 208 299 minecraft:dirt
+cmd setblock 873 209 300 minecraft:cobblestone
+cmd setblock 873 208 300 minecraft:dirt
+cmd setblock 873 211 301 minecraft:dirt
+cmd setblock 874 211 299 minecraft:cobblestone
+cmd setblock 874 209 300 minecraft:dirt
+cmd setblock 874 209 301 minecraft:dirt
+cmd setblock 874 210 298 minecraft:dirt
+cmd setblock 874 210 302 minecraft:dirt
+cmd setblock 875 209 299 minecraft:dirt
+cmd setblock 875 209 300 minecraft:cobblestone
+cmd setblock 875 210 301 minecraft:air
+cmd setblock 876 210 299 minecraft:air
+cmd setblock 876 209 300 minecraft:cobblestone
+cmd setblock 876 209 301 minecraft:cobblestone
+cmd setblock 876 210 298 minecraft:dirt
+cmd setblock 876 210 302 minecraft:dirt
+cmd fill 877 210 299 879 210 301 minecraft:stone
+cmd kill @e[type=!player]
+hud off
+tint on
+cmd tp @s 878.5 211.0 300.5 45 25
+cmd gamemode survival
+cmd effect give @s minecraft:resistance 600 4 true
+cmd tremor spawn 849 211 300
+cmd tremor stage hunting
+cmd tremor anger 85
+view back
+wait 20
+cmd tremor voice 0
+wait 10
+cmd tremor voice 0
+cmd tick rate 5
+wait 1
+screenshot f000
+wait 1
+screenshot f001
+wait 1
+screenshot f002
+wait 1
+screenshot f003
+wait 1
+screenshot f004
+wait 1
+screenshot f005
+wait 1
+screenshot f006
+wait 1
+screenshot f007
+wait 1
+screenshot f008
+wait 1
+screenshot f009
+wait 1
+screenshot f010
+wait 1
+screenshot f011
+wait 1
+screenshot f012
+wait 1
+screenshot f013
+wait 1
+screenshot f014
+wait 1
+screenshot f015
+wait 1
+screenshot f016
+wait 1
+screenshot f017
+wait 1
+screenshot f018
+wait 1
+screenshot f019
+wait 1
+screenshot f020
+wait 1
+screenshot f021
+wait 1
+screenshot f022
+wait 1
+screenshot f023
+wait 1
+screenshot f024
+wait 1
+screenshot f025
+wait 1
+screenshot f026
+wait 1
+screenshot f027
+wait 1
+screenshot f028
+wait 1
+screenshot f029
+wait 1
+screenshot f030
+wait 1
+screenshot f031
+wait 1
+screenshot f032
+wait 1
+screenshot f033
+wait 1
+screenshot f034
+wait 1
+screenshot f035
+wait 1
+screenshot f036
+wait 1
+screenshot f037
+wait 1
+screenshot f038
+wait 1
+screenshot f039
+wait 1
+screenshot f040
+wait 1
+screenshot f041
+wait 1
+screenshot f042
+wait 1
+screenshot f043
+wait 1
+screenshot f044
+wait 1
+screenshot f045
+wait 1
+screenshot f046
+wait 1
+screenshot f047
+wait 1
+screenshot f048
+wait 1
+screenshot f049
+wait 1
+screenshot f050
+wait 1
+screenshot f051
+wait 1
+screenshot f052
+wait 1
+screenshot f053
+wait 1
+screenshot f054
+wait 1
+screenshot f055
+wait 1
+screenshot f056
+wait 1
+screenshot f057
+wait 1
+screenshot f058
+wait 1
+screenshot f059
+wait 1
+screenshot f060
+wait 1
+screenshot f061
+wait 1
+screenshot f062
+wait 1
+screenshot f063
+wait 1
+screenshot f064
+wait 1
+screenshot f065
+wait 1
+screenshot f066
+wait 1
+screenshot f067
+wait 1
+screenshot f068
+wait 1
+screenshot f069
+wait 1
+screenshot f070
+wait 1
+screenshot f071
+wait 1
+screenshot f072
+wait 1
+screenshot f073
+wait 1
+screenshot f074
+wait 1
+screenshot f075
+wait 1
+screenshot f076
+wait 1
+screenshot f077
+wait 1
+screenshot f078
+wait 1
+screenshot f079
+wait 1
+screenshot f080
+wait 1
+screenshot f081
+wait 1
+screenshot f082
+wait 1
+screenshot f083
+wait 1
+screenshot f084
+wait 1
+screenshot f085
+wait 1
+screenshot f086
+wait 1
+screenshot f087
+wait 1
+screenshot f088
+wait 1
+screenshot f089
+wait 1
+screenshot f090
+wait 1
+screenshot f091
+wait 1
+screenshot f092
+wait 1
+screenshot f093
+wait 1
+screenshot f094
+wait 1
+screenshot f095
+wait 1
+screenshot f096
+wait 1
+screenshot f097
+wait 1
+screenshot f098
+wait 1
+screenshot f099
+wait 1
+screenshot f100
+wait 1
+screenshot f101
+wait 1
+screenshot f102
+wait 1
+screenshot f103
+wait 1
+screenshot f104
+wait 1
+screenshot f105
+wait 1
+screenshot f106
+wait 1
+screenshot f107
+wait 1
+screenshot f108
+wait 1
+screenshot f109
+cmd tick rate 20
+cmd gamemode spectator
+cmd tremor despawn all
+tint off
+quit
