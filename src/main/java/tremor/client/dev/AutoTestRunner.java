@@ -169,6 +169,14 @@ final class AutoTestRunner {
     private int lastChunks = -1;
     private int lastSections = -1;
 
+    /**
+     * {@code -Dtremor.autotest.watch=true}: every tick the camera turns or the player moves by more than its own speed
+     * between two ticks (the server turned or moved it: no script step does that) is reported, a lag test's eyes.
+     */
+    private static final boolean WATCH = Boolean.getBoolean("tremor.autotest.watch");
+    /** The player at the end of the last tick: yaw, pitch, x, y, z, speed. */
+    private double[] watched;
+
     private int stepIndex;
     private volatile int executed;
     private Script.Step current;
@@ -378,6 +386,9 @@ final class AutoTestRunner {
                 return;
             }
             respawnIfDead();
+            if (WATCH) {
+                watch();
+            }
             switch (state) {
                 case BOOT -> tickBoot();
                 case LOADING -> tickLoading();
@@ -386,9 +397,32 @@ final class AutoTestRunner {
                 default -> {
                 }
             }
+            LocalPlayer p = mc.player;
+            watched = !WATCH || p == null ? null : new double[]{p.getYRot(), p.getXRot(), p.getX(), p.getY(), p.getZ(),
+                    p.getDeltaMovement().length()};
         } catch (Throwable t) {
             report.error("unexpected exception in state " + state, t);
             finish("aborted: exception");
+        }
+    }
+
+    /** {@link #WATCH}: what turned or moved the player since the end of the last tick, before this tick's steps. */
+    private void watch() {
+        LocalPlayer p = mc.player;
+        double[] w = watched;
+        if (p == null || w == null || state != State.RUNNING) {
+            return;
+        }
+        float yaw = net.minecraft.util.Mth.wrapDegrees(p.getYRot() - (float) w[0]), pitch = p.getXRot() - (float) w[1];
+        if (Math.abs(yaw) > 0.5f || Math.abs(pitch) > 0.5f) {
+            report.line(String.format(Locale.ROOT, "WATCH camera turned by %.1f, %.1f (to %.1f, %.1f)", yaw, pitch,
+                    p.getYRot(), p.getXRot()));
+        }
+        double dx = p.getX() - w[2], dy = p.getY() - w[3], dz = p.getZ() - w[4];
+        double moved = Math.sqrt(dx * dx + dy * dy + dz * dz);
+        if (moved > w[5] + 0.4) {
+            report.line(String.format(Locale.ROOT, "WATCH moved %.2f in a tick, at speed %.2f (to %.2f %.2f %.2f)",
+                    moved, w[5], p.getX(), p.getY(), p.getZ()));
         }
     }
 

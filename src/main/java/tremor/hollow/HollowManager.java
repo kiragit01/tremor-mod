@@ -1179,7 +1179,7 @@ public final class HollowManager {
 
         /**
          * Moves the player to {@code to}, or next to it if it is blocked, or down onto what is under it if nothing holds
-         * the player there ({@link #standSpot}); false if the player did not get there (its dimension is gone, or
+         * the player there ({@link #standSpot}), looking where it looks; false if the player did not get there (its dimension is gone, or
          * another mod stopped the move). The player's ender pearls still flying in the hollow are removed first: one
          * landing later would pull the player back in.
          */
@@ -1195,7 +1195,9 @@ public final class HollowManager {
                 }
             }
             Vec3 pos = standSpot(level, player, to.position());
-            move(player, () -> player.teleportTo(level, pos.x, pos.y, pos.z, Set.of(), to.yRot(), to.xRot()));
+            // Looking where it looks now: the camera is not set back to where it looked when swallowed (the user).
+            move(player, () -> player.teleportTo(level, pos.x, pos.y, pos.z, Set.of(), player.getYRot(),
+                    player.getXRot()));
             if (player.level() != level) {
                 return false;
             }

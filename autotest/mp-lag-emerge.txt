@@ -1,0 +1,126 @@
+# Lag test (tools/lag-test.sh mp-lag-emerge.txt [ms]): the user's friends on a LAN, coming out of the hollow after a
+# victory, saw the camera held and the player teleported while the hill let them go. Alice is swallowed, breaks the
+# heart, and while she comes out of the hill she keeps looking around and trying to walk; the watch reports every
+# turn of the camera and every move the server made (WATCH lines).
+waitchunks
+cmd gamemode creative
+cmd fill -20 176 -20 19 187 19 minecraft:stone
+cmd fill -20 188 -20 19 199 19 minecraft:stone
+cmd fill -20 200 -20 19 215 19 minecraft:air
+cmd tp @s 0.5 200 0.5 0 10
+wait 40
+waitchunks
+cmd gamemode survival
+cmd clear @s
+cmd give @s minecraft:iron_pickaxe
+cmd effect give @s minecraft:night_vision infinite 0 true
+wait 40
+log --- awakened, swallowed
+cmd tremor awaken
+wait 300
+waitchunks
+cmd tremor hollow status
+log --- victory: breaking the heart
+cmd tremor hollow tonode
+wait 10
+hold attack 20
+log --- coming out: looking around and trying to walk
+look 47 -15
+hold forward 6
+wait 2
+look 94 0
+hold forward 6
+wait 2
+look 141 15
+hold forward 6
+wait 2
+look 188 -15
+hold forward 6
+wait 2
+look 235 0
+hold forward 6
+wait 2
+screenshot e04
+look 282 15
+hold forward 6
+wait 2
+look 329 -15
+hold forward 6
+wait 2
+look 16 0
+hold forward 6
+wait 2
+look 63 15
+hold forward 6
+wait 2
+look 110 -15
+hold forward 6
+wait 2
+screenshot e09
+look 157 0
+hold forward 6
+wait 2
+look 204 15
+hold forward 6
+wait 2
+look 251 -15
+hold forward 6
+wait 2
+look 298 0
+hold forward 6
+wait 2
+look 345 15
+hold forward 6
+wait 2
+screenshot e14
+look 32 -15
+hold forward 6
+wait 2
+look 79 0
+hold forward 6
+wait 2
+look 126 15
+hold forward 6
+wait 2
+look 173 -15
+hold forward 6
+wait 2
+look 220 0
+hold forward 6
+wait 2
+look 267 15
+hold forward 6
+wait 2
+look 314 -15
+hold forward 6
+wait 2
+look 1 0
+hold forward 6
+wait 2
+look 48 15
+hold forward 6
+wait 2
+look 95 -15
+hold forward 6
+wait 2
+look 142 0
+hold forward 6
+wait 2
+look 189 15
+hold forward 6
+wait 2
+look 236 -15
+hold forward 6
+wait 2
+look 283 0
+hold forward 6
+wait 2
+look 330 15
+hold forward 6
+wait 2
+log --- out
+cmd data get entity @s Pos
+cmd data get entity @s Rotation
+wait 40
+cmd stop
+quit
