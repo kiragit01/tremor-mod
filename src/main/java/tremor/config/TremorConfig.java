@@ -614,7 +614,8 @@ public final class TremorConfig {
                     .translation(KEY + "spawn.darkMultiplier").defineInRange("darkMultiplier", 2.0, 0.0, 100.0);
             deepMultiplier = b.comment("Chance multiplier when the player is below y = 0")
                     .translation(KEY + "spawn.deepMultiplier").defineInRange("deepMultiplier", 1.5, 0.0, 100.0);
-            nightMultiplier = b.comment("Chance multiplier at night (a thunderstorm counts as night, as for beds)")
+            nightMultiplier = b.comment("Chance multiplier at night under the open sky, not in a cave (a thunderstorm",
+                            "counts as night, as for beds)")
                     .translation(KEY + "spawn.nightMultiplier").defineInRange("nightMultiplier", 2.0, 0.0, 100.0);
             minDistance = b.comment("Nearest spawn point to the player (blocks)")
                     .translation(KEY + "spawn.minDistance").defineInRange("minDistance", 40.0, 0.0, 256.0);
