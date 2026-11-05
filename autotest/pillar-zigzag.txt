@@ -1,0 +1,314 @@
+# A diagonal staircase out of a pillar, zigzagging back over itself, quickly (the user, 1.3.1: the tremor started new
+# pillars, built heaps in mid-air on the lower steps, took the blocks of its own pillar and ran out; water on one side
+# as at their place). A player on a pillar 1x1 seven high; the tremor builds up; the player climbs 24 steps a block up
+# and a block aside each (x and z by turns), a step every 6 ticks (several steps between two times it feels them),
+# back over the lower steps and away again; then 60 more over the water, a step every 36 ticks (longer than the
+# guard's two minutes, as the user's three stacks). One build should follow them all the way; no new pillar, no heap on the
+# stairs. Strikes add no anger. Copies tinted red.
+# Run: gradlew runClientAutotest -Ptremor_autotest_script=pillar-zigzag.txt
+waitchunks
+cmd gamerule commandModificationBlockLimit 2147483647
+cmd gamemode spectator
+cmd time set noon
+cmd tremor despawn all
+cmd tremor awaken stop
+cmd kill @e[type=!player]
+cmd tp @s 860.5 225.0 285.5
+wait 40
+waitchunks
+cmd fill 830 188 270 900 199 330 minecraft:dirt
+cmd fill 830 200 270 900 200 330 minecraft:grass_block
+cmd fill 830 201 270 900 260 330 minecraft:air
+cmd fill 868 196 270 900 200 330 minecraft:water
+cmd fill 860 201 300 860 207 300 minecraft:stone
+cmd kill @e[type=!player]
+hud off
+tint on
+config behavior.contact.anger 0
+cmd tp @s 860.5 208.0 300.5 -90 25
+cmd gamemode survival
+cmd effect give @s minecraft:resistance 600 4 true
+cmd effect give @s minecraft:instant_health 1 4 true
+cmd tremor spawn 864 200 300
+cmd tremor stage hunting
+cmd tremor anger 64
+wait 40
+cmd tremor voice 0
+view back
+wait 300
+screenshot 01_building
+cmd setblock 861 208 300 minecraft:cobbled_deepslate
+cmd tp @s 861.5 209.0 300.5 -45 25
+wait 6
+cmd setblock 861 209 301 minecraft:cobbled_deepslate
+cmd tp @s 861.5 210.0 301.5 -45 25
+wait 6
+cmd setblock 862 210 301 minecraft:cobbled_deepslate
+cmd tp @s 862.5 211.0 301.5 -45 25
+wait 6
+cmd setblock 862 211 302 minecraft:cobbled_deepslate
+cmd tp @s 862.5 212.0 302.5 -45 25
+wait 6
+cmd setblock 863 212 302 minecraft:cobbled_deepslate
+cmd tp @s 863.5 213.0 302.5 -45 25
+wait 6
+cmd setblock 863 213 303 minecraft:cobbled_deepslate
+cmd tp @s 863.5 214.0 303.5 -45 25
+wait 6
+cmd setblock 864 214 303 minecraft:cobbled_deepslate
+cmd tp @s 864.5 215.0 303.5 -45 25
+wait 6
+cmd setblock 864 215 304 minecraft:cobbled_deepslate
+cmd tp @s 864.5 216.0 304.5 -45 25
+wait 6
+wait 20
+cmd setblock 863 216 304 minecraft:cobbled_deepslate
+cmd tp @s 863.5 217.0 304.5 -45 25
+wait 6
+cmd setblock 863 217 303 minecraft:cobbled_deepslate
+cmd tp @s 863.5 218.0 303.5 -45 25
+wait 6
+cmd setblock 862 218 303 minecraft:cobbled_deepslate
+cmd tp @s 862.5 219.0 303.5 -45 25
+wait 6
+cmd setblock 862 219 302 minecraft:cobbled_deepslate
+cmd tp @s 862.5 220.0 302.5 -45 25
+wait 6
+cmd setblock 861 220 302 minecraft:cobbled_deepslate
+cmd tp @s 861.5 221.0 302.5 -45 25
+wait 6
+cmd setblock 861 221 301 minecraft:cobbled_deepslate
+cmd tp @s 861.5 222.0 301.5 -45 25
+wait 6
+wait 20
+cmd setblock 862 222 301 minecraft:cobbled_deepslate
+cmd tp @s 862.5 223.0 301.5 -45 25
+wait 6
+cmd setblock 862 223 302 minecraft:cobbled_deepslate
+cmd tp @s 862.5 224.0 302.5 -45 25
+wait 6
+cmd setblock 863 224 302 minecraft:cobbled_deepslate
+cmd tp @s 863.5 225.0 302.5 -45 25
+wait 6
+cmd setblock 863 225 303 minecraft:cobbled_deepslate
+cmd tp @s 863.5 226.0 303.5 -45 25
+wait 6
+cmd setblock 864 226 303 minecraft:cobbled_deepslate
+cmd tp @s 864.5 227.0 303.5 -45 25
+wait 6
+cmd setblock 864 227 304 minecraft:cobbled_deepslate
+cmd tp @s 864.5 228.0 304.5 -45 25
+wait 6
+cmd setblock 865 228 304 minecraft:cobbled_deepslate
+cmd tp @s 865.5 229.0 304.5 -45 25
+wait 6
+cmd setblock 865 229 305 minecraft:cobbled_deepslate
+cmd tp @s 865.5 230.0 305.5 -45 25
+wait 6
+cmd setblock 866 230 305 minecraft:cobbled_deepslate
+cmd tp @s 866.5 231.0 305.5 -45 25
+wait 6
+cmd setblock 866 231 306 minecraft:cobbled_deepslate
+cmd tp @s 866.5 232.0 306.5 -45 25
+wait 6
+screenshot 02_zigzag
+cmd setblock 867 232 306 minecraft:cobbled_deepslate
+cmd tp @s 867.5 233.0 306.5 -45 25
+wait 36
+cmd setblock 867 233 307 minecraft:cobbled_deepslate
+cmd tp @s 867.5 234.0 307.5 -45 25
+wait 36
+cmd setblock 868 234 307 minecraft:cobbled_deepslate
+cmd tp @s 868.5 235.0 307.5 -45 25
+wait 36
+cmd setblock 868 235 308 minecraft:cobbled_deepslate
+cmd tp @s 868.5 236.0 308.5 -45 25
+wait 36
+cmd setblock 869 236 308 minecraft:cobbled_deepslate
+cmd tp @s 869.5 237.0 308.5 -45 25
+wait 36
+cmd setblock 869 237 309 minecraft:cobbled_deepslate
+cmd tp @s 869.5 238.0 309.5 -45 25
+wait 36
+cmd setblock 870 238 309 minecraft:cobbled_deepslate
+cmd tp @s 870.5 239.0 309.5 -45 25
+wait 36
+cmd setblock 870 239 310 minecraft:cobbled_deepslate
+cmd tp @s 870.5 240.0 310.5 -45 25
+wait 36
+cmd setblock 871 240 310 minecraft:cobbled_deepslate
+cmd tp @s 871.5 241.0 310.5 -45 25
+wait 36
+cmd setblock 871 241 311 minecraft:cobbled_deepslate
+cmd tp @s 871.5 242.0 311.5 -45 25
+wait 36
+cmd setblock 872 242 311 minecraft:cobbled_deepslate
+cmd tp @s 872.5 243.0 311.5 -45 25
+wait 36
+cmd setblock 872 243 312 minecraft:cobbled_deepslate
+cmd tp @s 872.5 244.0 312.5 -45 25
+wait 36
+cmd setblock 873 244 312 minecraft:cobbled_deepslate
+cmd tp @s 873.5 245.0 312.5 -45 25
+wait 36
+cmd setblock 873 245 313 minecraft:cobbled_deepslate
+cmd tp @s 873.5 246.0 313.5 -45 25
+wait 36
+cmd setblock 874 246 313 minecraft:cobbled_deepslate
+cmd tp @s 874.5 247.0 313.5 -45 25
+wait 36
+cmd setblock 874 247 314 minecraft:cobbled_deepslate
+cmd tp @s 874.5 248.0 314.5 -45 25
+wait 36
+cmd setblock 875 248 314 minecraft:cobbled_deepslate
+cmd tp @s 875.5 249.0 314.5 -45 25
+wait 36
+cmd setblock 875 249 315 minecraft:cobbled_deepslate
+cmd tp @s 875.5 250.0 315.5 -45 25
+wait 36
+cmd setblock 876 250 315 minecraft:cobbled_deepslate
+cmd tp @s 876.5 251.0 315.5 -45 25
+wait 36
+cmd setblock 876 251 316 minecraft:cobbled_deepslate
+cmd tp @s 876.5 252.0 316.5 -45 25
+wait 36
+cmd setblock 877 252 316 minecraft:cobbled_deepslate
+cmd tp @s 877.5 253.0 316.5 -45 25
+wait 36
+cmd setblock 877 253 317 minecraft:cobbled_deepslate
+cmd tp @s 877.5 254.0 317.5 -45 25
+wait 36
+cmd setblock 878 254 317 minecraft:cobbled_deepslate
+cmd tp @s 878.5 255.0 317.5 -45 25
+wait 36
+cmd setblock 878 255 318 minecraft:cobbled_deepslate
+cmd tp @s 878.5 256.0 318.5 -45 25
+wait 36
+cmd setblock 879 256 318 minecraft:cobbled_deepslate
+cmd tp @s 879.5 257.0 318.5 -45 25
+wait 36
+cmd setblock 879 257 319 minecraft:cobbled_deepslate
+cmd tp @s 879.5 258.0 319.5 -45 25
+wait 36
+cmd setblock 880 258 319 minecraft:cobbled_deepslate
+cmd tp @s 880.5 259.0 319.5 -45 25
+wait 36
+cmd setblock 880 259 320 minecraft:cobbled_deepslate
+cmd tp @s 880.5 260.0 320.5 -45 25
+wait 36
+cmd setblock 881 260 320 minecraft:cobbled_deepslate
+cmd tp @s 881.5 261.0 320.5 -45 25
+wait 36
+cmd setblock 881 261 321 minecraft:cobbled_deepslate
+cmd tp @s 881.5 262.0 321.5 -45 25
+wait 36
+cmd setblock 882 262 321 minecraft:cobbled_deepslate
+cmd tp @s 882.5 263.0 321.5 -45 25
+wait 36
+screenshot 03_over_the_water
+cmd setblock 882 263 322 minecraft:cobbled_deepslate
+cmd tp @s 882.5 264.0 322.5 -45 25
+wait 36
+cmd setblock 883 264 322 minecraft:cobbled_deepslate
+cmd tp @s 883.5 265.0 322.5 -45 25
+wait 36
+cmd setblock 883 265 323 minecraft:cobbled_deepslate
+cmd tp @s 883.5 266.0 323.5 -45 25
+wait 36
+cmd setblock 884 266 323 minecraft:cobbled_deepslate
+cmd tp @s 884.5 267.0 323.5 -45 25
+wait 36
+cmd setblock 884 267 324 minecraft:cobbled_deepslate
+cmd tp @s 884.5 268.0 324.5 -45 25
+wait 36
+cmd setblock 885 268 324 minecraft:cobbled_deepslate
+cmd tp @s 885.5 269.0 324.5 -45 25
+wait 36
+cmd setblock 885 269 325 minecraft:cobbled_deepslate
+cmd tp @s 885.5 270.0 325.5 -45 25
+wait 36
+cmd setblock 886 270 325 minecraft:cobbled_deepslate
+cmd tp @s 886.5 271.0 325.5 -45 25
+wait 36
+cmd setblock 886 271 326 minecraft:cobbled_deepslate
+cmd tp @s 886.5 272.0 326.5 -45 25
+wait 36
+cmd setblock 887 272 326 minecraft:cobbled_deepslate
+cmd tp @s 887.5 273.0 326.5 -45 25
+wait 36
+cmd setblock 887 273 327 minecraft:cobbled_deepslate
+cmd tp @s 887.5 274.0 327.5 -45 25
+wait 36
+cmd setblock 888 274 327 minecraft:cobbled_deepslate
+cmd tp @s 888.5 275.0 327.5 -45 25
+wait 36
+cmd setblock 888 275 328 minecraft:cobbled_deepslate
+cmd tp @s 888.5 276.0 328.5 -45 25
+wait 36
+cmd setblock 889 276 328 minecraft:cobbled_deepslate
+cmd tp @s 889.5 277.0 328.5 -45 25
+wait 36
+cmd setblock 889 277 329 minecraft:cobbled_deepslate
+cmd tp @s 889.5 278.0 329.5 -45 25
+wait 36
+cmd setblock 890 278 329 minecraft:cobbled_deepslate
+cmd tp @s 890.5 279.0 329.5 -45 25
+wait 36
+cmd setblock 890 279 330 minecraft:cobbled_deepslate
+cmd tp @s 890.5 280.0 330.5 -45 25
+wait 36
+cmd setblock 891 280 330 minecraft:cobbled_deepslate
+cmd tp @s 891.5 281.0 330.5 -45 25
+wait 36
+cmd setblock 891 281 331 minecraft:cobbled_deepslate
+cmd tp @s 891.5 282.0 331.5 -45 25
+wait 36
+cmd setblock 892 282 331 minecraft:cobbled_deepslate
+cmd tp @s 892.5 283.0 331.5 -45 25
+wait 36
+cmd setblock 892 283 332 minecraft:cobbled_deepslate
+cmd tp @s 892.5 284.0 332.5 -45 25
+wait 36
+cmd setblock 893 284 332 minecraft:cobbled_deepslate
+cmd tp @s 893.5 285.0 332.5 -45 25
+wait 36
+cmd setblock 893 285 333 minecraft:cobbled_deepslate
+cmd tp @s 893.5 286.0 333.5 -45 25
+wait 36
+cmd setblock 894 286 333 minecraft:cobbled_deepslate
+cmd tp @s 894.5 287.0 333.5 -45 25
+wait 36
+cmd setblock 894 287 334 minecraft:cobbled_deepslate
+cmd tp @s 894.5 288.0 334.5 -45 25
+wait 36
+cmd setblock 895 288 334 minecraft:cobbled_deepslate
+cmd tp @s 895.5 289.0 334.5 -45 25
+wait 36
+cmd setblock 895 289 335 minecraft:cobbled_deepslate
+cmd tp @s 895.5 290.0 335.5 -45 25
+wait 36
+cmd setblock 896 290 335 minecraft:cobbled_deepslate
+cmd tp @s 896.5 291.0 335.5 -45 25
+wait 36
+cmd setblock 896 291 336 minecraft:cobbled_deepslate
+cmd tp @s 896.5 292.0 336.5 -45 25
+wait 36
+screenshot 04_top
+wait 300
+screenshot 05_after
+wait 300
+screenshot 06_later
+cmd tremor info
+cmd gamemode spectator
+cmd tp @s 875.5 240.0 250.5
+lookat 878.5 240.0 315.5
+wait 10
+screenshot 07_side
+cmd tp @s 820.5 250.0 320.5
+lookat 878.5 240.0 315.5
+wait 10
+screenshot 08_side
+cmd tremor despawn all
+config behavior.contact.anger 15
+tint off
+quit

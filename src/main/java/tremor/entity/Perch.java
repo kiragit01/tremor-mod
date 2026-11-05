@@ -162,6 +162,10 @@ final class Perch {
     /** Stalactites that fell while the player stayed up there (the guard of the same perch). */
     private int drops;
     private long guardSince;
+    /** When the guarded player was last heard out of reach somewhere new (it gives up only once they stay put). */
+    private long guardMoved;
+    /** Every block its builds put, through all its guards: never taken again for a build (not saved). */
+    private final java.util.Set<net.minecraft.core.BlockPos> ours = new java.util.HashSet<>();
     private Mini mini;
     private FallingBlockEntity falling;
     private Vec3 fellFrom;
@@ -231,6 +235,7 @@ final class Perch {
         }
         perch = at;
         groundY = ground;
+        guardMoved = now; // still climbing away: it does not give up (the user's staircase took minutes)
         if (build == null) {
             if (aside) {
                 runtime.brainGo(entity, new Vec3(at.x(), ground + 1, at.z()), TremorEntity.TargetKind.ROAM, 0, false);
@@ -260,7 +265,7 @@ final class Perch {
         boolean hunting = stage == Stage.HUNTING || stage == Stage.AWAKENING;
         if (prey != null) {
             String over = !free ? "held by something else" : !hunting ? "calmed down"
-                    : now - guardSince > MAX_GUARD_TICKS ? "it gave up" : preyLeft();
+                    : now - Math.max(guardSince, guardMoved) > MAX_GUARD_TICKS ? "it gave up" : preyLeft();
             if (over != null) {
                 stop(over);
                 return false;
@@ -457,14 +462,26 @@ final class Perch {
         }
         int bottom = y - MAX_PILLAR;
         VoxelView ground = runtime.graph().view();
-        // Down a door or a crown of leaves even where it is all round (buried): no ground the entity crawls on (the
-        // user: up on a tree it took the leaves inside the crown for the ground, and guarded and let go every tick).
-        while (y > bottom && view.isSolid(x, y, z)
-                && (Surface.isSurface(view, x, y, z) || !ground.isSolid(x, y, z))) {
-            y--;
-        }
-        while (y > bottom && !view.isSolid(x, y, z)) {
-            y--;
+        SurfaceGraph graph = runtime.graph();
+        while (true) {
+            // Down a door or a crown of leaves even where it is all round (buried): no ground the entity crawls on
+            // (the user: up on a tree it took the leaves inside the crown for the ground, and guarded and let go
+            // every tick).
+            while (y > bottom && view.isSolid(x, y, z)
+                    && (Surface.isSurface(view, x, y, z) || !ground.isSolid(x, y, z))) {
+                y--;
+            }
+            if (y <= bottom || view.isSolid(x, y, z)) {
+                break;
+            }
+            while (y > bottom && !view.isSolid(x, y, z)) {
+                y--;
+            }
+            // On through what it could not crawl on: a lower step of a staircase zigzagging up is no ground (the
+            // user: it built a heap on it in mid-air, and took the player over it for down, the guard ended).
+            if (y <= bottom || graph.isNode(x, y, z)) {
+                break;
+            }
         }
         return y > bottom ? y : Integer.MIN_VALUE;
     }
@@ -580,7 +597,7 @@ final class Perch {
         if (top == Integer.MIN_VALUE || foot == Integer.MIN_VALUE || foot >= top) {
             return;
         }
-        build = new PerchBuild(level, x, z, foot, top);
+        build = new PerchBuild(level, x, z, foot, top, ours);
         hidden = true; // under the ground first, then the heap rises
         buildFrom = now + SINK_TICKS;
         Tremor.LOGGER.info("Tremor #{} in {} builds the pillar up at {} {} from {} to {} ({} stalactites missed)",
