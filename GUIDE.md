@@ -8,7 +8,7 @@ Everything the mod does, in plain words. The numbers here are the defaults: almo
 
 It appears by itself near players, 40–80 blocks away, somewhere in view or on your way.
 
-Every 30 seconds there's a roll for each player. The base chance is 4%, and it grows in a cave (x2.5), in the dark (x2), deep underground (x1.5) and at night (x2). These multiply, so on the surface in daylight it's about once every 10–15 minutes, and in a dark cave at night it's a minute or two.
+Every 30 seconds there's a roll for each player. The base chance is 4%, and it grows in a cave (x2.5), in the dark (x2), deep underground (x1.5) and at night under the open sky (x2). These multiply, so on the surface in daylight it's about once every 10–15 minutes, and in a dark cave it's a couple of minutes.
 
 It doesn't appear in the first minute after you join or change dimension, within 32 blocks of the world spawn or of players' beds and respawn anchors, or on Peaceful.
 
