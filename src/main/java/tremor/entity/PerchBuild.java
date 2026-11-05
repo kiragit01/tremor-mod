@@ -109,6 +109,14 @@ final class PerchBuild {
     static final double DEEP_CHANCE = 0.4;
     /** A column of the plan goes down this far under the foot where the ground dips. */
     static final int DIP = 3;
+    /**
+     * After a player who builds away it goes on only once they are farther than this from the end of what it built
+     * (blocks, across or up): then a pillar up to their level, a bridge across to them.
+     */
+    static final int LEG = 2;
+    /** A pillar of the way leans a block aside from one layer to the next at this chance, at most this far. */
+    static final double LEG_LEAN_CHANCE = 0.3;
+    static final int LEG_LEAN_MAX = 2;
     /** Heard farther than this (blocks, across) from where they were heard before, the player is built for anew. */
     static final int MAX_STRIDE = 16;
     /** The ground is taken at random, the nearer the likelier: the share into the nearest-first list, to this power. */
@@ -228,27 +236,31 @@ final class PerchBuild {
     }
 
     /**
-     * The player went aside to {@code target} (the block now under their feet): it joins their trail, the places they
-     * were heard at in order from the core's top, and the walkway runs along it, straight from one place to the next
-     * (a step up or down spread over the way). Once the core is up, every open cell of the walkway (a gap: the player
-     * broke the bridge behind them, the user's case, or walked where it runs beside) is filled in its order, coming out
-     * of the cell before it, and every open cell beside it, a block each side, coming out of it. A climb steeper than
-     * a block up a block aside goes up the column first (the user's staircase zigzagging up was built for anew,
-     * pillar after pillar). False, changing nothing, if the player got farther than {@value #MAX_STRIDE} blocks
-     * from where they were heard before.
+     * The player went aside to {@code target} (the block now under their feet). Within {@value #LEG} blocks of the end
+     * of the way it waits (it can get to them from there); farther, {@code target} joins the trail, the places the way
+     * goes to in order from the core's top, and the way runs along it as the user put it: out of each place a pillar
+     * up (or down) to the next one's level, then a bridge across to it ({@link #leg}); higher again, a pillar out of
+     * the bridge's end. Once the core is up, every open cell of the way (a gap: the player broke it behind them, or
+     * walked where it runs beside) is filled in its order, coming out of the cell before it, and around it: a 3x3 with
+     * blocks sticking out around a pillar, a block each side of a bridge, coming out of it. False, changing nothing,
+     * if the player got farther than {@value #MAX_STRIDE} blocks from the end of the way.
      */
     boolean walkTo(BlockPos target) {
         BlockPos start = new BlockPos(x, topY, z);
         BlockPos last = trail.isEmpty() ? start : trail.get(trail.size() - 1);
         int across = Math.max(Math.abs(target.getX() - last.getX()), Math.abs(target.getZ() - last.getZ()));
-        if (across > MAX_STRIDE || Math.abs(target.getY() - last.getY()) > MAX_STRIDE) {
+        int rise = Math.abs(target.getY() - last.getY());
+        if (across > MAX_STRIDE || rise > MAX_STRIDE) {
             return false;
+        }
+        if (across <= LEG && rise <= LEG) {
+            return true; // near the end of the way: it gets to them from there
         }
         trail.add(target);
         List<BlockPos> way = new ArrayList<>();
         BlockPos from = start;
         for (BlockPos to : trail) {
-            line(from, to, way);
+            leg(from, to, way);
             from = to;
         }
         Set<BlockPos> on = new HashSet<>(way);
@@ -256,6 +268,7 @@ final class PerchBuild {
         List<BlockPos> order = new ArrayList<>();
         BlockPos before = start;
         for (BlockPos w : way) {
+            boolean pillar = w.getY() != before.getY(); // a cell of a pillar: the whole 3x3 around it
             sides.putIfAbsent(w, before);
             order.add(w);
             if (hang(w, w.below(), HANG_CHANCE, on, order)) {
@@ -276,6 +289,13 @@ final class PerchBuild {
                         if (hang(n, far, SIDE_FAR_CHANCE, on, order)) {
                             hang(far, far.below(), SIDE_UNDER_CHANCE, on, order);
                         }
+                    }
+                }
+                BlockPos corner = n.relative(d.getClockWise());
+                if (pillar && !on.contains(corner)) {
+                    sides.putIfAbsent(corner, w);
+                    if (w.equals(sides.get(corner))) {
+                        order.add(corner);
                     }
                 }
             }
@@ -301,6 +321,30 @@ final class PerchBuild {
         }
         order.add(cell);
         return true;
+    }
+
+    /**
+     * The way from {@code a} (not included) to {@code b}: a pillar up (or down) out of {@code a} to the level of
+     * {@code b}, leaning a block aside from layer to layer at {@value #LEG_LEAN_CHANCE} (at most {@value #LEG_LEAN_MAX}
+     * from {@code a}: the user, nothing neat), then a bridge straight across to {@code b}. Drawn from the cells, so the
+     * same way again every time it is laid.
+     */
+    private void leg(BlockPos a, BlockPos b, List<BlockPos> out) {
+        int cx = a.getX(), cy = a.getY(), cz = a.getZ();
+        while (cy != b.getY()) {
+            cy += Integer.signum(b.getY() - cy);
+            double lean = draw(new BlockPos(cx, cy, cz));
+            if (lean < LEG_LEAN_CHANCE) {
+                int way = (int) (lean / LEG_LEAN_CHANCE * 4);
+                int nx = cx + (way == 0 ? 1 : way == 1 ? -1 : 0), nz = cz + (way == 2 ? 1 : way == 3 ? -1 : 0);
+                if (Math.abs(nx - a.getX()) <= LEG_LEAN_MAX && Math.abs(nz - a.getZ()) <= LEG_LEAN_MAX) {
+                    cx = nx;
+                    cz = nz;
+                }
+            }
+            add(new BlockPos(cx, cy, cz), out);
+        }
+        line(new BlockPos(cx, cy, cz), b, out);
     }
 
     /**
