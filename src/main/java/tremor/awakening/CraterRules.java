@@ -65,9 +65,8 @@ public final class CraterRules {
         /** Holds a fluid (also a waterlogged block). */
         FLUID,
         /**
-         * Never carved nor filled: has a block entity, is in {@code #tremor:protected}, cannot be broken or burns
-         * (magma), lies in the spawn protection, outside the world (the build height, the world border) or in a chunk
-         * that is not loaded.
+         * Never carved nor filled: is in {@code #tremor:protected} or cannot be broken, lies in the spawn protection,
+         * outside the world (the build height, the world border) or in a chunk that is not loaded.
          */
         KEEP
     }

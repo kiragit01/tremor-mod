@@ -822,8 +822,7 @@ final class PerchBuild {
     }
 
     private boolean spawnProtected(BlockPos p) {
-        int radius = level.dimension() == Level.OVERWORLD
-                ? Math.max(0, level.getServer().getSpawnProtectionRadius()) : 0;
+        int radius = tremor.config.TremorConfig.spawnProtection(level);
         BlockPos spawn = level.getSharedSpawnPos();
         return radius > 0 && Math.max(Math.abs(p.getX() - spawn.getX()), Math.abs(p.getZ() - spawn.getZ())) <= radius;
     }
