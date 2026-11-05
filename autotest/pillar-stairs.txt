@@ -1,0 +1,77 @@
+# Up a staircase out of a pillar the tremor builds up to (the user: a block aside a step, it only built its trunk up
+# where it began, never after them): a player on a pillar 1x1 seven high; the tremor builds up; the player climbs a
+# staircase out of it, a block up and a block aside a step, nine steps; the build follows along the steps and the
+# tremor comes up beside them. Strikes add no anger (no Awakening). Copies tinted red.
+# Run: gradlew runClientAutotest -Ptremor_autotest_script=pillar-stairs.txt
+waitchunks
+cmd gamerule commandModificationBlockLimit 2147483647
+cmd gamemode spectator
+cmd time set noon
+cmd tremor despawn all
+cmd tremor awaken stop
+cmd kill @e[type=!player]
+cmd tp @s 860.5 225.0 285.5
+wait 40
+waitchunks
+cmd fill 830 188 270 900 199 330 minecraft:dirt
+cmd fill 830 200 270 900 200 330 minecraft:grass_block
+cmd fill 830 201 270 900 260 330 minecraft:air
+cmd fill 860 201 300 860 207 300 minecraft:stone
+cmd kill @e[type=!player]
+hud off
+tint on
+config behavior.contact.anger 0
+cmd tp @s 860.5 208.0 300.5 -90 25
+cmd gamemode survival
+cmd effect give @s minecraft:resistance 600 4 true
+cmd effect give @s minecraft:instant_health 1 4 true
+cmd tremor spawn 864 200 300
+cmd tremor stage hunting
+cmd tremor anger 64
+wait 40
+cmd tremor voice 0
+view back
+wait 300
+screenshot 01_building
+cmd setblock 861 208 300 minecraft:cobblestone
+cmd tp @s 861.5 209.0 300.5 -90 25
+wait 30
+cmd setblock 862 209 300 minecraft:cobblestone
+cmd tp @s 862.5 210.0 300.5 -90 25
+wait 30
+cmd setblock 863 210 300 minecraft:cobblestone
+cmd tp @s 863.5 211.0 300.5 -90 25
+wait 30
+cmd setblock 864 211 300 minecraft:cobblestone
+cmd tp @s 864.5 212.0 300.5 -90 25
+wait 30
+cmd setblock 865 212 300 minecraft:cobblestone
+cmd tp @s 865.5 213.0 300.5 -90 25
+wait 30
+cmd setblock 866 213 300 minecraft:cobblestone
+cmd tp @s 866.5 214.0 300.5 -90 25
+wait 30
+cmd setblock 867 214 300 minecraft:cobblestone
+cmd tp @s 867.5 215.0 300.5 -90 25
+wait 30
+cmd setblock 868 215 300 minecraft:cobblestone
+cmd tp @s 868.5 216.0 300.5 -90 25
+wait 30
+cmd setblock 869 216 300 minecraft:cobblestone
+cmd tp @s 869.5 217.0 300.5 -90 25
+wait 30
+screenshot 02_up_the_stairs
+wait 200
+screenshot 03_after
+wait 200
+screenshot 04_later
+cmd tremor info
+cmd gamemode spectator
+cmd tp @s 864.5 214.0 284.5
+lookat 864.5 210.0 300.5
+wait 10
+screenshot 05_side
+cmd tremor despawn all
+config behavior.contact.anger 15
+tint off
+quit

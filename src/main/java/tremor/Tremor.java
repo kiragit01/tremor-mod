@@ -156,6 +156,7 @@ public final class Tremor {
         // High priority: the things of a player the ground killed go into the crater's caches before HollowRules
         // moves them.
         game.addListener(EventPriority.HIGH, LivingDropsEvent.class, CraterCaches::onLivingDrops);
+        game.addListener(EventPriority.LOW, LivingDropsEvent.class, tremor.entity.Frenzy::onPlayerDrops);
         // Where escapes through the edge come out (SPEC 9 "Побег"), once the real chunks there are loaded.
         game.addListener(EdgeExits::onServerTick);
         game.addListener(EdgeExits::onServerStopped);

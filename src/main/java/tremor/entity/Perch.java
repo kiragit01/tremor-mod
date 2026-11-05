@@ -210,7 +210,8 @@ final class Perch {
     /**
      * A sound of {@code player} the entity heard at {@code at}. The guarded player heard out of reach still, higher up
      * (building the pillar up to get away) or aside (a bridge out of it): the guard follows them, the entity going
-     * under them, and so does what it builds.
+     * under them, and so does what it builds. Aside of what it builds is off its core's column, however the player got
+     * there (the user: up a staircase out of the pillar, a block aside a step, it only built up where it began).
      */
     void heard(UUID player, Vec3 at, long now) {
         heardPlayer = player;
@@ -219,9 +220,11 @@ final class Perch {
         if (!player.equals(prey)) {
             return;
         }
-        boolean aside = Math.hypot(at.x() - perch.x(), at.z() - perch.z()) > STAY_RADIUS;
+        boolean moved = Math.hypot(at.x() - perch.x(), at.z() - perch.z()) > STAY_RADIUS;
+        boolean aside = build == null ? moved
+                : Math.hypot(at.x() - (build.x() + 0.5), at.z() - (build.z() + 0.5)) > STAY_RADIUS;
         int top = topUnder(at), ground = groundUnder(at);
-        if (!aside && at.y() <= perch.y() + 0.5 || top == Integer.MIN_VALUE || ground == Integer.MIN_VALUE
+        if (!moved && at.y() <= perch.y() + 0.5 || top == Integer.MIN_VALUE || ground == Integer.MIN_VALUE
                 || !outOfReach(at, ground + 1, perch, TremorConfig.COMMON.awakening.reachDistance.get() * FOLLOW_REACH,
                 now)) {
             return;

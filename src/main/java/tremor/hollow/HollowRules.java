@@ -661,6 +661,7 @@ public final class HollowRules {
         ItemEntity moved = new ItemEntity(site.level(), site.position().x, site.position().y, site.position().z, stack);
         moved.setDefaultPickUpDelay();
         site.level().addFreshEntity(moved);
+        tremor.entity.Frenzy.takeAway(site.level(), moved); // a shard: the ground takes it, the player is dead
     }
 
     /**
