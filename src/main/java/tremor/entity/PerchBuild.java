@@ -193,6 +193,15 @@ final class PerchBuild {
         this.random = new Random(seed);
     }
 
+    /** The column the core goes up (its trunk leans off it, a block or two). */
+    int x() {
+        return x;
+    }
+
+    int z() {
+        return z;
+    }
+
     int placed() {
         return placed;
     }

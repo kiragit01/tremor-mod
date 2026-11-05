@@ -81,12 +81,12 @@ public final class Frenzy {
     public static void onItemToss(ItemTossEvent event) {
         ItemEntity item = event.getEntity();
         if (!(item.level() instanceof ServerLevel level) || !(event.getPlayer() instanceof ServerPlayer player)
-                || !item.getItem().is(TremorItems.SHARD.get()) || HollowDimension.is(level) || player.isSpectator()) {
-            return;
+                || !item.getItem().is(TremorItems.SHARD.get()) || HollowDimension.is(level) || player.isSpectator()
+                || item.getOwner() != player) {
+            return; // not thrown by the player: the show item of /give (the test of 1.3.1 started a frenzy)
         }
         // The ground takes it, whatever comes of the frenzy: nobody gets it back.
-        item.setNeverPickUp();
-        SWALLOWS.computeIfAbsent(level, l -> new java.util.ArrayList<>()).add(new Swallow(item, level.getGameTime()));
+        takeAway(level, item);
         if (FRENZIES.containsKey(level)) {
             return; // one frenzy at a time
         }
@@ -125,6 +125,35 @@ public final class Frenzy {
                 TremorConfig.COMMON.transitionVolume.get().floatValue(), 1.3F);
         Tremor.LOGGER.info("Tremor #{}: a frenzy over the shard {} dropped", entity.instance(),
                 player.getGameProfile().getName());
+    }
+
+    /**
+     * The shards a dead player drops are taken by the ground as a thrown one is, with no frenzy: the player is dead
+     * already (the user). Low priority: after the crater and the hollow have taken the drops they keep.
+     */
+    public static void onPlayerDrops(net.minecraftforge.event.entity.living.LivingDropsEvent event) {
+        if (!(event.getEntity() instanceof ServerPlayer player) || !(player.level() instanceof ServerLevel level)
+                || HollowDimension.is(level)) {
+            return;
+        }
+        for (ItemEntity drop : event.getDrops()) {
+            if (drop.getItem().is(TremorItems.SHARD.get())) {
+                takeAway(level, drop);
+            }
+        }
+    }
+
+    /**
+     * The ground takes {@code item} if it is a shard: nobody can pick it up, and a little mound swallows it once it
+     * lands ({@link #SWALLOW_TICKS}); no frenzy. For the shards of a player dead in the hollow, dropped where they come
+     * back.
+     */
+    public static void takeAway(ServerLevel level, ItemEntity item) {
+        if (!item.getItem().is(TremorItems.SHARD.get()) || HollowDimension.is(level)) {
+            return;
+        }
+        item.setNeverPickUp();
+        SWALLOWS.computeIfAbsent(level, l -> new java.util.ArrayList<>()).add(new Swallow(item, level.getGameTime()));
     }
 
     /** Leads the frenzy of every level on: the route after the player, the end; and the ground takes the shards. */
