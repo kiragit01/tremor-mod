@@ -228,6 +228,7 @@
   "tremor.configuration.awakening.craterBlocksPerTick": "Кратер: блоков за тик",
   "tremor.configuration.awakening.craterBudgetMillis": "Кратер: время сервера за тик (мс)",
   "tremor.configuration.awakening.lethal": "Поражение смертельно",
+  "tremor.configuration.awakening.spawnProtection": "Щадит защиту спавна",
   "tremor.configuration.difficulty": "Сложность",
   "tremor.configuration.voice": "Голосовой чат",
   "tremor.configuration.voice.enabled": "Слышит голоса игроков",

@@ -839,6 +839,7 @@ public final class TremorConfig {
         public final ForgeConfigSpec.IntValue craterBlocksPerTick;
         public final ForgeConfigSpec.DoubleValue craterBudgetMillis;
         public final ForgeConfigSpec.BooleanValue lethal;
+        public final ForgeConfigSpec.BooleanValue spawnProtection;
 
         Awakening(ForgeConfigSpec.Builder b) {
             b.comment("The Awakening: at the top of its anger the entity seeks a player, and once it has",
@@ -903,8 +904,22 @@ public final class TremorConfig {
                             "caches of rubble, some of them buried); false: the player comes out there alive,",
                             "keeping everything, but badly weakened")
                     .translation(KEY + "awakening.lethal").define("lethal", true);
+            spawnProtection = b.comment("Whether the server's spawn protection (spawn-protection of server.properties, 16",
+                            "blocks in single player) is spared: no crater there, nothing taken there for what it builds,",
+                            "no leaves shaken down. Off: a player who builds where they were born is not safe either")
+                    .translation(KEY + "awakening.spawnProtection").define("spawnProtection", false);
             b.pop();
         }
+    }
+
+    /**
+     * The radius of the server's spawn protection (a square around the world spawn, as vanilla has it, in the
+     * overworld) the tremor spares in {@code level}: 0 unless {@code awakening.spawnProtection} says so (the user).
+     */
+    public static int spawnProtection(net.minecraft.world.level.Level level) {
+        return COMMON.awakening.spawnProtection.get() && level.getServer() != null
+                && level.dimension() == net.minecraft.world.level.Level.OVERWORLD
+                ? Math.max(0, level.getServer().getSpawnProtectionRadius()) : 0;
     }
 
     /** The ambush ({@link tremor.core.behavior.Ambush}): lying in wait for a player, and the quicksand. */
