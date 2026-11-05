@@ -140,6 +140,7 @@ public final class TremorConfig {
         public final Hollow hollow;
         public final Awakening awakening;
         public final Ambush ambush;
+        public final Stalactites stalactites;
         public final Voice voice;
 
         Common(ForgeConfigSpec.Builder b) {
@@ -466,6 +467,7 @@ public final class TremorConfig {
             hollow = new Hollow(b);
             awakening = new Awakening(b);
             ambush = new Ambush(b);
+            stalactites = new Stalactites(b);
             voice = new Voice(b);
         }
 
@@ -946,6 +948,49 @@ public final class TremorConfig {
                             "onto firm ground (the mud holds: only one who sprints and jumps off at once makes it);",
                             "then it holds the player (seconds)")
                     .translation(KEY + "ambush.escapeSeconds").defineInRange("escapeSeconds", 2.0, 0.0, 5.0);
+            b.pop();
+        }
+    }
+
+    /** The stalactite crawlers ({@link tremor.entity.StalactiteCrawlers}). */
+    public static final class Stalactites {
+        public final ForgeConfigSpec.BooleanValue enabled;
+        public final ForgeConfigSpec.DoubleValue spawnChance;
+        public final ForgeConfigSpec.IntValue maxNearPlayer;
+        public final ForgeConfigSpec.DoubleValue hearingRange;
+        public final ForgeConfigSpec.DoubleValue hearingFactor;
+        public final ForgeConfigSpec.DoubleValue speed;
+        public final ForgeConfigSpec.IntValue crackleTicks;
+        public final ForgeConfigSpec.IntValue cooldownSeconds;
+        public final ForgeConfigSpec.IntValue lightLevel;
+        public final ForgeConfigSpec.DoubleValue damage;
+
+        Stalactites(ForgeConfigSpec.Builder b) {
+            b.comment("Stalactite crawlers: small creatures of their own on the ceilings of dark caves. Hearing a",
+                            "player under them they creep along the ceiling to over them, crackle for a moment and drop",
+                            "stalactites. Light keeps them off; breaking the block one is in kills it")
+                    .translation(KEY + "stalactites").push("stalactites");
+            enabled = b.comment("Whether they come by themselves near players underground (the command still makes them)")
+                    .translation(KEY + "stalactites.enabled").define("enabled", true);
+            spawnChance = b.comment("Chance every 5 seconds that one comes near a player underground")
+                    .translation(KEY + "stalactites.spawnChance").defineInRange("spawnChance", 0.08, 0.0, 1.0);
+            maxNearPlayer = b.comment("No more come while this many are within 48 blocks of the player")
+                    .translation(KEY + "stalactites.maxNearPlayer").defineInRange("maxNearPlayer", 2, 0, 16);
+            hearingRange = b.comment("How far one hears (blocks)")
+                    .translation(KEY + "stalactites.hearingRange").defineInRange("hearingRange", 24.0, 4.0, 64.0);
+            hearingFactor = b.comment("How much better than a tremor one hears what reaches it")
+                    .translation(KEY + "stalactites.hearingFactor").defineInRange("hearingFactor", 2.0, 0.1, 20.0);
+            speed = b.comment("How fast one creeps along the ceiling (blocks per second)")
+                    .translation(KEY + "stalactites.speed").defineInRange("speed", 2.0, 0.2, 10.0);
+            crackleTicks = b.comment("How long one crackles over the sound before it drops (ticks, a little more by",
+                            "chance): the time to jump away")
+                    .translation(KEY + "stalactites.crackleTicks").defineInRange("crackleTicks", 16, 0, 100);
+            cooldownSeconds = b.comment("After a drop one hangs there bulging, deaf, for this long (seconds)")
+                    .translation(KEY + "stalactites.cooldownSeconds").defineInRange("cooldownSeconds", 8, 0, 120);
+            lightLevel = b.comment("Light from this level on keeps them off: they never go there and sink away from it")
+                    .translation(KEY + "stalactites.lightLevel").defineInRange("lightLevel", 8, 1, 15);
+            damage = b.comment("Damage of a stalactite that falls on someone (scaled by the difficulty)")
+                    .translation(KEY + "stalactites.damage").defineInRange("damage", 4.0, 0.0, 40.0);
             b.pop();
         }
     }

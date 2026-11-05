@@ -164,7 +164,7 @@ public final class ClientTremor {
                 continue;
             }
             double distance = sample.frame().center().distance(eye);
-            if (distance < bestDistance) {
+            if (distance < bestDistance && !tremor.network.TremorStatePayload.crawler(entry.getKey())) {
                 bestDistance = distance;
                 best = sample;
                 bestInstance = entry.getKey();

@@ -1,0 +1,81 @@
+# The stalactite crawler (1.4.0). A closed stone cave, 8 high, dark. A crawler on the ceiling 10 blocks off hears the
+# player, creeps along the ceiling to over them, crackles and drops stalactites (the player is struck). Then a
+# lantern beside it: it sinks into the rock. Then another one is killed by breaking its block. Then the natural spawn
+# (chance 1). The copies are tinted red; night vision to see in the cave. The server log tells what each one did.
+# Run: gradlew runClientAutotest -Ptremor_autotest_script=stalactite-crawler.txt
+waitchunks
+cmd gamemode spectator
+cmd time set noon
+cmd tremor despawn all
+cmd tremor crawler clear
+cmd kill @e[type=!player]
+config stalactites.enabled false
+cmd gamerule commandModificationBlockLimit 2147483647
+cmd tp @s 820.5 205.0 295.5
+wait 40
+waitchunks
+cmd fill 800 195 280 840 216 312 minecraft:stone
+cmd fill 811 201 286 830 208 305 minecraft:air
+cmd kill @e[type=!player]
+hud off
+tint on
+cmd effect give @s minecraft:night_vision 600 0 true
+cmd tp @s 816.5 201.0 296.5 -90 -30
+cmd gamemode survival
+cmd effect give @s minecraft:resistance 600 2 true
+wait 20
+cmd tremor crawler spawn 826 201 296
+wait 40
+lookat 826.5 209 296.5
+screenshot 01_hang
+lookat 821.5 209 296.5
+cmd tremor voice 0
+hold forward 3
+wait 20
+screenshot 02_creep
+wait 25
+screenshot 03_creep
+wait 25
+screenshot 04_creep
+wait 25
+lookat 817 209 296.5
+screenshot 05_over
+wait 15
+screenshot 06_crackle
+wait 10
+screenshot 07_drop
+wait 10
+screenshot 08_drop
+wait 40
+screenshot 09_bulge
+# a lantern beside it: it sinks into the rock
+cmd setblock 818 208 296 minecraft:lantern[hanging=true]
+wait 15
+screenshot 10_light
+wait 40
+screenshot 11_gone
+cmd setblock 818 208 296 minecraft:air
+# another one, killed by breaking its block
+cmd tremor crawler spawn 826 201 296
+cmd fill 825 201 297 825 204 297 minecraft:stone
+cmd gamemode creative
+cmd tp @s 825.5 205.0 297.5
+wait 40
+lookat 826.5 209 296.5
+screenshot 12_before_kill
+hold attack 3
+wait 10
+screenshot 13_killed
+wait 30
+screenshot 14_after_kill
+# the natural spawn
+cmd gamemode survival
+cmd tp @s 820.5 201.0 295.5 0 -40
+config stalactites.spawnChance 1.0
+config stalactites.enabled true
+wait 220
+screenshot 15_natural
+cmd gamemode spectator
+cmd tremor crawler clear
+tint off
+quit

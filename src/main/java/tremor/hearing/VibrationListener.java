@@ -101,7 +101,8 @@ public final class VibrationListener {
             return;
         }
         List<TremorRuntime> runtimes = TremorManager.runtimes(level);
-        if (!hasEntity(runtimes) && !AwakeningManager.listens(level) && !HollowLevels.listens(level)) {
+        if (!hasEntity(runtimes) && !AwakeningManager.listens(level) && !HollowLevels.listens(level)
+                && !tremor.entity.StalactiteCrawlers.listens(level)) {
             return;
         }
         GameEvent.Context context = event.getContext();
@@ -209,7 +210,8 @@ public final class VibrationListener {
             return;
         }
         List<TremorRuntime> runtimes = TremorManager.runtimes(level);
-        if (!hasEntity(runtimes) && !AwakeningManager.listens(level) && !HollowLevels.listens(level)) {
+        if (!hasEntity(runtimes) && !AwakeningManager.listens(level) && !HollowLevels.listens(level)
+                && !tremor.entity.StalactiteCrawlers.listens(level)) {
             return;
         }
         if (LAST_FALL.isMarked(entity.getRootVehicle().getId(), level.getGameTime())) {
@@ -307,6 +309,7 @@ public final class VibrationListener {
         }
         AwakeningManager.vibration(level, vibration, player);
         HollowLevels.vibration(level, vibration, player);
+        tremor.entity.StalactiteCrawlers.vibration(level, vibration);
     }
 
     private static boolean hasEntity(List<TremorRuntime> runtimes) {
@@ -317,7 +320,7 @@ public final class VibrationListener {
      * Whether a source at {@code pos} concerns anybody: an entity of the level, if the source is within its hearing
      * distance (plus a margin), the level's Awakening, if the source lies in its zone
      * ({@link AwakeningManager#listens(ServerLevel, double, double)}), or a level of the hollow playing there
-     * ({@link HollowLevels#listens}: the whole hollow listens).
+     * ({@link HollowLevels#listens}: the whole hollow listens), or a stalactite crawler within its hearing range.
      */
     private static boolean wanted(ServerLevel level, List<TremorRuntime> runtimes, net.minecraft.world.phys.Vec3 pos) {
         double range = TremorConfig.COMMON.hearingMaxDistance.get() + RANGE_MARGIN;
@@ -328,7 +331,8 @@ public final class VibrationListener {
                 return true;
             }
         }
-        return AwakeningManager.listens(level, pos.x, pos.z) || HollowLevels.listens(level);
+        return AwakeningManager.listens(level, pos.x, pos.z) || HollowLevels.listens(level)
+                || tremor.entity.StalactiteCrawlers.wants(level, pos);
     }
 
     /**
