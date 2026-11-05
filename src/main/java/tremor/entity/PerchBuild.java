@@ -119,6 +119,9 @@ final class PerchBuild {
      */
     static final double DIG_DEEPER = 0.5;
     static final int DIG_SOON = 8;
+    /** With nothing left to take, it looks this much farther out at a time, up to this far (water all around). */
+    static final double SOURCE_WIDEN = 8;
+    static final double SOURCE_FAR = 32;
     /** Ticks a block sinks where it is taken, and comes out where it goes, at first... */
     static final int SLIDE_TICKS = 6;
     /** ...a tick less for every {@value #SPEED_UP_TICKS} ticks it has built, down to this. */
@@ -141,12 +144,15 @@ final class PerchBuild {
     private final List<Move> moves = new ArrayList<>();
     /** Cells a block is on its way to, and those it has put a block in. */
     private final Set<BlockPos> pending = new HashSet<>();
-    private final Set<BlockPos> built = new HashSet<>();
+    /** Shared by every build of the entity: what it built is never taken again (the user: it took its own pillar). */
+    private final Set<BlockPos> built;
     /** Every cell to fill, the core's and the heap's; null until the first is chosen. */
     private List<BlockPos> plan;
     private final Set<BlockPos> core = new HashSet<>();
     private final Random random;
     private List<BlockPos> sources;
+    /** How far out it takes the ground now ({@link #SOURCE_MAX}, farther once nothing is left there). */
+    private double reach = SOURCE_MAX;
     /** Where the player was heard in order since they went aside ({@link #walkTo}). */
     private final List<BlockPos> trail = new ArrayList<>();
     /** The cells of the walkway along the trail from the core's top, and those beside it, in its order. */
@@ -182,9 +188,13 @@ final class PerchBuild {
         }
     }
 
-    /** Around column {@code x, z}, from the layer over {@code footY} (the ground under the player) to {@code topY}. */
-    PerchBuild(ServerLevel level, int x, int z, int footY, int topY) {
+    /**
+     * Around column {@code x, z}, from the layer over {@code footY} (the ground under the player) to {@code topY};
+     * {@code built}: what the entity's builds have put so far, this one's added to it.
+     */
+    PerchBuild(ServerLevel level, int x, int z, int footY, int topY, Set<BlockPos> built) {
         this.level = level;
+        this.built = built;
         this.x = x;
         this.z = z;
         this.footY = footY;
@@ -222,15 +232,16 @@ final class PerchBuild {
      * were heard at in order from the core's top, and the walkway runs along it, straight from one place to the next
      * (a step up or down spread over the way). Once the core is up, every open cell of the walkway (a gap: the player
      * broke the bridge behind them, the user's case, or walked where it runs beside) is filled in its order, coming out
-     * of the cell before it, and every open cell beside it, a block each side, coming out of it. False, changing
-     * nothing, if the player got farther than {@value #MAX_STRIDE} blocks from where they were heard before (or higher
-     * than they could walk).
+     * of the cell before it, and every open cell beside it, a block each side, coming out of it. A climb steeper than
+     * a block up a block aside goes up the column first (the user's staircase zigzagging up was built for anew,
+     * pillar after pillar). False, changing nothing, if the player got farther than {@value #MAX_STRIDE} blocks
+     * from where they were heard before.
      */
     boolean walkTo(BlockPos target) {
         BlockPos start = new BlockPos(x, topY, z);
         BlockPos last = trail.isEmpty() ? start : trail.get(trail.size() - 1);
         int across = Math.max(Math.abs(target.getX() - last.getX()), Math.abs(target.getZ() - last.getZ()));
-        if (across > MAX_STRIDE || Math.abs(target.getY() - last.getY()) > across + 1) {
+        if (across > MAX_STRIDE || Math.abs(target.getY() - last.getY()) > MAX_STRIDE) {
             return false;
         }
         trail.add(target);
@@ -292,11 +303,27 @@ final class PerchBuild {
         return true;
     }
 
-    /** The cells from {@code a} (not included) straight to {@code b}, a step across at a time, the height spread. */
+    /**
+     * The cells from {@code a} (not included) straight to {@code b}, a step across at a time, the height spread; where
+     * it rises (or falls) more than a block a step, up (down) the column first, a block at a time, so every cell
+     * touches the one before it.
+     */
     private static void line(BlockPos a, BlockPos b, List<BlockPos> out) {
         int dx = b.getX() - a.getX(), dz = b.getZ() - a.getZ(), steps = Math.abs(dx) + Math.abs(dz);
-        int cx = a.getX(), cz = a.getZ();
+        int cx = a.getX(), cz = a.getZ(), cy = a.getY();
+        if (steps == 0) {
+            while (cy != b.getY()) {
+                cy += Integer.signum(b.getY() - cy);
+                add(new BlockPos(cx, cy, cz), out);
+            }
+            return;
+        }
         for (int k = 1; k <= steps; k++) {
+            int y = a.getY() + (int) Math.round((b.getY() - a.getY()) * (double) k / steps);
+            while (Math.abs(y - cy) > 1) {
+                cy += Integer.signum(y - cy);
+                add(new BlockPos(cx, cy, cz), out);
+            }
             // Across along whichever axis is further behind its share of the way.
             boolean xBehind = (long) Math.abs(cx - a.getX()) * Math.abs(dz)
                     <= (long) Math.abs(cz - a.getZ()) * Math.abs(dx);
@@ -305,11 +332,14 @@ final class PerchBuild {
             } else {
                 cz += Integer.signum(dz);
             }
-            int y = a.getY() + (int) Math.round((b.getY() - a.getY()) * (double) k / steps);
-            BlockPos p = new BlockPos(cx, y, cz);
-            if (!out.contains(p)) {
-                out.add(p);
-            }
+            cy = y;
+            add(new BlockPos(cx, y, cz), out);
+        }
+    }
+
+    private static void add(BlockPos p, List<BlockPos> out) {
+        if (!out.contains(p)) {
+            out.add(p);
         }
     }
 
@@ -343,6 +373,7 @@ final class PerchBuild {
         seed = BlockPos.asLong(x, foot, z);
         plan = null;
         sources = null;
+        reach = SOURCE_MAX;
         walk = List.of();
         trail.clear();
         reopen();
@@ -630,34 +661,43 @@ final class PerchBuild {
 
     // ---- where from ----
 
-    /** The next block to take, or null if none is left (the next layer is looked for once the top one is gone). */
+    /**
+     * The next block to take, or null if none is left (the next layer is looked for once the top one is gone; with
+     * none left, {@value #SOURCE_WIDEN} blocks farther out, up to {@value #SOURCE_FAR}).
+     */
     private BlockPos nextSource() {
-        for (int pass = 0; pass < 2; pass++) {
-            if (sources == null || sources.isEmpty()) {
-                sources = findSources();
-            }
-            while (!sources.isEmpty()) {
-                BlockPos p = sources.remove((int) (sources.size() * Math.pow(random.nextDouble(), SOURCE_SKEW)));
-                if (takeable(p)) {
-                    if (random.nextDouble() < DIG_DEEPER) {
-                        // The one under it soon too: pits of every depth rather than the ground a layer at a time.
-                        sources.add(random.nextInt(Math.min(sources.size(), DIG_SOON) + 1), p.below());
+        while (true) {
+            for (int pass = 0; pass < 2; pass++) {
+                if (sources == null || sources.isEmpty()) {
+                    sources = findSources();
+                }
+                while (!sources.isEmpty()) {
+                    BlockPos p = sources.remove((int) (sources.size() * Math.pow(random.nextDouble(), SOURCE_SKEW)));
+                    if (takeable(p)) {
+                        if (random.nextDouble() < DIG_DEEPER) {
+                            // The one under it soon too: pits of every depth rather than the ground a layer at a time.
+                            sources.add(random.nextInt(Math.min(sources.size(), DIG_SOON) + 1), p.below());
+                        }
+                        return p;
                     }
-                    return p;
                 }
             }
+            if (reach >= SOURCE_FAR) {
+                return null;
+            }
+            reach = Math.min(SOURCE_FAR, reach + SOURCE_WIDEN);
+            sources = null;
         }
-        return null;
     }
 
     /** The top of the ground in every column of the disc that may be taken, the nearest first. */
     private List<BlockPos> findSources() {
         List<BlockPos> found = new ArrayList<>();
-        int r = (int) Math.ceil(SOURCE_MAX);
+        int r = (int) Math.ceil(reach);
         for (int dz = -r; dz <= r; dz++) {
             for (int dx = -r; dx <= r; dx++) {
                 double d = Math.hypot(dx, dz);
-                if (d < SOURCE_MIN || d > SOURCE_MAX) {
+                if (d < SOURCE_MIN || d > reach) {
                     continue;
                 }
                 for (int y = footY + SOURCE_HEIGHT; y >= footY - SOURCE_DEPTH; y--) {
@@ -698,7 +738,8 @@ final class PerchBuild {
             return false;
         }
         BlockState state = level.getBlockState(p);
-        if (state.hasBlockEntity() || state.is(TremorTags.PROTECTED) || state.getDestroySpeed(level, p) < 0
+        if (built.contains(p) || state.hasBlockEntity() || state.is(TremorTags.PROTECTED)
+                || state.getDestroySpeed(level, p) < 0
                 || state.is(Blocks.MAGMA_BLOCK) || state.is(BlockTags.LEAVES) || !state.getFluidState().isEmpty()
                 || packed(state) == null || !whole(state, p)) {
             return false;
