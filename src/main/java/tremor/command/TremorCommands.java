@@ -83,6 +83,8 @@ import java.util.function.Supplier;
 public final class TremorCommands {
     private static final SimpleCommandExceptionType NO_NODE = new SimpleCommandExceptionType(
             Component.literal("No surface the tremor could crawl on there (look at the ground or give a position near it)"));
+    private static final SimpleCommandExceptionType NO_CEILING = new SimpleCommandExceptionType(
+            Component.literal("No dark ceiling there (or another crawler too near)"));
     private static final SimpleCommandExceptionType NO_ENTITY = new SimpleCommandExceptionType(
             Component.literal("No tremor in this dimension (/tremor spawn)"));
     private static final SimpleCommandExceptionType OFF_SURFACE = new SimpleCommandExceptionType(
@@ -112,6 +114,12 @@ public final class TremorCommands {
                                 .executes(ctx -> spawn(ctx, BlockPosArgument.getBlockPos(ctx, "pos")))))
                 .then(Commands.literal("despawn").executes(ctx -> despawn(ctx, false))
                         .then(Commands.literal("all").executes(ctx -> despawn(ctx, true))))
+                .then(Commands.literal("crawler")
+                        .then(Commands.literal("spawn")
+                                .executes(ctx -> spawnCrawler(ctx, null))
+                                .then(Commands.argument("pos", BlockPosArgument.blockPos())
+                                        .executes(ctx -> spawnCrawler(ctx, BlockPosArgument.getBlockPos(ctx, "pos")))))
+                        .then(Commands.literal("clear").executes(TremorCommands::clearCrawlers)))
                 .then(Commands.literal("goto")
                         .executes(ctx -> goTo(ctx, null))
                         .then(Commands.argument("pos", BlockPosArgument.blockPos())
@@ -401,6 +409,32 @@ public final class TremorCommands {
                         + "%d in the dimension", entity.instance(), voxel(VoxelPos.containing(crawler.position())),
                 vec(crawler.normal()), count)));
         return entity.instance();
+    }
+
+    /**
+     * {@code /tremor crawler spawn [pos]}: a stalactite crawler on the ceiling at the block (looked at, by default),
+     * or on the first ceiling over it.
+     */
+    private static int spawnCrawler(CommandContext<CommandSourceStack> ctx, BlockPos requested)
+            throws CommandSyntaxException {
+        CommandSourceStack source = ctx.getSource();
+        BlockPos pos = requested != null ? requested : lookTarget(source);
+        Integer instance = tremor.entity.StalactiteCrawlers.spawn(source.getLevel(), pos,
+                "spawned by " + source.getTextName());
+        if (instance == null) {
+            throw NO_CEILING.create();
+        }
+        answer(source, () -> Component.literal("Stalactite crawler spawned on the ceiling over " + voxel(
+                VoxelPos.pack(pos.getX(), pos.getY(), pos.getZ()))));
+        return 1;
+    }
+
+    /** {@code /tremor crawler clear}: removes every stalactite crawler of the dimension. */
+    private static int clearCrawlers(CommandContext<CommandSourceStack> ctx) {
+        CommandSourceStack source = ctx.getSource();
+        int count = tremor.entity.StalactiteCrawlers.clear(source.getLevel());
+        answer(source, () -> Component.literal(count + " stalactite crawlers removed"));
+        return count;
     }
 
     /** {@code /tremor spawn natural}: {@link NaturalSpawner#spawnNow} for the executing player. */

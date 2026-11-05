@@ -39,6 +39,19 @@ public record TremorStatePayload(int instance, boolean present, long gameTime, V
     /** {@link #rippleAge} when there is no ripple; also the largest age that is sent. */
     public static final int NO_RIPPLE = 0xFFFF;
 
+    /**
+     * The instances of the stalactite crawlers ({@link tremor.entity.StalactiteCrawlers}): from this one down, this
+     * many; apart from the tremors (counted up from 1), the drawn-out parts of their leaps (small negative ones) and
+     * the shard mounds (from {@link Integer#MIN_VALUE} up).
+     */
+    public static final int CRAWLER_BASE = -1_000_000_000;
+    public static final int CRAWLER_RANGE = 1 << 28;
+
+    /** Whether {@code instance} is a stalactite crawler's, not a tremor's. */
+    public static boolean crawler(int instance) {
+        return instance <= CRAWLER_BASE && instance > CRAWLER_BASE - CRAWLER_RANGE;
+    }
+
     public static final Type<TremorStatePayload> TYPE =
             new Type<>(ResourceLocation.fromNamespaceAndPath(Tremor.MODID, "state"));
 
