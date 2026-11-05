@@ -67,7 +67,7 @@ It doesn't crawl on raised ground narrower than 3 blocks (`movement.minGroundWid
 
 - If there's a ceiling, it sends a small mound up. It crawls across the ceiling over you, shakes and drops a stalactite. At that moment the creature turns into quicksand for a second, and the hit knocks you into it.
 - If there's no ceiling, or three stalactites missed, after 10 seconds it sinks underground and builds a heap up to you out of the ground around: a crooked trunk with holes and growths. Pits stay around where it took the ground. The longer it builds, the faster. Once it's done, it comes up right beside you.
-- Build higher and it builds higher. Walk off sideways along a bridge and it follows, growing blocks around the bridge, even if you break it behind you.
+- Build higher and it builds higher. Walk off sideways along a bridge or up a staircase and it follows, growing blocks around your path, even if you break the bridge behind you.
 - Pillars of doors and trapdoors don't help, and neither does sand (it packs it into sandstone).
 - If it knocked you down, it comes down after you.
 
@@ -126,6 +126,8 @@ You get a shard for a broken heart.
 - Muffled Steps: a book, 2 shards, 2 diamonds and any wool give an enchanted book. Put it on boots with an anvil: steps and landings are 5 times quieter.
 
 Never throw a shard on the ground. Nobody can pick it back up: where it fell, a little mound rises and takes it in a second and a half. And the creature of that area (or a new one that crawls out about 24 blocks from you) goes into a frenzy and comes straight for you, 4.5 times faster than when it hunts and much taller. If it gets to you, the Awakening starts almost at once, you won't have time to run, and the hollow will be a nightmare one: only 30 seconds, the heart further away, the walls close four times faster and with no pause, the ground softens faster, there's no way out through the edge, a victory gives no shard, and a defeat kills you and takes everything you had. If it hasn't reached you in 90 seconds, the frenzy dies down.
+
+If you die with shards in your inventory, the ground takes them right away too.
 
 ## Difficulty
 
