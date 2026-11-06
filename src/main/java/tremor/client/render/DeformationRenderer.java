@@ -672,7 +672,8 @@ public final class DeformationRenderer {
         BumpFrame frame = drawn(level, bump, state.frame(), tick, now);
         BumpParams params = state.params();
         RippleParams ripple = runningRipple(state.rippleAgeSeconds(),
-                Ripple.visibility(params.amplitude(), state.fullAmplitude()));
+                Ripple.visibility(params.amplitude(), state.fullAmplitude()),
+                tremor.network.TremorStatePayload.pulse(state.instance()));
         if (!(params.amplitude() >= BumpShape.RENDER_THRESHOLD) && ripple == null) {
             return null; // dived (or inverted), and its ripple is gone with it, or there is none
         }
@@ -729,8 +730,8 @@ public final class DeformationRenderer {
      * times {@code visibility} ({@link Ripple#visibility}: it fades with the bump, so none shows around a bump hidden
      * in a dive); null if there is none, it is over, it is flat, or the client config switches it off.
      */
-    private static RippleParams runningRipple(double ageSeconds, double visibility) {
-        RippleParams ripple = RippleParams.defaults();
+    private static RippleParams runningRipple(double ageSeconds, double visibility, boolean pulse) {
+        RippleParams ripple = pulse ? RippleParams.pulse() : RippleParams.defaults(); // a resonance arrow's: small
         if (!Ripple.active(ripple, ageSeconds) || !TremorConfig.CLIENT.ripple.get()) {
             return null;
         }

@@ -8,13 +8,21 @@ import tremor.network.TremorStatePayload;
  */
 final class MinorIds {
     private static int next;
+    private static int nextPulse;
 
     private MinorIds() {
     }
 
     static int next() {
         int instance = TremorStatePayload.CRAWLER_BASE - next;
-        next = (next + 1) % TremorStatePayload.CRAWLER_RANGE;
+        next = (next + 1) % (TremorStatePayload.CRAWLER_RANGE / 2);
+        return instance;
+    }
+
+    /** An instance for a resonance arrow's pulse ({@link TremorStatePayload#pulse}). */
+    static int nextPulse() {
+        int instance = TremorStatePayload.PULSE_BASE - nextPulse;
+        nextPulse = (nextPulse + 1) % (TremorStatePayload.CRAWLER_RANGE / 2);
         return instance;
     }
 }

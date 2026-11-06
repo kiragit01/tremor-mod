@@ -289,12 +289,13 @@ public final class StalactiteCrawlers {
                 return null;
             }
             BlockState state = level.getBlockState(pos);
-            if (state.isAir()) {
-                open++;
+            if (state.getCollisionShape(level, pos).isEmpty() && state.getFluidState().isEmpty()) {
+                open++; // air, or what hangs in it (the vines and the blossoms of a lush cave)
                 continue;
             }
             BlockPos under = pos.below();
-            if (open >= SPAWN_OPEN && (state.is(BlockTags.BASE_STONE_OVERWORLD) || state.is(Blocks.DRIPSTONE_BLOCK))
+            if (open >= SPAWN_OPEN && (state.is(BlockTags.BASE_STONE_OVERWORLD) || state.is(Blocks.DRIPSTONE_BLOCK)
+                    || state.is(Blocks.MOSS_BLOCK)) // the moss of the green caves too (the user)
                     && level.getBrightness(LightLayer.SKY, under) == 0 && !lit(level, under)) {
                 return pos;
             }
