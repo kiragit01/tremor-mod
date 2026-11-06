@@ -46,6 +46,7 @@ public final class Tremor {
         container.registerConfig(ModConfig.Type.COMMON, TremorConfig.COMMON_SPEC);
         container.registerConfig(ModConfig.Type.CLIENT, TremorConfig.CLIENT_SPEC);
 
+        TremorSwitch.init(); // the game rule doTremor
         modBus.addListener(TremorNetwork::register);
         TremorSounds.register(modBus);
         TremorBlocks.register(modBus);
@@ -104,6 +105,7 @@ public final class Tremor {
         game.addListener(tremor.debug.DebugProbe::onServerStopped);
         // The hollow (SPEC 9, 12): its events, and the rules inside it.
         game.addListener(HollowManager::onServerTick);
+        game.addListener(TremorSwitch::onServerTick);
         game.addListener(HollowManager::onPlayerLoggedOut);
         game.addListener(HollowManager::onServerStopped);
         // The level inside the hollow (SPEC 9, stage 4c); HollowManager prepares and ticks it.
