@@ -491,12 +491,37 @@ def crawler_sink(rng):
     return finish(cave(low + grit, rt=1.0, wet=0.35, lp=2500, rng=rng), peak_db=-10)
 
 
+def echo_charge(rng):
+    """A frozen tremor draws in before its ring goes out: a low hum rising and tightening over a second, grit
+    trickling in toward it (the warning a player hears to jump)."""
+    n = samples(1.1)
+    t = np.arange(n) / SR
+    rise = np.clip(t / 1.0, 0, 1)
+    f = 42 + 55 * rise ** 2
+    hum = (osc(f) + 0.45 * osc(2 * f, 0.3) + 0.2 * osc(3 * f, 1.1)) * rise ** 1.4 * swell(n, 0.05, 0.07)
+    air = filt(noise(n, -6, rng), lo=40, hi=320)
+    air = air / (np.std(air) + 1e-12) * 0.15 * rise ** 2
+    grit = grains(n, 70, (0.002, 0.008), (600, 2600), (0.1, 0.4), rng, density_env=np.clip(rise, 0.05, 1))
+    return finish(cave(np.tanh(1.3 * hum) * 0.6 + air + grit, rt=0.9, wet=0.3, lp=2200, rng=rng), peak_db=-3)
+
+
+def echo_found(rng):
+    """The echo of a tremor's ring finds the player: a dull knock from below, felt more than heard, a little grit."""
+    body = thump(1.0, 72, 36, 0.2, rng, click=0.12)
+    n = len(body)
+    sub = filt(noise(n, -6, rng), lo=25, hi=110) * env(n, 0.004, 0.3)
+    sub = sub / (np.std(sub) + 1e-12) * 0.18
+    grit = filt(grains(n, 25, (0.004, 0.015), (300, 1200), (0.1, 0.35), rng) * env(n, 0.01, 0.3), hi=1800)
+    return finish(cave(body + sub + grit, rt=0.7, wet=0.2, lp=1100, rng=rng), peak_db=-2)
+
+
 SOUNDS = {'rustle': rustle, 'rumble': rumble, 'crack': crack, 'pulse': pulse, 'thump': thump_sound, 'strike': strike,
           'sigh': sigh, 'awaken': awaken, 'rage': rage, 'release': release, 'hum': hum, 'pull': pull, 'ripple': ripple,
           'escape': escape, 'resonance_draw': resonance_draw, 'resonance_flight': resonance_flight,
           'resonance_hit': resonance_hit, 'resonance_daze': resonance_daze, 'listener_ping': listener_ping,
           'listener_breath': listener_breath, 'listener_relay': listener_relay, 'crawler_grind': crawler_grind,
-          'crawler_creep': crawler_creep, 'crawler_crackle': crawler_crackle, 'crawler_sink': crawler_sink}
+          'crawler_creep': crawler_creep, 'crawler_crackle': crawler_crackle, 'crawler_sink': crawler_sink,
+          'echo_charge': echo_charge, 'echo_found': echo_found}
 
 
 def write_wav(path, x):

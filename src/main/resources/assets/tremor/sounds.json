@@ -169,5 +169,17 @@
     "sounds": [
       "tremor:crawler_sink"
     ]
+  },
+  "entity.tremor.echo.charge": {
+    "subtitle": "subtitles.tremor.echo_charge",
+    "sounds": [
+      "tremor:echo_charge"
+    ]
+  },
+  "entity.tremor.echo.found": {
+    "subtitle": "subtitles.tremor.echo_found",
+    "sounds": [
+      "tremor:echo_found"
+    ]
   }
 }

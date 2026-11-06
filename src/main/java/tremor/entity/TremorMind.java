@@ -138,6 +138,8 @@ final class TremorMind {
     static final double PASS_MARGIN_HEIGHT = 1;
     /** Volume of the sound of a ring of ripples ({@link TremorSounds#RIPPLE}): heard up to 16 blocks times this away. */
     static final float RIPPLE_VOLUME = 2;
+    /** How loud it hums drawing in before its ring. */
+    static final float CHARGE_VOLUME = 1.6f;
     /** How often (ticks) {@link #alone} looks for players again. */
     private static final int ALONE_CHECK_TICKS = 20;
     /** A leaving entity is removed once its bump is lower than this (blocks)... */
@@ -251,6 +253,9 @@ final class TremorMind {
 
     /** The echo of its latest ring, while its front runs; null if none. */
     private Echo echo;
+    /** Game time its ring goes out, drawn in until then ({@link RippleTimer#CHARGE_TICKS}); {@link #NO_RING}: none. */
+    private long ringAt = NO_RING;
+    private static final long NO_RING = Long.MIN_VALUE;
 
     /** {@code player} made a sound at {@code at} that the entity heard. */
     void heardPlayer(UUID player, Vec3 at, long now) {
@@ -374,6 +379,11 @@ final class TremorMind {
             return; // its anger no longer matters, or it stays at the top
         }
         coming(now);
+        if (ringAt != NO_RING && now >= ringAt) {
+            ringAt = NO_RING;
+            play(TremorSounds.RIPPLE.get(), skin(), RIPPLE_VOLUME, 1);
+            startEcho(now);
+        }
         tickEcho(now);
         Stage before = entity.stage();
         if (angerHeld) {
@@ -431,8 +441,7 @@ final class TremorMind {
             case FREEZE -> {
                 runtime.freeze(entity, order.point());
                 if (ripple.freeze(now, entity.crawler().diving())) {
-                    play(TremorSounds.RIPPLE.get(), skin(), RIPPLE_VOLUME, 1);
-                    startEcho(now);
+                    charge(now);
                 }
             }
             case NONE -> {
@@ -485,7 +494,9 @@ final class TremorMind {
         if (ambushLook && !AwakeningManager.pullingWith(level, entity.instance())) {
             ambushLook = false; // everybody of its quicksand is under: the look of lying in wait goes
         }
-        lurkShare = Ambush.fade(lurkShare, lurkAt != null || ambushLook, TremorRuntime.TICK_SECONDS);
+        // Drawing in before its ring it lies low too (the user: a warning to see coming).
+        lurkShare = Ambush.fade(lurkShare, lurkAt != null || ambushLook
+                || ringAt != NO_RING && level.getGameTime() < ringAt, TremorRuntime.TICK_SECONDS);
         if (entity.absorbed()) {
             return false; // the Awakening removes it
         }
@@ -593,8 +604,7 @@ final class TremorMind {
         Vec3 ahead = entity.crawler().forward();
         runtime.freeze(entity, new Vec3(at.x() + ahead.x(), at.y() + ahead.y(), at.z() + ahead.z()));
         if (ripple.freeze(now, entity.crawler().diving())) {
-            play(TremorSounds.RIPPLE.get(), skin(), RIPPLE_VOLUME, 1);
-            startEcho(now);
+            charge(now);
         }
     }
 
@@ -1335,23 +1345,37 @@ final class TremorMind {
      * The echoes the ring's front met this tick: each heard where it seems to be, a player's with a little anger, a
      * mob's faintly (a false trail); a player found hears the echo come back.
      */
+    /**
+     * It freezes and draws in before its ring goes out: a low hum rising, it lies low, the ring a second later
+     * ({@link RippleTimer#CHARGE_TICKS}).
+     */
+    private void charge(long now) {
+        ringAt = now + RippleTimer.CHARGE_TICKS;
+        play(TremorSounds.ECHO_CHARGE.get(), skin(), CHARGE_VOLUME, 1);
+    }
+
     private void tickEcho(long now) {
         if (echo == null) {
             return;
         }
         for (Echo.Hit hit : echo.tick(level, now)) {
-            runtime.relay(hit.at(), hit.player(), hit.perceived(), hit.anger(), "echo");
-            if (hit.player() != null) {
-                // The reflection: a small ring of its own runs out from under the player (the user).
-                net.minecraft.core.BlockPos under = net.minecraft.core.BlockPos.containing(hit.entity().getX(),
-                        hit.entity().getY() - 0.5, hit.entity().getZ());
-                ResonanceArrows.pulse(level, new Vec3(under.getX() + 0.5, under.getY() + 0.5, under.getZ() + 0.5),
-                        Vec3.UNIT_Y);
-                level.playSound(null, hit.entity().getX(), hit.entity().getY(), hit.entity().getZ(),
-                        TremorSounds.LISTENER_PING.get(), SoundSource.HOSTILE, 0.5f, 1.7f);
-                tremor.Tremor.LOGGER.info("Tremor #{}: its echo finds {}", entity.instance(),
-                        hit.player().getGameProfile().getName());
+            if (!(hit.player() instanceof net.minecraft.server.level.ServerPlayer player)) {
+                runtime.relay(hit.at(), null, hit.perceived(), hit.anger(), "echo"); // a mob: faintly, at once
+                continue;
             }
+            // The player found feels a dull knock from below, jolted from the tremor's side, and a wave runs back
+            // from under them along the ground to the tremor: it knows where they are once it gets there (the user).
+            player.playNotifySound(TremorSounds.ECHO_FOUND.get(), SoundSource.HOSTILE, 1.0f,
+                    0.9f + level.getRandom().nextFloat() * 0.2f);
+            Vec3 at = entity.crawler().position();
+            float yaw = (float) (net.minecraft.util.Mth.atan2(at.z() - player.getZ(), at.x() - player.getX())
+                    * (180 / Math.PI) - player.getYRot());
+            player.connection.send(new net.minecraft.network.protocol.game.ClientboundHurtAnimationPacket(
+                    player.getId(), yaw));
+            Listeners.echoBack(level, runtime, new Vec3(player.getX(), Math.floor(player.getY() - 0.5) + 0.5,
+                    player.getZ()), hit.at(), player, hit.perceived(), hit.anger());
+            tremor.Tremor.LOGGER.info("Tremor #{}: its echo finds {}", entity.instance(),
+                    player.getGameProfile().getName());
         }
         if (echo.over(now)) {
             echo = null;

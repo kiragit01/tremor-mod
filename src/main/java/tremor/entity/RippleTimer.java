@@ -15,6 +15,11 @@ import tremor.network.TremorStatePayload;
 final class RippleTimer {
     /** How long a ripple runs, in ticks: as long as the client draws it. */
     static final long RUN_TICKS = Math.round(RippleParams.echo().duration() / TremorRuntime.TICK_SECONDS);
+    /**
+     * A frozen tremor draws in this long before its ring goes out (the user: a warning, to see it coming and jump),
+     * ticks.
+     */
+    static final long CHARGE_TICKS = 20;
     /** {@link #start} when there was no ripple. */
     private static final long NEVER = Long.MIN_VALUE;
 
@@ -22,7 +27,8 @@ final class RippleTimer {
     private long start = NEVER;
 
     /**
-     * A freeze at game time {@code now}: starts a ripple unless one is running or the entity dives.
+     * A freeze at game time {@code now}: starts a ripple {@link #CHARGE_TICKS} later unless one is running or the
+     * entity dives.
      *
      * @return whether a ripple started
      */
@@ -30,13 +36,13 @@ final class RippleTimer {
         if (diving || running(now)) {
             return false;
         }
-        start = now;
+        start = now + CHARGE_TICKS;
         return true;
     }
 
-    /** Whether the latest ripple is still running at {@code now}. */
+    /** Whether the latest ripple is still drawing in or running at {@code now}. */
     boolean running(long now) {
-        return start != NEVER && now >= start && now - start < RUN_TICKS;
+        return start != NEVER && now >= start - CHARGE_TICKS && now - start < RUN_TICKS;
     }
 
     /**
