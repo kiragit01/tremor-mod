@@ -1,0 +1,21 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "equipment",
+  "pattern": [
+    " R ",
+    "RAR",
+    " R "
+  ],
+  "key": {
+    "R": {
+      "item": "minecraft:arrow"
+    },
+    "A": {
+      "item": "minecraft:amethyst_shard"
+    }
+  },
+  "result": {
+    "id": "tremor:resonance_arrow",
+    "count": 4
+  }
+}

@@ -22,6 +22,7 @@
   "tremor.configuration.items.frenzySeconds": "Бешенство стихает через (с)",
   "item.tremor.tremor_shard": "Осколок Тремора",
   "item.tremor.seismograph": "Сейсмограф",
+  "item.tremor.resonance_arrow": "Резонансная стрела",
   "item.tremor.debug_probe": "Отладочный щуп Тремора",
   "block.tremor.geophone": "Геофон",
   "enchantment.tremor.muffled_steps": "Тихие шаги",

@@ -41,6 +41,9 @@ public final class TremorItems {
                     .sound(SoundType.DEEPSLATE));
     public static final DeferredItem<BlockItem> GEOPHONE_ITEM = ITEMS.registerSimpleBlockItem(GEOPHONE);
 
+    public static final DeferredItem<ResonanceArrowItem> RESONANCE_ARROW = ITEMS.registerItem("resonance_arrow",
+            ResonanceArrowItem::new, new Item.Properties());
+
     private TremorItems() {
     }
 
@@ -55,6 +58,8 @@ public final class TremorItems {
             event.accept(SHARD);
         } else if (event.getTabKey() == CreativeModeTabs.TOOLS_AND_UTILITIES) {
             event.accept(SEISMOGRAPH);
+        } else if (event.getTabKey() == CreativeModeTabs.COMBAT) {
+            event.accept(RESONANCE_ARROW);
         } else if (event.getTabKey() == CreativeModeTabs.REDSTONE_BLOCKS) {
             event.accept(GEOPHONE_ITEM);
         } else if (event.getTabKey() == CreativeModeTabs.OP_BLOCKS && event.hasPermissions()) {

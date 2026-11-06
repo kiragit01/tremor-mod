@@ -163,9 +163,29 @@ public final class StalactiteCrawlers {
         for (Creature c : creatures) {
             Vec3 p = c.crawler.position();
             if (c.state != State.SINK && Math.sqrt(pos.distToCenterSqr(p.x(), p.y(), p.z())) <= KILL_RADIUS) {
-                c.kill(level, event.getState(), event.getPlayer());
+                c.kill(level, event.getState(), event.getPlayer() == null ? "something"
+                        : event.getPlayer().getGameProfile().getName());
             }
         }
+    }
+
+    /**
+     * A resonance arrow's pulse at {@code at} ({@link ResonanceArrows}): every crawler within {@code radius} dissolves.
+     * Whether it struck any.
+     */
+    public static boolean resonate(ServerLevel level, Vec3 at, double radius) {
+        List<Creature> creatures = CRAWLERS.get(level);
+        boolean struck = false;
+        if (creatures != null) {
+            for (Creature c : creatures) {
+                Vec3 p = c.crawler.position();
+                if (c.state != State.SINK && p.distance(at) <= radius) {
+                    c.kill(level, level.getBlockState(BlockPos.containing(p.x(), p.y(), p.z())), "a resonance arrow");
+                    struck = true;
+                }
+            }
+        }
+        return struck;
     }
 
     public static void onServerStopped(ServerStoppedEvent event) {
@@ -581,12 +601,12 @@ public final class StalactiteCrawlers {
                     level.dimension().location(), why);
         }
 
-        void kill(ServerLevel level, BlockState block, Player by) {
+        void kill(ServerLevel level, BlockState block, String by) {
             Vec3 p = crawler.position();
             level.sendParticles(new BlockParticleOption(ParticleTypes.BLOCK, block), p.x(), p.y() - 0.5, p.z(), 40,
                     0.6, 0.3, 0.6, 0.15);
             play(level, BlockPos.containing(p.x(), p.y(), p.z()), SoundEvents.POINTED_DRIPSTONE_BREAK, 1.2f, 0.5f);
-            sink(level, "killed by " + (by == null ? "something" : by.getGameProfile().getName()));
+            sink(level, "killed by " + by);
         }
 
         private void gone(ServerLevel level, long now) {
