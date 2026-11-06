@@ -2,9 +2,9 @@
   "type": "minecraft:crafting_shaped",
   "category": "equipment",
   "pattern": [
-    " R ",
+    "RRR",
     "RAR",
-    " R "
+    "RRR"
   ],
   "key": {
     "R": {
@@ -16,6 +16,6 @@
   },
   "result": {
     "id": "tremor:resonance_arrow",
-    "count": 4
+    "count": 8
   }
 }

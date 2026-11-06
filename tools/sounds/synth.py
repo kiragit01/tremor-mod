@@ -357,9 +357,107 @@ def escape(rng):
 
 
 #: New sounds go at the end: the seed of each comes from its place here.
+# ---- 1.4.0: the resonance arrows, the listeners, the crawler ------------------------------------------------------
+
+#: The partials of a struck crystal (an amethyst rings like a small bell: inharmonic, the high ones die fast).
+CRYSTAL = ((1.0, 1.0, 1.0), (2.76, 0.55, 0.55), (5.40, 0.35, 0.3), (8.93, 0.2, 0.18))
+
+
+def crystal(n, f0, decay, rng, beat=0.004, bend=None, vibrato=0.0, vib_rate=6.0):
+    """A ringing crystal at {@code f0}: each partial a pair a hair apart (they beat: it resonates), the higher ones
+    shorter; {@code bend}: a pitch curve over the sound (1 = as is)."""
+    t = np.arange(n) / SR
+    k = np.ones(n) if bend is None else bend
+    if vibrato:
+        k = k * (1 + vibrato * np.sin(2 * np.pi * vib_rate * t + rng.uniform(0, 6.3)))
+    x = np.zeros(n)
+    for ratio, amp, d in CRYSTAL:
+        f = f0 * ratio * k
+        x += amp * (osc(f, rng.uniform(0, 6.3)) + osc(f * (1 + beat * ratio), rng.uniform(0, 6.3)))             * np.exp(-t / (decay * d))
+    return x
+
+
+def resonance_draw(rng):
+    """Drawing a resonance arrow: the crystal head starts to ring, rising and swelling, a breath of air with it."""
+    n = samples(0.9)
+    k = np.arange(n) / (n - 1)
+    x = crystal(n, 1150, 3.0, rng, bend=1.0 + 0.12 * k, vibrato=0.006, vib_rate=7) * swell(n, 0.6, 0.15)
+    air = filt(noise(n, -3, rng), lo=1500, hi=6000) * swell(n, 0.5, 0.2) * 0.08
+    return finish(cave(x * 0.5 + air, rt=0.6, wet=0.2, lp=6000, rng=rng), peak_db=-4)
+
+
+def resonance_flight(rng):
+    """A resonance arrow flying: a whirring ring, its pitch falling away as it goes, a whoosh."""
+    n = samples(0.7)
+    k = np.arange(n) / (n - 1)
+    x = crystal(n, 1500, 0.5, rng, bend=1.08 - 0.18 * k, vibrato=0.03, vib_rate=26) * env(n, 0.02, 0.35)
+    whoosh = filt(noise(n, -3, rng), lo=600, hi=3500) * swell(n, 0.12, 0.4) * 0.25
+    return finish(x * 0.6 + whoosh, peak_db=-3)
+
+
+def resonance_hit(rng):
+    """A resonance arrow bursts: a sharp crystal strike ringing on and beating, a low thrum of the pulse in the
+    ground under it."""
+    n = samples(2.2)
+    t = np.arange(n) / SR
+    x = crystal(n, rng.uniform(820, 980), 0.9, rng, beat=0.007, vibrato=0.004, vib_rate=5)
+    click = filt(rng.normal(size=n), lo=2500, hi=9000) * env(n, 0.0005, 0.012) * 0.6
+    f = 70 + 40 * np.exp(-t / 0.08)
+    thrum = osc(f) * env(n, 0.005, 0.5) * (1 + 0.5 * np.sin(2 * np.pi * 9 * t)) * 0.6
+    return finish(presence(cave(x * 0.55 + click + thrum, rt=1.6, wet=0.35, lp=5000, rng=rng), 0.3))
+
+
+def resonance_daze(rng):
+    """Struck by a resonance arrow: a ringing in the ears, high and wavering, fading slowly."""
+    n = samples(3.6)
+    t = np.arange(n) / SR
+    f = 3900 * (1 + 0.004 * smooth(n, 3, rng))
+    x = osc(f) * 0.7 + osc(f * 1.31) * 0.2
+    x *= env(n, 0.03, 1.4) * (0.8 + 0.2 * np.sin(2 * np.pi * 0.9 * t))
+    hum = filt(noise(n, -3, rng), lo=200, hi=900) * env(n, 0.01, 0.6) * 0.05
+    return finish(x + hum, peak_db=-8, fade=0.2)
+
+
+def listener_ping(rng):
+    """A listener hears and sends: a muffled knock in the ground and a short rising whine running off with the signal."""
+    n = samples(0.8)
+    t = np.arange(n) / SR
+    knock = thump(0.8, 140, 70, 0.12, rng, click=0.4)
+    whine = osc(320 * np.exp(t * 1.4)) * swell(n, 0.05, 0.5) * 0.25
+    whine = filt(whine, lo=200, hi=1500)
+    return finish(cave(knock + whine, rt=0.9, wet=0.3, lp=2000, rng=rng), peak_db=-3)
+
+
+def listener_breath(rng):
+    """A listener breathes: a soft, low exhale of the ground, a little grit."""
+    n = samples(1.5)
+    x = filt(noise(n, -6, rng), lo=40, hi=300) * swell(n, 0.5, 0.9)
+    grit = grains(n, 25, (0.003, 0.01), (500, 1500), (0.1, 0.3), rng) * swell(n, 0.4, 0.8)
+    return finish(x / (np.std(x) + 1e-12) * 0.4 + grit, peak_db=-6)
+
+
+def listener_relay(rng):
+    """A listener's signal reaches its tremor: a deep knock under it, grit settling."""
+    n = samples(1.0)
+    knock = thump(1.0, 100, 45, 0.25, rng, click=0.5)
+    grit = grains(n, 60, (0.004, 0.015), (400, 1800), (0.1, 0.4), rng) * env(n, 0.01, 0.3)
+    return finish(presence(cave(knock + grit, rt=1.2, wet=0.35, lp=1800, rng=rng), 0.5))
+
+
+def crawler_grind(rng):
+    """Rock drawn out of a ceiling: a dense grinding, a low strain under it."""
+    n = samples(1.1)
+    sw = swell(n, 0.5, 0.3)
+    grind = grains(n, 900, (0.002, 0.008), (700, 3500), (0.2, 0.7), rng) * sw
+    strain = filt(growl(1.1, 90, 120, rng), lo=40, hi=400) * sw * 0.3
+    return finish(cave(grind + strain, rt=0.8, wet=0.3, lp=3000, rng=rng), peak_db=-3)
+
+
 SOUNDS = {'rustle': rustle, 'rumble': rumble, 'crack': crack, 'pulse': pulse, 'thump': thump_sound, 'strike': strike,
           'sigh': sigh, 'awaken': awaken, 'rage': rage, 'release': release, 'hum': hum, 'pull': pull, 'ripple': ripple,
-          'escape': escape}
+          'escape': escape, 'resonance_draw': resonance_draw, 'resonance_flight': resonance_flight,
+          'resonance_hit': resonance_hit, 'resonance_daze': resonance_daze, 'listener_ping': listener_ping,
+          'listener_breath': listener_breath, 'listener_relay': listener_relay, 'crawler_grind': crawler_grind}
 
 
 def write_wav(path, x):
@@ -372,7 +470,7 @@ def write_wav(path, x):
 
 
 #: Sounds heard again and again get variants (other seeds of the same recipe): name_1.ogg ... name_k.ogg.
-VARIANTS = {'crack': 3, 'pulse': 3, 'thump': 3, 'pull': 3, 'ripple': 3, 'strike': 2, 'rumble': 2, 'sigh': 2}
+VARIANTS = {'resonance_hit': 3, 'resonance_flight': 2, 'listener_ping': 2, 'listener_breath': 2, 'crack': 3, 'pulse': 3, 'thump': 3, 'pull': 3, 'ripple': 3, 'strike': 2, 'rumble': 2, 'sigh': 2}
 
 
 def main():

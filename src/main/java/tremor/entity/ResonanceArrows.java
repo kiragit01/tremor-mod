@@ -21,7 +21,9 @@ import org.joml.Vector3f;
 import tremor.Tremor;
 import tremor.core.math.Vec3;
 import tremor.core.shape.BumpParams;
+import tremor.effect.TremorEffects;
 import tremor.hearing.VibrationListener;
+import tremor.sound.TremorSounds;
 import tremor.network.TremorShapePayload;
 import tremor.network.TremorStatePayload;
 import net.neoforged.neoforge.network.PacketDistributor;
@@ -61,6 +63,9 @@ public final class ResonanceArrows {
     public static void onEntityJoin(EntityJoinLevelEvent event) {
         if (event.getLevel() instanceof ServerLevel level && marked(event.getEntity())) {
             FLYING.computeIfAbsent(level, l -> new HashSet<>()).add((AbstractArrow) event.getEntity());
+            Entity arrow = event.getEntity();
+            level.playSound(null, arrow.getX(), arrow.getY(), arrow.getZ(), TremorSounds.RESONANCE_FLIGHT.get(),
+                    SoundSource.PLAYERS, 0.9f, 0.95f + level.getRandom().nextFloat() * 0.1f);
         }
     }
 
@@ -82,6 +87,10 @@ public final class ResonanceArrows {
             net.minecraft.world.phys.Vec3 v = arrow.getDeltaMovement();
             if (v.lengthSqr() > 1e-4) {
                 ring(level, arrow.position(), new Vec3(v.x, v.y, v.z), 0.35, 6);
+            }
+            if (v.lengthSqr() > 0.04 && level.getGameTime() % 10 == 0) {
+                level.playSound(null, arrow.getX(), arrow.getY(), arrow.getZ(), TremorSounds.RESONANCE_FLIGHT.get(),
+                        SoundSource.PLAYERS, 0.35f, 0.9f + level.getRandom().nextFloat() * 0.2f); // it rings on as it goes
             }
         }
     }
@@ -106,8 +115,15 @@ public final class ResonanceArrows {
             net.minecraft.core.BlockPos b = net.minecraft.core.BlockPos.containing(at.x, at.y - 0.5, at.z);
             pulse(level, new Vec3(b.getX() + 0.5, b.getY() + 0.5, b.getZ() + 0.5), Vec3.UNIT_Y);
         }
-        level.playSound(null, at.x, at.y, at.z, SoundEvents.AMETHYST_BLOCK_CHIME, SoundSource.PLAYERS, 2.0f, 0.6f);
-        level.playSound(null, at.x, at.y, at.z, SoundEvents.AMETHYST_CLUSTER_BREAK, SoundSource.PLAYERS, 1.0f, 0.8f);
+        level.playSound(null, at.x, at.y, at.z, TremorSounds.RESONANCE_HIT.get(), SoundSource.PLAYERS, 1.6f,
+                0.95f + level.getRandom().nextFloat() * 0.1f);
+        level.playSound(null, at.x, at.y, at.z, SoundEvents.AMETHYST_BLOCK_CHIME, SoundSource.PLAYERS, 1.0f, 0.6f);
+        if (hit instanceof net.minecraft.world.phys.EntityHitResult struckEntity
+                && struckEntity.getEntity() instanceof net.minecraft.world.entity.LivingEntity living) {
+            // A small concussion of sound: the ears ring, every sound goes detuned for a while (the user).
+            living.addEffect(new net.minecraft.world.effect.MobEffectInstance(TremorEffects.RESONANCE,
+                    TremorEffects.RESONANCE_TICKS));
+        }
         if (hit.getType() == HitResult.Type.BLOCK && hit instanceof BlockHitResult block) {
             if (!struck) {
                 VibrationListener.resonance(level, block.getBlockPos(), LOUDNESS); // a miss rings through the ground
@@ -119,6 +135,17 @@ public final class ResonanceArrows {
                 "%.1f %.1f %.1f", at.x, at.y, at.z), level.dimension().location(),
                 struck ? "it struck the small ones" : hit.getType() == HitResult.Type.BLOCK ? "a miss rings through the ground"
                         : "an entity");
+    }
+
+    /** Drawing a bow (or loading a crossbow) with a resonance arrow on it: its head starts to ring. */
+    public static void onUseItem(net.neoforged.neoforge.event.entity.living.LivingEntityUseItemEvent.Start event) {
+        if (event.getEntity() instanceof net.minecraft.world.entity.player.Player player
+                && player.level() instanceof ServerLevel level
+                && event.getItem().getItem() instanceof net.minecraft.world.item.ProjectileWeaponItem
+                && player.getProjectile(event.getItem()).is(tremor.item.TremorItems.RESONANCE_ARROW.get())) {
+            level.playSound(null, player.getX(), player.getY(), player.getZ(), TremorSounds.RESONANCE_DRAW.get(),
+                    SoundSource.PLAYERS, 0.8f, 0.95f + level.getRandom().nextFloat() * 0.1f);
+        }
     }
 
     public static void onServerStopped(ServerStoppedEvent event) {

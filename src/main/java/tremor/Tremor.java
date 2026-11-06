@@ -49,6 +49,7 @@ public final class Tremor {
         TremorSwitch.init(); // the game rule doTremor
         modBus.addListener(TremorNetwork::register);
         TremorSounds.register(modBus);
+        tremor.effect.TremorEffects.register(modBus);
         TremorBlocks.register(modBus);
         tremor.item.TremorItems.register(modBus);
 
@@ -87,6 +88,7 @@ public final class Tremor {
         game.addListener(tremor.entity.ResonanceArrows::onEntityJoin);
         game.addListener(tremor.entity.ResonanceArrows::onLevelTick);
         game.addListener(tremor.entity.ResonanceArrows::onImpact);
+        game.addListener(tremor.entity.ResonanceArrows::onUseItem);
         game.addListener(tremor.entity.ResonanceArrows::onServerStopped);
         game.addListener(tremor.hearing.Voices::onLevelTick);
         game.addListener(tremor.hearing.Voices::onPlayerLoggedIn);

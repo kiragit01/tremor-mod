@@ -698,6 +698,8 @@ public final class StalactiteCrawlers {
         if (!column) {
             return;
         }
+        level.playSound(null, at.getX() + 0.5, at.getY() + 1, at.getZ() + 0.5, tremor.sound.TremorSounds.CRAWLER_GRIND.get(),
+                SoundSource.HOSTILE, 0.9f, 0.85f + level.getRandom().nextFloat() * 0.3f); // rock drawn out of the ceiling
         // A small pointed mound hanging from the ceiling, some 3x3, rough as the crawler (the user), longer for a
         // longer stalactite.
         PacketDistributor.sendToPlayersInDimension(level, new TremorShapePayload(phantom,
