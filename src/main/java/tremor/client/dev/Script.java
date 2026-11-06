@@ -46,6 +46,7 @@ import java.util.stream.Collectors;
  * waitfor &lt;maxTicks&gt; &lt;regex&gt;   wait until a chat line received after this step started matches the regex, at most
  *                              maxTicks client ticks (at least 1); a timeout is a FAIL that counts as an error, and
  *                              the script goes on either way
+ * configscreen [section] [search]  open the mod's settings screen at that section (-1: close it), the search typed
  * quit                         write the report, save the world and close the game (also at the end of the script)
  * </pre>
  * {@code config}: the path is the dotted key of a value in the common config ({@code spawn.baseChance}) or, with the
@@ -75,6 +76,7 @@ record Script(Path path, List<Step> steps) {
 
     enum Kind {
         WAIT, WAITCHUNKS, CMD, HUD, TINT, VIEW, LOOK, LOOKAT, HOLD, RELEASE, GRAPHICS, FPS, BENCH, SCREENSHOT, LOG, CONFIG, WAITFOR, QUIT,
+        CONFIGSCREEN,
         INVALID
     }
 
@@ -280,6 +282,11 @@ record Script(Path path, List<Step> steps) {
                     expectArgs(args, 2, 2, "hold <keys> <ticks>");
                     Set<HoldKey> keys = HoldKey.parseAll(args[0]);
                     yield new Step(line, source, Kind.HOLD, HoldKey.join(keys), parseInt(args[1], 1), 0, 0, keys, "");
+                }
+                case "configscreen" -> {
+                    expectArgs(args, 0, 2, "configscreen [section] [search]");
+                    yield Step.of(line, source, Kind.CONFIGSCREEN, args.length > 1 ? args[1] : "",
+                            args.length > 0 ? parseInt(args[0], -1) : 0);
                 }
                 case "release" -> {
                     expectArgs(args, 0, 0, "release");

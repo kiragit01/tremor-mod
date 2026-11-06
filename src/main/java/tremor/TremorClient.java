@@ -18,7 +18,8 @@ import tremor.client.sound.RustleSound;
 @Mod(value = Tremor.MODID, dist = Dist.CLIENT)
 public final class TremorClient {
     public TremorClient(IEventBus modBus, ModContainer container) {
-        container.registerExtensionPoint(IConfigScreenFactory.class, ConfigurationScreen::new);
+        container.registerExtensionPoint(IConfigScreenFactory.class,
+                (mod, parent) -> new tremor.client.config.TremorConfigScreen(mod, parent));
 
         modBus.addListener(DeformationRenderer::onModelBakingCompleted);
         modBus.addListener(tremor.client.SeismographNeedle::onClientSetup);

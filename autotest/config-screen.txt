@@ -1,0 +1,18 @@
+# The mod's settings screen (next, the config lab's first step): its sections, sliders, switches, the search.
+# Run: gradlew runClientAutotest -Ptremor_autotest_script=config-screen.txt
+waitchunks
+wait 20
+configscreen 0
+wait 10
+screenshot 01_general
+configscreen 4
+wait 10
+screenshot 02_section
+configscreen 19
+wait 10
+screenshot 03_section
+configscreen 0 speed
+wait 10
+screenshot 04_search
+configscreen -1
+quit

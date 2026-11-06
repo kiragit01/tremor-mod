@@ -815,6 +815,18 @@ final class AutoTestRunner {
                 report.line("hold " + step.text() + ": pressed for " + step.number() + " ticks at " + position(player));
                 return false;
             }
+            case CONFIGSCREEN -> {
+                if (step.number() < 0) {
+                    mc.setScreen(null);
+                    report.line("configscreen: closed");
+                } else {
+                    mc.setScreen(new tremor.client.config.TremorConfigScreen(net.neoforged.fml.ModList.get()
+                            .getModContainerById(tremor.Tremor.MODID).orElseThrow(), null)
+                            .at(step.number(), step.text()));
+                    report.line("configscreen: section " + step.number()
+                            + (step.text().isEmpty() ? "" : ", search " + step.text()));
+                }
+            }
             case RELEASE -> {
                 releaseMovementKeys();
                 report.line("release: movement keys released at " + position(player));
