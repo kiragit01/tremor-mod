@@ -54,8 +54,9 @@ import tremor.world.LevelVoxelView;
 /**
  * The stalactite crawler (1.4.0): a small creature of its own on the ceilings of dark caves, not a tremor. It hangs
  * there nearly flat, breathing; hearing a player (or a thing that lands) under it, it creeps along the ceiling to
- * over the sound, crackles for a moment (one who hears it may still jump away) and drops a stalactite, or a few of
- * them, ragged; then it hangs there bulging for a while, easy to see. Light drives it off: it never goes onto a lit
+ * over the sound, crackles for a moment (one who hears it may still jump away) and drops stalactites, one more each
+ * time it tries (the user), ragged: they strike hard, knock away and break through a block or two where they land;
+ * then it hangs there bulging for a while, easy to see. Light drives it off: it never goes onto a lit
  * ceiling, and where a light comes on it sinks into the rock; a lit mine is safe. Breaking the block it is in kills
  * it. Not saved: the natural spawn brings new ones near players underground.
  * <p>
@@ -101,6 +102,14 @@ public final class StalactiteCrawlers {
     static final double NODE_RADIUS = 2;
     static final double SUNK = 0.05;
     static final double TICK_SECONDS = 0.05;
+    /** Every attempt of a crawler one more stalactite falls (the user: the third time three), at most this many... */
+    static final int MAX_AT_ONCE = 5;
+    /** ...within this far of the first (blocks). */
+    static final int EXTRA_RADIUS = 3;
+    /** A stalactite knocks what it strikes away this hard (as a knockback's strength). */
+    static final double KNOCK = 1.2;
+    /** Where one lands it breaks the block under it, and at this chance the one under that too. */
+    static final double SMASH_DEEPER = 0.5;
 
     private static final Map<ServerLevel, List<Creature>> CRAWLERS = new HashMap<>();
     private static final Map<ServerLevel, List<Stalactite>> FALLING = new HashMap<>();
@@ -394,6 +403,8 @@ public final class StalactiteCrawlers {
         /** It is over the sound already (no way to crawl). */
         boolean there;
         int crackleTicks;
+        /** Its attempts so far: each drops one more stalactite. */
+        int attempts;
         /** The players that have its shape (within the sync range at the last sync). */
         Set<UUID> told = new HashSet<>();
 
@@ -474,7 +485,10 @@ public final class StalactiteCrawlers {
                                 dropAt.getZ() + 0.5, 5, 0.5, 0.05, 0.5, 0);
                     }
                     if (ticks >= crackleTicks) {
-                        drop(level, dropAt, random);
+                        int count = Math.min(MAX_AT_ONCE, ++attempts);
+                        drop(level, dropAt, random, count);
+                        Tremor.LOGGER.info("Stalactite crawler #{} in {} drops {} stalactites over {} {} {}", instance,
+                                level.dimension().location(), count, dropAt.getX(), dropAt.getY(), dropAt.getZ());
                         state = State.RECOVER;
                         ticks = 0;
                     }
@@ -601,14 +615,14 @@ public final class StalactiteCrawlers {
     // ---- the stalactites ----
 
     /**
-     * Drops a stalactite from {@code at}, and by chance one or two more beside it a moment later, where the ceiling
-     * lets them: each 1 to 3 pieces long, never two alike.
+     * Drops {@code count} stalactites: one from {@code at}, the others around it within {@value #EXTRA_RADIUS} blocks
+     * a moment later each, where the ceiling lets them: each 1 to 3 pieces long, never two alike.
      */
-    private static void drop(ServerLevel level, BlockPos at, RandomSource random) {
+    private static void drop(ServerLevel level, BlockPos at, RandomSource random, int count) {
         dropOne(level, at, 1 + random.nextInt(3));
-        int extra = random.nextInt(3);
-        for (int i = 0; i < extra; i++) {
-            BlockPos side = at.offset(random.nextInt(5) - 2, 0, random.nextInt(5) - 2);
+        for (int i = 1; i < count; i++) {
+            BlockPos side = at.offset(random.nextInt(2 * EXTRA_RADIUS + 1) - EXTRA_RADIUS, 0,
+                    random.nextInt(2 * EXTRA_RADIUS + 1) - EXTRA_RADIUS);
             for (int dy : new int[]{0, 1, -1}) {
                 BlockPos from = side.above(dy);
                 if (!from.equals(at) && level.getBlockState(from).isAir()
@@ -667,6 +681,7 @@ public final class StalactiteCrawlers {
         FallingBlockEntity tip = s.tip();
         if (tip.isRemoved()) {
             shatter(level, tip);
+            smash(level, tip.blockPosition());
             return true;
         }
         List<LivingEntity> struck = level.getEntitiesOfClass(LivingEntity.class, tip.getBoundingBox(),
@@ -679,6 +694,15 @@ public final class StalactiteCrawlers {
             if (damage > 0) {
                 e.hurt(level.damageSources().fallingStalactite(tip), damage);
             }
+            // Knocked away from where it fell (the user: harder); a player is told at once.
+            double dx = tip.getX() - e.getX(), dz = tip.getZ() - e.getZ();
+            if (dx * dx + dz * dz < 1e-4) {
+                double a = level.getRandom().nextDouble() * Math.PI * 2;
+                dx = Math.cos(a);
+                dz = Math.sin(a);
+            }
+            e.knockback(KNOCK, dx, dz);
+            e.hurtMarked = true;
             Tremor.LOGGER.info("A crawler's stalactite strikes {} ({} damage, fell {} blocks)", e.getName().getString(),
                     damage, String.format(java.util.Locale.ROOT, "%.1f", s.fromY() - tip.getY()));
         }
@@ -687,6 +711,34 @@ public final class StalactiteCrawlers {
         }
         shatter(level, tip);
         return true;
+    }
+
+    /**
+     * Where one lands it breaks through the block under it, and at {@value #SMASH_DEEPER} the one under that (the
+     * user: through a block or two), dropping them as a pickaxe would; never one that cannot be broken, a fluid or one
+     * of {@code #tremor:protected}.
+     */
+    /** Whether {@code p} lies in the spawn protection the config spares ({@code awakening.spawnProtection}). */
+    private static boolean spawnProtected(net.minecraft.world.level.Level level, BlockPos p) {
+        int radius = tremor.config.TremorConfig.spawnProtection(level);
+        BlockPos spawn = level.getSharedSpawnPos();
+        return radius > 0 && Math.max(Math.abs(p.getX() - spawn.getX()), Math.abs(p.getZ() - spawn.getZ())) <= radius;
+    }
+
+    private static void smash(ServerLevel level, BlockPos landed) {
+        BlockPos p = landed.below();
+        for (int i = 0; i < 2; i++, p = p.below()) {
+            BlockState state = level.getBlockState(p);
+            if (state.isAir() || !state.getFluidState().isEmpty() || state.getDestroySpeed(level, p) < 0
+                    || state.is(tremor.world.TremorTags.PROTECTED) || !level.getWorldBorder().isWithinBounds(p)
+                    || spawnProtected(level, p)) {
+                return;
+            }
+            level.destroyBlock(p, true);
+            if (level.getRandom().nextDouble() >= SMASH_DEEPER) {
+                return;
+            }
+        }
     }
 
     private static void shatter(ServerLevel level, FallingBlockEntity tip) {
