@@ -48,6 +48,9 @@ public final class TremorItems {
     public static final RegistryObject<BlockItem> GEOPHONE_ITEM = ITEMS.register("geophone",
             () -> new BlockItem(GEOPHONE.get(), new Item.Properties()));
 
+    public static final RegistryObject<Item> RESONANCE_ARROW = ITEMS.register("resonance_arrow",
+            () -> new ResonanceArrowItem(new Item.Properties()));
+
     private TremorItems() {
     }
 
@@ -63,6 +66,8 @@ public final class TremorItems {
             event.accept(SHARD);
         } else if (event.getTabKey() == CreativeModeTabs.TOOLS_AND_UTILITIES) {
             event.accept(SEISMOGRAPH);
+        } else if (event.getTabKey() == CreativeModeTabs.COMBAT) {
+            event.accept(RESONANCE_ARROW.get());
         } else if (event.getTabKey() == CreativeModeTabs.REDSTONE_BLOCKS) {
             event.accept(GEOPHONE_ITEM);
         } else if (event.getTabKey() == CreativeModeTabs.OP_BLOCKS && event.hasPermissions()) {

@@ -285,6 +285,24 @@ public final class VibrationListener {
     }
 
     /**
+     * A resonance arrow's pulse into the block it struck, missing every small one
+     * ({@code tremor.entity.ResonanceArrows}): {@code loudness} loud, as a block event there.
+     */
+    public static void resonance(ServerLevel level, net.minecraft.core.BlockPos pos, double loudness) {
+        if (tremor.TremorSwitch.off(level)) {
+            return;
+        }
+        List<TremorRuntime> runtimes = TremorManager.runtimes(level);
+        net.minecraft.world.phys.Vec3 at = net.minecraft.world.phys.Vec3.atCenterOf(pos);
+        if (!wanted(level, runtimes, at)) {
+            return;
+        }
+        Contact contact = Contact.ofBlock(new LevelVoxelView(level), at, null);
+        emit(level, runtimes, new Vibration("resonance", contact.point(), loudness, contact.footing(), 0,
+                "resonance arrow"), null);
+    }
+
+    /**
      * The vibration goes to every entity of the level (each within hearing distance evaluates it), unless the player
      * behind it ({@link #playerBehind}) is being taken by an Awakening (the user: a second tremor kept striking them),
      * then once to the level's Awakening, and in the hollow to the level of the hollow there

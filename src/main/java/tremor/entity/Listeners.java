@@ -328,6 +328,38 @@ public final class Listeners {
                 String.format(java.util.Locale.ROOT, "%.1f", source.z()));
     }
 
+    /**
+     * A resonance arrow's pulse at {@code at} ({@link ResonanceArrows}): every signal within {@code signalRadius} is
+     * soaked up, every listener within {@code creatureRadius} dissolves. Whether it struck any.
+     */
+    public static boolean resonate(ServerLevel level, Vec3 at, double signalRadius, double creatureRadius) {
+        boolean struck = false;
+        List<Signal> signals = SIGNALS.get(level);
+        if (signals != null) {
+            for (Signal s : signals) {
+                if (!s.dying && s.at.distance(at) <= signalRadius) {
+                    die(level, s, "soaked up by a resonance arrow");
+                    struck = true;
+                }
+            }
+        }
+        List<Listener> all = LISTENERS.get(level);
+        if (all != null) {
+            for (Listener l : all) {
+                if (!l.sinking && l.at.distance(at) <= creatureRadius) {
+                    l.sinking = true;
+                    l.amplitude = 0;
+                    level.sendParticles(ParticleTypes.REVERSE_PORTAL, l.at.x(), l.at.y() + 0.6, l.at.z(), 30, 0.4,
+                            0.2, 0.4, 0.05);
+                    Tremor.LOGGER.info("Listener #{} in {} dissolves in a resonance arrow's pulse", l.instance,
+                            level.dimension().location());
+                    struck = true;
+                }
+            }
+        }
+        return struck;
+    }
+
     // ---- events ----
 
     public static void onLevelTick(TickEvent.LevelTickEvent event) {
