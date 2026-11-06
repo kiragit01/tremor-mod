@@ -1342,6 +1342,11 @@ final class TremorMind {
         for (Echo.Hit hit : echo.tick(level, now)) {
             runtime.relay(hit.at(), hit.player(), hit.perceived(), hit.anger(), "echo");
             if (hit.player() != null) {
+                // The reflection: a small ring of its own runs out from under the player (the user).
+                net.minecraft.core.BlockPos under = net.minecraft.core.BlockPos.containing(hit.entity().getX(),
+                        hit.entity().getY() - 0.5, hit.entity().getZ());
+                ResonanceArrows.pulse(level, new Vec3(under.getX() + 0.5, under.getY() + 0.5, under.getZ() + 0.5),
+                        Vec3.UNIT_Y);
                 level.playSound(null, hit.entity().getX(), hit.entity().getY(), hit.entity().getZ(),
                         TremorSounds.LISTENER_PING.get(), SoundSource.HOSTILE, 0.5f, 1.7f);
                 tremor.Tremor.LOGGER.info("Tremor #{}: its echo finds {}", entity.instance(),

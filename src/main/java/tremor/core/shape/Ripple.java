@@ -8,7 +8,7 @@ import java.util.Objects;
  * the distance from the bump's centre and the age of the ripple:
  * <pre>
  * front = speed·age,  x = front - distance (how far behind the front)
- * height = amplitude · (1 - age/duration) · hole(distance) · sin(2π·x / wavelength)   for 0 < x < waves·wavelength
+ * height = amplitude · (1 - (age/duration)^fadePower) · hole(distance) · sin(2π·x / wavelength)   for 0 < x < waves·wavelength
  * </pre>
  * and 0 ahead of the front ({@code x <= 0}), behind the train ({@code x >= waves·wavelength}) and outside
  * {@code 0 <= age < duration}. The first crest runs a quarter wavelength behind the front. The train is a whole number
@@ -39,7 +39,7 @@ public final class Ripple {
         if (!(behind > 0 && behind < p.waves() * p.wavelength()) || distance <= HOLE_RADIUS) {
             return 0;
         }
-        double fade = 1 - ageSeconds / p.duration();
+        double fade = 1 - Math.pow(ageSeconds / p.duration(), p.fadePower());
         double s = Math.min(1, (distance - HOLE_RADIUS) / (HOLE_EDGE - HOLE_RADIUS));
         double hole = s * s * (3 - 2 * s);
         return p.amplitude() * fade * hole * Math.sin(2 * Math.PI * behind / p.wavelength());

@@ -15,6 +15,8 @@ cmd fill 800 200 260 920 200 340 minecraft:grass_block
 cmd fill 800 201 260 920 230 340 minecraft:air
 cmd kill @e[type=!player]
 config ambush.enabled false
+config echo.range 32
+config echo.speed 8
 cmd tremor spawn 860 200 300
 cmd tremor stage alert
 cmd tremor anger 35
@@ -23,8 +25,20 @@ cmd effect give @s minecraft:resistance 600 4 true
 cmd tp @s 868.5 201.0 300.5 90 20
 wait 40
 log --- 1. standing on the ground: found
+cmd tp @s 876.5 201.0 300.5 90 15
 cmd summon minecraft:item 857.5 204 300.5 {Item:{id:"minecraft:stone",count:1},PickupDelay:32767}
-wait 70
+hud off
+tint on
+wait 14
+screenshot 01_ring
+wait 8
+screenshot 02_ring
+wait 8
+screenshot 03_ring
+wait 8
+screenshot 04_reflection
+tint off
+wait 32
 cmd kill @e[type=minecraft:item]
 cmd tremor info
 log --- 2. on a carpet: not found
