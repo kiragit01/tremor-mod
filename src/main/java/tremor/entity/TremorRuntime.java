@@ -1224,13 +1224,14 @@ public final class TremorRuntime {
      * loud, {@code bonus} more anger on top (its own listener calls it: it wakes), the brain goes there; from
      * {@code player} if they made it (null: a thing that landed).
      */
-    void relay(Vec3 source, net.minecraft.world.entity.player.Player player, double perceived, double bonus) {
+    void relay(Vec3 source, net.minecraft.world.entity.player.Player player, double perceived, double bonus,
+               String event) {
         TremorEntity entity = this.entity;
         if (entity == null || error != null || paused) {
             return;
         }
         long now = level.getGameTime();
-        entity.setLastHeard(new TremorEntity.Heard(source, now, perceived, "listener"));
+        entity.setLastHeard(new TremorEntity.Heard(source, now, perceived, event));
         data.setDirty();
         mind(entity).heard(source, perceived, bonus + perceived * Difficulty.current().anger(
                 TremorConfig.COMMON.angerPerLoudness.getAsDouble()));
