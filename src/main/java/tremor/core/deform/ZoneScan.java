@@ -181,10 +181,14 @@ public final class ZoneScan {
             enqueue(x, y, z);
         } else if (normals.isSurface(x, y, z)) {
             Vec3 normal = normals.smooth(x, y, z);
-            if (!normal.isNearZero() && SurfaceCollector.pushNormal(view, x, y, z, normal) != null
-                    && (!ThinSwell.thin(view, x, y, z) || ThinSwell.axisStep(normal)[1] == 1)) {
+            if (normal.isNearZero() || SurfaceCollector.pushNormal(view, x, y, z, normal) == null
+                    || ThinSwell.thin(view, x, y, z) && ThinSwell.axisStep(normal)[1] == 0) {
                 // Thin ground (a pillar, a ridge one or two blocks wide) only rises at its top: its sides, all edges
-                // and corners, would fan out every way.
+                // and corners, would fan out every way. Its top, a floor one block thick, a lip over a drop go
+                // straight up instead of standing still (the user).
+                normal = SurfaceCollector.openWay(view, x, y, z);
+            }
+            if (normal != null) {
                 points.add(new SurfacePoint(x, y, z, normal));
             }
         }

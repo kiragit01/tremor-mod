@@ -1,0 +1,78 @@
+# The ground of an Awakening in a cave, as the user had it: pits three deep right by the block the player stands on, a ragged lip over a drop. Every block of the floor open above must move with the
+# breathing and the hill (the user: the block under the player and blocks open on the other side stood still, no
+# copies). Copies tinted red: every floor block in view should show red as the hill rises.
+# Run: gradlew runClientAutotest -Ptremor_autotest_script=swallow-cave.txt
+waitchunks
+cmd gamerule commandModificationBlockLimit 2147483647
+cmd gamemode spectator
+cmd time set noon
+cmd tremor despawn all
+cmd tremor awaken stop
+cmd kill @e[type=!player]
+cmd tp @s 940.5 190.0 310.5
+wait 40
+waitchunks
+cmd fill 918 178 288 962 198 332 minecraft:deepslate
+cmd fill 924 186 294 956 193 326 minecraft:air
+cmd fill 924 185 294 956 185 326 minecraft:cobbled_deepslate
+log --- pits three deep by the player's block, a drop with ragged lips, a floor one block thick over a cave to the north-west
+cmd fill 939 183 310 939 185 310 minecraft:air
+cmd fill 941 183 311 941 185 311 minecraft:air
+cmd fill 941 183 309 941 185 309 minecraft:air
+cmd fill 939 183 311 939 185 311 minecraft:air
+cmd fill 940 183 312 940 185 312 minecraft:air
+cmd fill 938 183 308 938 185 308 minecraft:air
+cmd fill 949 180 300 955 185 320 minecraft:air
+cmd fill 928 181 296 936 184 304 minecraft:air
+cmd setblock 949 185 306 minecraft:cobbled_deepslate
+cmd setblock 949 185 309 minecraft:cobbled_deepslate
+cmd setblock 950 185 309 minecraft:cobbled_deepslate
+cmd setblock 949 185 313 minecraft:cobbled_deepslate
+cmd setblock 948 185 316 minecraft:air
+cmd setblock 924 188 310 minecraft:wall_torch[facing=east]
+cmd setblock 956 188 310 minecraft:wall_torch[facing=west]
+cmd setblock 940 188 294 minecraft:wall_torch[facing=south]
+cmd setblock 940 188 326 minecraft:wall_torch[facing=north]
+cmd effect give @s minecraft:night_vision infinite 0 true
+config awakening.buildupSeconds 6
+hud off
+tint on
+cmd tp @s 940.5 186.0 310.5 0 60
+cmd gamemode survival
+cmd effect give @s minecraft:instant_health 1 4 true
+cmd tremor spawn 940 185 322
+wait 20
+cmd tremor awaken
+wait 30
+screenshot 01_breath
+wait 9
+screenshot 02_breath
+wait 9
+screenshot 03_breath
+look 135 30
+wait 4
+screenshot 03b_thin
+wait 9
+screenshot 03c_thin
+look 90 45
+wait 4
+screenshot 04_breath_drop
+wait 9
+screenshot 05_breath_drop
+look 0 60
+wait 70
+screenshot 06_hill
+wait 6
+screenshot 07_hill
+look 90 40
+wait 4
+screenshot 08_hill_drop
+look 200 50
+wait 4
+screenshot 09_hill_back
+cmd gamemode spectator
+cmd tremor hollow leave
+cmd tremor awaken stop
+cmd tremor despawn all
+tint off
+quit
