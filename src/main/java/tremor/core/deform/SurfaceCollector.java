@@ -84,11 +84,23 @@ public final class SurfaceCollector {
         return best;
     }
 
+    private static final Vec3 DOWN = new Vec3(0, -1, 0);
+
+    /**
+     * The way a surface voxel moves whose smoothed normal cancels or faces no open side (a floor one block thick over a
+     * cave, a lip over a drop, a block among pits: the user saw them stand still as the ground rose and breathed):
+     * straight up if it is open above, else straight down if open below (a ceiling as thin); null otherwise.
+     */
+    public static Vec3 openWay(VoxelView view, int x, int y, int z) {
+        return view.isOpen(x, y + 1, z) ? UP : view.isOpen(x, y - 1, z) ? DOWN : null;
+    }
+
     /**
      * All surface voxels whose centre {@code p} satisfies {@code |p - c| <= radius}, {@code |(p - c)·n| <= normalBand}
      * and {@code smoothNormal(p)·n >= minNormalDot} ({@code c}, {@code n} from the frame). The band and normal filters
-     * keep e.g. a cave ceiling right above a floor bump from bulging too. Voxels whose smoothed normal cancels to zero
-     * are skipped, so every returned normal is a unit vector, and so are those not {@link #pushable}.
+     * keep e.g. a cave ceiling right above a floor bump from bulging too. A voxel whose smoothed normal cancels to zero
+     * or faces no open side takes {@link #openWay} instead (skipped if it has none), so every returned normal is a
+     * unit vector.
      *
      * @return a new mutable list, sorted by y, then z, then x
      */
@@ -122,11 +134,10 @@ public final class SurfaceCollector {
                         continue;
                     }
                     Vec3 normal = field.smooth(x, y, z);
-                    if (normal.isNearZero() || normal.dot(n) < minDot) {
-                        continue;
+                    if (normal.isNearZero() || pushNormal(view, x, y, z, normal) == null) {
+                        normal = openWay(view, x, y, z);
                     }
-                    Vec3 push = pushNormal(view, x, y, z, normal);
-                    if (push == null) {
+                    if (normal == null || normal.dot(n) < minDot) {
                         continue;
                     }
                     points.add(new SurfacePoint(x, y, z, normal));
