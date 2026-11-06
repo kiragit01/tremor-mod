@@ -1073,9 +1073,9 @@ public final class TremorConfig {
             enabled = b.comment("Whether they come by themselves near players underground (the command still makes them)")
                     .translation(KEY + "stalactites.enabled").define("enabled", true);
             spawnChance = b.comment("Chance every 5 seconds that one comes near a player underground")
-                    .translation(KEY + "stalactites.spawnChance").defineInRange("spawnChance", 0.08, 0.0, 1.0);
+                    .translation(KEY + "stalactites.spawnChance").defineInRange("spawnChance", 0.03, 0.0, 1.0);
             maxNearPlayer = b.comment("No more come while this many are within 48 blocks of the player")
-                    .translation(KEY + "stalactites.maxNearPlayer").defineInRange("maxNearPlayer", 2, 0, 16);
+                    .translation(KEY + "stalactites.maxNearPlayer").defineInRange("maxNearPlayer", 1, 0, 16);
             hearingRange = b.comment("How far one hears (blocks)")
                     .translation(KEY + "stalactites.hearingRange").defineInRange("hearingRange", 24.0, 4.0, 64.0);
             hearingFactor = b.comment("How much better than a tremor one hears what reaches it")
