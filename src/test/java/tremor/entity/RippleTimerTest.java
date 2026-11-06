@@ -14,7 +14,7 @@ import tremor.network.TremorStatePayload;
 class RippleTimerTest {
     @Test
     void aRippleRunsAsLongAsTheClientDrawsIt() {
-        assertEquals(RippleParams.defaults().duration() * 20, RippleTimer.RUN_TICKS, 1e-9);
+        assertEquals(RippleParams.echo().duration() * 20, RippleTimer.RUN_TICKS, 1e-9);
     }
 
     @Test

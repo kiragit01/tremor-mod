@@ -10,7 +10,8 @@ package tremor.core.shape;
  * @param waves      number of whole wavelengths in the train behind the front
  * @param duration   lifetime; the rings fade out by its end
  */
-public record RippleParams(double amplitude, double speed, double wavelength, int waves, double duration) {
+public record RippleParams(double amplitude, double speed, double wavelength, int waves, double duration,
+                           double fadePower) {
     /**
      * Small but plainly visible rings: the crests stay above {@link BumpShape#RENDER_THRESHOLD} for 6/7 of the
      * duration, until the first one is 12 blocks out (somewhat less around a bump below its full height,
@@ -29,9 +30,24 @@ public record RippleParams(double amplitude, double speed, double wavelength, in
         if (waves < 1) {
             throw new IllegalArgumentException("waves must be >= 1: " + waves);
         }
+        requirePositive("fadePower", fadePower);
+    }
+
+    /** Fading linearly over its duration ({@code fadePower} 1). */
+    public RippleParams(double amplitude, double speed, double wavelength, int waves, double duration) {
+        this(amplitude, speed, wavelength, waves, duration, 1);
     }
 
     private static final RippleParams PULSE = new RippleParams(0.35, 5, 1.6, 2, 1.1);
+    private static final RippleParams ECHO = new RippleParams(1.3, 8, 2.5, 1, 4.2, 3);
+
+    /**
+     * The ring a frozen tremor sends (its echo runs with it, the user: far and strong, so a player sees to jump it):
+     * one crest 1.3 high, 8 blocks/s, out to some 33 blocks over 4.2 s, keeping its height nearly to the end.
+     */
+    public static RippleParams echo() {
+        return ECHO;
+    }
 
     /** A resonance arrow's pulse: 5 blocks/s, 1.6 blocks apart, 2 waves, 1.1 s (out to some 5 blocks). */
     public static RippleParams pulse() {
@@ -45,7 +61,7 @@ public record RippleParams(double amplitude, double speed, double wavelength, in
 
     /** @throws IllegalArgumentException if {@code amplitude} is negative or non-finite */
     public RippleParams withAmplitude(double amplitude) {
-        return new RippleParams(amplitude, speed, wavelength, waves, duration);
+        return new RippleParams(amplitude, speed, wavelength, waves, duration, fadePower);
     }
 
     private static void requirePositive(String name, double value) {

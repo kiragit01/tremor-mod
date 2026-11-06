@@ -742,11 +742,14 @@ public final class DeformationRenderer {
      * in a dive); null if there is none, it is over, it is flat, or the client config switches it off.
      */
     private static RippleParams runningRipple(double ageSeconds, double visibility, boolean pulse) {
-        RippleParams ripple = pulse ? RippleParams.pulse() : RippleParams.defaults(); // a resonance arrow's: small
+        // A resonance arrow's: small; a frozen tremor's: the big ring of its echo (as high as the config says, times
+        // its height over the default ripple's).
+        RippleParams ripple = pulse ? RippleParams.pulse() : RippleParams.echo();
         if (!Ripple.active(ripple, ageSeconds) || !TremorConfig.CLIENT.ripple.get()) {
             return null;
         }
-        double amplitude = TremorConfig.CLIENT.rippleAmplitude.get() * visibility;
+        double amplitude = TremorConfig.CLIENT.rippleAmplitude.get() * visibility * ripple.amplitude()
+                / RippleParams.defaults().amplitude();
         return amplitude > 0 ? ripple.withAmplitude(amplitude) : null;
     }
 

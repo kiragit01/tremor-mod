@@ -14,7 +14,7 @@ import tremor.network.TremorStatePayload;
  */
 final class RippleTimer {
     /** How long a ripple runs, in ticks: as long as the client draws it. */
-    static final long RUN_TICKS = Math.round(RippleParams.defaults().duration() / TremorRuntime.TICK_SECONDS);
+    static final long RUN_TICKS = Math.round(RippleParams.echo().duration() / TremorRuntime.TICK_SECONDS);
     /** {@link #start} when there was no ripple. */
     private static final long NEVER = Long.MIN_VALUE;
 

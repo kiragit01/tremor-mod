@@ -174,7 +174,7 @@ public final class ResonanceArrows {
     }
 
     /** A pulse at the voxel {@code center} of the surface struck, its face {@code normal}. */
-    private static void pulse(ServerLevel level, Vec3 center, Vec3 normal) {
+    static void pulse(ServerLevel level, Vec3 center, Vec3 normal) {
         Pulse p = new Pulse(center, normal);
         PULSES.computeIfAbsent(level, l -> new java.util.ArrayList<>()).add(p);
         sendPulse(level, p, true);
