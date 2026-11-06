@@ -228,6 +228,7 @@
   "tremor.configuration.awakening.craterBlocksPerTick": "Crater: blocks per tick",
   "tremor.configuration.awakening.craterBudgetMillis": "Crater: server time per tick (ms)",
   "tremor.configuration.awakening.lethal": "A defeat kills",
+  "tremor.configuration.awakening.spawnProtection": "Spares the spawn protection",
   "tremor.configuration.difficulty": "Difficulty",
   "tremor.configuration.voice": "Voice chat",
   "tremor.configuration.voice.enabled": "Hear players speak",
