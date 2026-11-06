@@ -31,9 +31,13 @@ wait 30
 lookat 823.5 200.5 300.5
 screenshot 01_listener
 cmd summon minecraft:arrow 823.5 206 300.5 {Tags:["tremor_resonance"],Motion:[0.0,-1.5,0.0]}
-wait 4
+wait 7
 screenshot 02_pulse
-wait 40
+wait 4
+screenshot 02b_pulse
+wait 4
+screenshot 02c_pulse
+wait 30
 screenshot 03_gone
 # --- 2. dropped ahead of a running signal: it is soaked up
 cmd tremor listener spawn 823 200 300

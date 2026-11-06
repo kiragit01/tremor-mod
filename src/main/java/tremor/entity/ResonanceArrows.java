@@ -20,12 +20,16 @@ import net.minecraftforge.event.TickEvent;
 import org.joml.Vector3f;
 import tremor.Tremor;
 import tremor.core.math.Vec3;
+import tremor.core.shape.BumpParams;
 import tremor.hearing.VibrationListener;
+import tremor.network.TremorShapePayload;
+import tremor.network.TremorStatePayload;
+import tremor.network.TremorNetwork;
 
 /**
  * The resonance arrows in flight and where they strike (1.4.0, the user's idea; the item is
  * {@link tremor.item.ResonanceArrowItem}). Flying, one rings: small rings of light around it. Where it strikes it bursts
- * into a pulse, and is gone: every listener's signal within {@value #SIGNAL_RADIUS} blocks is soaked up (the user: a
+ * into a pulse, a small ring of copies running out over the surface it struck, and is gone: every listener's signal within {@value #SIGNAL_RADIUS} blocks is soaked up (the user: a
  * running signal is too small to hit, the pulse has a reach), every listener and stalactite crawler within
  * {@value #CREATURE_RADIUS} dissolves (bigger and still, a smaller reach). One that struck a block and none of them
  * rings through the ground there, {@value #LOUDNESS} loud: it may bring the tremor (a miss is a risk, or a lure). The
@@ -65,6 +69,7 @@ public final class ResonanceArrows {
         if (event.phase != TickEvent.Phase.END || !(event.level instanceof ServerLevel level)) {
             return;
         }
+        tickPulses(level);
         Set<AbstractArrow> flying = FLYING.get(level);
         if (flying == null || flying.isEmpty()) {
             return;
@@ -92,8 +97,15 @@ public final class ResonanceArrows {
         Vec3 where = new Vec3(at.x, at.y, at.z);
         boolean struck = Listeners.resonate(level, where, SIGNAL_RADIUS, CREATURE_RADIUS)
                 | StalactiteCrawlers.resonate(level, where, CREATURE_RADIUS);
-        ring(level, at, Vec3.UNIT_Y, 1.0, 12);
-        ring(level, at, Vec3.UNIT_Y, 2.4, 22);
+        // The pulse runs out over the surface struck as a small ring of copies (the user), not of light.
+        if (hit instanceof BlockHitResult block && hit.getType() == HitResult.Type.BLOCK) {
+            net.minecraft.core.BlockPos b = block.getBlockPos();
+            net.minecraft.core.Vec3i n = block.getDirection().getNormal();
+            pulse(level, new Vec3(b.getX() + 0.5, b.getY() + 0.5, b.getZ() + 0.5), new Vec3(n.getX(), n.getY(), n.getZ()));
+        } else {
+            net.minecraft.core.BlockPos b = net.minecraft.core.BlockPos.containing(at.x, at.y - 0.5, at.z);
+            pulse(level, new Vec3(b.getX() + 0.5, b.getY() + 0.5, b.getZ() + 0.5), Vec3.UNIT_Y);
+        }
         level.playSound(null, at.x, at.y, at.z, SoundEvents.AMETHYST_BLOCK_CHIME, SoundSource.PLAYERS, 2.0f, 0.6f);
         level.playSound(null, at.x, at.y, at.z, SoundEvents.AMETHYST_CLUSTER_BREAK, SoundSource.PLAYERS, 1.0f, 0.8f);
         if (hit.getType() == HitResult.Type.BLOCK && hit instanceof BlockHitResult block) {
@@ -111,6 +123,68 @@ public final class ResonanceArrows {
 
     public static void onServerStopped(ServerStoppedEvent event) {
         FLYING.clear();
+        PULSES.clear();
+    }
+
+    // ---- the pulse: a small ring of copies over the surface struck ----
+
+    /** A pulse's bump is too low to be drawn: only its ring is (as high as a full ripple). */
+    private static final double PULSE_HEIGHT = 0.02;
+    /** It lasts this long (ticks): the ring, and a little slack. */
+    static final int PULSE_TICKS = 28;
+    private static final Map<ServerLevel, java.util.List<Pulse>> PULSES = new HashMap<>();
+
+    private static final class Pulse {
+        final int instance = MinorIds.nextPulse();
+        final Vec3 center;
+        final Vec3 normal;
+        int ticks;
+
+        Pulse(Vec3 center, Vec3 normal) {
+            this.center = center;
+            this.normal = normal;
+        }
+    }
+
+    /** A pulse at the voxel {@code center} of the surface struck, its face {@code normal}. */
+    private static void pulse(ServerLevel level, Vec3 center, Vec3 normal) {
+        Pulse p = new Pulse(center, normal);
+        PULSES.computeIfAbsent(level, l -> new java.util.ArrayList<>()).add(p);
+        sendPulse(level, p, true);
+    }
+
+    private static void tickPulses(ServerLevel level) {
+        java.util.List<Pulse> pulses = PULSES.get(level);
+        if (pulses == null || pulses.isEmpty()) {
+            return;
+        }
+        pulses.removeIf(p -> {
+            p.ticks++;
+            if (p.ticks >= PULSE_TICKS) {
+                TremorNetwork.sendToPlayersInDimension(level, TremorStatePayload.absent(p.instance, level.getGameTime()));
+                return true;
+            }
+            if (p.ticks % tremor.config.TremorConfig.COMMON.syncInterval.get() == 0) {
+                sendPulse(level, p, false);
+            }
+            return false;
+        });
+    }
+
+    private static void sendPulse(ServerLevel level, Pulse p, boolean shape) {
+        Vec3 forward = p.normal.anyPerpendicular().normalize();
+        TremorStatePayload state = new TremorStatePayload(p.instance, true, level.getGameTime(), p.center, p.normal,
+                forward, Vec3.ZERO, (float) PULSE_HEIGHT, 0, tremor.core.behavior.Stage.HUNTING, p.ticks, 0, null);
+        double range = tremor.config.TremorConfig.COMMON.syncRange.get();
+        for (net.minecraft.server.level.ServerPlayer player : level.players()) {
+            if (player.distanceToSqr(p.center.x(), p.center.y(), p.center.z()) <= range * range) {
+                if (shape) {
+                    TremorNetwork.sendToPlayer(player, new TremorShapePayload(p.instance,
+                            BumpParams.defaults().scaled(0.3).withAmplitude(PULSE_HEIGHT)));
+                }
+                TremorNetwork.sendToPlayer(player, state);
+            }
+        }
     }
 
     /** A ring of light of {@code radius} around {@code center}, square to {@code axis}. */

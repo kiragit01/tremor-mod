@@ -31,6 +31,13 @@ public record RippleParams(double amplitude, double speed, double wavelength, in
         }
     }
 
+    private static final RippleParams PULSE = new RippleParams(0.35, 5, 1.6, 2, 1.1);
+
+    /** A resonance arrow's pulse: 5 blocks/s, 1.6 blocks apart, 2 waves, 1.1 s (out to some 5 blocks). */
+    public static RippleParams pulse() {
+        return PULSE;
+    }
+
     /** 0.35 blocks high, 5 blocks/s, 3 blocks apart, 2 waves, 3 s. */
     public static RippleParams defaults() {
         return DEFAULTS;

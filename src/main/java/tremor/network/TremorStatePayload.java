@@ -45,7 +45,15 @@ public record TremorStatePayload(int instance, boolean present, long gameTime, V
     public static final int CRAWLER_BASE = -1_000_000_000;
     public static final int CRAWLER_RANGE = 1 << 28;
 
-    /** Whether {@code instance} is a stalactite crawler's, not a tremor's. */
+    /** The second half of that range: the pulses of the resonance arrows (a small ring of copies, no bump). */
+    public static final int PULSE_BASE = CRAWLER_BASE - CRAWLER_RANGE / 2;
+
+    /** Whether {@code instance} is a resonance arrow's pulse ({@link #PULSE_BASE}). */
+    public static boolean pulse(int instance) {
+        return instance <= PULSE_BASE && instance > CRAWLER_BASE - CRAWLER_RANGE;
+    }
+
+    /** Whether {@code instance} is a small creature's (or a pulse's), not a tremor's. */
     public static boolean crawler(int instance) {
         return instance <= CRAWLER_BASE && instance > CRAWLER_BASE - CRAWLER_RANGE;
     }
