@@ -59,5 +59,9 @@ class HeightFieldTest {
         Vec3 n = slope.normal(), side = slope.side();
         Vec3 p = n.scale(1.7).add(side.scale(3)).add(slope.forward().scale(-4));
         assertEquals(5, HeightField.tangentDistance(slope, p.x(), p.y(), p.z()), 1e-12);
+        // A gentle slope runs its rings level: only the horizontal distance counts.
+        BumpFrame gentle = BumpFrame.of(new Vec3(0, 64, 0), new Vec3(0.3, 1, 0), Vec3.UNIT_Z);
+        assertEquals(5, HeightField.tangentDistance(gentle, 3, 61, 4), 1e-12);
+        assertEquals(5, HeightField.tangentDistance(gentle, -4, 66.5, 3), 1e-12);
     }
 }

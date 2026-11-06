@@ -92,6 +92,20 @@ public final class SurfaceCollector {
      * straight up if it is open above, else straight down if open below (a ceiling as thin); null otherwise.
      */
     public static Vec3 openWay(VoxelView view, int x, int y, int z) {
+        return openWay(view, x, y, z, null);
+    }
+
+    /**
+     * {@link #openWay}, but along {@code prefer} (an axis) first if it is open that way: a wall one block thick has no
+     * normal of its own, and a ring running over its face moves it out of that face.
+     */
+    public static Vec3 openWay(VoxelView view, int x, int y, int z, Vec3 prefer) {
+        if (prefer != null) {
+            int[] a = ThinSwell.axisStep(prefer);
+            if (view.isOpen(x + a[0], y + a[1], z + a[2])) {
+                return new Vec3(a[0], a[1], a[2]);
+            }
+        }
         return view.isOpen(x, y + 1, z) ? UP : view.isOpen(x, y - 1, z) ? DOWN : null;
     }
 

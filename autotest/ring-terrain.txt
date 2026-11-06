@@ -1,0 +1,93 @@
+# Rings over uneven ground (the user: the echo's ring and an arrow's pulse moved a block or two and left the rest still,
+# went off into another plane, unseen). Terraces, steps, a trench and a mound around a tremor standing on steps; seen
+# from above as its ring runs out over all of them, then arrows' pulses on the steps, on a terrace edge, on a wall one block thick and on a thick one.
+# Every floor the ring passes must rise with it (copies tinted red).
+# Run: gradlew runClientAutotest -Ptremor_autotest_script=ring-terrain.txt
+waitchunks
+cmd gamerule commandModificationBlockLimit 2147483647
+cmd gamemode spectator
+cmd time set noon
+cmd tremor despawn all
+cmd kill @e[type=!player]
+cmd tp @s 740.5 230.0 540.5 0 90
+wait 40
+waitchunks
+cmd fill 700 190 500 780 199 580 minecraft:dirt
+cmd fill 700 200 500 780 200 580 minecraft:grass_block
+cmd fill 700 201 500 780 225 580 minecraft:air
+log --- terraces at +1, +2 and +3 to the east, a trench to the west, a mound to the north, steps under the tremor
+cmd fill 748 201 500 780 201 580 minecraft:grass_block
+cmd fill 754 202 500 780 202 580 minecraft:grass_block
+cmd fill 761 203 500 780 203 580 minecraft:grass_block
+cmd fill 718 198 500 726 200 580 minecraft:air
+cmd fill 718 197 500 726 197 580 minecraft:grass_block
+cmd fill 730 201 515 750 201 527 minecraft:grass_block
+cmd fill 733 202 517 747 202 525 minecraft:grass_block
+cmd fill 736 203 519 744 203 523 minecraft:grass_block
+cmd fill 738 201 537 742 201 543 minecraft:grass_block
+cmd fill 740 202 537 742 202 543 minecraft:grass_block
+cmd fill 742 203 537 742 203 543 minecraft:grass_block
+cmd fill 730 201 556 730 205 566 minecraft:stone
+cmd fill 726 201 570 730 205 580 minecraft:stone
+cmd kill @e[type=minecraft:item]
+config ambush.enabled false
+config echo.range 32
+config echo.speed 6
+cmd tremor spawn 741 202 540
+cmd tremor stage alert
+cmd tremor anger 35
+wait 40
+hud off
+tint on
+log --- the echo's ring from above
+cmd summon minecraft:item 737.5 204 540.5 {Item:{id:"minecraft:stone",Count:1b},PickupDelay:32767}
+wait 30
+screenshot 01_ring
+wait 10
+screenshot 02_ring
+wait 10
+screenshot 03_ring
+wait 10
+screenshot 04_ring
+wait 10
+screenshot 05_ring
+wait 10
+screenshot 06_ring
+wait 10
+screenshot 07_ring
+wait 10
+screenshot 08_ring
+wait 60
+cmd tremor despawn all
+cmd kill @e[type=minecraft:item]
+log --- arrows' pulses: on the steps, on a terrace edge, on a wall
+cmd tp @s 744.5 214.0 548.5 180 50
+wait 10
+cmd summon minecraft:arrow 741.5 210 540.5 {Tags:["tremor_resonance"],Motion:[0.0,-1.5,0.0]}
+wait 9
+screenshot 11_pulse_steps
+wait 4
+screenshot 12_pulse_steps
+cmd tp @s 754.5 214.0 548.5 180 50
+wait 10
+cmd summon minecraft:arrow 754.5 210 540.5 {Tags:["tremor_resonance"],Motion:[0.0,-1.5,0.0]}
+wait 9
+screenshot 13_pulse_edge
+wait 4
+screenshot 14_pulse_edge
+cmd tp @s 737.5 204.0 561.5 90 10
+wait 10
+cmd summon minecraft:arrow 734.5 203.5 561.5 {Tags:["tremor_resonance"],Motion:[-1.5,0.0,0.0]}
+wait 6
+screenshot 15_pulse_wall
+wait 4
+screenshot 16_pulse_wall
+cmd tp @s 737.5 204.0 575.5 90 10
+wait 10
+cmd summon minecraft:arrow 734.5 203.5 575.5 {Tags:["tremor_resonance"],Motion:[-1.5,0.0,0.0]}
+wait 6
+screenshot 17_pulse_thick_wall
+wait 4
+screenshot 18_pulse_thick_wall
+tint off
+quit

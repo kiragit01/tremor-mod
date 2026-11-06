@@ -64,6 +64,20 @@ class ZoneScanOpenTopTest {
     }
 
     @Test
+    void aWallOneBlockThickMovesOutOfTheFaceARingRunsOver() {
+        ArrayVoxelGrid g = ArrayVoxelGrid.flatFloor(0);
+        g.fill(3, 1, -4, 3, 4, 4, true); // a wall one block thick, its face at x 4 toward the scan
+        ZoneScan plain = new ZoneScan(g, new Vec3(5.5, 2, 0.5), 6, 4, 4);
+        ZoneScan ring = new ZoneScan(g, new Vec3(5.5, 2, 0.5), 6, 4, 4, tremor.core.math.Vec3.UNIT_X);
+        assertTrue(plain.advance(Integer.MAX_VALUE) && ring.advance(Integer.MAX_VALUE));
+        boolean plainHas = plain.points().stream().anyMatch(p -> p.x() == 3 && p.y() == 2 && p.z() == 0);
+        SurfacePoint face = ring.points().stream().filter(p -> p.x() == 3 && p.y() == 2 && p.z() == 0).findFirst()
+                .orElse(null);
+        assertTrue(!plainHas, "no normal of its own: left out of a plain scan");
+        assertTrue(face != null && face.normal().equals(tremor.core.math.Vec3.UNIT_X), "out of the face: " + face);
+    }
+
+    @Test
     void aRaggedEdgeOverADrop() {
         ArrayVoxelGrid g = ArrayVoxelGrid.flatFloor(0);
         g.fill(3, -6, -6, 8, 0, 6, false); // a drop beyond x 3

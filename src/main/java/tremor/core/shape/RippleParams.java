@@ -38,18 +38,23 @@ public record RippleParams(double amplitude, double speed, double wavelength, in
         this(amplitude, speed, wavelength, waves, duration, 1);
     }
 
-    private static final RippleParams PULSE = new RippleParams(0.35, 5, 1.6, 2, 1.1);
+    private static final RippleParams PULSE = new RippleParams(0.5, 6, 3, 1, 1.2, 3);
     private static final RippleParams ECHO = new RippleParams(0.5, 6, 3, 1, 5.6, 3);
 
     /**
-     * The ring a frozen tremor sends (its echo runs with it, the user: far and strong, so a player sees to jump it):
-     * one crest 1.3 high, 8 blocks/s, out to some 33 blocks over 4.2 s, keeping its height nearly to the end.
+     * The ring a frozen tremor sends (its echo runs with it, the user: far, low enough to be seen as one to jump):
+     * one crest half a block high and some 1.4 blocks wide over the threshold, 6 blocks/s, out to some 33 blocks over
+     * 5.6 s, keeping its height nearly to the end.
      */
     public static RippleParams echo() {
         return ECHO;
     }
 
-    /** A resonance arrow's pulse: 5 blocks/s, 1.6 blocks apart, 2 waves, 1.1 s (out to some 5 blocks). */
+    /**
+     * A resonance arrow's pulse: one crest half a block high and some 1.4 blocks wide over the threshold, 6 blocks/s,
+     * 1.2 s (out to some 7 blocks), holding its height until late. A crest narrower than a block left most voxels
+     * between their centres under the threshold (the user: an arrow moved a block or two).
+     */
     public static RippleParams pulse() {
         return PULSE;
     }
