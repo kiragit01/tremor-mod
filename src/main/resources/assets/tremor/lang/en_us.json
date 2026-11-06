@@ -287,6 +287,8 @@
   "subtitles.tremor.crawler_creep": "Something scrapes overhead",
   "subtitles.tremor.crawler_crackle": "The ceiling crackles",
   "subtitles.tremor.crawler_sink": "Rock settles overhead",
+  "subtitles.tremor.echo_charge": "The ground draws in",
+  "subtitles.tremor.echo_found": "Something knocks from below",
   "effect.tremor.resonance": "Resonance",
   "subtitles.tremor.rumble": "Rock rumbles",
   "subtitles.tremor.crack": "Rock cracks",

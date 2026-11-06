@@ -1,6 +1,8 @@
-# Echolocation (1.4.0). A field; a tremor ALERT, a player 8 blocks off. A stone lands by it: it freezes, its ring runs out: standing on
-# the ground the player is found (an echo, the log says so, it heard them through an "echo"); on a carpet, and in the
-# air (levitating), not; a pig gives a faint echo (it heard an "echo" by the pig). The server log tells.
+# Echolocation (1.4.0). A field; a tremor ALERT, a player 16 blocks off. A stone lands by it: it freezes and draws in
+# for a second (lies low, a hum rising), then its low ring runs out: standing on the ground the player is found (a dull
+# knock, a jolt, a wave running back along the ground to the tremor; once it gets there the tremor hears them through
+# an "echo", the log says so); on a carpet, and in the air (levitating), not; a pig gives a faint echo at once (it
+# heard an "echo" by the pig). The server log tells.
 # Run: gradlew runClientAutotest -Ptremor_autotest_script=echo.txt
 waitchunks
 cmd gamemode spectator
@@ -16,7 +18,7 @@ cmd fill 800 201 260 920 230 340 minecraft:air
 cmd kill @e[type=!player]
 config ambush.enabled false
 config echo.range 32
-config echo.speed 8
+config echo.speed 6
 cmd tremor spawn 860 200 300
 cmd tremor stage alert
 cmd tremor anger 35
@@ -29,14 +31,20 @@ cmd tp @s 876.5 201.0 300.5 90 15
 cmd summon minecraft:item 857.5 204 300.5 {Item:{id:"minecraft:stone",count:1},PickupDelay:32767}
 hud off
 tint on
-wait 14
+wait 10
+screenshot 00_charge
+wait 22
 screenshot 01_ring
-wait 8
+wait 14
 screenshot 02_ring
-wait 8
-screenshot 03_ring
-wait 8
-screenshot 04_reflection
+wait 14
+screenshot 03_ring_near
+wait 14
+screenshot 04_found
+wait 10
+screenshot 05_back
+wait 10
+screenshot 06_back
 tint off
 wait 32
 cmd kill @e[type=minecraft:item]

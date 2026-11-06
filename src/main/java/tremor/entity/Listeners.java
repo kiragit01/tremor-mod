@@ -58,6 +58,8 @@ public final class Listeners {
     /** The signal: a smaller bump, running along the ground. */
     static final double SIGNAL_SIZE = 0.28;
     static final double SIGNAL_AMPLITUDE = 0.6;
+    /** An echo runs back to its tremor this fast (blocks per second). */
+    static final double ECHO_BACK_SPEED = 12;
     /** It lies this far at most from where it lost the player (blocks), no two nearer than this. */
     static final double PLACE_RADIUS = 6;
     static final double SPACING = 3;
@@ -129,6 +131,13 @@ public final class Listeners {
         double amplitude;
         boolean dying;
         Set<UUID> told = new HashSet<>();
+        /** Whether a listener sent it (it hears again after); else an echo running back ({@link #echoBack}). */
+        boolean fromListener = true;
+        double perceived = RELAYED;
+        double anger = RELAY_ANGER;
+        String event = "listener";
+        /** Blocks per second; the config's for a listener's. */
+        double speed = -1;
 
         Signal(int instance, TremorRuntime owner, Vec3 at, Vec3 source, UUID player, BumpParams shape) {
             this.instance = instance;
@@ -330,6 +339,25 @@ public final class Listeners {
     }
 
     /**
+     * The echo of a frozen tremor's ring found {@code player} ({@link Echo}): a wave runs back from under them along
+     * the ground to {@code owner}, as a listener's signal does and as it can be stopped (a carpet, a gap, a resonance
+     * arrow), but faster; once there the tremor hears them at {@code source}.
+     */
+    static void echoBack(ServerLevel level, TremorRuntime owner, Vec3 from, Vec3 source, ServerPlayer player,
+                         double perceived, double anger) {
+        BumpParams d0 = BumpParams.defaults().scaled(SIGNAL_SIZE);
+        BumpParams shape = new BumpParams(SIGNAL_AMPLITUDE, d0.sigmaFront(), d0.sigmaBack(), d0.sigmaSide(),
+                d0.trailLag(), d0.trailSigma(), 0.2, 0.3);
+        Signal s = new Signal(MinorIds.next(), owner, from, source, player.getUUID(), shape);
+        s.fromListener = false;
+        s.perceived = perceived;
+        s.anger = anger;
+        s.event = "echo";
+        s.speed = ECHO_BACK_SPEED;
+        SIGNALS.computeIfAbsent(level, k -> new ArrayList<>()).add(s);
+    }
+
+    /**
      * A resonance arrow's pulse at {@code at} ({@link ResonanceArrows}): every signal within {@code signalRadius} is
      * soaked up, every listener within {@code creatureRadius} dissolves. Whether it struck any.
      */
@@ -466,14 +494,15 @@ public final class Listeners {
             double dx = goal.x() - s.at.x(), dz = goal.z() - s.at.z(), d = Math.hypot(dx, dz);
             if (d <= ARRIVE) {
                 s.owner.relay(s.source, s.player == null ? null : level.getServer().getPlayerList()
-                        .getPlayer(s.player), RELAYED, RELAY_ANGER, "listener");
+                        .getPlayer(s.player), s.perceived, s.anger, s.event);
                 level.playSound(null, goal.x(), goal.y(), goal.z(), TremorSounds.LISTENER_RELAY.get(),
                         SoundSource.HOSTILE, 1.2f, 0.9f + level.getRandom().nextFloat() * 0.2f);
-                Tremor.LOGGER.info("A listener's signal reaches tremor #{} in {}", entity.instance(),
-                        level.dimension().location());
+                Tremor.LOGGER.info("A{} reaches tremor #{} in {}", s.fromListener ? " listener's signal"
+                        : "n echo", entity.instance(), level.dimension().location());
                 die(level, s, null);
             } else {
-                double step = Math.min(d, TremorConfig.COMMON.listeners.signalSpeed.get() * TICK_SECONDS);
+                double speed = s.speed > 0 ? s.speed : TremorConfig.COMMON.listeners.signalSpeed.get();
+                double step = Math.min(d, speed * TICK_SECONDS);
                 double nx = s.at.x() + dx / d * step, nz = s.at.z() + dz / d * step;
                 int ground = groundAt(level, nx, s.at.y(), nz);
                 if (ground == Integer.MIN_VALUE) {
@@ -509,7 +538,7 @@ public final class Listeners {
     private static void die(ServerLevel level, Signal s, String why) {
         s.dying = true;
         s.velocity = Vec3.ZERO;
-        List<Listener> all = LISTENERS.get(level);
+        List<Listener> all = s.fromListener ? LISTENERS.get(level) : null;
         if (all != null) {
             for (Listener l : all) {
                 if (l.owner == s.owner && l.deafUntil == Long.MAX_VALUE) {

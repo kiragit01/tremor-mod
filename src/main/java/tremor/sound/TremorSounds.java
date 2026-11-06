@@ -86,6 +86,10 @@ public final class TremorSounds {
     public static final DeferredHolder<SoundEvent, SoundEvent> CRAWLER_CRACKLE = register("entity.tremor.crawler.crackle");
     /** A crawler going away into the rock, driven off by a light or its block broken: quiet. */
     public static final DeferredHolder<SoundEvent, SoundEvent> CRAWLER_SINK = register("entity.tremor.crawler.sink");
+    /** A frozen tremor drawing in before its ring goes out: a low hum rising. */
+    public static final DeferredHolder<SoundEvent, SoundEvent> ECHO_CHARGE = register("entity.tremor.echo.charge");
+    /** Its echo found the player who hears it: a dull knock from below (to them only). */
+    public static final DeferredHolder<SoundEvent, SoundEvent> ECHO_FOUND = register("entity.tremor.echo.found");
 
     public static void register(IEventBus modBus) {
         SOUNDS.register(modBus);

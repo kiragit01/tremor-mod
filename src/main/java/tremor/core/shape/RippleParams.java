@@ -39,7 +39,7 @@ public record RippleParams(double amplitude, double speed, double wavelength, in
     }
 
     private static final RippleParams PULSE = new RippleParams(0.35, 5, 1.6, 2, 1.1);
-    private static final RippleParams ECHO = new RippleParams(1.3, 8, 2.5, 1, 4.2, 3);
+    private static final RippleParams ECHO = new RippleParams(0.5, 6, 3, 1, 5.6, 3);
 
     /**
      * The ring a frozen tremor sends (its echo runs with it, the user: far and strong, so a player sees to jump it):

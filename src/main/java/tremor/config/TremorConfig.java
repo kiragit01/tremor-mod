@@ -1016,7 +1016,7 @@ public final class TremorConfig {
             range = b.comment("How far its front runs (blocks); the ring is seen out to some 33")
                     .translation(KEY + "echo.range").defineInRange("range", 32.0, 2.0, 64.0);
             speed = b.comment("How fast its front runs (blocks per second): as the ring is seen by default")
-                    .translation(KEY + "echo.speed").defineInRange("speed", 8.0, 1.0, 40.0);
+                    .translation(KEY + "echo.speed").defineInRange("speed", 6.0, 1.0, 40.0);
             b.pop();
         }
     }
