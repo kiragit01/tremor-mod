@@ -4,7 +4,7 @@ import net.neoforged.neoforge.network.event.RegisterPayloadHandlersEvent;
 import net.neoforged.neoforge.network.registration.PayloadRegistrar;
 
 public final class TremorNetwork {
-    private static final String PROTOCOL = "9";
+    private static final String PROTOCOL = "10";
 
     private TremorNetwork() {
     }

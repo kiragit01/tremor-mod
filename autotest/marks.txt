@@ -1,4 +1,4 @@
-# The marks (1.4.0). A player with 2 marks is taken into the hollow: the 3rd mark (told on coming in), the hollow
+# The marks (1.4.0). A player with 2 marks is taken into the hollow: the 3rd mark (told under the time bar a little after coming in: small, red, fading in and out quickly), the hollow
 # harder, and from the 3rd mark on it digests: a deep rumble, then a big ring along its floor that hurts the player
 # standing on the ground as it passes. Then out by a victory, and a hushing charm takes a mark off.
 # Run: gradlew runClientAutotest -Ptremor_autotest_script=marks.txt
@@ -18,14 +18,76 @@ cmd gamemode survival
 cmd clear @s
 cmd effect clear @s
 cmd effect give @s minecraft:night_vision infinite 0 true
-cmd effect give @s minecraft:resistance 600 1 true
+cmd effect give @s minecraft:resistance 600 3 true
 config hollow.level.stillSeconds 60
 config awakening.buildupSeconds 3
 config awakening.craterRadius 0
 config awakening.lethal false
 cmd tremor marks @s set 2
 cmd tremor awaken
-wait 220
+wait 150
+wait 45
+wait 2
+screenshot 00_n_01
+wait 2
+screenshot 00_n_02
+wait 2
+screenshot 00_n_03
+wait 2
+screenshot 00_n_04
+wait 2
+screenshot 00_n_05
+wait 2
+screenshot 00_n_06
+wait 2
+screenshot 00_n_07
+wait 2
+screenshot 00_n_08
+wait 2
+screenshot 00_n_09
+wait 2
+screenshot 00_n_10
+wait 2
+screenshot 00_n_11
+wait 2
+screenshot 00_n_12
+wait 2
+screenshot 00_n_13
+wait 2
+screenshot 00_n_14
+wait 2
+screenshot 00_n_15
+wait 2
+screenshot 00_n_16
+wait 2
+screenshot 00_n_17
+wait 2
+screenshot 00_n_18
+wait 2
+screenshot 00_n_19
+wait 2
+screenshot 00_n_20
+wait 2
+screenshot 00_n_21
+wait 2
+screenshot 00_n_22
+wait 2
+screenshot 00_n_23
+wait 2
+screenshot 00_n_24
+wait 2
+screenshot 00_n_25
+wait 2
+screenshot 00_n_26
+wait 2
+screenshot 00_n_27
+wait 2
+screenshot 00_n_28
+wait 2
+screenshot 00_n_29
+wait 2
+screenshot 00_n_30
+wait 5
 waitchunks
 cmd tremor hollow status
 wait 30

@@ -24,11 +24,12 @@ import tremor.core.math.Vec3;
  * @param breath      the time the player has left in the hollow, 1 (on arrival) .. 0 (run out: the defeat);
  *                    1 for a hollow without the limit
  * @param exit        how near the player is to the light at the end of the escape tunnel, while in it: 0 .. 1 (at it)
+ * @param marks       the player's marks, this one counted ({@code tremor.hollow.Marks}); 0 with the marks off
  * @param gameTime    level game time of this state
  */
 public record TremorHollowStatePayload(int event, boolean active, Vec3 center, float boxRadius, float closeRadius,
                                        BlockPos node, int beatTicks, float sink, float breath, float exit,
-                                       long gameTime)
+                                       int marks, long gameTime)
         implements CustomPacketPayload {
 
     public static final Type<TremorHollowStatePayload> TYPE =
@@ -39,7 +40,7 @@ public record TremorHollowStatePayload(int event, boolean active, Vec3 center, f
 
     /** The player has left the hollow of {@code event}. */
     public static TremorHollowStatePayload inactive(int event, long gameTime) {
-        return new TremorHollowStatePayload(event, false, Vec3.ZERO, 0, 0, null, 0, 0, 1, 0, gameTime);
+        return new TremorHollowStatePayload(event, false, Vec3.ZERO, 0, 0, null, 0, 0, 1, 0, 0, gameTime);
     }
 
     private void write(FriendlyByteBuf buf) {
@@ -62,6 +63,7 @@ public record TremorHollowStatePayload(int event, boolean active, Vec3 center, f
         buf.writeFloat(sink);
         buf.writeFloat(breath);
         buf.writeFloat(exit);
+        buf.writeVarInt(marks);
     }
 
     private static TremorHollowStatePayload read(FriendlyByteBuf buf) {
@@ -79,8 +81,9 @@ public record TremorHollowStatePayload(int event, boolean active, Vec3 center, f
         float sink = buf.readFloat();
         float breath = buf.readFloat();
         float exit = buf.readFloat();
+        int marks = buf.readVarInt();
         return new TremorHollowStatePayload(event, true, center, boxRadius, closeRadius, node, beatTicks, sink,
-                breath, exit, gameTime);
+                breath, exit, marks, gameTime);
     }
 
     @Override

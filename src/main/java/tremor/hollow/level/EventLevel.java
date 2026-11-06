@@ -582,10 +582,6 @@ final class EventLevel {
             Outcomes.defeat(player);
             return;
         }
-        if (ticks == ANNOUNCE_TICKS) {
-            player.displayClientMessage(net.minecraft.network.chat.Component.translatable("tremor.marks.known",
-                    marks), true);
-        }
         digest(player);
         int shiftTicks = Math.max(1, ticks(config.wallShiftSeconds.get()));
         if (config.wallShifts.get() > 0 && ticks % shiftTicks == 0) {
@@ -602,8 +598,6 @@ final class EventLevel {
 
     // ---- the marks: the creature knows the player ----
 
-    /** The player is told how many marks they have this long after coming in (ticks). */
-    private static final int ANNOUNCE_TICKS = 40;
     /** A digesting wave comes every this many ticks, a few more by chance; it rumbles this long before. */
     private static final int DIGEST_EVERY = 160;
     private static final int DIGEST_SPREAD = 120;
@@ -901,7 +895,8 @@ final class EventLevel {
         }
         PacketDistributor.sendToPlayer(player, new TremorHollowStatePayload(id, true,
                 new tremor.core.math.Vec3(centreX, centreY, centreZ), (float) boxRadius, (float) schedule.radius(),
-                shown, beat, sink, breath, exit, hollow.getGameTime()));
+                shown, beat, sink, breath, exit,
+                TremorConfig.COMMON.marks.enabled.get() ? marks : 0, hollow.getGameTime()));
         sentTick = ticks;
         sentExit = exit;
         sentSink = sink;
