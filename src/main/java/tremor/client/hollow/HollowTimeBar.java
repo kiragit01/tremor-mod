@@ -43,6 +43,20 @@ public final class HollowTimeBar {
     private static final int HEART = 11;
     /** From this share of the time left down, the bar and the words tremble. */
     private static final double TREMBLE_BELOW = 0.25;
+    /** The marks are told this long after the player comes in, for this long, fading in and out this long (ticks). */
+    private static final double NOTICE_DELAY = 40;
+    private static final double NOTICE_TICKS = 70;
+    private static final double NOTICE_FADE = 5;
+    /** Under the bar's frame by this much, sliding down this far into place and as far on (pixels), this small. */
+    private static final int NOTICE_GAP = 3;
+    private static final int NOTICE_DROP = 3;
+    private static final float NOTICE_SCALE = 0.75f;
+    /** It rises and falls this much (pixels) once in this many ticks. */
+    private static final double NOTICE_BREATH = 0.9;
+    private static final double NOTICE_BREATH_TICKS = 50;
+    /** The hollow event the marks were told for, and the time it was first seen. */
+    private static int noticeEvent = Integer.MIN_VALUE;
+    private static double noticeStart;
 
     private HollowTimeBar() {
     }
@@ -59,11 +73,15 @@ public final class HollowTimeBar {
             return;
         }
         TremorHollowStatePayload state = ClientHollow.state();
-        if (state == null || !(state.breath() < 1)) {
+        if (state == null || !state.active()) {
+            return;
+        }
+        double time = mc.level.getGameTime() + partialTick;
+        marks(graphics, mc, state, time);
+        if (!(state.breath() < 1)) {
             return;
         }
         double left = Mth.clamp(state.breath(), 0, 1);
-        double time = mc.level.getGameTime() + partialTick;
         // A throb on every beat of the node: sharp at the beat, fading before the next.
         int beat = Math.max(1, state.beatTicks());
         double throb = Math.exp(-6 * ((time % beat) / beat));
@@ -110,6 +128,38 @@ public final class HollowTimeBar {
         int red = lerp(120, 230, Math.min(1, glow + 0.3 * danger));
         graphics.drawString(mc.font, label, graphics.guiWidth() / 2 - textWidth / 2 + dx,
                 y - FRAME_INSET_Y - 10 + dy, color(red, 12, 12), true);
+    }
+
+    /**
+     * The player's marks, told under the bar a while after they come in, small, a short aside (the user: in red, not
+     * the abrupt line over the hotbar): it fades in sliding down a little into place, breathes, and fades out sliding
+     * on down, both quick.
+     */
+    private static void marks(GuiGraphics graphics, Minecraft mc, TremorHollowStatePayload state, double time) {
+        if (state.event() != noticeEvent) {
+            noticeEvent = state.event();
+            noticeStart = time;
+        }
+        double t = time - noticeStart - NOTICE_DELAY;
+        if (state.marks() <= 0 || t < 0 || t > NOTICE_TICKS) {
+            return;
+        }
+        double in = Mth.clamp(t / NOTICE_FADE, 0, 1), out = Mth.clamp((t - NOTICE_TICKS + NOTICE_FADE) / NOTICE_FADE, 0, 1);
+        double alpha = in * (1 - out);
+        if (alpha < 0.05) {
+            return; // the font draws a nearly clear colour opaque
+        }
+        Component text = Component.translatable("tremor.marks.known", state.marks());
+        // It breathes: a slow rise and fall of a pixel or so (the user: not static).
+        double breath = NOTICE_BREATH * Math.sin(2 * Math.PI * time / NOTICE_BREATH_TICKS);
+        float y = TOP + HEIGHT + FRAME_HEIGHT - FRAME_INSET_Y + NOTICE_GAP
+                + (float) (NOTICE_DROP * (in - 1 + out) + breath);
+        graphics.pose().pushPose();
+        graphics.pose().translate(graphics.guiWidth() / 2f, y, 0);
+        graphics.pose().scale(NOTICE_SCALE, NOTICE_SCALE, 1);
+        graphics.drawString(mc.font, text, -mc.font.width(text) / 2, 0,
+                (int) Math.round(alpha * 255) << 24 | 0xC81818, true);
+        graphics.pose().popPose();
     }
 
     private static int lerp(int from, int to, double share) {

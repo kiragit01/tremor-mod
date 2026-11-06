@@ -14,7 +14,7 @@ import net.minecraftforge.network.simple.SimpleChannel;
 import tremor.Tremor;
 
 public final class TremorNetwork {
-    private static final String PROTOCOL = "8";
+    private static final String PROTOCOL = "10";
 
     private static final SimpleChannel CHANNEL = NetworkRegistry.newSimpleChannel(
             new ResourceLocation(Tremor.MODID, "main"), () -> PROTOCOL, PROTOCOL::equals, PROTOCOL::equals);
