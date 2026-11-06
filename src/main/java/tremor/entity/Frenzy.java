@@ -82,7 +82,7 @@ public final class Frenzy {
         ItemEntity item = event.getEntity();
         if (!(item.level() instanceof ServerLevel level) || !(event.getPlayer() instanceof ServerPlayer player)
                 || !item.getItem().is(TremorItems.SHARD.get()) || HollowDimension.is(level) || player.isSpectator()
-                || item.getOwner() != player) {
+                || item.getOwner() != player || tremor.TremorSwitch.off(level)) {
             return; // not thrown by the player: the show item of /give (the test of 1.3.1 started a frenzy)
         }
         // The ground takes it, whatever comes of the frenzy: nobody gets it back.

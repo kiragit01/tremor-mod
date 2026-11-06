@@ -109,7 +109,8 @@ public final class NaturalSpawner {
 
     /** Not while the game is frozen ({@code /tick freeze}): the schedules wait. */
     public static void onLevelTick(LevelTickEvent.Post event) {
-        if (!(event.getLevel() instanceof ServerLevel level) || !level.tickRateManager().runsNormally()) {
+        if (!(event.getLevel() instanceof ServerLevel level) || !level.tickRateManager().runsNormally()
+                || tremor.TremorSwitch.off(level)) {
             return;
         }
         TremorConfig.Spawn config = TremorConfig.COMMON.spawn;

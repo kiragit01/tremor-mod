@@ -122,6 +122,9 @@ public final class AwakeningManager {
     static Awakening start(ServerPlayer target) throws Refusal {
         ServerLevel level = target.serverLevel();
         String name = target.getGameProfile().getName();
+        if (tremor.TremorSwitch.off(level)) {
+            throw new Refusal("Tremor is switched off (/tremor system on)");
+        }
         if (HollowDimension.is(level)) {
             throw new Refusal("No Awakening in the hollow");
         }
@@ -175,6 +178,16 @@ public final class AwakeningManager {
         }
         cancel(awakening, awakening.player(), "stopped by a command");
         return awakening;
+    }
+
+    /**
+     * Calls off every Awakening of {@code level} ({@link #cancel}: whoever is being swallowed or is in the hollow
+     * comes back out).
+     */
+    public static void cancelAll(ServerLevel level, String why) {
+        for (Awakening awakening : awakenings(level)) {
+            cancel(awakening, awakening.player(), why);
+        }
     }
 
     /** Whether an Awakening runs in the level. */

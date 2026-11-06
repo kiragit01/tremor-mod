@@ -138,6 +138,9 @@ public final class StalactiteCrawlers {
         if (!(event.getLevel() instanceof ServerLevel level)) {
             return;
         }
+        if (tremor.TremorSwitch.off(level)) {
+            return; // the mod is switched off (doTremor): the switch took them away
+        }
         tickStalactites(level);
         List<Creature> creatures = CRAWLERS.get(level);
         if (creatures != null) {
@@ -286,6 +289,9 @@ public final class StalactiteCrawlers {
      * blocks); null if there is none there (no dark ceiling node, or another crawler within {@value #SPACING}).
      */
     public static Integer spawn(ServerLevel level, BlockPos requested, String why) {
+        if (tremor.TremorSwitch.off(level)) {
+            return null; // the mod is switched off (doTremor)
+        }
         SurfaceGraph graph = graph(level);
         Ceilings ceilings = new Ceilings(graph, level);
         VoxelView view = graph.view();

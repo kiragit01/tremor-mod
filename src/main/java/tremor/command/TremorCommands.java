@@ -85,6 +85,8 @@ public final class TremorCommands {
             Component.literal("No surface the tremor could crawl on there (look at the ground or give a position near it)"));
     private static final SimpleCommandExceptionType NO_CEILING = new SimpleCommandExceptionType(
             Component.literal("No dark ceiling there (or another crawler too near)"));
+    private static final SimpleCommandExceptionType OFF = new SimpleCommandExceptionType(
+            Component.literal("Tremor is switched off (/tremor system on)"));
     private static final SimpleCommandExceptionType NO_ENTITY = new SimpleCommandExceptionType(
             Component.literal("No tremor in this dimension (/tremor spawn)"));
     private static final SimpleCommandExceptionType OFF_SURFACE = new SimpleCommandExceptionType(
@@ -112,6 +114,9 @@ public final class TremorCommands {
                                 .executes(TremorCommands::spawnNear)))
                         .then(Commands.argument("pos", BlockPosArgument.blockPos())
                                 .executes(ctx -> spawn(ctx, BlockPosArgument.getBlockPos(ctx, "pos")))))
+                .then(Commands.literal("system").executes(ctx -> system(ctx, null))
+                        .then(Commands.literal("on").executes(ctx -> system(ctx, true)))
+                        .then(Commands.literal("off").executes(ctx -> system(ctx, false))))
                 .then(Commands.literal("despawn").executes(ctx -> despawn(ctx, false))
                         .then(Commands.literal("all").executes(ctx -> despawn(ctx, true))))
                 .then(Commands.literal("crawler")
@@ -394,8 +399,27 @@ public final class TremorCommands {
         return 1;
     }
 
+    /**
+     * {@code /tremor system [on|off]}: the mod as a whole on or off, the game rule {@code doTremor}
+     * ({@link tremor.TremorSwitch}); without an argument, which it is.
+     */
+    private static int system(CommandContext<CommandSourceStack> ctx, Boolean on) {
+        CommandSourceStack source = ctx.getSource();
+        if (on != null) {
+            tremor.TremorSwitch.set(source.getServer(), on);
+        }
+        boolean off = tremor.TremorSwitch.off(source.getServer());
+        answer(source, () -> Component.literal(off
+                ? "Tremor is off: nothing of it runs (game rule doTremor false; /tremor system on)"
+                : "Tremor is on (game rule doTremor true; /tremor system off turns all of it off)"));
+        return off ? 0 : 1;
+    }
+
     private static int spawn(CommandContext<CommandSourceStack> ctx, BlockPos requested) throws CommandSyntaxException {
         CommandSourceStack source = ctx.getSource();
+        if (tremor.TremorSwitch.off(source.getLevel())) {
+            throw OFF.create();
+        }
         TremorEntity entity = TremorManager.spawn(source.getLevel(), requested != null ? requested : lookTarget(source));
         if (entity == null) {
             throw NO_NODE.create();
@@ -418,6 +442,9 @@ public final class TremorCommands {
     private static int spawnCrawler(CommandContext<CommandSourceStack> ctx, BlockPos requested)
             throws CommandSyntaxException {
         CommandSourceStack source = ctx.getSource();
+        if (tremor.TremorSwitch.off(source.getLevel())) {
+            throw OFF.create();
+        }
         BlockPos pos = requested != null ? requested : lookTarget(source);
         Integer instance = tremor.entity.StalactiteCrawlers.spawn(source.getLevel(), pos,
                 "spawned by " + source.getTextName());
@@ -440,6 +467,9 @@ public final class TremorCommands {
     /** {@code /tremor spawn natural}: {@link NaturalSpawner#spawnNow} for the executing player. */
     private static int spawnNatural(CommandContext<CommandSourceStack> ctx) throws CommandSyntaxException {
         CommandSourceStack source = ctx.getSource();
+        if (tremor.TremorSwitch.off(source.getLevel())) {
+            throw OFF.create();
+        }
         NaturalSpawner.Outcome outcome = NaturalSpawner.spawnNow(source.getPlayerOrException());
         if (outcome.entity() == null) {
             source.sendFailure(Component.literal(outcome.message()));
@@ -456,6 +486,9 @@ public final class TremorCommands {
      */
     private static int spawnNear(CommandContext<CommandSourceStack> ctx) throws CommandSyntaxException {
         CommandSourceStack source = ctx.getSource();
+        if (tremor.TremorSwitch.off(source.getLevel())) {
+            throw OFF.create();
+        }
         ServerPlayer target = net.minecraft.commands.arguments.EntityArgument.getPlayer(ctx, "player");
         NaturalSpawner.Outcome outcome = NaturalSpawner.spawnNow(target);
         TremorRuntime runtime = outcome.entity() == null ? null
