@@ -111,6 +111,22 @@ public final class HollowShape {
         return 0.5 - 0.5 * Math.cos(2 * Math.PI * timeSeconds / p.breathPeriod() + phase);
     }
 
+    /** The player's eyes, this high over where they stand (blocks). */
+    public static final double EYE_HEIGHT = 1.62;
+    /** Within this of the eyes the ground keeps only {@link #EYE_KEEP} of its motion, all of it from {@link #EYE_CLEAR}. */
+    static final double EYE_NEAR = 0.6;
+    static final double EYE_CLEAR = 1.8;
+    static final double EYE_KEEP = 0.2;
+
+    /**
+     * Share of its motion the ground keeps at {@code distance} from the player's eyes: little right at them, all of it
+     * {@value #EYE_CLEAR} off (the user: in a narrow passage the walls and the ceiling swelling with the node's ring
+     * covered the screen). The floor under the player is farther than that.
+     */
+    public static double eyeShare(double distance) {
+        return EYE_KEEP + (1 - EYE_KEEP) * AwakeningShape.smoothstep((distance - EYE_NEAR) / (EYE_CLEAR - EYE_NEAR));
+    }
+
     /**
      * Share of an effect drawn around the player at {@code distance} from them: {@code smoothstep((radius - d)/fade)},
      * 1 up to {@code radius - fade}, 0 from {@code radius} on.

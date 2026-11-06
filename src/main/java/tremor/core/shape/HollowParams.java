@@ -35,14 +35,14 @@ public record HollowParams(double breathPeriod, double breathStart, double breat
      * 2.6 s; rings of 0.3 blocks growing to 0.45, one crest 2.5 blocks wide (a wavelength of 5) running out at
      * 10 blocks/s for 12 s, so a ring that reaches the player from the far side of the copy (some 35 blocks of
      * straight distance, 40-60 steps of winding way) still has 70% of its height ({@link HollowShape#ringStrength}),
-     * and one 48 blocks out 60%; the crest stands up to 70% higher within 4 blocks of the player, so the wave is seen
-     * coming from one side and passing. Both are drawn within 9 blocks of the player, fully within 6: the black fog of
+     * and one 48 blocks out 60%; the crest stands up to 40% higher within 4 blocks of the player (70% covered the screen
+     * in narrow passages, the user), so the wave is seen coming from one side and passing. Both are drawn within 9 blocks of the player, fully within 6: the black fog of
      * the hollow hides the rest (about 5.5 blocks; the client draws as far as its fog reaches, {@link #withReach}).
      * The region scanned follows the player every 4 blocks and reaches 14 blocks up and down; the ground settles
      * over 1.5 s.
      */
     private static final HollowParams DEFAULTS = new HollowParams(2.6, 0.1, 0.22, 6, 9, 3,
-            new RippleParams(0.3, 10, 5, 1, 12), 0.45, 9, 3, 0.7, 4, 4, 14, 1.5);
+            new RippleParams(0.3, 10, 5, 1, 12), 0.45, 9, 3, 0.4, 4, 4, 14, 1.5);
 
     /** @throws IllegalArgumentException if a value is non-finite or out of range */
     public HollowParams {

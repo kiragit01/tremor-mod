@@ -16,7 +16,7 @@ class HollowShapeTest {
 
     @Test
     void defaultsAndValidation() {
-        assertEquals(new HollowParams(2.6, 0.1, 0.22, 6, 9, 3, new RippleParams(0.3, 10, 5, 1, 12), 0.45, 9, 3, 0.7,
+        assertEquals(new HollowParams(2.6, 0.1, 0.22, 6, 9, 3, new RippleParams(0.3, 10, 5, 1, 12), 0.45, 9, 3, 0.4,
                 4, 4, 14, 1.5), P);
         RippleParams ring = P.ring();
         assertThrows(IllegalArgumentException.class,

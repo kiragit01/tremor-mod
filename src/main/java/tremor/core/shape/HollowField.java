@@ -11,7 +11,8 @@ import tremor.core.math.Vec3;
  * <pre>
  * breath · near(|p - player|, breathRadius) · heave(p, t)        the walls and the floor around the player heave
  *                                                               out of step ("пространство ходит ходуном")
- * + near(|p - player|, ringRadius) · (1 + crestBoost · crestShare(|p - player|))
+ * + near(|p - player|, ringRadius) · (1 + crestBoost · crestShare(|p - player|))  (all of it times
+ *   eyeShare(|p - eyes|): little right at the player's eyes)
  *       · Σ Ripple.height(ring, |p - origin|, age)              a ring from the node on every beat, its crest
  *                                                               swelling as it passes the player
  * </pre>
@@ -120,6 +121,10 @@ public final class HollowField implements GroundField {
                     h += share * (1 + params.crestBoost() * HollowShape.crestShare(params, distance)) * sum;
                 }
             }
+        }
+        if (h != 0) {
+            double ey = y - player.y() - HollowShape.EYE_HEIGHT;
+            h *= HollowShape.eyeShare(Math.sqrt(px * px + ey * ey + pz * pz));
         }
         return h;
     }
