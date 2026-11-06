@@ -1,0 +1,55 @@
+# A crawler's stalactites drawn out of the ceiling (1.4.0, the user): seen from the side, slowed down. A crawler over a
+# stone that lands under it crackles; columns of fake blocks grow down from the ceiling where its stalactites will
+# fall (two: its second attempt), and the stalactites come off where they hung. Copies tinted red.
+# Run: gradlew runClientAutotest -Ptremor_autotest_script=crawler-columns.txt
+waitchunks
+cmd gamemode spectator
+cmd time set noon
+cmd tremor despawn all
+cmd tremor crawler clear
+cmd kill @e[type=!player]
+config stalactites.enabled false
+cmd gamerule commandModificationBlockLimit 2147483647
+cmd tp @s 820.5 205.0 295.5
+wait 40
+waitchunks
+cmd fill 800 195 280 840 216 312 minecraft:stone
+cmd fill 811 201 286 830 208 305 minecraft:air
+cmd kill @e[type=!player]
+hud off
+tint on
+cmd effect give @s minecraft:night_vision 600 0 true
+cmd tp @s 811.5 201.0 296.5
+cmd tremor crawler spawn 820 201 296
+wait 40
+lookat 820.5 206.0 296.5
+# a first attempt, unseen, so the next drops two
+cmd summon minecraft:item 820.5 203 296.5 {Item:{id:"minecraft:stone",Count:1b},PickupDelay:32767}
+wait 220
+cmd kill @e[type=minecraft:item]
+cmd summon minecraft:item 820.5 203 296.5 {Item:{id:"minecraft:stone",Count:1b},PickupDelay:32767}
+wait 6
+screenshot 01
+wait 4
+screenshot 02
+wait 4
+screenshot 03
+wait 4
+screenshot 04
+wait 4
+screenshot 05
+wait 4
+screenshot 06
+wait 4
+screenshot 07
+wait 4
+screenshot 08
+wait 4
+screenshot 09
+wait 4
+screenshot 10
+wait 20
+cmd tremor crawler clear
+config stalactites.enabled true
+tint off
+quit

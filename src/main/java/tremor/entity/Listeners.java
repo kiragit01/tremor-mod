@@ -313,7 +313,8 @@ public final class Listeners {
     private static void signal(ServerLevel level, Listener l, Vec3 source, ServerPlayer player, long now) {
         l.deafUntil = Long.MAX_VALUE; // until its signal is over
         l.perkUntil = now + PERK_TICKS;
-        level.playSound(null, l.at.x(), l.at.y(), l.at.z(), TremorSounds.RIPPLE.get(), SoundSource.HOSTILE, 0.7f, 1.6f);
+        level.playSound(null, l.at.x(), l.at.y(), l.at.z(), TremorSounds.LISTENER_PING.get(), SoundSource.HOSTILE,
+                1.0f, 0.95f + level.getRandom().nextFloat() * 0.1f);
         RandomSource random = level.getRandom();
         BumpParams d0 = BumpParams.defaults().scaled(SIGNAL_SIZE);
         BumpParams shape = new BumpParams(SIGNAL_AMPLITUDE, d0.sigmaFront(), d0.sigmaBack(), d0.sigmaSide(),
@@ -436,6 +437,8 @@ public final class Listeners {
             BlockPos under = BlockPos.containing(l.at.x(), l.at.y(), l.at.z());
             level.sendParticles(new BlockParticleOption(ParticleTypes.FALLING_DUST, level.getBlockState(under)),
                     l.at.x(), l.at.y() + 0.7, l.at.z(), 3, 0.3, 0.05, 0.3, 0);
+            level.playSound(null, l.at.x(), l.at.y(), l.at.z(), TremorSounds.LISTENER_BREATH.get(),
+                    SoundSource.HOSTILE, 0.35f, 0.9f + random.nextFloat() * 0.2f);
         }
         double target = l.sinking ? 0 : now < l.perkUntil ? PERK_AMPLITUDE : AMPLITUDE;
         l.amplitude += (target - l.amplitude) * (l.sinking ? 0.15 : 0.25);
@@ -464,6 +467,8 @@ public final class Listeners {
             if (d <= ARRIVE) {
                 s.owner.relay(s.source, s.player == null ? null : level.getServer().getPlayerList()
                         .getPlayer(s.player), RELAYED, RELAY_ANGER);
+                level.playSound(null, goal.x(), goal.y(), goal.z(), TremorSounds.LISTENER_RELAY.get(),
+                        SoundSource.HOSTILE, 1.2f, 0.9f + level.getRandom().nextFloat() * 0.2f);
                 Tremor.LOGGER.info("A listener's signal reaches tremor #{} in {}", entity.instance(),
                         level.dimension().location());
                 die(level, s, null);

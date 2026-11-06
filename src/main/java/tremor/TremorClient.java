@@ -77,6 +77,9 @@ public final class TremorClient {
         // Fired on the sound engine's thread.
         game.addListener(tremor.client.sound.WorldSilence::onSoundStarted);
         game.addListener(tremor.client.sound.WorldSilence::onStreamStarted);
+        game.addListener(tremor.client.sound.ResonanceDaze::onClientTick);
+        game.addListener(tremor.client.sound.ResonanceDaze::onSoundStarted);
+        game.addListener(tremor.client.sound.ResonanceDaze::onStreamStarted);
 
         // Dev-only scripted run (gradlew runClientAutotest); inert unless -Dtremor.autotest is set.
         if (AutoTest.isEnabled()) {

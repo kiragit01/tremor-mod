@@ -64,6 +64,22 @@ public final class TremorSounds {
 
     private TremorSounds() {
     }
+    /** A resonance arrow drawn: its head starts to ring. */
+    public static final RegistryObject<SoundEvent> RESONANCE_DRAW = register("item.tremor.resonance_arrow.draw");
+    /** A resonance arrow flying: a whirring ring. */
+    public static final RegistryObject<SoundEvent> RESONANCE_FLIGHT = register("item.tremor.resonance_arrow.flight");
+    /** A resonance arrow bursts into its pulse. */
+    public static final RegistryObject<SoundEvent> RESONANCE_HIT = register("item.tremor.resonance_arrow.hit");
+    /** Struck by a resonance arrow: the ears ring. */
+    public static final RegistryObject<SoundEvent> RESONANCE_DAZE = register("entity.tremor.resonance.daze");
+    /** A listener hears and sends its signal. */
+    public static final RegistryObject<SoundEvent> LISTENER_PING = register("entity.tremor.listener.ping");
+    /** A listener breathes. */
+    public static final RegistryObject<SoundEvent> LISTENER_BREATH = register("entity.tremor.listener.breath");
+    /** A listener's signal reaches its tremor. */
+    public static final RegistryObject<SoundEvent> LISTENER_RELAY = register("entity.tremor.listener.relay");
+    /** Rock drawn out of a ceiling by a stalactite crawler. */
+    public static final RegistryObject<SoundEvent> CRAWLER_GRIND = register("entity.tremor.crawler.grind");
 
     public static void register(IEventBus modBus) {
         SOUNDS.register(modBus);
