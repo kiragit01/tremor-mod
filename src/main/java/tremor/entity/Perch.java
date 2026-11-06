@@ -139,9 +139,15 @@ final class Perch {
     /** Thrown off a top, a player is this much past its edge (half the width, and room) before coming back down. */
     static final double EDGE_CLEAR = 0.7;
     /** The fastest throw toward the trap (blocks per tick, across). */
-    static final double MAX_THROW = 1.5;
-    /** Damage of the stalactite, as a vanilla one falling from high up (scaled by the difficulty). */
-    static final double DAMAGE = 6;
+    static final double MAX_THROW = 2.2;
+    /** Damage of the stalactite (scaled by the difficulty; the user: harder than a vanilla one). */
+    static final double DAMAGE = 9;
+    /** Every attempt before in the guard, one more stalactite falls within this far of the first (blocks)... */
+    static final int EXTRA_RADIUS = 3;
+    /** ...and the small bump is this much bigger. */
+    static final double MINI_GROWTH = 0.2;
+    /** Where one lands it breaks the block under it, and at this chance the one under that too. */
+    static final double SMASH_DEEPER = 0.5;
     private static final BlockState STALACTITE = Blocks.POINTED_DRIPSTONE.defaultBlockState()
             .setValue(PointedDripstoneBlock.TIP_DIRECTION, Direction.DOWN)
             .setValue(PointedDripstoneBlock.THICKNESS, DripstoneThickness.TIP);
@@ -167,8 +173,16 @@ final class Perch {
     /** Every block its builds put, through all its guards: never taken again for a build (not saved). */
     private final java.util.Set<net.minecraft.core.BlockPos> ours = new java.util.HashSet<>();
     private Mini mini;
-    private FallingBlockEntity falling;
-    private Vec3 fellFrom;
+    /** The stalactites falling; the first of an attempt is the one over the player (its miss ends the trap sooner). */
+    private final java.util.List<Falling> falling = new java.util.ArrayList<>();
+    /** The ones beside it still to fall, a few ticks later each. */
+    private final java.util.List<Due> due = new java.util.ArrayList<>();
+
+    private record Falling(FallingBlockEntity entity, double fromY, boolean first) {
+    }
+
+    private record Due(BlockPos at, long when) {
+    }
     /** What it builds up to the player, or null; once per guard. */
     private PerchBuild build;
     /**
@@ -302,7 +316,7 @@ final class Perch {
                     chase();
                 }
             }
-            if (build == null && mini == null && falling == null && now >= nextDrop) {
+            if (build == null && mini == null && falling.isEmpty() && due.isEmpty() && now >= nextDrop) {
                 boolean stalactites = TremorConfig.COMMON.contactStalactites.get();
                 boolean buildUp = TremorConfig.COMMON.contactBuildUp.get() && !built;
                 if (buildUp && (drops >= MAX_DROPS || !stalactites && now - guardSince >= BUILD_AFTER_TICKS)) {
@@ -359,7 +373,7 @@ final class Perch {
         if (mini != null) {
             tickMini(now, motion);
         }
-        if (falling != null) {
+        if (!falling.isEmpty() || !due.isEmpty()) {
             tickFalling();
         }
         if (build != null && now >= buildFrom && build.tick(now)) {
@@ -675,7 +689,7 @@ final class Perch {
         crawler.follow(search.path());
         mini = new Mini(runtime.newInstance(), crawler, dropAt);
         PacketDistributor.sendToPlayersInDimension(level, new TremorShapePayload(mini.instance,
-                entity.params().bumpParams().scaled(MINI_SIZE).withAmplitude(MINI_AMPLITUDE)));
+                entity.params().bumpParams().scaled(MINI_SIZE * (1 + MINI_GROWTH * drops)).withAmplitude(MINI_AMPLITUDE)));
         sync(mini);
         Tremor.LOGGER.info("Tremor #{} in {} sends a small bump #{} up to the ceiling at {} {} {}", entity.instance(),
                 level.dimension().location(), mini.instance, x, VoxelPos.y(ceiling), z);
@@ -705,7 +719,7 @@ final class Perch {
             if (m.ticks >= SHAKE_TICKS) {
                 m.sinking = true;
                 if (prey != null && level.getBlockState(m.dropAt).isAir()) {
-                    drop(m.dropAt);
+                    attack(m.dropAt);
                 }
             }
         }
@@ -737,45 +751,118 @@ final class Perch {
 
     // ---- the stalactite ----
 
-    private void drop(BlockPos at) {
-        falling = FallingBlockEntity.fall(level, at, STALACTITE);
-        falling.dropItem = false;
-        fellFrom = new Vec3(falling.getX(), falling.getY(), falling.getZ());
+    /**
+     * An attempt: the stalactite over the player, and one more for every attempt before it in the guard (the user: the
+     * third time three fall) within {@value #EXTRA_RADIUS} blocks, where the ceiling lets one hang, a few ticks later
+     * each.
+     */
+    private void attack(BlockPos at) {
+        long now = level.getGameTime();
+        drop(at, true);
+        net.minecraft.util.RandomSource random = level.getRandom();
+        for (int i = 0; i < drops; i++) {
+            for (int tries = 0; tries < 6; tries++) {
+                BlockPos side = at.offset(random.nextInt(2 * EXTRA_RADIUS + 1) - EXTRA_RADIUS, 0,
+                        random.nextInt(2 * EXTRA_RADIUS + 1) - EXTRA_RADIUS);
+                BlockPos from = underCeiling(side);
+                if (from != null && !from.equals(at)) {
+                    due.add(new Due(from, now + 2 + random.nextInt(9)));
+                    break;
+                }
+            }
+        }
         drops++;
+    }
+
+    /** The open block right under the ceiling in the column of {@code p}, within 3 blocks up or down; or null. */
+    private BlockPos underCeiling(BlockPos p) {
+        for (int dy = -3; dy <= 3; dy++) {
+            BlockPos q = p.above(dy);
+            if (level.getBlockState(q).isAir()
+                    && !level.getBlockState(q.above()).getCollisionShape(level, q.above()).isEmpty()) {
+                return q;
+            }
+        }
+        return null;
+    }
+
+    private void drop(BlockPos at, boolean first) {
+        FallingBlockEntity f = FallingBlockEntity.fall(level, at, STALACTITE);
+        f.dropItem = false;
+        falling.add(new Falling(f, f.getY(), first));
         Tremor.LOGGER.info("Tremor #{} in {} drops a stalactite from {} {} {}", entity.instance(),
                 level.dimension().location(), at.getX(), at.getY(), at.getZ());
     }
 
-    /** Strikes a player it falls on (once, and it breaks on them); breaks without a drop where it lands. */
+    /** The ones due fall; each strikes a player it falls on (once, and it breaks on them), or breaks where it lands. */
     private void tickFalling() {
-        FallingBlockEntity f = falling;
+        long now = level.getGameTime();
+        due.removeIf(d -> {
+            if (now < d.when()) {
+                return false;
+            }
+            if (level.getBlockState(d.at()).isAir()) {
+                drop(d.at(), false);
+            }
+            return true;
+        });
+        falling.removeIf(this::fall);
+    }
+
+    /** One tick of a falling stalactite; true once it is over. */
+    private boolean fall(Falling s) {
+        FallingBlockEntity f = s.entity();
         if (f.isRemoved()) {
-            trapUntil = Math.min(trapUntil, level.getGameTime() + MISS_TICKS);
+            if (s.first()) {
+                trapUntil = Math.min(trapUntil, level.getGameTime() + MISS_TICKS);
+            }
             shatter(f);
-            return;
+            smash(f.blockPosition());
+            return true;
         }
         for (ServerPlayer player : level.players()) {
             if (!player.isSpectator() && !player.isCreative()
                     && Math.hypot(player.getX() - f.getX(), player.getZ() - f.getZ()) <= HIT_RADIUS
                     && f.getY() <= player.getEyeY() + 0.3 && f.getY() >= player.getY() - 0.5) {
-                hit(player, f);
+                hit(player, s);
                 trapUntil = Math.max(trapUntil, level.getGameTime() + LAND_TICKS);
                 f.discard();
                 shatter(f);
-                return;
+                return true;
             }
         }
+        return false;
     }
 
     private void shatter(FallingBlockEntity f) {
         play(SoundEvents.POINTED_DRIPSTONE_LAND, f.blockPosition(), 1, 1);
         level.sendParticles(new BlockParticleOption(ParticleTypes.BLOCK, STALACTITE), f.getX(), f.getY() + 0.5,
                 f.getZ(), 20, 0.25, 0.25, 0.25, 0.1);
-        falling = null;
+    }
+
+    /**
+     * Where it lands it breaks through the block under it, and at {@value #SMASH_DEEPER} the one under that (the
+     * user: through a block or two), dropping them as a pickaxe would; never one that cannot be broken, a fluid or one
+     * of {@code #tremor:protected}.
+     */
+    private void smash(BlockPos landed) {
+        BlockPos p = landed.below();
+        for (int i = 0; i < 2; i++, p = p.below()) {
+            BlockState state = level.getBlockState(p);
+            if (state.isAir() || !state.getFluidState().isEmpty() || state.getDestroySpeed(level, p) < 0
+                    || state.is(tremor.world.TremorTags.PROTECTED) || !level.getWorldBorder().isWithinBounds(p)) {
+                return;
+            }
+            level.destroyBlock(p, true);
+            if (level.getRandom().nextDouble() >= SMASH_DEEPER) {
+                return;
+            }
+        }
     }
 
     /** The damage of a falling stalactite and the strike's throw, toward the entity below (off the pillar). */
-    private void hit(ServerPlayer player, FallingBlockEntity f) {
+    private void hit(ServerPlayer player, Falling s) {
+        FallingBlockEntity f = s.entity();
         TremorConfig.Common config = TremorConfig.COMMON;
         float damage = (float) Difficulty.current().damage(DAMAGE);
         if (damage > 0) {
@@ -795,7 +882,7 @@ final class Perch {
         player.connection.send(new ClientboundSetEntityMotionPacket(player));
         player.hurtMarked = false;
         Tremor.LOGGER.info("Tremor #{}: the stalactite strikes {} ({} damage, fell {} blocks)", entity.instance(),
-                player.getGameProfile().getName(), damage, String.format(Locale.ROOT, "%.1f", fellFrom.y() - f.getY()));
+                player.getGameProfile().getName(), damage, String.format(Locale.ROOT, "%.1f", s.fromY() - f.getY()));
     }
 
     /**
