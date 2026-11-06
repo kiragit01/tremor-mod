@@ -124,9 +124,16 @@ public final class StalactiteCrawlers {
         }
     }
 
-    /** A stalactite to drop a few ticks later (the ones beside the first). */
-    private record Due(BlockPos at, int length, long when) {
+    /**
+     * A stalactite to drop at {@code when}, {@code length} pieces long; from {@code growFrom} on a column of fake blocks
+     * (the clients' bump {@code phantom}) grows down from the ceiling over it to that length: it is drawn out of the
+     * ceiling, not out of nothing (the user).
+     */
+    private record Due(BlockPos at, int length, long when, long growFrom, int phantom) {
     }
+
+    /** The columns grow this long before their stalactite comes off (ticks): about a second. */
+    static final int GROW_TICKS = 20;
 
     private StalactiteCrawlers() {
     }
@@ -344,6 +351,15 @@ public final class StalactiteCrawlers {
 
     /** Removes every crawler of {@code level}; how many there were. */
     public static int clear(ServerLevel level) {
+        List<Due> due = DUE.remove(level);
+        if (due != null) {
+            for (Due d : due) {
+                if (d.phantom() != 0) {
+                    PacketDistributor.sendToPlayersInDimension(level, TremorStatePayload.absent(d.phantom(),
+                            level.getGameTime()));
+                }
+            }
+        }
         List<Creature> creatures = CRAWLERS.remove(level);
         if (creatures == null) {
             return 0;
@@ -496,6 +512,10 @@ public final class StalactiteCrawlers {
                         ticks = 0;
                         crackleTicks = config.crackleTicks.get() + random.nextInt(5);
                         play(level, dropAt, SoundEvents.POINTED_DRIPSTONE_FALL, 1.2f, 0.6f + random.nextFloat() * 0.2f);
+                        int count = Math.min(MAX_AT_ONCE, ++attempts);
+                        drop(level, dropAt, random, count, level.getGameTime() + crackleTicks);
+                        Tremor.LOGGER.info("Stalactite crawler #{} in {} drops {} stalactites over {} {} {}", instance,
+                                level.dimension().location(), count, dropAt.getX(), dropAt.getY(), dropAt.getZ());
                     } else if (ticks > GIVE_UP_TICKS) {
                         crawler.stop();
                         state = State.HANG;
@@ -509,11 +529,7 @@ public final class StalactiteCrawlers {
                                 dropAt.getZ() + 0.5, 5, 0.5, 0.05, 0.5, 0);
                     }
                     if (ticks >= crackleTicks) {
-                        int count = Math.min(MAX_AT_ONCE, ++attempts);
-                        drop(level, dropAt, random, count);
-                        Tremor.LOGGER.info("Stalactite crawler #{} in {} drops {} stalactites over {} {} {}", instance,
-                                level.dimension().location(), count, dropAt.getX(), dropAt.getY(), dropAt.getZ());
-                        state = State.RECOVER;
+                        state = State.RECOVER; // its stalactites come off as their columns are grown
                         ticks = 0;
                     }
                 }
@@ -639,11 +655,12 @@ public final class StalactiteCrawlers {
     // ---- the stalactites ----
 
     /**
-     * Drops {@code count} stalactites: one from {@code at}, the others around it within {@value #EXTRA_RADIUS} blocks
-     * a moment later each, where the ceiling lets them: each 1 to 3 pieces long, never two alike.
+     * Readies {@code count} stalactites: one from {@code at} at {@code when}, the others around it within
+     * {@value #EXTRA_RADIUS} blocks a moment later each, where the ceiling lets them: each 1 to 3 pieces long, never two
+     * alike, each drawn out of the ceiling first ({@link Due}).
      */
-    private static void drop(ServerLevel level, BlockPos at, RandomSource random, int count) {
-        dropOne(level, at, 1 + random.nextInt(3));
+    private static void drop(ServerLevel level, BlockPos at, RandomSource random, int count, long when) {
+        due(level, at, 1 + random.nextInt(3), when, false); // under it its own bump hangs already
         for (int i = 1; i < count; i++) {
             BlockPos side = at.offset(random.nextInt(2 * EXTRA_RADIUS + 1) - EXTRA_RADIUS, 0,
                     random.nextInt(2 * EXTRA_RADIUS + 1) - EXTRA_RADIUS);
@@ -651,10 +668,46 @@ public final class StalactiteCrawlers {
                 BlockPos from = side.above(dy);
                 if (!from.equals(at) && level.getBlockState(from).isAir()
                         && !level.getBlockState(from.above()).getCollisionShape(level, from.above()).isEmpty()) {
-                    DUE.computeIfAbsent(level, l -> new ArrayList<>()).add(new Due(from, 1 + random.nextInt(3),
-                            level.getGameTime() + 2 + random.nextInt(9)));
+                    due(level, from, 1 + random.nextInt(3), when + random.nextInt(9), true);
                     break;
                 }
+            }
+        }
+    }
+
+    /**
+     * A stalactite due at {@code when}; with a {@code column} growing for {@value #GROW_TICKS} ticks before (not the one
+     * under the crawler: its bump and the column made a long tongue, the user).
+     */
+    private static void due(ServerLevel level, BlockPos at, int length, long when, boolean column) {
+        int phantom = column ? MinorIds.next() : 0;
+        long growFrom = column ? Math.max(level.getGameTime(), when - GROW_TICKS) : when;
+        DUE.computeIfAbsent(level, l -> new ArrayList<>()).add(new Due(at, length, when, growFrom, phantom));
+        if (!column) {
+            return;
+        }
+        // A small pointed mound hanging from the ceiling, some 3x3, rough as the crawler (the user), longer for a
+        // longer stalactite.
+        PacketDistributor.sendToPlayersInDimension(level, new TremorShapePayload(phantom,
+                new BumpParams(growth(length), 0.85, 0.85, 0.85, 0, 1, 0, 0.3)));
+    }
+
+    /** How far the mound over a stalactite {@code length} pieces long hangs down at its point (blocks). */
+    private static double growth(int length) {
+        return 0.9 + 0.3 * length;
+    }
+
+    /** The mound over a due stalactite, as far grown as it is by now. */
+    private static void growColumn(ServerLevel level, Due d, long now) {
+        double share = Math.min(1, (now - d.growFrom() + 1) / (double) Math.max(1, d.when() - d.growFrom()));
+        Vec3 ceiling = new Vec3(d.at().getX() + 0.5, d.at().getY() + 1.5, d.at().getZ() + 0.5);
+        TremorStatePayload state = new TremorStatePayload(d.phantom(), true, now, ceiling, new Vec3(0, -1, 0),
+                Vec3.UNIT_X, Vec3.ZERO, (float) (growth(d.length()) * share), 0, Stage.HUNTING, TremorStatePayload.NO_RIPPLE,
+                0, null);
+        double range = TremorConfig.COMMON.syncRange.get();
+        for (ServerPlayer player : level.players()) {
+            if (player.distanceToSqr(ceiling.x(), ceiling.y(), ceiling.z()) <= range * range) {
+                PacketDistributor.sendToPlayer(player, state);
             }
         }
     }
@@ -688,9 +741,15 @@ public final class StalactiteCrawlers {
             long now = level.getGameTime();
             due.removeIf(d -> {
                 if (now < d.when()) {
+                    if (d.phantom() != 0 && now >= d.growFrom() && (now - d.growFrom()) % 2 == 0) {
+                        growColumn(level, d, now);
+                    }
                     return false;
                 }
-                dropOne(level, d.at(), d.length());
+                if (d.phantom() != 0) {
+                    PacketDistributor.sendToPlayersInDimension(level, TremorStatePayload.absent(d.phantom(), now));
+                }
+                dropOne(level, d.at(), d.length()); // it comes off where its column hung
                 return true;
             });
         }
