@@ -14,7 +14,7 @@ import tremor.hollow.Marks;
 
 /**
  * The hushing charm (1.4.0): used, it takes one of the player's marks off ({@link Marks}) and is spent; with no mark,
- * it says so and is kept. Dear on purpose (three shards).
+ * it says so and is kept. One shard, as a victory gives (the user: three were too dear).
  */
 public final class HushCharmItem extends Item {
     public HushCharmItem(Properties properties) {
