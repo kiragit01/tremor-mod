@@ -164,6 +164,8 @@
   "tremor.configuration.spawn.minDistance": "Мин. расстояние до игрока",
   "tremor.configuration.spawn.maxDistance": "Макс. расстояние до игрока",
   "tremor.configuration.spawn.routeHalfWidth": "Полуширина маршрута",
+  "tremor.configuration.spawn.minY": "Появляется сама не ниже y",
+  "tremor.configuration.spawn.maxY": "Появляется сама не выше y",
   "tremor.configuration.spawn.verticalRange": "Диапазон поиска по высоте",
   "tremor.configuration.spawn.attempts": "Точек-кандидатов на появление",
   "tremor.configuration.spawn.cooldownSeconds": "Перерыв после ухода (с)",

@@ -164,6 +164,8 @@
   "tremor.configuration.spawn.minDistance": "Min distance to the player",
   "tremor.configuration.spawn.maxDistance": "Max distance to the player",
   "tremor.configuration.spawn.routeHalfWidth": "Route half-width",
+  "tremor.configuration.spawn.minY": "Comes by itself at or above y",
+  "tremor.configuration.spawn.maxY": "Comes by itself at or below y",
   "tremor.configuration.spawn.verticalRange": "Vertical search range",
   "tremor.configuration.spawn.attempts": "Candidate points per spawn",
   "tremor.configuration.spawn.cooldownSeconds": "Cooldown after leaving (s)",

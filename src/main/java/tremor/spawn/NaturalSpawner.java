@@ -299,6 +299,11 @@ public final class NaturalSpawner {
         if (AwakeningManager.runsNear(level, player.getX(), player.getZ(), spacing)) {
             return String.format(Locale.ROOT, "an Awakening runs within %.0f blocks", spacing);
         }
+        int minY = config.minY.get(), maxY = config.maxY.get(), reach = config.verticalRange.get();
+        if (player.getY() + reach < minY || player.getY() - reach > maxY) {
+            return String.format(Locale.ROOT, "no spawn point between y %d and %d within %d blocks of the player "
+                    + "(spawn.minY, spawn.maxY)", minY, maxY, reach);
+        }
         TremorSavedData.get(level).forgetPausesOver(now, pauseTicks(SpawnPauses.Kind.LEFT),
                 pauseTicks(SpawnPauses.Kind.AWAKENING));
         long left = pauseLeft(level, player.getX(), player.getZ(), SpawnPauses.Kind.LEFT);
@@ -379,7 +384,9 @@ public final class NaturalSpawner {
         double halfWidth = config.routeHalfWidth.get();
         boolean sky = level.dimensionType().hasSkyLight(); // the Nether, the End: neither applies
         boolean cavesOnly = sky && config.undergroundOnly.get(), darkOnly = sky && config.darkOnly.get();
-        Predicate<Vec3> allowed = p -> protection.test(p) && (inView(view, p) || heading.passes(feet, p, halfWidth))
+        int minY = config.minY.get(), maxY = config.maxY.get();
+        Predicate<Vec3> allowed = p -> p.y() >= minY && p.y() <= maxY && protection.test(p)
+                && (inView(view, p) || heading.passes(feet, p, halfWidth))
                 && (!cavesOnly || inCave(level, BlockPos.containing(p.x(), p.y() + 0.5, p.z())))
                 && (!darkOnly || Monster.isDarkEnoughToSpawn(level, BlockPos.containing(p.x(), p.y() + 0.5, p.z()),
                 level.getRandom()));
