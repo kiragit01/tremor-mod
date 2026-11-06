@@ -597,27 +597,39 @@ final class EventLevel {
 
     // ---- the marks: the creature knows the player ----
 
-    /** A digesting wave comes every this many ticks, a few more by chance; it rumbles this long before. */
+    /** A digesting wave comes every this many ticks, a few more by chance. */
     private static final int DIGEST_EVERY = 160;
     private static final int DIGEST_SPREAD = 120;
-    private static final int DIGEST_WARN = 20;
-    /** It starts this far from the player (blocks, across), and its front runs as a tremor's echo ring. */
-    private static final double DIGEST_FROM_MIN = 7;
-    private static final double DIGEST_FROM_MAX = 11;
-    private static final double DIGEST_SPEED = 8;
-    private static final double DIGEST_REACH = 34;
+    /**
+     * It starts this far from the player (blocks, across) and its front always reaches them this long after (ticks),
+     * when its rumble peaks (tools/sounds/synth.py digest_wave): the user could not read the old one, so it is timed.
+     */
+    private static final double DIGEST_FROM_MIN = 8;
+    private static final double DIGEST_FROM_MAX = 10;
+    private static final int DIGEST_TRAVEL = 32;
+    /** Its front runs on this far past the player. */
+    private static final double DIGEST_PAST = 6;
+    /** Embers glow along its front on the floor this far around the player, this far apart (blocks). */
+    private static final double DIGEST_SHOWN = 12;
+    private static final double DIGEST_EMBER_STEP = 0.45;
+    /** A reddish dust beside each ember, seen close up. */
+    private static final net.minecraft.core.particles.DustParticleOptions DIGEST_DUST =
+            new net.minecraft.core.particles.DustParticleOptions(new org.joml.Vector3f(0.75f, 0.08f, 0.05f), 1.1f);
     /** The player's marks, this one counted ({@link tremor.hollow.Marks}). */
     private final int marks;
     private long nextDigest = -1;
-    private long digestAt = -1;
     private Vec3 digestCenter;
+    private double digestSpeed;
+    private double digestReach;
     private long digestStart;
     private boolean digestHit;
 
     /**
-     * With enough marks the hollow digests ({@link tremor.hollow.Marks#digests}): every few seconds a deep rumble, a
-     * moment later a big ring runs out along its floor from near the player; standing on the ground as its front
-     * passes hurts (a jump just then, and it passes).
+     * With enough marks the hollow digests ({@link tremor.hollow.Marks#digests}): every few seconds a wave runs along
+     * its floor toward the player from one side, a line of embers glowing on the floor along its front, seen in the
+     * dark and unlike the node's rings (no copies), and a rumble from where it comes swelling to a crunch as it
+     * reaches them; standing on the ground then hurts, a jump just then and it passes (the user: the old big ring
+     * could not be seen in the dark, ran up the walls of tunnels and looked like the node's rings).
      */
     private void digest(ServerPlayer player) {
         if (!tremor.hollow.Marks.digests(marks)) {
@@ -627,44 +639,74 @@ final class EventLevel {
         if (nextDigest < 0) {
             nextDigest = ticks + DIGEST_EVERY + random.nextInt(DIGEST_SPREAD);
         }
-        if (digestAt < 0 && ticks >= nextDigest) {
-            digestAt = ticks + DIGEST_WARN;
-            hollow.playSound(null, player.getX(), player.getY(), player.getZ(), tremor.sound.TremorSounds.RUMBLE.get(),
-                    net.minecraft.sounds.SoundSource.HOSTILE, 1.6f, 0.6f);
-        }
-        if (digestAt >= 0 && ticks >= digestAt) {
+        if (digestCenter == null && ticks >= nextDigest) {
             double a = random.nextDouble() * Math.PI * 2;
             double d = DIGEST_FROM_MIN + random.nextDouble() * (DIGEST_FROM_MAX - DIGEST_FROM_MIN);
-            BlockPos floor = BlockPos.containing(player.getX() + Math.cos(a) * d, player.getY() - 0.5,
-                    player.getZ() + Math.sin(a) * d);
-            digestCenter = new Vec3(floor.getX() + 0.5, floor.getY() + 0.5, floor.getZ() + 0.5);
+            digestCenter = new Vec3(player.getX() + Math.cos(a) * d, player.getY(), player.getZ() + Math.sin(a) * d);
+            digestSpeed = d / DIGEST_TRAVEL;
+            digestReach = d + DIGEST_PAST;
             digestStart = ticks;
             digestHit = false;
-            tremor.entity.ResonanceArrows.ring(hollow, new tremor.core.math.Vec3(digestCenter.x, digestCenter.y,
-                    digestCenter.z), tremor.core.math.Vec3.UNIT_Y, true);
-            digestAt = -1;
+            hollow.playSound(null, digestCenter.x, digestCenter.y, digestCenter.z, tremor.sound.TremorSounds.DIGEST_WAVE.get(),
+                    net.minecraft.sounds.SoundSource.HOSTILE, 2.0f, 1.0f);
             nextDigest = ticks + DIGEST_EVERY + random.nextInt(DIGEST_SPREAD);
         }
-        if (digestCenter != null) {
-            double front = DIGEST_SPEED * (ticks - digestStart) / 20.0;
-            double away = Math.hypot(player.getX() - digestCenter.x, player.getZ() - digestCenter.z);
-            if (!digestHit && front >= away) {
-                digestHit = true;
-                if (tremor.hollow.Marks.grounded(player)) {
-                    float damage = (float) Difficulty.current().damage(tremor.hollow.Marks.DIGEST_DAMAGE);
-                    player.hurt(new net.minecraft.world.damagesource.DamageSource(hollow.registryAccess()
-                            .registryOrThrow(net.minecraft.core.registries.Registries.DAMAGE_TYPE)
-                            .getHolderOrThrow(tremor.hollow.Marks.DAMAGE)), damage);
-                    player.setDeltaMovement(player.getDeltaMovement().add(0, 0.35, 0));
-                    player.hurtMarked = true;
-                    Tremor.LOGGER.info("Hollow level: a digesting wave strikes {} ({} damage)", event.playerName(),
-                            damage);
-                }
-            }
-            if (front > DIGEST_REACH) {
-                digestCenter = null;
+        if (digestCenter == null) {
+            return;
+        }
+        double front = digestSpeed * (ticks - digestStart);
+        double away = Math.hypot(player.getX() - digestCenter.x, player.getZ() - digestCenter.z);
+        embers(player, front, random);
+        if (!digestHit && front >= away) {
+            digestHit = true;
+            if (tremor.hollow.Marks.grounded(player)) {
+                float damage = (float) Difficulty.current().damage(tremor.hollow.Marks.DIGEST_DAMAGE);
+                player.hurt(new net.minecraft.world.damagesource.DamageSource(hollow.registryAccess().registryOrThrow(net.minecraft.core.registries.Registries.DAMAGE_TYPE).getHolderOrThrow(tremor.hollow.Marks.DAMAGE)), damage);
+                player.setDeltaMovement(player.getDeltaMovement().add(0, 0.35, 0));
+                player.hurtMarked = true;
+                Tremor.LOGGER.info("Hollow level: a digesting wave strikes {} ({} damage)", event.playerName(),
+                        damage);
             }
         }
+        if (front > digestReach) {
+            digestCenter = null;
+        }
+    }
+
+    /** Embers along the digesting wave's front where it runs over the floor near the player, for that player. */
+    private void embers(ServerPlayer player, double front, net.minecraft.util.RandomSource random) {
+        if (front <= 0) {
+            return;
+        }
+        double toPlayer = Math.atan2(player.getZ() - digestCenter.z, player.getX() - digestCenter.x);
+        // The arc of the front within sight of the player: half its angle from the line to them.
+        double away = Math.hypot(player.getX() - digestCenter.x, player.getZ() - digestCenter.z);
+        double cos = (front * front + away * away - DIGEST_SHOWN * DIGEST_SHOWN) / (2 * front * Math.max(away, 1e-3));
+        double half = cos <= -1 ? Math.PI : cos >= 1 ? 0 : Math.acos(cos);
+        int count = Math.min(64, (int) Math.ceil(2 * half * front / DIGEST_EMBER_STEP));
+        for (int i = 0; i < count; i++) {
+            double angle = toPlayer + half * (2 * (i + random.nextDouble()) / count - 1);
+            double x = digestCenter.x + Math.cos(angle) * front, z = digestCenter.z + Math.sin(angle) * front;
+            int floor = floorAt(x, player.getY(), z);
+            if (floor != Integer.MIN_VALUE) {
+                hollow.sendParticles(player, net.minecraft.core.particles.ParticleTypes.SMALL_FLAME, false, x,
+                        floor + 0.05, z, 1, 0.12, 0.02, 0.12, 0.004);
+                hollow.sendParticles(player, DIGEST_DUST, false, x, floor + 0.15, z, 1, 0.15, 0.05, 0.15, 0);
+            }
+        }
+    }
+
+    /** The y of the top of the floor under (x, z) within a few blocks of {@code y}: an open block over a solid one. */
+    private int floorAt(double x, double y, double z) {
+        BlockPos.MutableBlockPos p = new BlockPos.MutableBlockPos();
+        int top = (int) Math.floor(y) + 2;
+        for (int fy = top; fy >= top - 6; fy--) {
+            p.set(Math.floor(x), fy, Math.floor(z));
+            if (!hollow.getBlockState(p).isSolid() && hollow.getBlockState(p.below()).isSolid()) {
+                return fy;
+            }
+        }
+        return Integer.MIN_VALUE;
     }
 
     /** The player made a vibration that reached the ground with {@code loudness} (SPEC 9: the noise speeds the closing). */
