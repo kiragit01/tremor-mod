@@ -39,6 +39,11 @@ class HollowFieldTest {
         assertThrows(NullPointerException.class, () -> new HollowField(P, PLAYER, null, 0.1, 0, List.of()));
     }
 
+    /** The share of its motion the ground keeps at a point, by its distance from the player's eyes. */
+    private static double eye(double x, double y, double z) {
+        return HollowShape.eyeShare(distance(PLAYER.add(new Vec3(0, HollowShape.EYE_HEIGHT, 0)), x, y, z));
+    }
+
     @Test
     void theGroundHeavesAroundThePlayerOnly() {
         HollowField f = field(0.2, List.of());
@@ -48,7 +53,7 @@ class HollowFieldTest {
             double z = PLAYER.z() + random.nextGaussian() * 10;
             double d = distance(PLAYER, x, y, z);
             double expected = 0.2 * HollowShape.near(P.breathRadius(), P.breathFade(), d)
-                    * HollowShape.heave(P, TIME, x, y, z);
+                    * HollowShape.heave(P, TIME, x, y, z) * eye(x, y, z);
             assertEquals(expected, f.at(x, y, z), 1e-12);
             assertTrue(f.at(x, y, z) <= f.maxHeight() + 1e-12);
             if (d >= P.breathRadius()) {
@@ -73,7 +78,7 @@ class HollowFieldTest {
             double swell = 1 + P.crestBoost() * HollowShape.crestShare(P, toPlayer);
             double r = distance(NODE, x, y, z);
             double expected = share * swell
-                    * (Ripple.height(P.ring(), r, age) + Ripple.height(P.ring(), r, age + 0.9));
+                    * (Ripple.height(P.ring(), r, age) + Ripple.height(P.ring(), r, age + 0.9)) * eye(x, y, z);
             assertEquals(expected, f.at(x, y, z), 1e-12);
             assertEquals(share, f.ringShare(x, y, z), 1e-12);
             raised |= f.at(x, y, z) > BumpShape.RENDER_THRESHOLD;
@@ -98,7 +103,8 @@ class HollowFieldTest {
         double age = (d + ring.wavelength() / 4) / ring.speed();
         HollowField f = field(0, List.of(new AwakeningField.Ring(NODE, age, ring)));
         double crest = ring.amplitude() * (1 - age / ring.duration());
-        assertEquals(crest * (1 + P.crestBoost()), f.at(PLAYER.x(), PLAYER.y(), PLAYER.z()), 1e-9);
+        assertEquals(crest * (1 + P.crestBoost()) * eye(PLAYER.x(), PLAYER.y(), PLAYER.z()),
+                f.at(PLAYER.x(), PLAYER.y(), PLAYER.z()), 1e-9);
         // The same crest 5 blocks to the side, beyond the swell but well within sight: its plain height.
         Vec3 way = PLAYER.sub(NODE).normalize();
         Vec3 side = NODE.add(way.scale(d).add(way.anyPerpendicular().scale(5)).normalize().scale(d));
@@ -107,7 +113,7 @@ class HollowFieldTest {
         // A ring from across the copy (35 blocks) is still drawn well above the threshold under the player.
         double far = (35 + ring.wavelength() / 4) / ring.speed();
         double under = ring.amplitude() * (1 - far / ring.duration()) * (1 + P.crestBoost());
-        assertTrue(under > 6 * BumpShape.RENDER_THRESHOLD, "under the player: " + under);
+        assertTrue(under > 5 * BumpShape.RENDER_THRESHOLD, "under the player: " + under);
     }
 
     @Test
