@@ -97,6 +97,13 @@ public final class StalactiteCrawlers {
     static final double NEAR_RADIUS = 48;
     /** No two this near each other (blocks). */
     static final double SPACING = 6;
+    /**
+     * Two going for the same sound keep this far apart (blocks): not one on top of another, but near enough to drop
+     * together (the user).
+     */
+    static final double MIN_GAP = 2.5;
+    /** It tries this many spots at most to get to over a sound. */
+    static final int MAX_SPOTS = 4;
     /** With no player this near (blocks) for this long (ticks) it sinks away. */
     static final double LONELY_DISTANCE = 64;
     static final int LONELY_TICKS = 600;
@@ -386,6 +393,55 @@ public final class StalactiteCrawlers {
     }
 
     /** How many crawlers of {@code level} are within {@code radius} of the point. */
+    /**
+     * The spots over ({@code x}, {@code z}) it may go for, nearest first: that one if no other crawler's spot
+     * ({@link #spot}) is within {@value #MIN_GAP}, then those around it {@value #MIN_GAP} and one more block out by a
+     * turn of its own that are as clear.
+     */
+    private static List<int[]> spots(ServerLevel level, Creature self, int x, int z) {
+        List<Creature> all = CRAWLERS.get(level);
+        List<int[]> spots = new ArrayList<>();
+        if (clear(all, self, x + 0.5, z + 0.5)) {
+            spots.add(new int[]{x, z});
+        }
+        double turn = self.random.nextDouble() * Math.PI * 2;
+        for (double r = MIN_GAP; r <= MIN_GAP + 1; r += 1) {
+            for (int k = 0; k < 8; k++) {
+                double a = turn + Math.PI * 2 * k / 8;
+                int cx = (int) Math.floor(x + 0.5 + r * Math.cos(a)), cz = (int) Math.floor(z + 0.5 + r * Math.sin(a));
+                if (clear(all, self, cx + 0.5, cz + 0.5)) {
+                    spots.add(new int[]{cx, cz});
+                }
+            }
+        }
+        return spots;
+    }
+
+    /** Whether no crawler but {@code self} has its spot within {@value #MIN_GAP} of ({@code x}, {@code z}). */
+    private static boolean clear(List<Creature> all, Creature self, double x, double z) {
+        if (all == null) {
+            return true;
+        }
+        for (Creature c : all) {
+            if (c != self && c.state != State.SINK) {
+                double[] s = spot(c);
+                if (Math.hypot(s[0] - x, s[1] - z) < MIN_GAP) {
+                    return false;
+                }
+            }
+        }
+        return true;
+    }
+
+    /** Where a crawler is going to be: where it drops from while it creeps or crackles, else where it hangs. */
+    private static double[] spot(Creature c) {
+        if (c.dropAt != null && (c.state == State.CREEP || c.state == State.CRACKLE)) {
+            return new double[]{c.dropAt.getX() + 0.5, c.dropAt.getZ() + 0.5};
+        }
+        Vec3 p = c.crawler.position();
+        return new double[]{p.x(), p.z()};
+    }
+
     public static int near(ServerLevel level, double x, double y, double z, double radius) {
         List<Creature> creatures = CRAWLERS.get(level);
         int count = 0;
@@ -519,7 +575,7 @@ public final class StalactiteCrawlers {
                         go(level, sound); // out of reach: it keeps on to the last one
                     }
                     if (crawler.speed() > 0.1 && ticks % SCRAPE_TICKS == 0) {
-                        play(level, at, tremor.sound.TremorSounds.CRAWLER_CREEP.get(), 0.45f, 0.85f + random.nextFloat() * 0.3f);
+                        play(level, at, tremor.sound.TremorSounds.CRAWLER_CREEP.get(), 0.38f, 0.85f + random.nextFloat() * 0.3f);
                     }
                     if (there || crawler.arrived()) {
                         there = false;
@@ -583,11 +639,24 @@ public final class StalactiteCrawlers {
          * least {@value #MIN_OPEN} open blocks under it, reached along dark ceilings; false if there is none.
          */
         private boolean go(ServerLevel level, Vec3 sound) {
-            int x = (int) Math.floor(sound.x()), z = (int) Math.floor(sound.z()), ground = (int) Math.floor(sound.y());
+            int sx = (int) Math.floor(sound.x()), sz = (int) Math.floor(sound.z()), ground = (int) Math.floor(sound.y());
             if (dropAt != null && state == State.CREEP
-                    && Math.hypot(dropAt.getX() - x, dropAt.getZ() - z) <= RETARGET_DISTANCE) {
-                return true; // already on the way there
+                    && Math.hypot(dropAt.getX() - sx, dropAt.getZ() - sz) <= MIN_GAP + 1 + RETARGET_DISTANCE
+                    && clear(CRAWLERS.get(level), this, dropAt.getX() + 0.5, dropAt.getZ() + 0.5)) {
+                return true; // already on the way there, or beside it apart from another
             }
+            // Over the sound, or beside it apart from the others: the first spot it can get to of a few.
+            List<int[]> spots = spots(level, this, sx, sz);
+            for (int i = 0; i < Math.min(spots.size(), MAX_SPOTS); i++) {
+                if (goTo(level, spots.get(i)[0], spots.get(i)[1], ground)) {
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        /** Sets off along the ceiling to over ({@code x}, {@code z}) above the ground at {@code ground}. */
+        private boolean goTo(ServerLevel level, int x, int z, int ground) {
             lastSearch = level.getGameTime();
             graph = graph(level);
             ceilings = new Ceilings(graph, level);

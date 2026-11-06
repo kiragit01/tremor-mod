@@ -1,0 +1,40 @@
+# Two stalactite crawlers going for the same player keep apart (the user: not one on top of another, but two or three
+# blocks apart they drop their stalactites together). A closed dark cave; two crawlers 8 blocks apart on the ceiling,
+# the player between them making noise: both creep over and drop, from spots 2.5 blocks apart or more (the log tells).
+# Run: gradlew runClientAutotest -Ptremor_autotest_script=crawlers-apart.txt
+waitchunks
+cmd gamemode spectator
+cmd time set noon
+cmd tremor despawn all
+cmd tremor crawler clear
+cmd kill @e[type=!player]
+config stalactites.enabled false
+cmd gamerule commandModificationBlockLimit 2147483647
+cmd tp @s 820.5 205.0 295.5
+wait 40
+waitchunks
+cmd fill 800 195 280 840 216 312 minecraft:stone
+cmd fill 811 201 286 830 208 305 minecraft:air
+cmd kill @e[type=!player]
+hud off
+tint on
+cmd effect give @s minecraft:night_vision 600 0 true
+cmd tp @s 820.5 201.0 296.5 0 -40
+cmd gamemode survival
+cmd effect give @s minecraft:resistance 600 4 true
+wait 20
+cmd tremor crawler spawn 816 201 296
+cmd tremor crawler spawn 824 201 296
+wait 40
+cmd tremor voice 0
+wait 30
+cmd tremor voice 0
+wait 30
+screenshot 01_over
+wait 15
+screenshot 02_crackle
+wait 30
+screenshot 03_after
+cmd tremor crawler clear
+tint off
+quit
