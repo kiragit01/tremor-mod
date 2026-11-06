@@ -419,13 +419,24 @@ def resonance_daze(rng):
 
 
 def listener_ping(rng):
-    """A listener hears and sends: a muffled knock in the ground and a short rising whine running off with the signal."""
-    n = samples(0.8)
+    """A listener hears and sends its signal: two dull knocks deep in the ground close together, then a gritty rush
+    running off under the ground, its brightness going first as it goes away (no tone: the user found the rising
+    whine awful)."""
+    n = samples(1.3)
     t = np.arange(n) / SR
-    knock = thump(0.8, 140, 70, 0.12, rng, click=0.4)
-    whine = osc(320 * np.exp(t * 1.4)) * swell(n, 0.05, 0.5) * 0.25
-    whine = filt(whine, lo=200, hi=1500)
-    return finish(cave(knock + whine, rt=0.9, wet=0.3, lp=2000, rng=rng), peak_db=-3)
+    x = np.zeros(n)
+    for at, f0, a in ((0.0, 95, 1.0), (0.13, 78, 0.7)):
+        k = thump(0.5, f0, 44, 0.09, rng, click=0.25) * a
+        i = samples(at)
+        x[i:i + len(k)] += k[:n - i]
+    start = np.clip((t - 0.15) / 0.06, 0, 1)
+    low = filt(noise(n, -3, rng), lo=90, hi=420)
+    low = low / (np.std(low) + 1e-12) * 0.22 * start * np.exp(-np.clip(t - 0.2, 0, None) / 0.45)
+    high = filt(noise(n, -2, rng), lo=420, hi=1400)
+    high = high / (np.std(high) + 1e-12) * 0.12 * start * np.exp(-np.clip(t - 0.2, 0, None) / 0.16)
+    grit = grains(n, 80, (0.002, 0.008), (400, 1800), (0.1, 0.35), rng,
+                  density_env=start * np.exp(-np.clip(t - 0.2, 0, None) / 0.3))
+    return finish(cave(x + low + high + grit * 0.6, rt=0.8, wet=0.25, lp=1800, rng=rng), peak_db=-3)
 
 
 def listener_breath(rng):
