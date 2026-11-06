@@ -237,9 +237,8 @@ final class PerchBuild {
     /**
      * The player went aside to {@code target} (the block now under their feet). Within {@value #LEG} blocks of the end
      * of the way it waits (it can get to them from there); farther, {@code target} joins the trail, the places the way
-     * goes to in order from the core's top, and the way runs along it as the user put it: out of each place a pillar
-     * up (or down) to the next one's level, then a bridge across to it ({@link #leg}); higher again, a pillar out of
-     * the bridge's end. Once the core is up, every open cell of the way (a gap: the player broke it behind them, or
+     * goes to in order from the core's top, and the way runs along it as the user put it: out of each place a trunk
+     * slantwise to the next one, leaning and ragged ({@link #leg}); higher again, on out of its end. Once the core is up, every open cell of the way (a gap: the player broke it behind them, or
      * walked where it runs beside) is filled in its order, coming out of the cell before it, and around it: a 3x3 with
      * blocks sticking out around a pillar, a block each side of a bridge, coming out of it. False, changing nothing,
      * if the player got farther than {@value #MAX_STRIDE} blocks from the end of the way.
@@ -323,27 +322,41 @@ final class PerchBuild {
     }
 
     /**
-     * The way from {@code a} (not included) to {@code b}: a pillar up (or down) out of {@code a} to the level of
-     * {@code b}, leaning a block aside from layer to layer at {@value #LEG_LEAN_CHANCE} (at most {@value #LEG_LEAN_MAX}
-     * from {@code a}: the user, nothing neat), then a bridge straight across to {@code b}. Drawn from the cells, so the
-     * same way again every time it is laid.
+     * The way from {@code a} (not included) to {@code b}: a trunk straight slantwise to it (the user: a very uneven
+     * pillar going at a slant toward where the player builds), up and across at once, leaning a block aside now and
+     * then at {@value #LEG_LEAN_CHANCE} (at most {@value #LEG_LEAN_MAX} off the straight line, back on it at {@code b}),
+     * every cell touching the one before it. Drawn from the cells, so the same way again every time it is laid.
      */
     private void leg(BlockPos a, BlockPos b, List<BlockPos> out) {
-        int cx = a.getX(), cy = a.getY(), cz = a.getZ();
-        while (cy != b.getY()) {
-            cy += Integer.signum(b.getY() - cy);
-            double lean = draw(new BlockPos(cx, cy, cz));
+        int dx = b.getX() - a.getX(), dy = b.getY() - a.getY(), dz = b.getZ() - a.getZ();
+        int steps = Math.max(Math.abs(dy), Math.max(Math.abs(dx), Math.abs(dz)));
+        int ox = 0, oz = 0;
+        BlockPos before = a;
+        for (int k = 1; k <= steps; k++) {
+            double t = (double) k / steps;
+            int bx = a.getX() + (int) Math.round(dx * t), by = a.getY() + (int) Math.round(dy * t);
+            int bz = a.getZ() + (int) Math.round(dz * t);
+            double lean = draw(new BlockPos(bx, by, bz));
             if (lean < LEG_LEAN_CHANCE) {
                 int way = (int) (lean / LEG_LEAN_CHANCE * 4);
-                int nx = cx + (way == 0 ? 1 : way == 1 ? -1 : 0), nz = cz + (way == 2 ? 1 : way == 3 ? -1 : 0);
-                if (Math.abs(nx - a.getX()) <= LEG_LEAN_MAX && Math.abs(nz - a.getZ()) <= LEG_LEAN_MAX) {
-                    cx = nx;
-                    cz = nz;
-                }
+                ox += way == 0 ? 1 : way == 1 ? -1 : 0;
+                oz += way == 2 ? 1 : way == 3 ? -1 : 0;
             }
-            add(new BlockPos(cx, cy, cz), out);
+            int room = Math.min(LEG_LEAN_MAX, steps - k); // back on the line at the end
+            ox = Math.max(-room, Math.min(room, ox));
+            oz = Math.max(-room, Math.min(room, oz));
+            BlockPos p = new BlockPos(bx + ox, by, bz + oz);
+            // A lean and a step the same way make two blocks: a cell between, so the trunk holds together.
+            while (Math.abs(p.getX() - before.getX()) > 1 || Math.abs(p.getY() - before.getY()) > 1
+                    || Math.abs(p.getZ() - before.getZ()) > 1) {
+                before = new BlockPos(before.getX() + Integer.signum(p.getX() - before.getX()),
+                        before.getY() + Integer.signum(p.getY() - before.getY()),
+                        before.getZ() + Integer.signum(p.getZ() - before.getZ()));
+                add(before, out);
+            }
+            add(p, out);
+            before = p;
         }
-        line(new BlockPos(cx, cy, cz), b, out);
     }
 
     /**
@@ -431,6 +444,21 @@ final class PerchBuild {
     /** No more blocks set off; those under way go on to their place ({@link #tick} until it is over). */
     void finish() {
         stopped = done = true;
+    }
+
+    /** A guard begins anew near it: it goes on ({@link #finish} undone). */
+    void resume() {
+        stopped = done = false;
+    }
+
+    /**
+     * Whether the column {@code x, z} with the player's feet on {@code top} is near the end of the way (or the core's
+     * top): within twice {@value #MAX_STRIDE} blocks across and up; a guard begun anew goes on with it from there.
+     */
+    boolean near(int x, int top, int z) {
+        BlockPos end = trail.isEmpty() ? new BlockPos(this.x, topY, this.z) : trail.get(trail.size() - 1);
+        return Math.max(Math.abs(x - end.getX()), Math.abs(z - end.getZ())) <= 2 * MAX_STRIDE
+                && Math.abs(top - end.getY()) <= 2 * MAX_STRIDE;
     }
 
     /**
