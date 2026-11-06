@@ -132,8 +132,12 @@ public final class StalactiteCrawlers {
     private record Due(BlockPos at, int length, long when, long growFrom, int phantom) {
     }
 
-    /** The columns grow this long before their stalactite comes off (ticks): about a second. */
+    /** The columns grow this long before their stalactite comes off (ticks): about a second... */
     static final int GROW_TICKS = 20;
+    /** ...and draw back into the ceiling over this long after (the user: not gone at once). */
+    static final int SHRINK_TICKS = 12;
+    /** The mounds drawing back: each due that came off, and when. */
+    private static final Map<ServerLevel, List<Due>> SHRINKING = new HashMap<>();
 
     private StalactiteCrawlers() {
     }
@@ -199,6 +203,7 @@ public final class StalactiteCrawlers {
         CRAWLERS.clear();
         FALLING.clear();
         DUE.clear();
+        SHRINKING.clear();
     }
 
     // ---- hearing ----
@@ -352,6 +357,13 @@ public final class StalactiteCrawlers {
     /** Removes every crawler of {@code level}; how many there were. */
     public static int clear(ServerLevel level) {
         List<Due> due = DUE.remove(level);
+        List<Due> shrinking = SHRINKING.remove(level);
+        if (shrinking != null) {
+            if (due == null) {
+                due = new ArrayList<>();
+            }
+            due.addAll(shrinking);
+        }
         if (due != null) {
             for (Due d : due) {
                 if (d.phantom() != 0) {
@@ -700,9 +712,14 @@ public final class StalactiteCrawlers {
     /** The mound over a due stalactite, as far grown as it is by now. */
     private static void growColumn(ServerLevel level, Due d, long now) {
         double share = Math.min(1, (now - d.growFrom() + 1) / (double) Math.max(1, d.when() - d.growFrom()));
+        sendMound(level, d, now, growth(d.length()) * share);
+    }
+
+    /** The mound over {@code d}, {@code height} blocks at its point, to the players within the sync range. */
+    private static void sendMound(ServerLevel level, Due d, long now, double height) {
         Vec3 ceiling = new Vec3(d.at().getX() + 0.5, d.at().getY() + 1.5, d.at().getZ() + 0.5);
         TremorStatePayload state = new TremorStatePayload(d.phantom(), true, now, ceiling, new Vec3(0, -1, 0),
-                Vec3.UNIT_X, Vec3.ZERO, (float) (growth(d.length()) * share), 0, Stage.HUNTING, TremorStatePayload.NO_RIPPLE,
+                Vec3.UNIT_X, Vec3.ZERO, (float) height, 0, Stage.HUNTING, TremorStatePayload.NO_RIPPLE,
                 0, null);
         double range = TremorConfig.COMMON.syncRange.get();
         for (ServerPlayer player : level.players()) {
@@ -747,10 +764,25 @@ public final class StalactiteCrawlers {
                     return false;
                 }
                 if (d.phantom() != 0) {
-                    PacketDistributor.sendToPlayersInDimension(level, TremorStatePayload.absent(d.phantom(), now));
+                    SHRINKING.computeIfAbsent(level, l -> new ArrayList<>()).add(d); // its mound draws back
                 }
                 dropOne(level, d.at(), d.length()); // it comes off where its column hung
                 return true;
+            });
+        }
+        List<Due> shrinking = SHRINKING.get(level);
+        if (shrinking != null) {
+            long now = level.getGameTime();
+            shrinking.removeIf(d -> {
+                long since = now - d.when();
+                if (since >= SHRINK_TICKS) {
+                    PacketDistributor.sendToPlayersInDimension(level, TremorStatePayload.absent(d.phantom(), now));
+                    return true;
+                }
+                if (since % 2 == 0) {
+                    sendMound(level, d, now, growth(d.length()) * (1 - since / (double) SHRINK_TICKS));
+                }
+                return false;
             });
         }
         List<Stalactite> falling = FALLING.get(level);

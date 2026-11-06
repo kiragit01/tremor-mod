@@ -43,8 +43,12 @@ wait 4
 screenshot 06
 wait 4
 screenshot 07
-wait 6
+wait 4
 screenshot 08
+wait 4
+screenshot 09
+wait 4
+screenshot 10
 cmd tick rate 20
 wait 20
 cmd tremor crawler clear
