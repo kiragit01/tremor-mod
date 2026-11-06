@@ -580,6 +580,8 @@ public final class TremorConfig {
         public final ForgeConfigSpec.DoubleValue maxDistance;
         public final ForgeConfigSpec.DoubleValue routeHalfWidth;
         public final ForgeConfigSpec.IntValue verticalRange;
+        public final ForgeConfigSpec.IntValue minY;
+        public final ForgeConfigSpec.IntValue maxY;
         public final ForgeConfigSpec.IntValue attempts;
         public final ForgeConfigSpec.IntValue cooldownSeconds;
         public final ForgeConfigSpec.IntValue spacing;
@@ -626,6 +628,11 @@ public final class TremorConfig {
             routeHalfWidth = b.comment("A spawn point the player does not see must lie within this distance (blocks,",
                             "sideways) of the player's way ahead, which may climb or fall up to 45 degrees")
                     .translation(KEY + "spawn.routeHalfWidth").defineInRange("routeHalfWidth", 10.0, 0.0, 64.0);
+            minY = b.comment("It appears by itself only at or above this height (y of where it comes up): with",
+                            "maxY, a band of the world it keeps to (say, only under the deepslate line: maxY 0)")
+                    .translation(KEY + "spawn.minY").defineInRange("minY", -2048, -2048, 2048);
+            maxY = b.comment("It appears by itself only at or below this height (y of where it comes up)")
+                    .translation(KEY + "spawn.maxY").defineInRange("maxY", 2048, -2048, 2048);
             verticalRange = b.comment("Spawn points are looked for this many blocks above and below the player's feet")
                     .translation(KEY + "spawn.verticalRange").defineInRange("verticalRange", 24, 0, 128);
             attempts = b.comment("Candidate points tried per spawn (each costs a column scan and a line of sight)")
