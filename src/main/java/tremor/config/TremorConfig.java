@@ -1010,7 +1010,7 @@ public final class TremorConfig {
             lightLevel = b.comment("Light from this level on keeps them off: they never go there and sink away from it")
                     .translation(KEY + "stalactites.lightLevel").defineInRange("lightLevel", 8, 1, 15);
             damage = b.comment("Damage of a stalactite that falls on someone (scaled by the difficulty)")
-                    .translation(KEY + "stalactites.damage").defineInRange("damage", 4.0, 0.0, 40.0);
+                    .translation(KEY + "stalactites.damage").defineInRange("damage", 6.0, 0.0, 40.0);
             b.pop();
         }
     }

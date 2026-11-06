@@ -1,5 +1,6 @@
 # The stalactite crawler (1.4.0). A closed stone cave, 8 high, dark. A crawler on the ceiling 10 blocks off hears the
-# player, creeps along the ceiling to over them, crackles and drops stalactites (the player is struck). Then a
+# player, creeps along the ceiling to over them, crackles and drops stalactites (the player is struck, knocked away);
+# heard again it drops two, then three. Then a
 # lantern beside it: it sinks into the rock. Then another one is killed by breaking its block. Then the natural spawn
 # (chance 1). The copies are tinted red; night vision to see in the cave. The server log tells what each one did.
 # Run: gradlew runClientAutotest -Ptremor_autotest_script=stalactite-crawler.txt
@@ -48,6 +49,16 @@ wait 10
 screenshot 08_drop
 wait 40
 screenshot 09_bulge
+# it tries again, one more stalactite each time (two, then three)
+wait 130
+cmd tremor voice 0
+wait 30
+screenshot 09b_second
+wait 240
+cmd tremor voice 0
+wait 30
+screenshot 09c_third
+wait 40
 # a lantern beside it: it sinks into the rock
 cmd setblock 818 208 296 minecraft:lantern[hanging=true]
 wait 15
