@@ -86,6 +86,9 @@ public final class Tremor {
         game.addListener(tremor.entity.StalactiteCrawlers::onLevelTick);
         game.addListener(tremor.entity.StalactiteCrawlers::onBlockBreak);
         game.addListener(tremor.entity.StalactiteCrawlers::onServerStopped);
+        game.addListener(tremor.entity.Listeners::onLevelTick);
+        game.addListener(tremor.entity.Listeners::onBlockBreak);
+        game.addListener(tremor.entity.Listeners::onServerStopped);
         game.addListener(tremor.hearing.Voices::onLevelTick);
         game.addListener(tremor.hearing.Voices::onPlayerLoggedIn);
         // Lowest priority, cancelled ones included: what matters is the final state of the world.

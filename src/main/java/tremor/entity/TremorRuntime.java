@@ -1219,6 +1219,26 @@ public final class TremorRuntime {
     }
 
     /** {@code player} made a sound at {@code at} that the entity heard. */
+    /**
+     * A listener's signal reached the entity ({@link Listeners}): it hears {@code source} as a sound {@code perceived}
+     * loud, {@code bonus} more anger on top (its own listener calls it: it wakes), the brain goes there; from
+     * {@code player} if they made it (null: a thing that landed).
+     */
+    void relay(Vec3 source, net.minecraft.world.entity.player.Player player, double perceived, double bonus) {
+        TremorEntity entity = this.entity;
+        if (entity == null || error != null || paused) {
+            return;
+        }
+        long now = level.getGameTime();
+        entity.setLastHeard(new TremorEntity.Heard(source, now, perceived, "listener"));
+        data.setDirty();
+        mind(entity).heard(source, perceived, bonus + perceived * Difficulty.current().anger(
+                TremorConfig.COMMON.angerPerLoudness.get()));
+        if (player != null) {
+            heardPlayer(player, source);
+        }
+    }
+
     public void heardPlayer(net.minecraft.world.entity.player.Player player, Vec3 at) {
         TremorEntity entity = this.entity;
         if (entity != null) {

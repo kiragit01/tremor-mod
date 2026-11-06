@@ -415,6 +415,9 @@ final class TremorMind {
         boolean idle = !manual && !orders.waiting() && runtime.bodyIdle(entity);
         Decision decision = brain.tick(TremorRuntime.TICK_SECONDS, meter.stage(), entity.crawler().position(), idle,
                 world);
+        if (brain.takeGivenUp()) {
+            Listeners.lost(runtime, brain.lastHeard()); // lost the one it hunted: it leaves listeners there
+        }
         BrainOrders.Order order = orders.next(decision, brain.lastHeardLoudness(), manual,
                 perceived -> runtime.mayRetarget(entity, now, perceived));
         switch (order.type()) {

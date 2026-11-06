@@ -119,6 +119,12 @@ public final class TremorCommands {
                         .then(Commands.literal("off").executes(ctx -> system(ctx, false))))
                 .then(Commands.literal("despawn").executes(ctx -> despawn(ctx, false))
                         .then(Commands.literal("all").executes(ctx -> despawn(ctx, true))))
+                .then(Commands.literal("listener")
+                        .then(Commands.literal("spawn")
+                                .executes(ctx -> spawnListener(ctx, null))
+                                .then(Commands.argument("pos", BlockPosArgument.blockPos())
+                                        .executes(ctx -> spawnListener(ctx, BlockPosArgument.getBlockPos(ctx, "pos")))))
+                        .then(Commands.literal("clear").executes(TremorCommands::clearListeners)))
                 .then(Commands.literal("crawler")
                         .then(Commands.literal("spawn")
                                 .executes(ctx -> spawnCrawler(ctx, null))
@@ -454,6 +460,34 @@ public final class TremorCommands {
         answer(source, () -> Component.literal("Stalactite crawler spawned on the ceiling over " + voxel(
                 VoxelPos.pack(pos.getX(), pos.getY(), pos.getZ()))));
         return 1;
+    }
+
+    /**
+     * {@code /tremor listener spawn [pos]}: a listener of the nearest tremor on a floor near the block (looked at, by
+     * default).
+     */
+    private static int spawnListener(CommandContext<CommandSourceStack> ctx, BlockPos requested)
+            throws CommandSyntaxException {
+        CommandSourceStack source = ctx.getSource();
+        if (tremor.TremorSwitch.off(source.getLevel())) {
+            throw OFF.create();
+        }
+        BlockPos pos = requested != null ? requested : lookTarget(source);
+        Integer instance = tremor.entity.Listeners.spawn(source.getLevel(), pos, "spawned by " + source.getTextName());
+        if (instance == null) {
+            throw NO_ENTITY.create();
+        }
+        answer(source, () -> Component.literal("Listener spawned near " + pos.getX() + " " + pos.getY() + " "
+                + pos.getZ()));
+        return 1;
+    }
+
+    /** {@code /tremor listener clear}: removes every listener of the dimension. */
+    private static int clearListeners(CommandContext<CommandSourceStack> ctx) {
+        CommandSourceStack source = ctx.getSource();
+        int count = tremor.entity.Listeners.clear(source.getLevel());
+        answer(source, () -> Component.literal(count + " listeners removed"));
+        return count;
     }
 
     /** {@code /tremor crawler clear}: removes every stalactite crawler of the dimension. */

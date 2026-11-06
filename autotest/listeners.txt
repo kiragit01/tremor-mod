@@ -1,0 +1,92 @@
+# The listeners (1.4.0). A flat field; a tremor 80 blocks off, too far to hear a stone land by the player. A listener
+# by the player hears it and signals: a small bump runs along the ground to the tremor, which then goes for where the
+# stone fell. A carpet over the listener deafens it; a line of carpet across the way soaks the signal up; breaking its
+# block kills it. Then the tremor hunts a shout, searches, finds nothing and leaves listeners there by itself. Copies
+# tinted red. The server log tells what each did.
+# Run: gradlew runClientAutotest -Ptremor_autotest_script=listeners.txt
+waitchunks
+cmd gamemode spectator
+cmd time set noon
+cmd tremor despawn all
+cmd tremor listener clear
+cmd kill @e[type=!player]
+cmd gamerule commandModificationBlockLimit 2147483647
+cmd tp @s 860.5 215.0 300.5
+wait 40
+waitchunks
+cmd fill 800 188 280 920 199 320 minecraft:dirt
+cmd fill 800 200 280 920 200 320 minecraft:grass_block
+cmd fill 800 201 280 920 240 320 minecraft:air
+cmd kill @e[type=!player]
+hud off
+tint on
+config ambush.enabled false
+config listeners.signalSpeed 12
+cmd tremor spawn 903 200 300
+cmd tremor ai off
+cmd tp @s 820.5 201.0 302.5 -60 30
+wait 20
+cmd tremor listener spawn 823 200 300
+wait 30
+lookat 823.5 200.5 300.5
+screenshot 01_listener
+# --- 1. a stone lands by it: it signals, the tremor goes there
+cmd tremor ai on
+cmd summon minecraft:item 823.5 204 299.5 {Item:{id:"minecraft:stone",Count:1b},PickupDelay:32767}
+wait 12
+look -90 25
+screenshot 02_signal
+wait 15
+screenshot 03_signal
+wait 15
+screenshot 04_signal
+wait 140
+cmd tremor info
+cmd kill @e[type=minecraft:item]
+# --- 2. a carpet over it: deaf
+cmd setblock 823 201 300 minecraft:white_carpet
+wait 50
+cmd summon minecraft:item 823.5 204 299.5 {Item:{id:"minecraft:stone",Count:1b},PickupDelay:32767}
+wait 60
+log --- (no signal above: it was deaf)
+cmd setblock 823 201 300 minecraft:air
+cmd kill @e[type=minecraft:item]
+wait 60
+# --- 3. a line of carpet across its way: soaked up
+cmd tremor ai off
+cmd tremor goto 903 200 300
+wait 100
+cmd tremor ai on
+cmd fill 850 201 285 850 201 315 minecraft:white_carpet
+cmd summon minecraft:item 823.5 204 299.5 {Item:{id:"minecraft:stone",Count:1b},PickupDelay:32767}
+wait 80
+cmd kill @e[type=minecraft:item]
+cmd fill 850 201 285 850 201 315 minecraft:air
+# --- 4. its block broken: dead
+cmd gamemode creative
+lookat 823.5 200.5 300.5
+hold attack 3
+wait 20
+screenshot 05_killed
+# --- 5. by itself: the tremor hunts a shout, finds nothing, leaves listeners
+config behavior.huntSearchSeconds 4
+cmd tremor despawn all
+cmd tremor spawn 860 200 300
+cmd tremor stage hunting
+cmd tremor anger 60
+cmd gamemode survival
+cmd tp @s 866.5 201.0 300.5
+wait 10
+cmd tremor voice 0
+wait 5
+cmd gamemode spectator
+cmd tp @s 860.5 215.0 285.5 0 50
+wait 300
+screenshot 06_left_listeners
+cmd tremor info
+cmd tremor despawn all
+cmd tremor listener clear
+config listeners.signalSpeed 7
+config ambush.enabled true
+tint off
+quit

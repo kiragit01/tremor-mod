@@ -141,6 +141,7 @@ public final class TremorConfig {
         public final Awakening awakening;
         public final Ambush ambush;
         public final Stalactites stalactites;
+        public final Listeners listeners;
         public final Voice voice;
 
         Common(ForgeConfigSpec.Builder b) {
@@ -468,6 +469,7 @@ public final class TremorConfig {
             awakening = new Awakening(b);
             ambush = new Ambush(b);
             stalactites = new Stalactites(b);
+            listeners = new Listeners(b);
             voice = new Voice(b);
         }
 
@@ -964,6 +966,37 @@ public final class TremorConfig {
                             "onto firm ground (the mud holds: only one who sprints and jumps off at once makes it);",
                             "then it holds the player (seconds)")
                     .translation(KEY + "ambush.escapeSeconds").defineInRange("escapeSeconds", 2.0, 0.0, 5.0);
+            b.pop();
+        }
+    }
+
+    /** The listeners ({@link tremor.entity.Listeners}). */
+    public static final class Listeners {
+        public final ForgeConfigSpec.BooleanValue enabled;
+        public final ForgeConfigSpec.IntValue count;
+        public final ForgeConfigSpec.IntValue lifetimeSeconds;
+        public final ForgeConfigSpec.DoubleValue hearingRange;
+        public final ForgeConfigSpec.DoubleValue hearingFactor;
+        public final ForgeConfigSpec.DoubleValue signalSpeed;
+
+        Listeners(ForgeConfigSpec.Builder b) {
+            b.comment("Listeners: small still mounds a tremor leaves where it lost the player it hunted. Hearing a player",
+                            "near, one sends a signal along the ground to its tremor (wool or a carpet on the way soaks",
+                            "it up); wool or a carpet over one deafens it, breaking its block kills it")
+                    .translation(KEY + "listeners").push("listeners");
+            enabled = b.comment("Whether a tremor leaves listeners")
+                    .translation(KEY + "listeners.enabled").define("enabled", true);
+            count = b.comment("It leaves 1 to this many where it lost the player, and keeps at most this many")
+                    .translation(KEY + "listeners.count").defineInRange("count", 3, 0, 8);
+            lifetimeSeconds = b.comment("A listener sinks away after this long (seconds)")
+                    .translation(KEY + "listeners.lifetimeSeconds").defineInRange("lifetimeSeconds", 240, 10, 3600);
+            hearingRange = b.comment("How far a listener hears (blocks)")
+                    .translation(KEY + "listeners.hearingRange").defineInRange("hearingRange", 12.0, 2.0, 48.0);
+            hearingFactor = b.comment("How much better than a tremor a listener hears what reaches it")
+                    .translation(KEY + "listeners.hearingFactor").defineInRange("hearingFactor", 1.5, 0.1, 20.0);
+            signalSpeed = b.comment("How fast the signal runs along the ground to the tremor (blocks per second): the",
+                            "time a player has to stop it")
+                    .translation(KEY + "listeners.signalSpeed").defineInRange("signalSpeed", 7.0, 1.0, 40.0);
             b.pop();
         }
     }
