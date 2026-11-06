@@ -80,6 +80,12 @@ public final class TremorSounds {
     public static final DeferredHolder<SoundEvent, SoundEvent> LISTENER_RELAY = register("entity.tremor.listener.relay");
     /** Rock drawn out of a ceiling by a stalactite crawler. */
     public static final DeferredHolder<SoundEvent, SoundEvent> CRAWLER_GRIND = register("entity.tremor.crawler.grind");
+    /** A crawler creeping over the ceiling: a soft scrape of stone (no step: the user). */
+    public static final DeferredHolder<SoundEvent, SoundEvent> CRAWLER_CREEP = register("entity.tremor.crawler.creep");
+    /** A crawler crackling before it drops its stalactites, its last snap as they come off. */
+    public static final DeferredHolder<SoundEvent, SoundEvent> CRAWLER_CRACKLE = register("entity.tremor.crawler.crackle");
+    /** A crawler going away into the rock, driven off by a light or its block broken: quiet. */
+    public static final DeferredHolder<SoundEvent, SoundEvent> CRAWLER_SINK = register("entity.tremor.crawler.sink");
 
     public static void register(IEventBus modBus) {
         SOUNDS.register(modBus);
