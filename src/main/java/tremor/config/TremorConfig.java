@@ -142,6 +142,7 @@ public final class TremorConfig {
         public final Ambush ambush;
         public final Stalactites stalactites;
         public final Listeners listeners;
+        public final Echo echo;
         public final Voice voice;
 
         Common(ForgeConfigSpec.Builder b) {
@@ -470,6 +471,7 @@ public final class TremorConfig {
             ambush = new Ambush(b);
             stalactites = new Stalactites(b);
             listeners = new Listeners(b);
+            echo = new Echo(b);
             voice = new Voice(b);
         }
 
@@ -973,6 +975,27 @@ public final class TremorConfig {
                             "onto firm ground (the mud holds: only one who sprints and jumps off at once makes it);",
                             "then it holds the player (seconds)")
                     .translation(KEY + "ambush.escapeSeconds").defineInRange("escapeSeconds", 2.0, 0.0, 5.0);
+            b.pop();
+        }
+    }
+
+    /** Echolocation: the ring of a frozen tremor finds what stands on the ground ({@code tremor.entity.Echo}). */
+    public static final class Echo {
+        public final ForgeConfigSpec.BooleanValue enabled;
+        public final ForgeConfigSpec.DoubleValue range;
+        public final ForgeConfigSpec.DoubleValue speed;
+
+        Echo(ForgeConfigSpec.Builder b) {
+            b.comment("Echolocation: the ring a frozen tremor sends through the ground gives an echo back from whatever",
+                            "stands on the ground where it passes, a rough fix (a player clearly, a mob faintly); not one",
+                            "in the air just then (a jump), in water, or on wool or a carpet")
+                    .translation(KEY + "echo").push("echo");
+            enabled = b.comment("Whether the ring finds anyone")
+                    .translation(KEY + "echo.enabled").define("enabled", true);
+            range = b.comment("How far its front runs (blocks); as far as the ring is seen by default")
+                    .translation(KEY + "echo.range").defineInRange("range", 16.0, 2.0, 64.0);
+            speed = b.comment("How fast its front runs (blocks per second): as the ring is seen by default")
+                    .translation(KEY + "echo.speed").defineInRange("speed", 5.0, 1.0, 40.0);
             b.pop();
         }
     }

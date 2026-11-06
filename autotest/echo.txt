@@ -1,0 +1,59 @@
+# Echolocation (1.4.0). A field; a tremor ALERT, a player 8 blocks off. A stone lands by it: it freezes, its ring runs out: standing on
+# the ground the player is found (an echo, the log says so, it heard them through an "echo"); on a carpet, and in the
+# air (levitating), not; a pig gives a faint echo (it heard an "echo" by the pig). The server log tells.
+# Run: gradlew runClientAutotest -Ptremor_autotest_script=echo.txt
+waitchunks
+cmd gamemode spectator
+cmd time set noon
+cmd tremor despawn all
+cmd kill @e[type=!player]
+cmd tp @s 860.5 215.0 300.5
+wait 40
+waitchunks
+cmd fill 800 199 260 920 199 340 minecraft:dirt
+cmd fill 800 200 260 920 200 340 minecraft:grass_block
+cmd fill 800 201 260 920 230 340 minecraft:air
+cmd kill @e[type=!player]
+config ambush.enabled false
+cmd tremor spawn 860 200 300
+cmd tremor stage alert
+cmd tremor anger 35
+cmd gamemode survival
+cmd effect give @s minecraft:resistance 600 4 true
+cmd tp @s 868.5 201.0 300.5 90 20
+wait 40
+log --- 1. standing on the ground: found
+cmd summon minecraft:item 857.5 204 300.5 {Item:{id:"minecraft:stone",Count:1b},PickupDelay:32767}
+wait 70
+cmd kill @e[type=minecraft:item]
+cmd tremor info
+log --- 2. on a carpet: not found
+cmd tremor anger 35
+cmd tp @s 868.5 201.0 304.5 90 20
+cmd setblock 868 201 304 minecraft:white_carpet
+cmd tp @s 868.5 201.1 304.5 90 20
+wait 20
+cmd summon minecraft:item 857.5 204 300.5 {Item:{id:"minecraft:stone",Count:1b},PickupDelay:32767}
+wait 70
+cmd kill @e[type=minecraft:item]
+log --- 3. in the air: not found
+cmd setblock 868 201 304 minecraft:air
+cmd effect give @s minecraft:levitation 6 0 true
+wait 15
+cmd summon minecraft:item 857.5 204 300.5 {Item:{id:"minecraft:stone",Count:1b},PickupDelay:32767}
+wait 70
+cmd kill @e[type=minecraft:item]
+cmd effect clear @s minecraft:levitation
+log --- 4. a pig: a faint echo
+cmd gamemode spectator
+cmd tp @s 860.5 215.0 285.5
+cmd summon minecraft:pig 866.5 201 296.5 {PersistenceRequired:1b}
+wait 20
+cmd summon minecraft:item 857.5 204 300.5 {Item:{id:"minecraft:stone",Count:1b},PickupDelay:32767}
+wait 70
+cmd kill @e[type=minecraft:item]
+cmd tremor info
+cmd kill @e[type=minecraft:pig]
+cmd tremor despawn all
+config ambush.enabled true
+quit

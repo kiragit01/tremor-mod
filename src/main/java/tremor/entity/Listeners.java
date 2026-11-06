@@ -466,7 +466,7 @@ public final class Listeners {
             double dx = goal.x() - s.at.x(), dz = goal.z() - s.at.z(), d = Math.hypot(dx, dz);
             if (d <= ARRIVE) {
                 s.owner.relay(s.source, s.player == null ? null : level.getServer().getPlayerList()
-                        .getPlayer(s.player), RELAYED, RELAY_ANGER);
+                        .getPlayer(s.player), RELAYED, RELAY_ANGER, "listener");
                 level.playSound(null, goal.x(), goal.y(), goal.z(), TremorSounds.LISTENER_RELAY.get(),
                         SoundSource.HOSTILE, 1.2f, 0.9f + level.getRandom().nextFloat() * 0.2f);
                 Tremor.LOGGER.info("A listener's signal reaches tremor #{} in {}", entity.instance(),

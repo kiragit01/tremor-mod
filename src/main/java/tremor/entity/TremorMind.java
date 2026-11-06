@@ -249,6 +249,9 @@ final class TremorMind {
         return entity;
     }
 
+    /** The echo of its latest ring, while its front runs; null if none. */
+    private Echo echo;
+
     /** {@code player} made a sound at {@code at} that the entity heard. */
     void heardPlayer(UUID player, Vec3 at, long now) {
         perch.heard(player, at, now);
@@ -371,6 +374,7 @@ final class TremorMind {
             return; // its anger no longer matters, or it stays at the top
         }
         coming(now);
+        tickEcho(now);
         Stage before = entity.stage();
         if (angerHeld) {
             // A route for filming: its look stays as it was set.
@@ -428,6 +432,7 @@ final class TremorMind {
                 runtime.freeze(entity, order.point());
                 if (ripple.freeze(now, entity.crawler().diving())) {
                     play(TremorSounds.RIPPLE.get(), skin(), RIPPLE_VOLUME, 1);
+                    startEcho(now);
                 }
             }
             case NONE -> {
@@ -589,6 +594,7 @@ final class TremorMind {
         runtime.freeze(entity, new Vec3(at.x() + ahead.x(), at.y() + ahead.y(), at.z() + ahead.z()));
         if (ripple.freeze(now, entity.crawler().diving())) {
             play(TremorSounds.RIPPLE.get(), skin(), RIPPLE_VOLUME, 1);
+            startEcho(now);
         }
     }
 
@@ -1317,6 +1323,35 @@ final class TremorMind {
     }
 
     // ---- helpers ----
+
+    /** Its ring runs through the ground: what stands where it passes gives an echo back ({@link Echo}). */
+    private void startEcho(long now) {
+        if (TremorConfig.COMMON.echo.enabled.get()) {
+            echo = new Echo(skin(), now);
+        }
+    }
+
+    /**
+     * The echoes the ring's front met this tick: each heard where it seems to be, a player's with a little anger, a
+     * mob's faintly (a false trail); a player found hears the echo come back.
+     */
+    private void tickEcho(long now) {
+        if (echo == null) {
+            return;
+        }
+        for (Echo.Hit hit : echo.tick(level, now)) {
+            runtime.relay(hit.at(), hit.player(), hit.perceived(), hit.anger(), "echo");
+            if (hit.player() != null) {
+                level.playSound(null, hit.entity().getX(), hit.entity().getY(), hit.entity().getZ(),
+                        TremorSounds.LISTENER_PING.get(), SoundSource.HOSTILE, 0.5f, 1.7f);
+                tremor.Tremor.LOGGER.info("Tremor #{}: its echo finds {}", entity.instance(),
+                        hit.player().getGameProfile().getName());
+            }
+        }
+        if (echo.over(now)) {
+            echo = null;
+        }
+    }
 
     /** The top of the skin at the entity: half a block out of its voxel centre along the normal. */
     private Vec3 skin() {
