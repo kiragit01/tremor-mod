@@ -19,6 +19,7 @@ import net.minecraft.sounds.SoundSource;
 import net.minecraft.tags.BlockTags;
 import net.minecraft.util.RandomSource;
 import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.util.Mth;
 import net.minecraft.world.entity.item.FallingBlockEntity;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.level.LightLayer;
@@ -83,6 +84,8 @@ public final class StalactiteCrawlers {
     static final double RETARGET_DISTANCE = 1.5;
     /** It scrapes along the ceiling every this many ticks while it creeps. */
     static final int SCRAPE_TICKS = 14;
+    /** The crackle's last snap comes this far into its sound (tools/sounds/synth.py), set on the drop by its pitch. */
+    static final float CRACKLE_SNAP_SECONDS = 0.88f;
     /** Light is looked at every this many ticks. */
     static final int LIGHT_TICKS = 10;
     /** The natural spawn tries every this many ticks, this far from the player (blocks across). */
@@ -516,14 +519,16 @@ public final class StalactiteCrawlers {
                         go(level, sound); // out of reach: it keeps on to the last one
                     }
                     if (crawler.speed() > 0.1 && ticks % SCRAPE_TICKS == 0) {
-                        play(level, at, SoundEvents.DRIPSTONE_BLOCK_STEP, 0.5f, 0.5f + random.nextFloat() * 0.2f);
+                        play(level, at, tremor.sound.TremorSounds.CRAWLER_CREEP.get(), 0.45f, 0.85f + random.nextFloat() * 0.3f);
                     }
                     if (there || crawler.arrived()) {
                         there = false;
                         state = State.CRACKLE;
                         ticks = 0;
                         crackleTicks = config.crackleTicks.get() + random.nextInt(5);
-                        play(level, dropAt, SoundEvents.POINTED_DRIPSTONE_FALL, 1.2f, 0.6f + random.nextFloat() * 0.2f);
+                        // Its last snap as the stalactites come off (the user: the first drop had no sound).
+                        play(level, dropAt, tremor.sound.TremorSounds.CRAWLER_CRACKLE.get(), 1.1f,
+                                Mth.clamp(CRACKLE_SNAP_SECONDS * 20f / crackleTicks, 0.7f, 1.4f));
                         int count = Math.min(MAX_AT_ONCE, ++attempts);
                         drop(level, dropAt, random, count, level.getGameTime() + crackleTicks);
                         Tremor.LOGGER.info("Stalactite crawler #{} in {} drops {} stalactites over {} {} {}", instance,
@@ -626,6 +631,8 @@ public final class StalactiteCrawlers {
         private void sink(ServerLevel level, String why) {
             state = State.SINK;
             crawler.stop();
+            play(level, BlockPos.containing(crawler.position().x(), crawler.position().y(), crawler.position().z()),
+                    tremor.sound.TremorSounds.CRAWLER_SINK.get(), 0.6f, 0.9f + level.getRandom().nextFloat() * 0.2f);
             Tremor.LOGGER.info("Stalactite crawler #{} in {} sinks into the rock ({})", instance,
                     level.dimension().location(), why);
         }
@@ -750,6 +757,7 @@ public final class StalactiteCrawlers {
             piece.dropItem = false;
             falling.add(piece);
         }
+        play(level, at, SoundEvents.POINTED_DRIPSTONE_FALL, 1.2f, 0.7f + level.getRandom().nextFloat() * 0.3f);
         FALLING.computeIfAbsent(level, l -> new ArrayList<>()).add(new Stalactite(falling, at.getY()));
     }
 

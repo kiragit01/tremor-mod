@@ -453,11 +453,50 @@ def crawler_grind(rng):
     return finish(cave(grind + strain, rt=0.8, wet=0.3, lp=3000, rng=rng), peak_db=-3)
 
 
+def crawler_creep(rng):
+    """A crawler creeps over the ceiling: a soft dry scrape of stone on stone with a little grit, no step (the user:
+    the dripstone steps sounded like someone walking)."""
+    n = samples(0.5)
+    sw = swell(n, 0.15, 0.25)
+    scrape = filt(noise(n, -3, rng), lo=350, hi=2200) * (0.6 + 0.4 * smooth(n, 14, rng))
+    scrape = scrape / (np.std(scrape) + 1e-12) * 0.25 * sw
+    grit = grains(n, 70, (0.002, 0.006), (1500, 5000), (0.1, 0.45), rng) * sw
+    return finish(cave(scrape + grit, rt=0.6, wet=0.25, lp=4000, rng=rng), peak_db=-8)
+
+
+def crawler_crackle(rng):
+    """A crawler about to drop its stalactites: small cracks in the ceiling coming faster and faster, a strain under
+    them, up to a last snap (the crackle a player hears may still jump away from)."""
+    n = samples(1.0)
+    t = np.arange(n) / SR
+    density = np.clip((t / 0.9) ** 2, 0.04, 1)
+    cracks = grains(n, 260, (0.002, 0.007), (900, 6000), (0.15, 0.8), rng, density_env=density)
+    snap = np.zeros(n)
+    m = samples(0.01)
+    i = samples(0.88)
+    snap[i:i + m] = rng.normal(size=m) * np.exp(-np.arange(m) / (m / 5))
+    snap = filt(snap, lo=800, hi=7000) * 1.4
+    strain = filt(growl(1.0, 70, 110, rng), lo=40, hi=350) * swell(n, 0.7, 0.1) * 0.25
+    return finish(cave(cracks + snap + strain, rt=0.7, wet=0.3, lp=5000, rng=rng), peak_db=-2)
+
+
+def crawler_sink(rng):
+    """A crawler going away into the rock (driven off by a light, its block broken): a soft low settling, grit
+    trickling off, quiet."""
+    n = samples(1.3)
+    low = filt(noise(n, -6, rng), lo=45, hi=420) * env(n, 0.08, 0.5)
+    low = low / (np.std(low) + 1e-12) * 0.3
+    t = np.arange(n) / SR
+    grit = grains(n, 45, (0.003, 0.012), (400, 2200), (0.1, 0.4), rng, density_env=np.exp(-t / 0.5))
+    return finish(cave(low + grit, rt=1.0, wet=0.35, lp=2500, rng=rng), peak_db=-10)
+
+
 SOUNDS = {'rustle': rustle, 'rumble': rumble, 'crack': crack, 'pulse': pulse, 'thump': thump_sound, 'strike': strike,
           'sigh': sigh, 'awaken': awaken, 'rage': rage, 'release': release, 'hum': hum, 'pull': pull, 'ripple': ripple,
           'escape': escape, 'resonance_draw': resonance_draw, 'resonance_flight': resonance_flight,
           'resonance_hit': resonance_hit, 'resonance_daze': resonance_daze, 'listener_ping': listener_ping,
-          'listener_breath': listener_breath, 'listener_relay': listener_relay, 'crawler_grind': crawler_grind}
+          'listener_breath': listener_breath, 'listener_relay': listener_relay, 'crawler_grind': crawler_grind,
+          'crawler_creep': crawler_creep, 'crawler_crackle': crawler_crackle, 'crawler_sink': crawler_sink}
 
 
 def write_wav(path, x):
@@ -470,7 +509,7 @@ def write_wav(path, x):
 
 
 #: Sounds heard again and again get variants (other seeds of the same recipe): name_1.ogg ... name_k.ogg.
-VARIANTS = {'resonance_hit': 3, 'resonance_flight': 2, 'listener_ping': 2, 'listener_breath': 2, 'crack': 3, 'pulse': 3, 'thump': 3, 'pull': 3, 'ripple': 3, 'strike': 2, 'rumble': 2, 'sigh': 2}
+VARIANTS = {'crawler_creep': 3, 'crawler_crackle': 2, 'resonance_hit': 3, 'resonance_flight': 2, 'listener_ping': 2, 'listener_breath': 2, 'crack': 3, 'pulse': 3, 'thump': 3, 'pull': 3, 'ripple': 3, 'strike': 2, 'rumble': 2, 'sigh': 2}
 
 
 def main():

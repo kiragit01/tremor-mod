@@ -148,5 +148,26 @@
     "sounds": [
       "tremor:crawler_grind"
     ]
+  },
+  "entity.tremor.crawler.creep": {
+    "subtitle": "subtitles.tremor.crawler_creep",
+    "sounds": [
+      "tremor:crawler_creep_1",
+      "tremor:crawler_creep_2",
+      "tremor:crawler_creep_3"
+    ]
+  },
+  "entity.tremor.crawler.crackle": {
+    "subtitle": "subtitles.tremor.crawler_crackle",
+    "sounds": [
+      "tremor:crawler_crackle_1",
+      "tremor:crawler_crackle_2"
+    ]
+  },
+  "entity.tremor.crawler.sink": {
+    "subtitle": "subtitles.tremor.crawler_sink",
+    "sounds": [
+      "tremor:crawler_sink"
+    ]
   }
 }
