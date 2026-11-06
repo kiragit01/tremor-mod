@@ -1,0 +1,40 @@
+# The game rule doTremor (/tremor system on|off): the mod as a whole off. A tremor near the player and an Awakening
+# running for them; switched off, the tremor is gone and the Awakening called off (the player is let go), a command and
+# a natural spawn are refused, a shout is heard by nobody; switched on, it spawns again.
+# Run: gradlew runClientAutotest -Ptremor_autotest_script=tremor-switch.txt
+waitchunks
+cmd gamemode spectator
+cmd time set noon
+cmd tremor despawn all
+cmd tremor awaken stop
+cmd kill @e[type=!player]
+cmd tp @s 860.5 210.0 285.5
+wait 40
+waitchunks
+cmd fill 830 188 270 900 199 330 minecraft:dirt
+cmd fill 830 200 270 900 200 330 minecraft:grass_block
+cmd fill 830 201 270 900 260 330 minecraft:air
+cmd tp @s 860.5 201.0 300.5 -90 20
+cmd gamemode survival
+cmd tremor system
+cmd tremor spawn 875 200 300
+cmd tremor awaken
+wait 40
+log --- switched off
+cmd tremor system off
+wait 30
+cmd tremor info
+cmd tremor spawn 875 200 300
+cmd tremor spawn natural
+cmd tremor awaken
+cmd tremor voice 0
+cmd gamerule doTremor
+wait 20
+log --- switched on
+cmd gamerule doTremor true
+wait 30
+cmd tremor spawn 875 200 300
+cmd tremor info
+cmd tremor despawn all
+cmd gamemode spectator
+quit

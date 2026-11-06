@@ -102,6 +102,9 @@ public final class TremorManager {
      *                that there is none near the player)
      */
     public static TremorEntity spawn(ServerLevel level, BlockPos requested, boolean natural, boolean replace) {
+        if (tremor.TremorSwitch.off(level)) {
+            return null; // the mod is switched off (doTremor)
+        }
         TremorRuntime runtime = null;
         double best = replace ? TremorConfig.COMMON.spawn.spacing.get() : 0;
         for (TremorRuntime near : runtimes(level)) {

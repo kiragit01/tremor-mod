@@ -47,6 +47,7 @@ public final class Tremor {
 
     public Tremor() {
         IEventBus modBus = FMLJavaModLoadingContext.get().getModEventBus();
+        TremorSwitch.init(); // the game rule doTremor
         ModLoadingContext.get().registerConfig(ModConfig.Type.COMMON, TremorConfig.COMMON_SPEC);
         ModLoadingContext.get().registerConfig(ModConfig.Type.CLIENT, TremorConfig.CLIENT_SPEC);
 
@@ -109,6 +110,7 @@ public final class Tremor {
         game.addListener(tremor.debug.DebugProbe::onServerStopped);
         // The hollow (SPEC 9, 12): its events, and the rules inside it.
         game.addListener(HollowManager::onServerTick);
+        game.addListener(TremorSwitch::onServerTick);
         game.addListener(HollowManager::onPlayerLoggedOut);
         game.addListener(HollowManager::onServerStopped);
         // The level inside the hollow (SPEC 9, stage 4c); HollowManager prepares and ticks it.
