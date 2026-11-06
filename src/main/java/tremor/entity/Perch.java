@@ -171,6 +171,11 @@ final class Perch {
     private Vec3 fellFrom;
     /** What it builds up to the player, or null; once per guard. */
     private PerchBuild build;
+    /**
+     * The build of a guard that ended, kept: a guard begun anew near it goes on with it (the user: up a few blocks,
+     * aside a few, by turns, the guard ended over its own trunk and the next one began a new pillar).
+     */
+    private PerchBuild last;
     private boolean built;
     /** The top of the ground under where the player was heard last. */
     private int groundY;
@@ -323,6 +328,9 @@ final class Perch {
         }
         prey = heardPlayer;
         perch = heardAt;
+        if (build != null) {
+            build.resume(); // the last guard's build still under way: on with it
+        }
         drops = 0;
         nextCrown = now + CROWN_RETRY_TICKS;
         built = false;
@@ -357,6 +365,7 @@ final class Perch {
         if (build != null && now >= buildFrom && build.tick(now)) {
             Tremor.LOGGER.info("Tremor #{} in {} stops building ({} blocks)", entity.instance(),
                     level.dimension().location(), build.placed());
+            last = build;
             build = null;
         }
     }
@@ -394,6 +403,7 @@ final class Perch {
     /** The entity is gone: the small bump with it (the clients are told). */
     void discard() {
         prey = null;
+        last = null;
         if (build != null) {
             build.discard();
             build = null;
@@ -598,6 +608,24 @@ final class Perch {
         int x = floor(perch.x()), z = floor(perch.z()), top = topUnder(perch), foot = groundUnder(perch);
         if (top == Integer.MIN_VALUE || foot == Integer.MIN_VALUE || foot >= top) {
             return;
+        }
+        if (last != null && last.near(x, top, z)) {
+            // Its own build of the last guard is near: on with it, out of its end toward the player.
+            PerchBuild going = last;
+            last = null;
+            going.resume();
+            boolean aside = Math.hypot(perch.x() - (going.x() + 0.5), perch.z() - (going.z() + 0.5)) > STAY_RADIUS;
+            if (!aside) {
+                going.raise(top);
+            }
+            if (!aside || going.walkTo(new BlockPos(x, top, z))) {
+                build = going;
+                hidden = true;
+                buildFrom = now + SINK_TICKS;
+                Tremor.LOGGER.info("Tremor #{} in {} goes on with its build toward {} {} {}", entity.instance(),
+                        level.dimension().location(), x, top, z);
+                return;
+            }
         }
         build = new PerchBuild(level, x, z, foot, top, ours);
         hidden = true; // under the ground first, then the heap rises
