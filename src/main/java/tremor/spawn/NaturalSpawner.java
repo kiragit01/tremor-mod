@@ -112,7 +112,7 @@ public final class NaturalSpawner {
         if (event.phase != TickEvent.Phase.END) {
             return;
         }
-        if (!(event.level instanceof ServerLevel level)) {
+        if (!(event.level instanceof ServerLevel level) || tremor.TremorSwitch.off(level)) {
             return;
         }
         TremorConfig.Spawn config = TremorConfig.COMMON.spawn;

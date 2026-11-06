@@ -97,7 +97,7 @@ public final class VibrationListener {
     }
 
     public static void onGameEvent(VanillaGameEvent event) {
-        if (!(event.getLevel() instanceof ServerLevel level)) {
+        if (!(event.getLevel() instanceof ServerLevel level) || tremor.TremorSwitch.off(level)) {
             return;
         }
         List<TremorRuntime> runtimes = TremorManager.runtimes(level);
@@ -206,7 +206,7 @@ public final class VibrationListener {
      */
     public static void onLivingFall(LivingFallEvent event) {
         LivingEntity entity = event.getEntity();
-        if (!(entity.level() instanceof ServerLevel level) || entity.isSpectator()) {
+        if (!(entity.level() instanceof ServerLevel level) || entity.isSpectator() || tremor.TremorSwitch.off(level)) {
             return;
         }
         List<TremorRuntime> runtimes = TremorManager.runtimes(level);
@@ -276,7 +276,7 @@ public final class VibrationListener {
     public static void spoke(net.minecraft.server.level.ServerPlayer player, double loudness, String note) {
         ServerLevel level = player.serverLevel();
         List<TremorRuntime> runtimes = TremorManager.runtimes(level);
-        if (!(loudness > 0) || !wanted(level, runtimes, player.position())) {
+        if (!(loudness > 0) || tremor.TremorSwitch.off(level) || !wanted(level, runtimes, player.position())) {
             return;
         }
         Contact contact = Contact.ofEntity(new LevelVoxelView(level), player, false);
