@@ -58,6 +58,7 @@ public final class TremorSwitch {
             for (ServerLevel level : server.getAllLevels()) {
                 tremors += TremorManager.despawnAll(level);
                 tremors += tremor.entity.StalactiteCrawlers.clear(level);
+                tremors += tremor.entity.Listeners.clear(level);
                 AwakeningManager.cancelAll(level, "the mod was switched off");
             }
             if (!wasOff || tremors > 0) {

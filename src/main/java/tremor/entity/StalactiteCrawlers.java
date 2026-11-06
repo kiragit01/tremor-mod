@@ -114,7 +114,6 @@ public final class StalactiteCrawlers {
     private static final Map<ServerLevel, List<Creature>> CRAWLERS = new HashMap<>();
     private static final Map<ServerLevel, List<Stalactite>> FALLING = new HashMap<>();
     private static final Map<ServerLevel, List<Due>> DUE = new HashMap<>();
-    private static int next;
 
     private enum State { HANG, CREEP, CRACKLE, RECOVER, SINK }
 
@@ -351,9 +350,7 @@ public final class StalactiteCrawlers {
     }
 
     private static int next() {
-        int instance = TremorStatePayload.CRAWLER_BASE - next;
-        next = (next + 1) % TremorStatePayload.CRAWLER_RANGE;
-        return instance;
+        return MinorIds.next();
     }
 
     private static SurfaceGraph graph(ServerLevel level) {

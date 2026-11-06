@@ -98,7 +98,7 @@ public final class VibrationListener {
         }
         List<TremorRuntime> runtimes = TremorManager.runtimes(level);
         if (!hasEntity(runtimes) && !AwakeningManager.listens(level) && !HollowLevels.listens(level)
-                && !tremor.entity.StalactiteCrawlers.listens(level)) {
+                && !tremor.entity.StalactiteCrawlers.listens(level) && !tremor.entity.Listeners.listens(level)) {
             return;
         }
         GameEvent.Context context = event.getContext();
@@ -207,7 +207,7 @@ public final class VibrationListener {
         }
         List<TremorRuntime> runtimes = TremorManager.runtimes(level);
         if (!hasEntity(runtimes) && !AwakeningManager.listens(level) && !HollowLevels.listens(level)
-                && !tremor.entity.StalactiteCrawlers.listens(level)) {
+                && !tremor.entity.StalactiteCrawlers.listens(level) && !tremor.entity.Listeners.listens(level)) {
             return;
         }
         if (LAST_FALL.isMarked(entity.getRootVehicle().getId(), level.getGameTime())) {
@@ -306,6 +306,8 @@ public final class VibrationListener {
         AwakeningManager.vibration(level, vibration, player);
         HollowLevels.vibration(level, vibration, player);
         tremor.entity.StalactiteCrawlers.vibration(level, vibration);
+        tremor.entity.Listeners.vibration(level, vibration,
+                player instanceof net.minecraft.server.level.ServerPlayer p ? p : null);
     }
 
     private static boolean hasEntity(List<TremorRuntime> runtimes) {
@@ -328,7 +330,7 @@ public final class VibrationListener {
             }
         }
         return AwakeningManager.listens(level, pos.x, pos.z) || HollowLevels.listens(level)
-                || tremor.entity.StalactiteCrawlers.wants(level, pos);
+                || tremor.entity.StalactiteCrawlers.wants(level, pos) || tremor.entity.Listeners.wants(level, pos);
     }
 
     /**

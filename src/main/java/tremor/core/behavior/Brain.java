@@ -133,6 +133,8 @@ public final class Brain {
     /** Stage of the last tick; null before the first one. */
     private Stage stage;
     private Mode mode = Mode.PAUSE;
+    /** A search ran out with nothing found since {@link #takeGivenUp} was asked last. */
+    private boolean givenUp;
     /** PAUSE: pause left; FREEZE: freeze left; SEARCH: wait before asking for a search point again. */
     private double timer;
     /** Target of the last GO; null after a FREEZE (the body stopped) or before any GO. */
@@ -231,6 +233,16 @@ public final class Brain {
      */
     public boolean frozen() {
         return mode == Mode.FREEZE;
+    }
+
+    /**
+     * Whether a search around the last heard sound ran out with nothing found since this was asked last (the entity
+     * lost the one it hunted: it leaves listeners there, {@code tremor.entity.Listeners}); asking resets it.
+     */
+    public boolean takeGivenUp() {
+        boolean was = givenUp;
+        givenUp = false;
+        return was;
     }
 
     /** Position of the last heard sound (whatever the stage did with it); null if nothing was heard yet. */
@@ -354,6 +366,7 @@ public final class Brain {
         }
         if (mode == Mode.SEARCH) {
             if (searchOver()) {
+                givenUp = true;
                 return calmDown(idle, position, world);
             }
             if (!idle) {
