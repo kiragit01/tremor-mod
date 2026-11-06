@@ -1,0 +1,26 @@
+# spawn.minY / spawn.maxY: the tremor comes by itself only between these heights (a player's floating islands over
+# the deepslate). On a field at y 200: with maxY 150 a natural spawn is refused, with minY 150 it comes.
+# Run: gradlew runClientAutotest -Ptremor_autotest_script=spawn-height.txt
+waitchunks
+cmd gamemode spectator
+cmd time set noon
+cmd tremor despawn all
+cmd kill @e[type=!player]
+cmd tp @s 860.5 210.0 300.5
+wait 40
+waitchunks
+cmd fill 790 199 230 930 199 370 minecraft:dirt
+cmd fill 790 200 230 930 200 370 minecraft:grass_block
+cmd fill 790 201 230 930 230 370 minecraft:air
+cmd gamemode survival
+cmd tp @s 860.5 201.0 300.5
+wait 20
+config spawn.maxY 150
+cmd tremor spawn natural
+config spawn.maxY 2048
+config spawn.minY 150
+cmd tremor spawn natural
+cmd tremor despawn all
+config spawn.minY -2048
+cmd gamemode spectator
+quit
