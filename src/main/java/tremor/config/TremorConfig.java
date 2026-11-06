@@ -143,6 +143,7 @@ public final class TremorConfig {
         public final Stalactites stalactites;
         public final Listeners listeners;
         public final Echo echo;
+        public final Marks marks;
         public final Voice voice;
 
         Common(ForgeConfigSpec.Builder b) {
@@ -472,6 +473,7 @@ public final class TremorConfig {
             stalactites = new Stalactites(b);
             listeners = new Listeners(b);
             echo = new Echo(b);
+            marks = new Marks(b);
             voice = new Voice(b);
         }
 
@@ -975,6 +977,21 @@ public final class TremorConfig {
                             "onto firm ground (the mud holds: only one who sprints and jumps off at once makes it);",
                             "then it holds the player (seconds)")
                     .translation(KEY + "ambush.escapeSeconds").defineInRange("escapeSeconds", 2.0, 0.0, 5.0);
+            b.pop();
+        }
+    }
+
+    /** The marks: the hollow harder for every time a tremor took the player ({@link tremor.hollow.Marks}). */
+    public static final class Marks {
+        public final ForgeConfigSpec.BooleanValue enabled;
+
+        Marks(ForgeConfigSpec.Builder b) {
+            b.comment("The marks: every time a tremor takes a player into the hollow they get a mark, and their hollow is",
+                            "harder the more they have (the node farther, the walls faster, less time), from the third",
+                            "on its floor digests in waves; a hushing charm takes one off")
+                    .translation(KEY + "marks").push("marks");
+            enabled = b.comment("Whether marks are counted and make the hollow harder")
+                    .translation(KEY + "marks.enabled").define("enabled", true);
             b.pop();
         }
     }

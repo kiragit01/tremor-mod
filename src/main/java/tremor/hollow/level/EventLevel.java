@@ -198,6 +198,8 @@ final class EventLevel {
         this.event = event;
         this.id = id;
         nightmare = tremor.hollow.Nightmare.is(event.player());
+        ServerPlayer taken = hollow.getServer().getPlayerList().getPlayer(event.player());
+        marks = taken != null ? tremor.hollow.Marks.add(taken) : 1; // the tremor took them once more
         box = event.hollowBox();
         centreX = (box.minX() + box.maxX() + 1) / 2.0;
         centreZ = (box.minZ() + box.maxZ() + 1) / 2.0;
@@ -268,7 +270,8 @@ final class EventLevel {
         if (reader == null) {
             TremorConfig.HollowLevel config = TremorConfig.COMMON.hollow.level;
             int reach = (int) Math.ceil(Difficulty.current().nodeDistance(
-                    Math.max(config.nodeMinDistance.get(), config.nodeMaxDistance.get()))) + MARGIN;
+                    Math.max(config.nodeMinDistance.get(), config.nodeMaxDistance.get()))
+                    * tremor.hollow.Marks.nodeFactor(marks)) + MARGIN;
             snapshotMin = new BlockPos(Math.max(box.minX(), start.getX() - reach),
                     Math.max(box.minY(), start.getY() - SNAPSHOT_BELOW), Math.max(box.minZ(), start.getZ() - reach));
             snapshotMax = new BlockPos(Math.min(box.maxX(), start.getX() + reach),
@@ -296,7 +299,8 @@ final class EventLevel {
             widened = true;
             caveSize = size(cave.carve());
         }
-        double far = (nightmare ? tremor.hollow.Nightmare.NODE_FACTOR : 1) * Difficulty.current().nodeDistance(1);
+        double far = (nightmare ? tremor.hollow.Nightmare.NODE_FACTOR : 1) * Difficulty.current().nodeDistance(1)
+                * tremor.hollow.Marks.nodeFactor(marks);
         minLength = (int) Math.round(config.nodeMinDistance.get() * far);
         maxLength = Math.max(minLength, (int) Math.round(config.nodeMaxDistance.get() * far));
         planner = new WayPlanner(grid, region, start.getX(), start.getY(), start.getZ(), new WayPlanner.Params(
@@ -423,7 +427,7 @@ final class EventLevel {
         double start = Math.max(config.minRadius.get(), edge - WALL_BLOCKS); // the wall is there from the first moment
         schedule = new ClosingSchedule(new ClosingSchedule.Params(nightmare ? 0 : config.graceSeconds.get() * 20, start,
                 config.minRadius.get(), Difficulty.current().closeSpeed(config.closeSpeed.get())
-                        * (nightmare ? tremor.hollow.Nightmare.CLOSE_FACTOR : 1),
+                        * (nightmare ? tremor.hollow.Nightmare.CLOSE_FACTOR : 1) * tremor.hollow.Marks.closeFactor(marks),
                 config.noiseFactor.get(), config.noiseSeconds.get(),
                 ticks(config.lurePauseSeconds.get()), ticks(config.lureCooldownSeconds.get()),
                 config.lureMinDistance.get(), config.beatSlowTicks.get(), config.beatFastTicks.get()));
@@ -577,6 +581,11 @@ final class EventLevel {
             Outcomes.defeat(player);
             return;
         }
+        if (ticks == ANNOUNCE_TICKS) {
+            player.displayClientMessage(net.minecraft.network.chat.Component.translatable("tremor.marks.known",
+                    marks), true);
+        }
+        digest(player);
         int shiftTicks = Math.max(1, ticks(config.wallShiftSeconds.get()));
         if (config.wallShifts.get() > 0 && ticks % shiftTicks == 0) {
             walls.shift(hollow, this, at.add(0, player.getBbHeight() / 2, 0), schedule.radius(),
@@ -588,6 +597,80 @@ final class EventLevel {
         long spent = System.nanoTime() - begin;
         workNanos += spent;
         worstNanos = Math.max(worstNanos, spent);
+    }
+
+    // ---- the marks: the creature knows the player ----
+
+    /** The player is told how many marks they have this long after coming in (ticks). */
+    private static final int ANNOUNCE_TICKS = 40;
+    /** A digesting wave comes every this many ticks, a few more by chance; it rumbles this long before. */
+    private static final int DIGEST_EVERY = 160;
+    private static final int DIGEST_SPREAD = 120;
+    private static final int DIGEST_WARN = 20;
+    /** It starts this far from the player (blocks, across), and its front runs as a tremor's echo ring. */
+    private static final double DIGEST_FROM_MIN = 7;
+    private static final double DIGEST_FROM_MAX = 11;
+    private static final double DIGEST_SPEED = 8;
+    private static final double DIGEST_REACH = 34;
+    /** The player's marks, this one counted ({@link tremor.hollow.Marks}). */
+    private final int marks;
+    private long nextDigest = -1;
+    private long digestAt = -1;
+    private Vec3 digestCenter;
+    private long digestStart;
+    private boolean digestHit;
+
+    /**
+     * With enough marks the hollow digests ({@link tremor.hollow.Marks#digests}): every few seconds a deep rumble, a
+     * moment later a big ring runs out along its floor from near the player; standing on the ground as its front
+     * passes hurts (a jump just then, and it passes).
+     */
+    private void digest(ServerPlayer player) {
+        if (!tremor.hollow.Marks.digests(marks)) {
+            return;
+        }
+        net.minecraft.util.RandomSource random = hollow.getRandom();
+        if (nextDigest < 0) {
+            nextDigest = ticks + DIGEST_EVERY + random.nextInt(DIGEST_SPREAD);
+        }
+        if (digestAt < 0 && ticks >= nextDigest) {
+            digestAt = ticks + DIGEST_WARN;
+            hollow.playSound(null, player.getX(), player.getY(), player.getZ(), tremor.sound.TremorSounds.RUMBLE.get(),
+                    net.minecraft.sounds.SoundSource.HOSTILE, 1.6f, 0.6f);
+        }
+        if (digestAt >= 0 && ticks >= digestAt) {
+            double a = random.nextDouble() * Math.PI * 2;
+            double d = DIGEST_FROM_MIN + random.nextDouble() * (DIGEST_FROM_MAX - DIGEST_FROM_MIN);
+            BlockPos floor = BlockPos.containing(player.getX() + Math.cos(a) * d, player.getY() - 0.5,
+                    player.getZ() + Math.sin(a) * d);
+            digestCenter = new Vec3(floor.getX() + 0.5, floor.getY() + 0.5, floor.getZ() + 0.5);
+            digestStart = ticks;
+            digestHit = false;
+            tremor.entity.ResonanceArrows.ring(hollow, new tremor.core.math.Vec3(digestCenter.x, digestCenter.y,
+                    digestCenter.z), tremor.core.math.Vec3.UNIT_Y, true);
+            digestAt = -1;
+            nextDigest = ticks + DIGEST_EVERY + random.nextInt(DIGEST_SPREAD);
+        }
+        if (digestCenter != null) {
+            double front = DIGEST_SPEED * (ticks - digestStart) / 20.0;
+            double away = Math.hypot(player.getX() - digestCenter.x, player.getZ() - digestCenter.z);
+            if (!digestHit && front >= away) {
+                digestHit = true;
+                if (tremor.hollow.Marks.grounded(player)) {
+                    float damage = (float) Difficulty.current().damage(tremor.hollow.Marks.DIGEST_DAMAGE);
+                    player.hurt(new net.minecraft.world.damagesource.DamageSource(hollow.registryAccess()
+                            .registryOrThrow(net.minecraft.core.registries.Registries.DAMAGE_TYPE)
+                            .getHolderOrThrow(tremor.hollow.Marks.DAMAGE)), damage);
+                    player.setDeltaMovement(player.getDeltaMovement().add(0, 0.35, 0));
+                    player.hurtMarked = true;
+                    Tremor.LOGGER.info("Hollow level: a digesting wave strikes {} ({} damage)", event.playerName(),
+                            damage);
+                }
+            }
+            if (front > DIGEST_REACH) {
+                digestCenter = null;
+            }
+        }
     }
 
     /** The player made a vibration that reached the ground with {@code loudness} (SPEC 9: the noise speeds the closing). */
@@ -798,7 +881,8 @@ final class EventLevel {
      */
     double breath() {
         double seconds = nightmare ? tremor.hollow.Nightmare.SECONDS
-                : Difficulty.current().hollowSeconds(TremorConfig.COMMON.hollow.level.breathSeconds.get());
+                : Difficulty.current().hollowSeconds(TremorConfig.COMMON.hollow.level.breathSeconds.get())
+                        * tremor.hollow.Marks.breathFactor(marks);
         return seconds <= 0 ? 1 : Math.max(0, 1 - ticks / (seconds * 20));
     }
 

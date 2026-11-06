@@ -51,6 +51,9 @@ public final class TremorItems {
     public static final RegistryObject<Item> RESONANCE_ARROW = ITEMS.register("resonance_arrow",
             () -> new ResonanceArrowItem(new Item.Properties()));
 
+    public static final RegistryObject<Item> HUSH_CHARM = ITEMS.register("hush_charm",
+            () -> new HushCharmItem(new Item.Properties().stacksTo(16).rarity(Rarity.RARE)));
+
     private TremorItems() {
     }
 
@@ -66,6 +69,7 @@ public final class TremorItems {
             event.accept(SHARD);
         } else if (event.getTabKey() == CreativeModeTabs.TOOLS_AND_UTILITIES) {
             event.accept(SEISMOGRAPH);
+            event.accept(HUSH_CHARM.get());
         } else if (event.getTabKey() == CreativeModeTabs.COMBAT) {
             event.accept(RESONANCE_ARROW.get());
         } else if (event.getTabKey() == CreativeModeTabs.REDSTONE_BLOCKS) {
