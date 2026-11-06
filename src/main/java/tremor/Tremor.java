@@ -89,6 +89,7 @@ public final class Tremor {
         game.addListener(tremor.entity.ResonanceArrows::onLevelTick);
         game.addListener(tremor.entity.ResonanceArrows::onImpact);
         game.addListener(tremor.entity.ResonanceArrows::onUseItem);
+        game.addListener(tremor.hollow.Marks::onClone);
         game.addListener(tremor.entity.ResonanceArrows::onServerStopped);
         game.addListener(tremor.hearing.Voices::onLevelTick);
         game.addListener(tremor.hearing.Voices::onPlayerLoggedIn);

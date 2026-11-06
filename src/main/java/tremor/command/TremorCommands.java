@@ -119,6 +119,16 @@ public final class TremorCommands {
                         .then(Commands.literal("off").executes(ctx -> system(ctx, false))))
                 .then(Commands.literal("despawn").executes(ctx -> despawn(ctx, false))
                         .then(Commands.literal("all").executes(ctx -> despawn(ctx, true))))
+                .then(Commands.literal("marks")
+                        .executes(ctx -> marks(ctx, ctx.getSource().getPlayerOrException(), -1))
+                        .then(Commands.argument("player", net.minecraft.commands.arguments.EntityArgument.player())
+                                .executes(ctx -> marks(ctx, net.minecraft.commands.arguments.EntityArgument
+                                        .getPlayer(ctx, "player"), -1))
+                                .then(Commands.literal("set").then(Commands.argument("count",
+                                        com.mojang.brigadier.arguments.IntegerArgumentType.integer(0, 1000))
+                                        .executes(ctx -> marks(ctx, net.minecraft.commands.arguments.EntityArgument
+                                                .getPlayer(ctx, "player"), com.mojang.brigadier.arguments
+                                                .IntegerArgumentType.getInteger(ctx, "count")))))))
                 .then(Commands.literal("listener")
                         .then(Commands.literal("spawn")
                                 .executes(ctx -> spawnListener(ctx, null))
@@ -480,6 +490,17 @@ public final class TremorCommands {
         answer(source, () -> Component.literal("Listener spawned near " + pos.getX() + " " + pos.getY() + " "
                 + pos.getZ()));
         return 1;
+    }
+
+    /** {@code /tremor marks [player] [set n]}: how many marks a player has ({@link tremor.hollow.Marks}), or sets them. */
+    private static int marks(CommandContext<CommandSourceStack> ctx, ServerPlayer player, int set) {
+        if (set >= 0) {
+            tremor.hollow.Marks.set(player, set);
+        }
+        int count = tremor.hollow.Marks.of(player);
+        answer(ctx.getSource(), () -> Component.literal(player.getGameProfile().getName() + " has " + count
+                + (count == 1 ? " mark" : " marks")));
+        return count;
     }
 
     /** {@code /tremor listener clear}: removes every listener of the dimension. */

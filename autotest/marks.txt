@@ -1,0 +1,45 @@
+# The marks (1.4.0). A player with 2 marks is taken into the hollow: the 3rd mark (told on coming in), the hollow
+# harder, and from the 3rd mark on it digests: a deep rumble, then a big ring along its floor that hurts the player
+# standing on the ground as it passes. Then out by a victory, and a hushing charm takes a mark off.
+# Run: gradlew runClientAutotest -Ptremor_autotest_script=marks.txt
+waitchunks
+cmd gamemode spectator
+cmd time set noon
+cmd tremor despawn all
+cmd tremor awaken stop
+cmd tp @s 300.5 201.0 -899.5 0 0
+wait 40
+waitchunks
+cmd fill 240 198 -960 360 199 -840 minecraft:stone
+cmd fill 240 200 -960 360 200 -840 minecraft:grass_block
+cmd fill 240 201 -960 360 206 -840 minecraft:air
+cmd kill @e[type=!player]
+cmd gamemode survival
+cmd clear @s
+cmd effect clear @s
+cmd effect give @s minecraft:night_vision infinite 0 true
+cmd effect give @s minecraft:resistance 600 1 true
+config hollow.level.stillSeconds 60
+config awakening.buildupSeconds 3
+config awakening.craterRadius 0
+config awakening.lethal false
+cmd tremor marks @s set 2
+cmd tremor awaken
+wait 220
+waitchunks
+cmd tremor hollow status
+wait 30
+screenshot 01_inside
+wait 400
+cmd tremor marks
+screenshot 02_after_waves
+cmd tremor hollow outcome victory
+wait 200
+waitchunks
+cmd item replace entity @s weapon.mainhand with tremor:hush_charm
+wait 10
+hold use 2
+wait 10
+cmd tremor marks
+cmd gamemode spectator
+quit
