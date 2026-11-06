@@ -108,6 +108,14 @@ final class PerchBuild {
     static final double DEEP_CHANCE = 0.4;
     /** A column of the plan goes down this far under the foot where the ground dips. */
     static final int DIP = 3;
+    /**
+     * After a player who builds away it goes on only once they are farther than this from the end of what it built
+     * (blocks, across or up): then a pillar up to their level, a bridge across to them.
+     */
+    static final int LEG = 2;
+    /** A pillar of the way leans a block aside from one layer to the next at this chance, at most this far. */
+    static final double LEG_LEAN_CHANCE = 0.3;
+    static final int LEG_LEAN_MAX = 2;
     /** Heard farther than this (blocks, across) from where they were heard before, the player is built for anew. */
     static final int MAX_STRIDE = 16;
     /** The ground is taken at random, the nearer the likelier: the share into the nearest-first list, to this power. */
@@ -118,6 +126,9 @@ final class PerchBuild {
      */
     static final double DIG_DEEPER = 0.5;
     static final int DIG_SOON = 8;
+    /** With nothing left to take, it looks this much farther out at a time, up to this far (water all around). */
+    static final double SOURCE_WIDEN = 8;
+    static final double SOURCE_FAR = 32;
     /** Ticks a block sinks where it is taken, and comes out where it goes, at first... */
     static final int SLIDE_TICKS = 6;
     /** ...a tick less for every {@value #SPEED_UP_TICKS} ticks it has built, down to this. */
@@ -140,12 +151,15 @@ final class PerchBuild {
     private final List<Move> moves = new ArrayList<>();
     /** Cells a block is on its way to, and those it has put a block in. */
     private final Set<BlockPos> pending = new HashSet<>();
-    private final Set<BlockPos> built = new HashSet<>();
+    /** Shared by every build of the entity: what it built is never taken again (the user: it took its own pillar). */
+    private final Set<BlockPos> built;
     /** Every cell to fill, the core's and the heap's; null until the first is chosen. */
     private List<BlockPos> plan;
     private final Set<BlockPos> core = new HashSet<>();
     private final Random random;
     private List<BlockPos> sources;
+    /** How far out it takes the ground now ({@link #SOURCE_MAX}, farther once nothing is left there). */
+    private double reach = SOURCE_MAX;
     /** Where the player was heard in order since they went aside ({@link #walkTo}). */
     private final List<BlockPos> trail = new ArrayList<>();
     /** The cells of the walkway along the trail from the core's top, and those beside it, in its order. */
@@ -181,9 +195,13 @@ final class PerchBuild {
         }
     }
 
-    /** Around column {@code x, z}, from the layer over {@code footY} (the ground under the player) to {@code topY}. */
-    PerchBuild(ServerLevel level, int x, int z, int footY, int topY) {
+    /**
+     * Around column {@code x, z}, from the layer over {@code footY} (the ground under the player) to {@code topY};
+     * {@code built}: what the entity's builds have put so far, this one's added to it.
+     */
+    PerchBuild(ServerLevel level, int x, int z, int footY, int topY, Set<BlockPos> built) {
         this.level = level;
+        this.built = built;
         this.x = x;
         this.z = z;
         this.footY = footY;
@@ -217,26 +235,30 @@ final class PerchBuild {
     }
 
     /**
-     * The player went aside to {@code target} (the block now under their feet): it joins their trail, the places they
-     * were heard at in order from the core's top, and the walkway runs along it, straight from one place to the next
-     * (a step up or down spread over the way). Once the core is up, every open cell of the walkway (a gap: the player
-     * broke the bridge behind them, the user's case, or walked where it runs beside) is filled in its order, coming out
-     * of the cell before it, and every open cell beside it, a block each side, coming out of it. False, changing
-     * nothing, if the player got farther than {@value #MAX_STRIDE} blocks from where they were heard before (or higher
-     * than they could walk).
+     * The player went aside to {@code target} (the block now under their feet). Within {@value #LEG} blocks of the end
+     * of the way it waits (it can get to them from there); farther, {@code target} joins the trail, the places the way
+     * goes to in order from the core's top, and the way runs along it as the user put it: out of each place a trunk
+     * slantwise to the next one, leaning and ragged ({@link #leg}); higher again, on out of its end. Once the core is up, every open cell of the way (a gap: the player broke it behind them, or
+     * walked where it runs beside) is filled in its order, coming out of the cell before it, and around it: a 3x3 with
+     * blocks sticking out around a pillar, a block each side of a bridge, coming out of it. False, changing nothing,
+     * if the player got farther than {@value #MAX_STRIDE} blocks from the end of the way.
      */
     boolean walkTo(BlockPos target) {
         BlockPos start = new BlockPos(x, topY, z);
         BlockPos last = trail.isEmpty() ? start : trail.get(trail.size() - 1);
         int across = Math.max(Math.abs(target.getX() - last.getX()), Math.abs(target.getZ() - last.getZ()));
-        if (across > MAX_STRIDE || Math.abs(target.getY() - last.getY()) > across + 1) {
+        int rise = Math.abs(target.getY() - last.getY());
+        if (across > MAX_STRIDE || rise > MAX_STRIDE) {
             return false;
+        }
+        if (across <= LEG && rise <= LEG) {
+            return true; // near the end of the way: it gets to them from there
         }
         trail.add(target);
         List<BlockPos> way = new ArrayList<>();
         BlockPos from = start;
         for (BlockPos to : trail) {
-            line(from, to, way);
+            leg(from, to, way);
             from = to;
         }
         Set<BlockPos> on = new HashSet<>(way);
@@ -244,6 +266,7 @@ final class PerchBuild {
         List<BlockPos> order = new ArrayList<>();
         BlockPos before = start;
         for (BlockPos w : way) {
+            boolean pillar = w.getY() != before.getY(); // a cell of a pillar: the whole 3x3 around it
             sides.putIfAbsent(w, before);
             order.add(w);
             if (hang(w, w.below(), HANG_CHANCE, on, order)) {
@@ -264,6 +287,13 @@ final class PerchBuild {
                         if (hang(n, far, SIDE_FAR_CHANCE, on, order)) {
                             hang(far, far.below(), SIDE_UNDER_CHANCE, on, order);
                         }
+                    }
+                }
+                BlockPos corner = n.relative(d.getClockWise());
+                if (pillar && !on.contains(corner)) {
+                    sides.putIfAbsent(corner, w);
+                    if (w.equals(sides.get(corner))) {
+                        order.add(corner);
                     }
                 }
             }
@@ -291,11 +321,65 @@ final class PerchBuild {
         return true;
     }
 
-    /** The cells from {@code a} (not included) straight to {@code b}, a step across at a time, the height spread. */
+    /**
+     * The way from {@code a} (not included) to {@code b}: a trunk straight slantwise to it (the user: a very uneven
+     * pillar going at a slant toward where the player builds), up and across at once, leaning a block aside now and
+     * then at {@value #LEG_LEAN_CHANCE} (at most {@value #LEG_LEAN_MAX} off the straight line, back on it at {@code b}),
+     * every cell touching the one before it. Drawn from the cells, so the same way again every time it is laid.
+     */
+    private void leg(BlockPos a, BlockPos b, List<BlockPos> out) {
+        int dx = b.getX() - a.getX(), dy = b.getY() - a.getY(), dz = b.getZ() - a.getZ();
+        int steps = Math.max(Math.abs(dy), Math.max(Math.abs(dx), Math.abs(dz)));
+        int ox = 0, oz = 0;
+        BlockPos before = a;
+        for (int k = 1; k <= steps; k++) {
+            double t = (double) k / steps;
+            int bx = a.getX() + (int) Math.round(dx * t), by = a.getY() + (int) Math.round(dy * t);
+            int bz = a.getZ() + (int) Math.round(dz * t);
+            double lean = draw(new BlockPos(bx, by, bz));
+            if (lean < LEG_LEAN_CHANCE) {
+                int way = (int) (lean / LEG_LEAN_CHANCE * 4);
+                ox += way == 0 ? 1 : way == 1 ? -1 : 0;
+                oz += way == 2 ? 1 : way == 3 ? -1 : 0;
+            }
+            int room = Math.min(LEG_LEAN_MAX, steps - k); // back on the line at the end
+            ox = Math.max(-room, Math.min(room, ox));
+            oz = Math.max(-room, Math.min(room, oz));
+            BlockPos p = new BlockPos(bx + ox, by, bz + oz);
+            // A lean and a step the same way make two blocks: a cell between, so the trunk holds together.
+            while (Math.abs(p.getX() - before.getX()) > 1 || Math.abs(p.getY() - before.getY()) > 1
+                    || Math.abs(p.getZ() - before.getZ()) > 1) {
+                before = new BlockPos(before.getX() + Integer.signum(p.getX() - before.getX()),
+                        before.getY() + Integer.signum(p.getY() - before.getY()),
+                        before.getZ() + Integer.signum(p.getZ() - before.getZ()));
+                add(before, out);
+            }
+            add(p, out);
+            before = p;
+        }
+    }
+
+    /**
+     * The cells from {@code a} (not included) straight to {@code b}, a step across at a time, the height spread; where
+     * it rises (or falls) more than a block a step, up (down) the column first, a block at a time, so every cell
+     * touches the one before it.
+     */
     private static void line(BlockPos a, BlockPos b, List<BlockPos> out) {
         int dx = b.getX() - a.getX(), dz = b.getZ() - a.getZ(), steps = Math.abs(dx) + Math.abs(dz);
-        int cx = a.getX(), cz = a.getZ();
+        int cx = a.getX(), cz = a.getZ(), cy = a.getY();
+        if (steps == 0) {
+            while (cy != b.getY()) {
+                cy += Integer.signum(b.getY() - cy);
+                add(new BlockPos(cx, cy, cz), out);
+            }
+            return;
+        }
         for (int k = 1; k <= steps; k++) {
+            int y = a.getY() + (int) Math.round((b.getY() - a.getY()) * (double) k / steps);
+            while (Math.abs(y - cy) > 1) {
+                cy += Integer.signum(y - cy);
+                add(new BlockPos(cx, cy, cz), out);
+            }
             // Across along whichever axis is further behind its share of the way.
             boolean xBehind = (long) Math.abs(cx - a.getX()) * Math.abs(dz)
                     <= (long) Math.abs(cz - a.getZ()) * Math.abs(dx);
@@ -304,11 +388,14 @@ final class PerchBuild {
             } else {
                 cz += Integer.signum(dz);
             }
-            int y = a.getY() + (int) Math.round((b.getY() - a.getY()) * (double) k / steps);
-            BlockPos p = new BlockPos(cx, y, cz);
-            if (!out.contains(p)) {
-                out.add(p);
-            }
+            cy = y;
+            add(new BlockPos(cx, y, cz), out);
+        }
+    }
+
+    private static void add(BlockPos p, List<BlockPos> out) {
+        if (!out.contains(p)) {
+            out.add(p);
         }
     }
 
@@ -342,6 +429,7 @@ final class PerchBuild {
         seed = BlockPos.asLong(x, foot, z);
         plan = null;
         sources = null;
+        reach = SOURCE_MAX;
         walk = List.of();
         trail.clear();
         reopen();
@@ -356,6 +444,21 @@ final class PerchBuild {
     /** No more blocks set off; those under way go on to their place ({@link #tick} until it is over). */
     void finish() {
         stopped = done = true;
+    }
+
+    /** A guard begins anew near it: it goes on ({@link #finish} undone). */
+    void resume() {
+        stopped = done = false;
+    }
+
+    /**
+     * Whether the column {@code x, z} with the player's feet on {@code top} is near the end of the way (or the core's
+     * top): within twice {@value #MAX_STRIDE} blocks across and up; a guard begun anew goes on with it from there.
+     */
+    boolean near(int x, int top, int z) {
+        BlockPos end = trail.isEmpty() ? new BlockPos(this.x, topY, this.z) : trail.get(trail.size() - 1);
+        return Math.max(Math.abs(x - end.getX()), Math.abs(z - end.getZ())) <= 2 * MAX_STRIDE
+                && Math.abs(top - end.getY()) <= 2 * MAX_STRIDE;
     }
 
     /**
@@ -629,34 +732,43 @@ final class PerchBuild {
 
     // ---- where from ----
 
-    /** The next block to take, or null if none is left (the next layer is looked for once the top one is gone). */
+    /**
+     * The next block to take, or null if none is left (the next layer is looked for once the top one is gone; with
+     * none left, {@value #SOURCE_WIDEN} blocks farther out, up to {@value #SOURCE_FAR}).
+     */
     private BlockPos nextSource() {
-        for (int pass = 0; pass < 2; pass++) {
-            if (sources == null || sources.isEmpty()) {
-                sources = findSources();
-            }
-            while (!sources.isEmpty()) {
-                BlockPos p = sources.remove((int) (sources.size() * Math.pow(random.nextDouble(), SOURCE_SKEW)));
-                if (takeable(p)) {
-                    if (random.nextDouble() < DIG_DEEPER) {
-                        // The one under it soon too: pits of every depth rather than the ground a layer at a time.
-                        sources.add(random.nextInt(Math.min(sources.size(), DIG_SOON) + 1), p.below());
+        while (true) {
+            for (int pass = 0; pass < 2; pass++) {
+                if (sources == null || sources.isEmpty()) {
+                    sources = findSources();
+                }
+                while (!sources.isEmpty()) {
+                    BlockPos p = sources.remove((int) (sources.size() * Math.pow(random.nextDouble(), SOURCE_SKEW)));
+                    if (takeable(p)) {
+                        if (random.nextDouble() < DIG_DEEPER) {
+                            // The one under it soon too: pits of every depth rather than the ground a layer at a time.
+                            sources.add(random.nextInt(Math.min(sources.size(), DIG_SOON) + 1), p.below());
+                        }
+                        return p;
                     }
-                    return p;
                 }
             }
+            if (reach >= SOURCE_FAR) {
+                return null;
+            }
+            reach = Math.min(SOURCE_FAR, reach + SOURCE_WIDEN);
+            sources = null;
         }
-        return null;
     }
 
     /** The top of the ground in every column of the disc that may be taken, the nearest first. */
     private List<BlockPos> findSources() {
         List<BlockPos> found = new ArrayList<>();
-        int r = (int) Math.ceil(SOURCE_MAX);
+        int r = (int) Math.ceil(reach);
         for (int dz = -r; dz <= r; dz++) {
             for (int dx = -r; dx <= r; dx++) {
                 double d = Math.hypot(dx, dz);
-                if (d < SOURCE_MIN || d > SOURCE_MAX) {
+                if (d < SOURCE_MIN || d > reach) {
                     continue;
                 }
                 for (int y = footY + SOURCE_HEIGHT; y >= footY - SOURCE_DEPTH; y--) {
@@ -697,7 +809,8 @@ final class PerchBuild {
             return false;
         }
         BlockState state = level.getBlockState(p);
-        if (state.hasBlockEntity() || state.is(TremorTags.PROTECTED) || state.getDestroySpeed(level, p) < 0
+        if (built.contains(p) || state.hasBlockEntity() || state.is(TremorTags.PROTECTED)
+                || state.getDestroySpeed(level, p) < 0
                 || state.is(Blocks.MAGMA_BLOCK) || state.is(BlockTags.LEAVES) || !state.getFluidState().isEmpty()
                 || packed(state) == null || !whole(state, p)) {
             return false;
@@ -736,8 +849,7 @@ final class PerchBuild {
     }
 
     private boolean spawnProtected(BlockPos p) {
-        int radius = level.dimension() == Level.OVERWORLD
-                ? Math.max(0, level.getServer().getSpawnProtectionRadius()) : 0;
+        int radius = tremor.config.TremorConfig.spawnProtection(level);
         BlockPos spawn = level.getSharedSpawnPos();
         return radius > 0 && Math.max(Math.abs(p.getX() - spawn.getX()), Math.abs(p.getZ() - spawn.getZ())) <= radius;
     }

@@ -1,0 +1,56 @@
+# The stalactites over a pillar grow worse (the user, 1.3.1): a player on a pillar 2x2 seven high in a cave steps to the
+# other corner, so the stalactite over where they were heard misses: it breaks through a block or two of the
+# pillar where it lands; the next attempt drops two (one beside it), the third three, the small bump a little bigger
+# each time. The copies are tinted red; night vision to see in the cave. The log tells each drop.
+# Run: gradlew runClientAutotest -Ptremor_autotest_script=pillar-drops-more.txt
+waitchunks
+cmd gamemode spectator
+cmd time set noon
+cmd tremor despawn all
+cmd tremor awaken stop
+cmd kill @e[type=!player]
+cmd tp @s 820.5 205.0 295.5
+wait 40
+waitchunks
+cmd fill 805 195 285 835 220 315 minecraft:stone
+cmd fill 811 201 286 830 213 305 minecraft:air
+cmd fill 815 201 295 816 207 296 minecraft:stone
+cmd kill @e[type=!player]
+hud off
+tint on
+config behavior.contact.buildUp false
+config ambush.enabled false
+cmd effect give @s minecraft:night_vision 600 0 true
+cmd tp @s 815.5 208.0 295.5 90 -25
+cmd gamemode survival
+cmd effect give @s minecraft:resistance 600 4 true
+cmd effect give @s minecraft:instant_health 1 4 true
+cmd tremor spawn 821 200 296
+cmd tremor stage hunting
+cmd tremor anger 60
+wait 40
+cmd tremor voice -10
+wait 10
+cmd tp @s 816.5 208.0 296.5 45 -10
+view back
+wait 60
+screenshot 01_first
+wait 60
+screenshot 02_first_after
+wait 200
+screenshot 03_second
+wait 200
+screenshot 04_third
+wait 200
+screenshot 05_later
+cmd tremor info
+cmd gamemode spectator
+cmd tp @s 822.5 210.0 300.5
+lookat 816.0 206.0 296.0
+wait 10
+screenshot 06_pillar
+cmd tremor despawn all
+config behavior.contact.buildUp true
+config ambush.enabled true
+tint off
+quit

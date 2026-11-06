@@ -324,7 +324,8 @@ public final class NaturalSpawner {
      *   <li>dark: the light (block light or sky light, the sky darkened by time and weather) below
      *   {@value #DARK_LIGHT}, as for monster spawning;</li>
      *   <li>deep: feet below y = {@value #DEEP_BELOW_Y};</li>
-     *   <li>night: {@link Level#isNight()} (a thunderstorm darkens the sky enough to count, as for beds).</li>
+     *   <li>night: {@link Level#isNight()} (a thunderstorm darkens the sky enough to count, as for beds), only out of
+     *   a cave: under the ground night means nothing (the user: deep in a dark cave at night it was 60% a roll).</li>
      * </ul>
      */
     private static SpawnRules.Conditions conditions(ServerLevel level, ServerPlayer player) {
@@ -332,7 +333,7 @@ public final class NaturalSpawner {
         boolean cave = underground(level, eye);
         boolean dark = level.getMaxLocalRawBrightness(eye) < DARK_LIGHT;
         boolean deep = player.getY() < DEEP_BELOW_Y;
-        return new SpawnRules.Conditions(cave, dark, deep, level.isNight());
+        return new SpawnRules.Conditions(cave, dark, deep, !cave && level.isNight());
     }
 
     /** Whether {@code pos} is under the ground, as the cave condition says ({@link #conditions}). */

@@ -65,11 +65,15 @@ import java.util.function.Consumer;
  * it, the ticks over the budget) is logged once it is over and shown by {@code /tremor info}. A crater that is no
  * longer wanted (its defeat was called off) is not dug, or no further.
  * <p>
- * What is kept ({@link CraterRules.Cell#KEEP}): blocks with a block entity (the caches of an earlier crater too), of
- * {@code #tremor:protected}, that cannot be broken (a destroy speed below 0) or that burn (magma), and every block of
- * the spawn protection (the overworld around the world spawn, a square of the server's spawn protection radius:
- * {@code spawn-protection} of server.properties, 16 blocks in single player and on LAN) whoever the player is. Carved
- * blocks drop nothing, and their neighbours are not updated: nothing next to the crater pops off, falls or flows because
+ * What is kept ({@link CraterRules.Cell#KEEP}), the user: a crater takes everything: only blocks of
+ * {@code #tremor:protected} and those that cannot be broken (a destroy speed below 0), what no creeper breaks either,
+ * and, if {@code awakening.spawnProtection} says so (off by default, the user: one who built where they were born was
+ * safe), every block of the spawn protection (the overworld around the world spawn, a square of the server's spawn protection radius:
+ * {@code spawn-protection} of server.properties, 16 blocks in single player and on LAN) whoever the player is. Chests,
+ * beds and every other block with a block entity go too (the user: a creeper spares nothing, the player should fear
+ * for the house; a pillar was left under each), dropping as an item, and what they hold spills, the caches of an
+ * earlier crater too. Other carved blocks
+ * drop nothing, and their neighbours are not updated: nothing next to the crater pops off, falls or flows because
  * of it; only a plant next to a carved block that cannot stay without it drops as usual, and the leaves of a tree whose
  * trunk was carved wither as after a felling. Entities standing over the crater fall in, and mobs walking about do not
  * plan their paths again for each block changed ({@link Job#told}): they find out as they go. Not saved: a server that
@@ -358,9 +362,8 @@ public final class Craters {
             int reach = shape.reach() + 2;
             area = new RealArea(level, TICKET, id, top.getX() - reach, top.getZ() - reach, top.getX() + reach,
                     top.getZ() + reach);
-            // As vanilla has it, in single player too (the radius is 16 there).
-            spawnRadius = level.dimension() == Level.OVERWORLD
-                    ? Math.max(0, level.getServer().getSpawnProtectionRadius()) : 0;
+            // As vanilla has it, in single player too (the radius is 16 there), if the config says so.
+            spawnRadius = TremorConfig.spawnProtection(level);
             spawn = level.getSharedSpawnPos();
         }
 
@@ -555,6 +558,10 @@ public final class Craters {
             if (y > top.getY() && state.is(BlockTags.LOGS)) {
                 fell(pos, state);
             } else {
+                if (state.hasBlockEntity()) {
+                    // A chest, a furnace, a bed...: it drops as an item, and what it holds spills as it goes.
+                    Block.dropResources(state, level, pos, level.getBlockEntity(pos));
+                }
                 put(pos, Blocks.AIR.defaultBlockState());
             }
             carved++;
@@ -574,6 +581,10 @@ public final class Craters {
         public void seal(int x, int y, int z, int fromX, int fromY, int fromZ) {
             BlockPos pos = new BlockPos(x, y, z);
             rescue(pos, new BlockPos(fromX, fromY, fromZ));
+            BlockState state = level.getBlockState(pos);
+            if (state.hasBlockEntity()) {
+                Block.dropResources(state, level, pos, level.getBlockEntity(pos)); // a chest in the wall: as carved
+            }
             put(pos, ground(pos));
             sealed++;
             changes++;
@@ -755,8 +766,7 @@ public final class Craters {
                 return CraterRules.Cell.KEEP;
             }
             BlockState state = chunk.getBlockState(cursor);
-            if (state.hasBlockEntity() || state.is(TremorTags.PROTECTED) || state.getDestroySpeed(level, cursor) < 0
-                    || state.is(Blocks.MAGMA_BLOCK)) {
+            if (state.is(TremorTags.PROTECTED) || state.getDestroySpeed(level, cursor) < 0) {
                 return CraterRules.Cell.KEEP;
             }
             if (!state.getFluidState().isEmpty()) {

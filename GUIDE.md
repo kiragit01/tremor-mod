@@ -8,7 +8,7 @@ Everything the mod does, in plain words. The numbers here are the defaults: almo
 
 It appears by itself near players, 40–80 blocks away, somewhere in view or on your way.
 
-Every 30 seconds there's a roll for each player. The base chance is 4%, and it grows in a cave (x2.5), in the dark (x2), deep underground (x1.5) and at night (x2). These multiply, so on the surface in daylight it's about once every 10–15 minutes, and in a dark cave at night it's a minute or two.
+Every 30 seconds there's a roll for each player. The base chance is 4%, and it grows in a cave (x2.5), in the dark (x2), deep underground (x1.5) and at night under the open sky (x2). These multiply, so on the surface in daylight it's about once every 10–15 minutes, and in a dark cave it's a couple of minutes.
 
 It doesn't appear in the first minute after you join or change dimension, within 32 blocks of the world spawn or of players' beds and respawn anchors, or on Peaceful.
 
@@ -115,7 +115,7 @@ There's one more way out: a narrow tunnel that starts a couple of blocks from wh
 - You got out through the tunnel at the edge — you're alive, you keep everything, and you come out a little away from where you were taken. But a crater forms in that place. The heart saves the place, the edge only saves you.
 - Time ran out or the soft ground pulled you in — defeat. In the real world, where you were swallowed, a crater forms: an uneven funnel with steep walls, about 12 blocks in radius and 20 deep in the middle, caving in from the top down. On the surface it also takes everything standing over it, hills and trees too. By default you die, and your things end up in rubble caches scattered over the bottom of the crater, some of them buried. Your experience lies there too.
 
-The crater never touches chests and other blocks with block entities, unbreakable blocks, spawn protection or blocks tagged `#tremor:protected`, and it doesn't let water or lava in. A totem of undying still saves you; `keepInventory` and the curse of vanishing work as usual. If the config says a defeat doesn't kill (`awakening.lethal`), or a totem saved you, you come out on the bottom of the crater alive and with all your things, but badly weakened: 1 health, blindness, nausea, weakness and slowness for half a minute, plus hunger, so you can't sprint until you eat.
+The crater takes everything: chests, furnaces, beds and everything else break and drop along with what they held. It only leaves unbreakable blocks and blocks tagged `#tremor:protected`, and it doesn't let water or lava in. Spawn protection can be turned on in the config (`awakening.spawnProtection`). A totem of undying still saves you; `keepInventory` and the curse of vanishing work as usual. If the config says a defeat doesn't kill (`awakening.lethal`), or a totem saved you, you come out on the bottom of the crater alive and with all your things, but badly weakened: 1 health, blindness, nausea, weakness and slowness for half a minute, plus hunger, so you can't sprint until you eat.
 
 ## Shards and what they make
 
