@@ -148,6 +148,8 @@ One setting for the whole mod: `difficulty` in `config/tremor-common.toml`, the 
 | Damage of its hit | x0.5 | x1 | x1.5 | x2 |
 | Defeat in the hollow | doesn't kill | as in the config (kills by default) | kills | kills and takes everything |
 
+To turn the whole mod off (for example on a server, or in a modpack until the right quest), there's the game rule `doTremor`: `/gamerule doTremor false` or `/tremor system off`. The creatures disappear, Awakenings are called off, and nothing of the mod runs until you turn it back on.
+
 ## With other players
 
 Install it on the server and for every player. Each part of the world where players are can have its own creature. Everyone nearby sees the mound, the ripples and the Awakening, but the hollow is per player: only one gets in.
