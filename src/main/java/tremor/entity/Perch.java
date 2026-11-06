@@ -845,12 +845,20 @@ final class Perch {
      * user: through a block or two), dropping them as a pickaxe would; never one that cannot be broken, a fluid or one
      * of {@code #tremor:protected}.
      */
+    /** Whether {@code p} lies in the spawn protection the config spares ({@code awakening.spawnProtection}). */
+    private static boolean spawnProtected(net.minecraft.world.level.Level level, BlockPos p) {
+        int radius = tremor.config.TremorConfig.spawnProtection(level);
+        BlockPos spawn = level.getSharedSpawnPos();
+        return radius > 0 && Math.max(Math.abs(p.getX() - spawn.getX()), Math.abs(p.getZ() - spawn.getZ())) <= radius;
+    }
+
     private void smash(BlockPos landed) {
         BlockPos p = landed.below();
         for (int i = 0; i < 2; i++, p = p.below()) {
             BlockState state = level.getBlockState(p);
             if (state.isAir() || !state.getFluidState().isEmpty() || state.getDestroySpeed(level, p) < 0
-                    || state.is(tremor.world.TremorTags.PROTECTED) || !level.getWorldBorder().isWithinBounds(p)) {
+                    || state.is(tremor.world.TremorTags.PROTECTED) || !level.getWorldBorder().isWithinBounds(p)
+                    || spawnProtected(level, p)) {
                 return;
             }
             level.destroyBlock(p, true);
