@@ -36,6 +36,7 @@ public final class ZoneScan {
     private static final int LOCAL_MASK = LOCAL_LIMIT - 1;
 
     private final VoxelView view;
+    private final Vec3 prefer;
     private final NormalField normals;
     private final double cx, cz, radiusSq;
     private final int startX, startY, startZ;
@@ -61,6 +62,15 @@ public final class ZoneScan {
      *                                  across or high)
      */
     public ZoneScan(VoxelView view, Vec3 center, double radius, int below, int above) {
+        this(view, center, radius, below, above, null);
+    }
+
+    /**
+     * A scan whose voxels without a normal of their own (a wall one block thick) go along {@code prefer} where it is
+     * open ({@link SurfaceCollector#openWay(VoxelView, int, int, int, Vec3)}): the face a ring runs over; null as the
+     * other constructor.
+     */
+    public ZoneScan(VoxelView view, Vec3 center, double radius, int below, int above, Vec3 prefer) {
         if (!(radius >= 0) || !Double.isFinite(radius)) {
             throw new IllegalArgumentException("radius must be finite and >= 0: " + radius);
         }
@@ -68,6 +78,7 @@ public final class ZoneScan {
             throw new IllegalArgumentException("below and above must be >= 0: " + below + ", " + above);
         }
         this.view = view;
+        this.prefer = prefer;
         this.normals = new NormalField(view);
         this.cx = center.x();
         this.cz = center.z();
@@ -186,7 +197,7 @@ public final class ZoneScan {
                 // Thin ground (a pillar, a ridge one or two blocks wide) only rises at its top: its sides, all edges
                 // and corners, would fan out every way. Its top, a floor one block thick, a lip over a drop go
                 // straight up instead of standing still (the user).
-                normal = SurfaceCollector.openWay(view, x, y, z);
+                normal = SurfaceCollector.openWay(view, x, y, z, prefer);
             }
             if (normal != null) {
                 points.add(new SurfacePoint(x, y, z, normal));

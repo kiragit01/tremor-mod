@@ -29,6 +29,7 @@ import tremor.client.hollow.HollowGround;
 import tremor.config.TremorConfig;
 import tremor.core.VoxelView;
 import tremor.core.deform.SurfaceCollector;
+import tremor.core.deform.ZoneScan;
 import tremor.core.deform.SurfacePoint;
 import tremor.core.deform.ThinSwell;
 import tremor.core.math.Vec3;
@@ -136,6 +137,19 @@ public final class DeformationRenderer {
     private static final double BRIDGE_MAX_RADIUS = 2.0;
     /** How much thinner a bridge is in its middle (a share of its thickness). */
     private static final double BRIDGE_NECK = 0.3;
+    /** The ground a ripple runs over ({@link #scanRing}): this far up and down from its centre (blocks). */
+    static final int RING_HEIGHT = 6;
+    /** Its centre this far out in front of the surface, in the open. */
+    static final double RING_LIFT = 0.6;
+    /** A surface facing the plane of its rings this much at least (the cosine) moves with it. */
+    static final double RING_FACING = 0.35;
+    /** The same ripple: its start within this many ticks, its centre within this far (blocks). */
+    static final double RING_SAME_TICKS = 2;
+    static final double RING_MOVE = 1.5;
+    /** Scan steps between two looks at the clock, and the time a frame spends on the scan at most. */
+    static final int RING_STEP = 64;
+    static final long RING_NANOS = 1_500_000;
+    private static final double TICKS_PER_SECOND = 20;
     /** How far from the hill of an Awakening a thin structure under it is taken in (blocks). */
     private static final double ZONE_SWELL_RADIUS = 6;
     /** Surface and normal estimation (SPEC 6.2) read up to this many voxels beyond the collected ones. */
@@ -310,6 +324,20 @@ public final class DeformationRenderer {
         /** The normal it is drawn along, as of game time {@link #normalAt} ({@link #drawn}); null at first. */
         Vec3 normal;
         double normalAt = Double.NaN;
+        /** Voxels of {@link #active}, to keep the ring's columns apart from them. */
+        final java.util.Set<Long> activeKeys = new java.util.HashSet<>();
+        /**
+         * The ground its running ripple runs over ({@link #scanRing}): every surface connected through the open
+         * space to its centre within the ripple's reach and facing the plane of its rings, scanned a little at a
+         * time from the middle out; null while no ripple runs.
+         */
+        ZoneScan ring;
+        double ringStart = Double.NaN;
+        Vec3 ringCenter = Vec3.ZERO;
+        Vec3 ringNormal = Vec3.UNIT_Y;
+        int ringTaken;
+        final List<Column> ringColumns = new ArrayList<>();
+        final java.util.Set<Long> ringKeys = new java.util.HashSet<>();
     }
 
     private DeformationRenderer() {
@@ -422,19 +450,12 @@ public final class DeformationRenderer {
         for (int b = 0; b < frameBumps.size(); b++) {
             Bump bump = frameBumps.get(b);
             for (int i = 0, n = bump.active.size(); i < n; i++) {
-                Column col = bump.active.get(i);
-                double h = col.fill ? fillCoverage(bump.field, col, rise(col, now))
-                        : bump.field.at(col.cx, col.cy, col.cz);
-                if (col.stamp != frameStamp) {
-                    col.stamp = frameStamp;
-                    col.inBump = true;
-                    col.inZone = false;
-                    col.bumps = 1L << b;
-                    col.h = h;
-                    frameColumns.add(col);
-                } else {
-                    col.bumps |= 1L << b; // under two bumps at once: the heights add
-                    col.h += h;
+                evaluate(bump, b, bump.active.get(i), now);
+            }
+            for (int i = 0, n = bump.ringColumns.size(); i < n; i++) {
+                Column col = bump.ringColumns.get(i);
+                if (!bump.activeKeys.contains(VoxelPos.pack(col.x, col.y, col.z))) {
+                    evaluate(bump, b, col, now);
                 }
             }
         }
@@ -462,7 +483,13 @@ public final class DeformationRenderer {
             for (Bump bump : frameBumps) {
                 HeightField field = bump.field;
                 if (field.ripple() != null) {
-                    spawnDust(level, bump.active, field.frame(), field.ripple(), field.rippleAge());
+                    List<Column> under = new ArrayList<>(bump.active);
+                    for (Column col : bump.ringColumns) {
+                        if (!bump.activeKeys.contains(VoxelPos.pack(col.x, col.y, col.z))) {
+                            under.add(col);
+                        }
+                    }
+                    spawnDust(level, under, field.frame(), field.ripple(), field.rippleAge());
                 }
             }
             if (rings) {
@@ -520,6 +547,22 @@ public final class DeformationRenderer {
         frameCopies = 0;
         frameVertices = 0;
         return !drawn.isEmpty();
+    }
+
+    /** The height of {@code col} under the {@code b}-th bump of this frame, added to what other bumps raise it. */
+    private static void evaluate(Bump bump, int b, Column col, double now) {
+        double h = col.fill ? fillCoverage(bump.field, col, rise(col, now)) : bump.field.at(col.cx, col.cy, col.cz);
+        if (col.stamp != frameStamp) {
+            col.stamp = frameStamp;
+            col.inBump = true;
+            col.inZone = false;
+            col.bumps = 1L << b;
+            col.h = h;
+            frameColumns.add(col);
+        } else {
+            col.bumps |= 1L << b; // under two bumps at once: the heights add
+            col.h += h;
+        }
     }
 
     /**
@@ -669,11 +712,12 @@ public final class DeformationRenderer {
      */
     private static HeightField bump(ClientLevel level, ClientTremor.RenderState state, Bump bump, boolean nearest,
                                     long tick, double now) {
-        BumpFrame frame = drawn(level, bump, state.frame(), tick, now);
+        boolean pulse = tremor.network.TremorStatePayload.pulse(state.instance());
+        // A pulse runs over the face it struck as it is, a wall one block thick too (no bump to turn upright on it).
+        BumpFrame frame = pulse ? state.frame() : drawn(level, bump, state.frame(), tick, now);
         BumpParams params = state.params();
         RippleParams ripple = runningRipple(state.rippleAgeSeconds(),
-                Ripple.visibility(params.amplitude(), state.fullAmplitude()),
-                tremor.network.TremorStatePayload.pulse(state.instance()));
+                Ripple.visibility(params.amplitude(), state.fullAmplitude()), pulse);
         if (!(params.amplitude() >= BumpShape.RENDER_THRESHOLD) && ripple == null) {
             return null; // dived (or inverted), and its ripple is gone with it, or there is none
         }
@@ -691,6 +735,13 @@ public final class DeformationRenderer {
         if (needsCollect(bump, frame, radius, tick)) {
             collect(level, bump, frame, params, new SurfaceCollector.Options(radius, options.normalBand(),
                     options.minNormalDot()), tick);
+        }
+        if (ripple != null) {
+            scanRing(level, bump, frame, ripple, state.rippleAgeSeconds(), now, tick);
+        } else if (bump.ring != null) {
+            bump.ring = null;
+            bump.ringColumns.clear();
+            bump.ringKeys.clear();
         }
         return new HeightField(params, frame, state.timeSeconds(), TremorConfig.CLIENT.drawJitter(), ripple,
                 state.rippleAgeSeconds());
@@ -974,8 +1025,10 @@ public final class DeformationRenderer {
         ThinSwell.Result thin = ThinSwell.apply(voxels, frame, params, options.radius(), points);
 
         bump.active.clear();
+        bump.activeKeys.clear();
         for (SurfacePoint p : thin.points()) {
             bump.active.add(column(p, tick));
+            bump.activeKeys.add(VoxelPos.pack(p.x(), p.y(), p.z()));
         }
         for (Column col : bump.fills.values()) {
             col.swelling = false;
@@ -1007,6 +1060,51 @@ public final class DeformationRenderer {
         bump.collectTick = tick;
         bump.collected = true;
         bump.recollect = false;
+    }
+
+    /**
+     * The ground the running {@code ripple} of {@code bump} runs over, beyond what its collection holds (the user: the
+     * echo's ring and an arrow's pulse moved a block or two and left the rest still, went off into another plane):
+     * the collection keeps to a band along the bump's normal, which a ring dozens of blocks wide leaves on any hill,
+     * step or slope. This floods the open space from the ring's centre instead, as an Awakening's zone does
+     * ({@link ZoneScan}), out to the ripple's reach and {@value #RING_HEIGHT} blocks up and down, and takes every
+     * surface voxel facing the plane of its rings ({@link HeightField#ringNormal}: the floor for a ring on the ground,
+     * not the walls of a tunnel; the wall for a pulse on a wall), a little each frame from the middle out, ahead of the
+     * ring. A new ripple, or the centre moved, scans anew.
+     */
+    private static void scanRing(ClientLevel level, Bump bump, BumpFrame frame, RippleParams ripple, double age,
+                                 double now, long tick) {
+        double start = now - age * TICKS_PER_SECOND;
+        Vec3 n = HeightField.ringNormal(frame.normal());
+        Vec3 c = frame.center().add(n.scale(RING_LIFT)); // in the open in front of the surface
+        if (bump.ring == null || Math.abs(start - bump.ringStart) > RING_SAME_TICKS
+                || c.distanceSquared(bump.ringCenter) > RING_MOVE * RING_MOVE || !n.equals(bump.ringNormal)) {
+            bump.ring = new ZoneScan(voxels, c, Ripple.maxRadius(ripple) + 1, RING_HEIGHT, RING_HEIGHT, n);
+            bump.ringStart = start;
+            bump.ringCenter = c;
+            bump.ringNormal = n;
+            bump.ringTaken = 0;
+            bump.ringColumns.clear();
+            bump.ringKeys.clear();
+        }
+        if (!bump.ring.done()) {
+            source.begin(level);
+            voxels.setTime(tick);
+            long began = System.nanoTime();
+            while (!bump.ring.advance(RING_STEP) && System.nanoTime() - began < RING_NANOS) {
+                // a little each frame, from the middle out
+            }
+        }
+        List<SurfacePoint> points = bump.ring.points();
+        for (; bump.ringTaken < points.size(); bump.ringTaken++) {
+            SurfacePoint p = points.get(bump.ringTaken);
+            if (p.normal().dot(n) >= RING_FACING && bump.ringKeys.add(VoxelPos.pack(p.x(), p.y(), p.z()))) {
+                bump.ringColumns.add(column(p, tick));
+            }
+        }
+        for (int i = 0, k = bump.ringColumns.size(); i < k; i++) {
+            bump.ringColumns.get(i).lastUsed = tick;
+        }
     }
 
     /** The column of a collected surface voxel (the bump's or the zone's), made or refreshed, used at {@code tick}. */
