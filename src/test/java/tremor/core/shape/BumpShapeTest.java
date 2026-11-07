@@ -100,20 +100,33 @@ class BumpShapeTest {
     }
 
     @Test
-    void trailIsNegativeBehindTheBump() {
+    void theTrailPullsTheBackDownButItFadesAsGentlyAsTheSides() {
         double lag = DEFAULTS.trailLag();
         double atTrail = h(DEFAULTS, FLOOR, local(FLOOR, -lag, 0, 0));
-        assertTrue(atTrail < 0, "h at a=-L is " + atTrail);
-        // Main bump there: A·exp(-(L/σback)²) ≈ 0.19; trail: k·A ≈ 0.6.
-        double expected = DEFAULTS.amplitude() * (Math.exp(-Math.pow(lag / DEFAULTS.sigmaBack(), 2)) - DEFAULTS.trailDepth());
+        // Main bump there: A·exp(-(L/σback)²) ≈ 0.19, pulled down by the trail's k = 0.3.
+        double expected = DEFAULTS.amplitude() * Math.exp(-Math.pow(lag / DEFAULTS.sigmaBack(), 2))
+                * (1 - DEFAULTS.trailDepth());
         assertEquals(expected, atTrail, 1e-12);
-        for (double a = -lag - 1.5; a <= -lag + 0.5; a += 0.5) {
-            assertTrue(h(DEFAULTS, FLOOR, local(FLOOR, a, 0, 0)) < 0, "a=" + a);
+        // Never below 0, and from where it is a block high down to nothing it falls no faster than at the side (the
+        // user: the sides ended soft, the back in a cliff where the dip crossed the bump).
+        double steepestBack = steepest(a -> h(DEFAULTS, FLOOR, local(FLOOR, -a, 0, 0)));
+        double steepestSide = steepest(b -> h(DEFAULTS, FLOOR, local(FLOOR, 0, b, 0)));
+        assertTrue(steepestBack <= steepestSide * 1.1, "back " + steepestBack + ", side " + steepestSide);
+        for (double a = -15; a <= 12; a += 0.25) {
+            assertTrue(h(DEFAULTS, FLOOR, local(FLOOR, a, 0, 0)) >= 0, "a=" + a);
         }
-        // No dip ahead of the bump.
-        for (double a = 0; a <= 12; a += 0.5) {
-            assertTrue(h(DEFAULTS, FLOOR, local(FLOOR, a, 0, 0)) >= -1e-3 * DEFAULTS.amplitude(), "a=" + a);
+    }
+
+    /** The steepest fall per block of {@code height} outward, where it is between a block and the render threshold. */
+    private static double steepest(java.util.function.DoubleUnaryOperator height) {
+        double worst = 0;
+        for (double x = 0; x < 15; x += 0.05) {
+            double v = height.applyAsDouble(x), next = height.applyAsDouble(x + 0.05);
+            if (v <= 1 && v >= BumpShape.RENDER_THRESHOLD) {
+                worst = Math.max(worst, (v - next) / 0.05);
+            }
         }
+        return worst;
     }
 
     @Test

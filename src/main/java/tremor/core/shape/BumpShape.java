@@ -10,9 +10,12 @@ import tremor.core.noise.PerlinNoise;
  * tangent plane):
  * <pre>
  * h(p) = A·exp(-(a²/σa² + b²/σside²))                  main bump, σa = a >= 0 ? σfront : σback
- *      - k·A·exp(-((a + L)²/σt² + b²/σside²))           trailing dip
- *      + ε·A·noise(p, t)                                 jitter
+ *      · (1 - k·exp(-(a + L)²/σt²))                      its back pulled down behind it (the trail), k <= 1
+ *      + ε·A·noise(p, t)·exp(-(a²/σa² + b²/σside²))      jitter, faded with the bump
  * </pre>
+ * The trail pulls the back down but never through 0: the back fades out as gently as the sides (the user: a crawling
+ * tremor's sides end soft, its back in a cliff). It was a dip subtracted once, never drawn (a hole needs the real
+ * blocks hidden), that only cut the back off along a straight line where it crossed the bump.
  * The height is independent of {@code d·n}, i.e. of where along the normal the sample point lies.
  * All methods are allocation-free and thread-safe.
  */
@@ -42,9 +45,9 @@ public final class BumpShape {
      * Full shape including the jitter term {@code ε·A·noise(p·F, p.y·F + t·S, p.z·F)·envelope(p)} with
      * {@code F = }{@link #JITTER_FREQUENCY} and {@code S = }{@link #JITTER_SPEED}.
      * <p>
-     * Deviation from the literal SPEC formula: the jitter is faded by the envelope of the bump and its trail
-     * (the larger of the two Gaussians, so {@code 0..1}). Unfaded, it would make the whole influence disc tremble
-     * by up to {@code ε·A} and end in a visible hard edge at its radius.
+     * Deviation from the literal SPEC formula: the jitter is faded by the envelope of the bump ({@code 0..1}).
+     * Unfaded, it would make the whole influence disc tremble by up to {@code ε·A} and end in a visible hard edge at
+     * its radius; faded by the trail too, it raised copies on and off behind the bump.
      *
      * @param timeSeconds animation time in seconds
      */
@@ -72,13 +75,11 @@ public final class BumpShape {
         double bump = Math.exp(-(a * a / (sigmaA * sigmaA) + side));
         double h = amplitude * bump;
 
-        double trail = 0;
         double trailDepth = params.trailDepth();
         if (trailDepth > 0) {
             double t = a + params.trailLag();
             double trailSigma = params.trailSigma();
-            trail = Math.exp(-(t * t / (trailSigma * trailSigma) + side));
-            h -= trailDepth * amplitude * trail;
+            h *= 1 - trailDepth * Math.exp(-t * t / (trailSigma * trailSigma));
         }
 
         double jitter = params.jitter();
@@ -88,6 +89,6 @@ public final class BumpShape {
         double noise = PerlinNoise.noise(px * JITTER_FREQUENCY,
                 py * JITTER_FREQUENCY + timeSeconds * JITTER_SPEED,
                 pz * JITTER_FREQUENCY);
-        return h + jitter * amplitude * noise * Math.max(bump, trail);
+        return h + jitter * amplitude * noise * bump;
     }
 }
