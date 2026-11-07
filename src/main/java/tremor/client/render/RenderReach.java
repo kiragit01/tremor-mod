@@ -8,7 +8,7 @@ import tremor.core.shape.RippleParams;
 /**
  * How far from the bump centre the renderer has to look: only where a voxel's height can reach
  * {@link BumpShape#RENDER_THRESHOLD}. That is usually far less than {@link BumpParams#influenceRadius()}, which also
- * spans the trailing dip, and the dip is never drawn. While a ground ripple runs (SPEC 8, ALERT) it reaches further.
+ * spans the trail behind it (it only pulls the back down). While a ground ripple runs (SPEC 8, ALERT) it reaches further.
  * Pure math, no game classes.
  */
 final class RenderReach {
@@ -22,12 +22,12 @@ final class RenderReach {
      * Distance from the bump centre, in its tangent plane, beyond which {@code h < RENDER_THRESHOLD} whatever the
      * jitter does; {@code 0} if {@code h} can never reach the threshold.
      * <p>
-     * With {@code bump}, {@code trail} the two Gaussians of {@link BumpShape} and the noise in {@code [-1, 1]},
-     * {@code h <= P·bump + Q·trail}: for {@code A >= 0}, {@code P = A(1+ε)} and {@code Q = A·max(0, ε-k)} (the dip
-     * rises above the surface only through the jitter); for {@code A < 0}, {@code P = |A|·max(0, ε-1)} and
-     * {@code Q = |A|(k+ε)} (the dip is the raised part). So {@code h >= T} needs {@code bump >= T/(P+Q)} or
-     * {@code trail >= T/(P+Q)}, and at distance {@code r} {@code bump <= exp(-r²/s²)} with
-     * {@code s = max(σfront, σback, σside)}, {@code trail <= exp(-(r-L)²/st²)} with {@code st = max(σt, σside)}.
+     * With {@code bump} the Gaussian of {@link BumpShape} (its trail only pulls it down, by a factor in
+     * {@code [1-k, 1]}) and the noise in {@code [-1, 1]}, {@code h <= P·bump}: for {@code A >= 0},
+     * {@code P = A(1+ε)}; for {@code A < 0}, {@code P = |A|·max(0, ε-(1-k))} (only the jitter lifts an inverted bump,
+     * most easily where its trail has pulled it in). So {@code h >= T} needs {@code bump >= T/P}, and at distance
+     * {@code r} {@code bump <= exp(-r²/s²)} with {@code s = max(σfront, σback, σside)}. (The bound keeps a second,
+     * trail term {@code Q·exp(-(r-L)²/st²)}, now always 0.)
      */
     static double reach(BumpParams params) {
         Bound bound = Bound.of(params);
@@ -117,18 +117,8 @@ final class RenderReach {
     private record Bound(double main, double trail, double spread, double trailSpread, double lag) {
         static Bound of(BumpParams params) {
             double amplitude = params.amplitude(), jitter = params.jitter(), depth = params.trailDepth();
-            double main, trail;
-            if (amplitude >= 0) {
-                main = amplitude * (1 + jitter);
-                trail = amplitude * Math.max(0, jitter - depth);
-            } else {
-                main = -amplitude * Math.max(0, jitter - 1);
-                trail = -amplitude * (depth + jitter);
-            }
-            if (depth == 0) {
-                trail = 0; // no dip at all
-            }
-            return new Bound(main, trail,
+            double main = amplitude >= 0 ? amplitude * (1 + jitter) : -amplitude * Math.max(0, jitter - (1 - depth));
+            return new Bound(main, 0,
                     Math.max(params.sigmaFront(), Math.max(params.sigmaBack(), params.sigmaSide())),
                     Math.max(params.trailSigma(), params.sigmaSide()), params.trailLag());
         }
