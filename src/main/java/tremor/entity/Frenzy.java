@@ -183,6 +183,7 @@ public final class Frenzy {
         }
         if (now - state.started > TremorConfig.COMMON.frenzySeconds.get() * 20L) {
             end(level, entity, "it died down");
+            runtime.listenHere(); // it never got there: it sends its echo out to find them (the user)
             return;
         }
         if (entity.stage().ordinal() < Stage.HUNTING.ordinal()) {
