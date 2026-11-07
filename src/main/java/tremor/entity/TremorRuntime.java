@@ -1240,6 +1240,18 @@ public final class TremorRuntime {
         }
     }
 
+    /**
+     * A player's echo came back to it ({@link Echo}): heard as a relayed sound, and it is sure of the place whatever
+     * else it remembers, so it goes there (the user: after the knock it did not always come).
+     */
+    void echoed(Vec3 source, net.minecraft.world.entity.player.Player player, double perceived, double bonus) {
+        relay(source, player, perceived, bonus, "echo");
+        TremorEntity entity = this.entity;
+        if (entity != null && error == null && !paused && !entity.leaving() && !entity.absorbed()) {
+            mind(entity).felt(source);
+        }
+    }
+
     public void heardPlayer(net.minecraft.world.entity.player.Player player, Vec3 at) {
         TremorEntity entity = this.entity;
         if (entity != null) {

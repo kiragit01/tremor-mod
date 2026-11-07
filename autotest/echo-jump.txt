@@ -1,0 +1,81 @@
+# Echolocation, the user's case (1.4.0): jumped the ring, and found a second later all the same; and the knock came but
+# the tremor did not. A thick field; a tremor ALERT, the player 20 blocks off, looking at it.
+# 1. A stone lands between them: it freezes, its ring goes out, and it creeps on toward the stone (toward the player)
+#    while the ring runs: the ring stays where it went out (the tinted shots), and a jump just as its crest comes saves
+#    the player (no "its echo finds" in this part).
+# 2. The same standing: found, a little after its crest passed them ("... s into its ring" in the log: the crest
+#    reaches 20 blocks at 3.46 s, they are judged till 0.6 s after).
+# 3. A trench between them: the echo running back sinks at its edge ("An echo ... is lost"), its tremor knows all the
+#    same ("An echo reaches tremor") and goes for the player (its target by them in "tremor info").
+# Run: gradlew runClientAutotest -Ptremor_autotest_script=echo-jump.txt
+waitchunks
+cmd gamemode spectator
+cmd time set noon
+cmd tremor despawn all
+cmd kill @e[type=!player]
+cmd tp @s 870.5 215.0 300.5
+wait 40
+waitchunks
+cmd fill 800 195 260 920 199 340 minecraft:dirt
+cmd fill 800 200 260 920 200 340 minecraft:grass_block
+cmd fill 800 201 260 920 230 340 minecraft:air
+cmd kill @e[type=!player]
+config ambush.enabled false
+config echo.range 32
+config echo.speed 6
+cmd tremor spawn 860 200 300
+cmd tremor stage alert
+cmd tremor anger 35
+cmd gamemode survival
+cmd effect give @s minecraft:resistance 600 4 true
+cmd tp @s 880.5 201.0 300.5 90 35
+wait 60
+log --- 1. it creeps on while its ring runs; a jump on its crest saves the player
+cmd summon minecraft:item 866.5 204 300.5 {Item:{id:"minecraft:stone",Count:1b},PickupDelay:32767}
+hud off
+tint on
+wait 60
+screenshot 00_ring
+wait 30
+screenshot 01_crest_coming
+wait 8
+screenshot 02_crest_near
+hold jump 2
+screenshot 03_jump
+wait 4
+screenshot 04_over
+wait 10
+screenshot 05_passed
+tint off
+wait 80
+cmd kill @e[type=minecraft:item]
+cmd tremor info
+log --- 2. standing: found, half a second after its crest
+cmd tremor despawn all
+wait 20
+cmd tremor spawn 860 200 300
+cmd tremor stage alert
+cmd tremor anger 35
+cmd tp @s 880.5 201.0 300.5 90 35
+wait 60
+cmd summon minecraft:item 866.5 204 300.5 {Item:{id:"minecraft:stone",Count:1b},PickupDelay:32767}
+wait 160
+cmd kill @e[type=minecraft:item]
+log --- 3. a trench between them: the echo sinks at it, the tremor still comes
+cmd tremor despawn all
+wait 20
+cmd fill 870 196 280 871 200 320 minecraft:air
+cmd tremor spawn 860 200 300
+cmd tremor stage alert
+cmd tremor anger 35
+cmd tp @s 880.5 201.0 300.5 90 35
+wait 60
+cmd summon minecraft:item 857.5 204 300.5 {Item:{id:"minecraft:stone",Count:1b},PickupDelay:32767}
+wait 140
+cmd tremor info
+wait 60
+cmd tremor info
+cmd kill @e[type=minecraft:item]
+cmd tremor despawn all
+config ambush.enabled true
+quit
