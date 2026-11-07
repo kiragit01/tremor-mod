@@ -37,7 +37,11 @@ wait 4
 screenshot 02b_pulse
 wait 4
 screenshot 02c_pulse
-wait 30
+wait 6
+screenshot 02d_sinking
+wait 6
+screenshot 02e_sinking
+wait 18
 screenshot 03_gone
 # --- 2. dropped ahead of a running signal: it is soaked up
 cmd tremor listener spawn 823 200 300
