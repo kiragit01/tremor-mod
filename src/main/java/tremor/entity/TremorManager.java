@@ -320,5 +320,6 @@ public final class TremorManager {
     public static void onServerStopping(ServerStoppingEvent event) {
         RUNTIMES.values().forEach(runtimes -> runtimes.forEach(TremorRuntime::markDirty));
         RUNTIMES.clear();
+        WorldTerrain.clearAll();
     }
 }
