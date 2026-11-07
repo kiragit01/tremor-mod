@@ -1,0 +1,50 @@
+# The back of a crawling tremor (1.4.0, the user: its sides end soft, its back in a cliff). A hunting tremor of twice
+# the usual size crawls across a field; shots from behind and from the side as it goes, plain and tinted: its back
+# should fade out into the ground as gently as its sides, no straight cut across behind it.
+# Run: gradlew runClientAutotest -Ptremor_autotest_script=back-edge.txt
+waitchunks
+cmd gamemode spectator
+cmd time set noon
+cmd weather clear
+cmd tremor despawn all
+cmd kill @e[type=!player]
+cmd tp @s 860.5 215.0 300.5
+wait 40
+waitchunks
+cmd fill 820 195 250 900 199 360 minecraft:dirt
+cmd fill 820 200 250 900 200 360 minecraft:grass_block
+cmd fill 820 201 250 900 230 360 minecraft:air
+cmd kill @e[type=!player]
+config ambush.enabled false
+config client:render.jitter false
+config shape.amplitude 4.0
+config shape.sigmaFront 3.2
+config shape.sigmaBack 5.2
+config shape.sigmaSide 4.4
+config shape.trailLag 8.0
+config shape.trailSigma 6.0
+cmd tremor spawn 860 200 270
+cmd tremor ai off
+cmd tremor stage hunting
+cmd tremor hold
+wait 60
+cmd tremor goto 860 200 345
+cmd tp @s 860.5 213.0 250.5 0 22
+wait 30
+hud off
+screenshot 01_behind
+tint on
+screenshot 02_behind_tint
+tint off
+cmd tremor info
+cmd tp @s 836.5 207.0 286.5 -90 15
+lookat 860.5 202 286.5
+wait 4
+screenshot 03_side
+tint on
+screenshot 04_side_tint
+tint off
+hud on
+cmd tremor despawn all
+config ambush.enabled true
+quit
