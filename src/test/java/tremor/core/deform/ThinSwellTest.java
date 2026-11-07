@@ -116,6 +116,33 @@ class ThinSwellTest {
     }
 
     @Test
+    void sortedAsTheScanFindsThemThePointsComeOutAsFromApply() {
+        // A big bump's collection spread over frames: each step of the scan, what it found is sorted at once.
+        ArrayVoxelGrid pillar = ArrayVoxelGrid.flatFloor(0);
+        pillar.fill(2, 1, 0, 3, 4, 1, true);
+        ArrayVoxelGrid bridge = new ArrayVoxelGrid(-12, -12, -12, 12, 12, 12, false).fill(-9, 0, -9, 9, 0, 9, true);
+        BumpFrame frame = BumpFrame.of(new Vec3(0.5, 1.0, 0.5), Vec3.UNIT_Y, Vec3.UNIT_X);
+        SurfaceCollector.Options options = SurfaceCollector.Options.forParams(PARAMS);
+        boolean swelled = false;
+        for (ArrayVoxelGrid g : List.of(ridge(1), ridge(2), pillar, bridge, ArrayVoxelGrid.flatFloor(0))) {
+            ThinSwell.Result expected = ThinSwell.apply(g, frame, PARAMS, options.radius(), collect(g, frame));
+            SurfaceCollector.Scan scan = new SurfaceCollector.Scan(g, frame, options);
+            ThinSwell.Sort sort = new ThinSwell.Sort(g, frame, PARAMS, options.radius());
+            int sorted = 0;
+            boolean done;
+            do {
+                done = scan.advance(5);
+                for (; sorted < scan.points().size(); sorted++) {
+                    sort.keep(scan.points().get(sorted));
+                }
+            } while (!done);
+            assertEquals(expected, sort.result());
+            swelled |= !expected.fills().isEmpty();
+        }
+        assertTrue(swelled, "a structure swelled among them");
+    }
+
+    @Test
     void theSwellingBreathesOutOfStep() {
         double a = ThinSwell.breath(0.7, 0, 0, 0), b = ThinSwell.breath(0.7, 9, 0, 0);
         assertTrue(Math.abs(a - 1) <= ThinSwell.BREATH + 1e-9 && Math.abs(b - 1) <= ThinSwell.BREATH + 1e-9);

@@ -116,26 +116,64 @@ public final class ThinSwell {
      */
     public static Result apply(VoxelView view, BumpFrame frame, BumpParams params, double radius,
                                List<SurfacePoint> points) {
-        int dir = frame.normal().y() < 0 ? -1 : 1;
-        int[] a = anchor(view, frame.center(), frame.normal());
-        if (a != null && bridgeShare(view, a, dir) >= BRIDGE_SHARE) {
-            return new Result(bridgeTops(view, frame.center(), radius, dir), List.of());
-        }
-        int[] axis = axisStep(frame.normal());
-        List<SurfacePoint> kept = new ArrayList<>(points.size());
+        Sort sort = new Sort(view, frame, params, radius);
         for (SurfacePoint p : points) {
-            if (!thin(view, p.x(), p.y(), p.z(), axisStep(p.normal())) || isTop(view, p, axis)) {
+            sort.keep(p);
+        }
+        return sort.result();
+    }
+
+    /**
+     * {@link #apply} a point at a time, for a collection spread over frames ({@link SurfaceCollector.Scan}): made when
+     * the collection starts (it looks at the ground under the bump then, and takes the tops of a bridge the entity is on
+     * all at once), handed every collected point in their order, and asked for the result once they are all in; the
+     * result is that of {@link #apply} of the same points.
+     */
+    public static final class Sort {
+        private final VoxelView view;
+        private final BumpFrame frame;
+        private final BumpParams params;
+        /** The tops of the bridge the entity is on, which stand in for all the points; null off a bridge. */
+        private final List<SurfacePoint> tops;
+        private final int[] axis;
+        private final Set<Long> structure;
+        private final List<SurfacePoint> kept = new ArrayList<>();
+
+        public Sort(VoxelView view, BumpFrame frame, BumpParams params, double radius) {
+            this.view = view;
+            this.frame = frame;
+            this.params = params;
+            int dir = frame.normal().y() < 0 ? -1 : 1;
+            int[] a = anchor(view, frame.center(), frame.normal());
+            tops = a != null && bridgeShare(view, a, dir) >= BRIDGE_SHARE
+                    ? bridgeTops(view, frame.center(), radius, dir) : null;
+            axis = axisStep(frame.normal());
+            structure = tops == null ? structure(view, frame.center(), frame.normal(), radius) : Set.of();
+        }
+
+        /**
+         * Takes the next collected point: kept unless it is thin, but for a top the bump rises along, or a voxel of the
+         * structure the entity is on, which swells instead.
+         */
+        public void keep(SurfacePoint p) {
+            if (tops == null && (!thin(view, p.x(), p.y(), p.z(), axisStep(p.normal())) || isTop(view, p, axis))
+                    && !structure.contains(VoxelPos.pack(p.x(), p.y(), p.z()))) {
                 kept.add(p);
             }
         }
-        Set<Long> structure = structure(view, frame.center(), frame.normal(), radius);
-        if (structure.isEmpty()) {
-            return new Result(kept, List.of());
+
+        /** The points to push out and the cells the swelling may fill, once every collected point is in. */
+        public Result result() {
+            if (tops != null) {
+                return new Result(tops, List.of());
+            }
+            if (structure.isEmpty()) {
+                return new Result(kept, List.of());
+            }
+            Swell swell = (x, y, z) -> SWELL * Math.max(0, BumpShape.height(params, frame, x, y, z))
+                    * falloff(frame, params.sigmaSide(), x, y, z);
+            return new Result(kept, fills(view, structure, kept, swell));
         }
-        kept.removeIf(p -> structure.contains(VoxelPos.pack(p.x(), p.y(), p.z())));
-        Swell swell = (x, y, z) -> SWELL * Math.max(0, BumpShape.height(params, frame, x, y, z))
-                * falloff(frame, params.sigmaSide(), x, y, z);
-        return new Result(kept, fills(view, structure, kept, swell));
     }
 
     /**
