@@ -144,7 +144,7 @@ public final class ResonanceArrows {
                 && event.getItem().getItem() instanceof net.minecraft.world.item.ProjectileWeaponItem
                 && player.getProjectile(event.getItem()).is(tremor.item.TremorItems.RESONANCE_ARROW.get())) {
             level.playSound(null, player.getX(), player.getY(), player.getZ(), TremorSounds.RESONANCE_DRAW.get(),
-                    SoundSource.PLAYERS, 0.8f, 0.95f + level.getRandom().nextFloat() * 0.1f);
+                    SoundSource.PLAYERS, 0.6f, 0.95f + level.getRandom().nextFloat() * 0.1f);
         }
     }
 

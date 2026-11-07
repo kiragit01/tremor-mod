@@ -545,11 +545,6 @@ public final class DeformationRenderer {
         if (total > budget) {
             trim(budget, ground != null);
         }
-        if (!frameWarp) {
-            for (int i = 0, n = drawn.size(); i < n; i++) {
-                yieldToFloor(drawn.get(i));
-            }
-        }
         LevelVoxelView seams = source.begin(level);
         for (int i = 0, n = drawn.size(); i < n; i++) {
             Column col = drawn.get(i);
@@ -864,33 +859,6 @@ public final class DeformationRenderer {
             drawn.remove(drawn.size() - 1);
         }
     }
-
-    /**
-     * A copy of a wall pushed out sideways stops short of the cells the copies risen from the floor under it fill (the
-     * user: where the floor turns into a wall, the stack out of the wall ran through those of the floor and stood out
-     * as the main one): its height is cut to the cells before the first one a floor column of this frame reaches up
-     * into, {@value #FLOOR_LOOK} blocks under it at most.
-     */
-    private static void yieldToFloor(Column col) {
-        if (col.fill || col.axis.getAxis() == Direction.Axis.Y || col.h < BumpShape.RENDER_THRESHOLD) {
-            return;
-        }
-        int ax = col.axis.getStepX(), az = col.axis.getStepZ();
-        for (int k = 1; k <= (int) Math.ceil(col.h); k++) {
-            int cx = col.x + ax * k, cz = col.z + az * k;
-            for (int m = 1; m <= FLOOR_LOOK; m++) {
-                Column floor = columns.get(VoxelPos.pack(cx, col.y - m, cz));
-                if (floor != null && floor.stamp == frameStamp && !floor.fill && floor.axis == Direction.UP
-                        && col.y - m + floor.h >= col.y - 0.5) {
-                    col.h = Math.min(col.h, k - 1);
-                    return;
-                }
-            }
-        }
-    }
-
-    /** {@link #yieldToFloor} looks this far down for a floor under a sideways stack. */
-    static final int FLOOR_LOOK = 3;
 
     /** Warp style: the height at the 8 corners of the voxel, from the fields that cover it this frame. */
     private static void warpCorners(Column col, GroundField ground) {

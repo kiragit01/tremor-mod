@@ -378,12 +378,15 @@ def crystal(n, f0, decay, rng, beat=0.004, bend=None, vibrato=0.0, vib_rate=6.0)
 
 
 def resonance_draw(rng):
-    """Drawing a resonance arrow: the crystal head starts to ring, rising and swelling, a breath of air with it."""
-    n = samples(0.9)
+    """Drawing a resonance arrow: a soft low hum of the crystal head waking as the string tightens, warm, no shrill top
+    and no hiss (the user: the old one cut the ears when drawn often)."""
+    n = samples(0.8)
     k = np.arange(n) / (n - 1)
-    x = crystal(n, 1150, 3.0, rng, bend=1.0 + 0.12 * k, vibrato=0.006, vib_rate=7) * swell(n, 0.6, 0.15)
-    air = filt(noise(n, -3, rng), lo=1500, hi=6000) * swell(n, 0.5, 0.2) * 0.08
-    return finish(cave(x * 0.5 + air, rt=0.6, wet=0.2, lp=6000, rng=rng), peak_db=-4)
+    x = crystal(n, 520, 2.5, rng, bend=1.0 + 0.06 * k, vibrato=0.004, vib_rate=5)
+    x = filt(x, hi=2200) * swell(n, 0.45, 0.2)
+    creak = filt(noise(n, -4, rng), lo=150, hi=900) * swell(n, 0.3, 0.3)
+    creak = creak / (np.std(creak) + 1e-12) * 0.05
+    return finish(cave(x * 0.45 + creak, rt=0.5, wet=0.18, lp=3000, rng=rng), peak_db=-8)
 
 
 def resonance_flight(rng):
@@ -545,7 +548,7 @@ def write_wav(path, x):
 
 
 #: Sounds heard again and again get variants (other seeds of the same recipe): name_1.ogg ... name_k.ogg.
-VARIANTS = {'crawler_creep': 3, 'crawler_crackle': 2, 'resonance_hit': 3, 'resonance_flight': 2, 'listener_ping': 2, 'listener_breath': 2, 'crack': 3, 'pulse': 3, 'thump': 3, 'pull': 3, 'ripple': 3, 'strike': 2, 'rumble': 2, 'sigh': 2}
+VARIANTS = {'resonance_draw': 2, 'crawler_creep': 3, 'crawler_crackle': 2, 'resonance_hit': 3, 'resonance_flight': 2, 'listener_ping': 2, 'listener_breath': 2, 'crack': 3, 'pulse': 3, 'thump': 3, 'pull': 3, 'ripple': 3, 'strike': 2, 'rumble': 2, 'sigh': 2}
 
 
 def main():
