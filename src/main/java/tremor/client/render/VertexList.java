@@ -14,7 +14,7 @@ final class VertexList implements VertexConsumer {
     /** x, y, z, u, v, nx, ny, nz as floats + color, light as raw int bits. */
     static final int STRIDE = 10;
     /** How far (blocks) a face turned inside out ({@link #emitInside}) lies inside the face of the voxel. */
-    static final float INSET_HALF = 0.002f;
+    static final float INSET_HALF = 0.008f; // over the most a neighbour grows near the camera (Column#stackGrow)
 
     /** How far (blocks) a corner may lie off the face of the voxel and the quad still count as on that face. */
     static final float ON_FACE = 1e-4f;

@@ -26,8 +26,12 @@ public final class TremorEffects {
     static final float LOSE_TARGET_CHANCE = 0.35f;
     /** A ringing player sneaking makes a step this often (ticks). */
     static final int RINGING_STEP_TICKS = 10;
-    private static final java.util.Map<net.minecraft.world.entity.player.Player, net.minecraft.world.phys.Vec3> LAST =
+    private static final java.util.Map<net.minecraft.world.entity.player.Player, Last> LAST =
             new java.util.WeakHashMap<>();
+
+    /** Where a ringing player was at a tick of the effect, and when (their tick count). */
+    private record Last(net.minecraft.world.phys.Vec3 at, int tick) {
+    }
 
     private TremorEffects() {
     }
@@ -59,9 +63,12 @@ public final class TremorEffects {
             // Sneaking makes no step the game hears; ringing, its steps ring anyway (the user: even sneaking a little).
             if (entity instanceof net.minecraft.world.entity.player.Player player) {
                 // Where it was at the last of these ticks (its old position is this tick's already on the server).
-                net.minecraft.world.phys.Vec3 before = LAST.put(player, player.position());
-                if (player.isCrouching() && player.onGround() && before != null
-                        && before.subtract(player.position()).horizontalDistance() > 0.15) {
+                Last before = LAST.put(player, new Last(player.position(), player.tickCount));
+                // A place of the last daze, long ago (or before a respawn), tells nothing (the review).
+                boolean recent = before != null && player.tickCount - before.tick() > 0
+                        && player.tickCount - before.tick() <= 2 * RINGING_STEP_TICKS;
+                if (player.isCrouching() && player.onGround() && recent
+                        && before.at().subtract(player.position()).horizontalDistance() > 0.15) {
                     player.level().gameEvent(player, net.minecraft.world.level.gameevent.GameEvent.STEP,
                             player.position());
                 }

@@ -17,6 +17,7 @@ public final class TremorClient {
 
     static void init(IEventBus modBus) {
         modBus.addListener(DeformationRenderer::onModelBakingCompleted);
+        modBus.addListener(tremor.client.sound.ResonanceDaze::onEngineLoaded); // a mod bus event
         modBus.addListener(tremor.client.SeismographNeedle::onClientSetup);
         modBus.addListener(tremor.client.hollow.SinkOverlay::onRegisterGuiOverlays);
         modBus.addListener(tremor.client.hollow.HollowTimeBar::onRegisterGuiOverlays);

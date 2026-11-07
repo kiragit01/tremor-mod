@@ -795,6 +795,7 @@ public final class HollowManager {
                 return;
             }
             player.resetFallDistance();
+            tremor.hollow.Marks.add(player); // in: a move that failed, or a level made again, counts none (the review)
             storeWayBack(player, event.exit());
             event.setPhase(HollowEvent.Phase.ENTERING, now);
             data.setDirty();
