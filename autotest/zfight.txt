@@ -1,0 +1,47 @@
+# Faces in one plane (1.4.0, the review): copies one on another overlap by their growth, and copies of cells side by
+# side meet; where two faces lie in one plane the depth buffer takes one or the other frame by frame, a line or a patch
+# flickering. A still hunting hill (its AI off, no jitter) seen near and from farther off, six frames in a row each: on
+# a still scene nothing should change from one frame to the next (tools: count the pixels that change).
+# Run: gradlew runClientAutotest -Ptremor_autotest_script=zfight.txt
+waitchunks
+cmd gamemode spectator
+cmd time set noon
+cmd weather clear
+cmd tremor despawn all
+cmd kill @e[type=!player]
+cmd tp @s 900.5 220.0 300.5
+wait 40
+waitchunks
+cmd fill 870 195 270 930 199 330 minecraft:dirt
+cmd fill 870 200 270 930 200 330 minecraft:grass_block
+cmd fill 870 201 270 930 240 330 minecraft:air
+cmd fill 896 201 296 897 203 297 minecraft:stone_bricks
+cmd kill @e[type=!player]
+config client:render.jitter false
+config ambush.enabled false
+cmd tremor spawn 900 200 300
+cmd tremor stage hunting
+cmd tremor hold on
+cmd tremor ai off
+cmd tp @s 906.5 204.0 300.5 90 25
+wait 80
+hud off
+screenshot near_0
+screenshot near_1
+screenshot near_2
+screenshot near_3
+screenshot near_4
+screenshot near_5
+cmd tp @s 914.5 207.0 312.5 130 22
+wait 30
+screenshot far_0
+screenshot far_1
+screenshot far_2
+screenshot far_3
+screenshot far_4
+screenshot far_5
+hud on
+cmd tremor hold off
+cmd tremor despawn all
+config ambush.enabled true
+quit

@@ -435,6 +435,8 @@ final class TremorMind {
             Listeners.lost(runtime, brain.lastHeard()); // lost the one it hunted: it leaves listeners there
             // ...and sends its echo out to find them again (the user: hunting it was more helpless than alert).
             if (!entity.crawler().diving() && ripple.freeze(now, false)) {
+                Vec3 at = entity.crawler().position(), ahead = entity.crawler().forward();
+                runtime.freeze(entity, new Vec3(at.x() + ahead.x(), at.y() + ahead.y(), at.z() + ahead.z()));
                 charge(now);
                 tremor.Tremor.LOGGER.info("Tremor #{}: lost the one it hunted, it sends its echo out", entity.instance());
             }
@@ -442,9 +444,13 @@ final class TremorMind {
         BrainOrders.Order order = orders.next(decision, brain.lastHeardLoudness(), manual,
                 perceived -> runtime.mayRetarget(entity, now, perceived));
         switch (order.type()) {
-            case GO -> runtime.brainGo(entity, order.point(),
-                    order.sound() ? TremorEntity.TargetKind.SOUND : TremorEntity.TargetKind.ROAM, order.perceived(),
-                    order.wander());
+            case GO -> {
+                if (ringAt == NO_RING || now >= ringAt) { // drawing in before its ring it stays where it is
+                    runtime.brainGo(entity, order.point(),
+                            order.sound() ? TremorEntity.TargetKind.SOUND : TremorEntity.TargetKind.ROAM,
+                            order.perceived(), order.wander());
+                }
+            }
             case FREEZE -> {
                 runtime.freeze(entity, order.point());
                 if (ripple.freeze(now, entity.crawler().diving())) {
@@ -1354,10 +1360,6 @@ final class TremorMind {
     }
 
     /**
-     * The echoes the ring's front met this tick: each heard where it seems to be, a player's with a little anger, a
-     * mob's faintly (a false trail); a player found hears the echo come back.
-     */
-    /**
      * It freezes and draws in before its ring goes out: a low hum rising, it lies low, the ring a second later
      * ({@link RippleTimer#CHARGE_TICKS}).
      */
@@ -1366,13 +1368,20 @@ final class TremorMind {
         play(TremorSounds.ECHO_CHARGE, skin(), CHARGE_VOLUME, 1);
     }
 
+    /**
+     * The echoes the ring met this tick: each heard where it seems to be, a player's with a little anger, a mob's
+     * faintly (a false trail); a player found hears the echo come back.
+     */
     private void tickEcho(long now) {
         if (echo == null) {
             return;
         }
         for (Echo.Hit hit : echo.tick(level, now)) {
             if (!(hit.player() instanceof net.minecraft.server.level.ServerPlayer player)) {
-                runtime.relay(hit.at(), null, hit.perceived(), hit.anger(), "echo"); // a mob: faintly, at once
+                if (echo.takeMob()) {
+                    // A mob: faintly, at once, one a ring (a herd by a farm kept it angry, the review).
+                    runtime.relay(hit.at(), null, hit.perceived(), hit.anger(), "echo");
+                }
                 continue;
             }
             // The player found feels a dull knock from below, jolted from the tremor's side, and a wave runs back
@@ -1386,8 +1395,8 @@ final class TremorMind {
                     player.getId(), yaw));
             Listeners.echoBack(level, runtime, new Vec3(player.getX(), Math.floor(player.getY() - 0.5) + 0.5,
                     player.getZ()), hit.at(), player, hit.perceived(), hit.anger());
-            tremor.Tremor.LOGGER.info("Tremor #{}: its echo finds {}", entity.instance(),
-                    player.getGameProfile().getName());
+            tremor.Tremor.LOGGER.info("Tremor #{}: its echo finds {}, {}", entity.instance(),
+                    player.getGameProfile().getName(), echo.where(player, now));
         }
         if (echo.over(now)) {
             echo = null;

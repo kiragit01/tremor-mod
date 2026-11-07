@@ -78,6 +78,7 @@ public final class HollowTimeBar {
         }
         TremorHollowStatePayload state = ClientHollow.state();
         if (state == null || !state.active()) {
+            noticeEvent = Integer.MIN_VALUE; // out: the next hollow tells its marks, its event id the same or not
             return;
         }
         double time = mc.level.getGameTime() + delta.getGameTimeDeltaPartialTick(false);

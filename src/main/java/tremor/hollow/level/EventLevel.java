@@ -199,7 +199,8 @@ final class EventLevel {
         this.id = id;
         nightmare = tremor.hollow.Nightmare.is(event.player());
         ServerPlayer taken = hollow.getServer().getPlayerList().getPlayer(event.player());
-        marks = taken != null ? tremor.hollow.Marks.add(taken) : 1; // the tremor took them once more
+        // The tremor takes them once more: counted once they are in (HollowManager), not by a level made again.
+        marks = taken != null ? tremor.hollow.Marks.next(taken) : 1;
         box = event.hollowBox();
         centreX = (box.minX() + box.maxX() + 1) / 2.0;
         centreZ = (box.minZ() + box.maxZ() + 1) / 2.0;

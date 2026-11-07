@@ -138,15 +138,28 @@ final class Column {
         return !meshes.isEmpty() || !decoMeshes.isEmpty();
     }
 
-    /** Copies drawn: the stack filling the gap down to the original (one for a fill cell), plus the decoration. */
-    /** {@link #grow} of the column at a voxel: {@value #GROW_MIN} to twice that, from a hash of its place. */
+    /**
+     * {@link #grow} of the column at a voxel, from its place: one cell in two (a checkerboard) grows about twice as
+     * much as the cells beside it, never alike, so that copies side by side never share a face plane; a little hash on
+     * top. {@link #stackGrow} puts every other copy of a stack out a half again.
+     */
     static float grow(int x, int y, int z) {
         int h = x * 73856093 ^ y * 19349663 ^ z * 83492791;
-        return GROW_MIN * (1 + ((h >>> 8) & 15) / 15f);
+        return GROW_MIN * (1 + ((x + y + z) & 1) + ((h >>> 8) & 3) / 16f);
+    }
+
+    /**
+     * The growth of copy {@code k} of a stack (or of a seam) of a column growing {@code grow}: every other copy a half
+     * again, so that two copies one on the other, overlapping by their growth, never have their side faces in one
+     * plane there (a line flickered between each two, the review); still apart from those of the cells beside it.
+     */
+    static float stackGrow(float grow, int k) {
+        return (k & 1) == 0 ? grow : grow * 1.5f;
     }
 
     static final float GROW_MIN = 0.002f;
 
+    /** Copies drawn: the stack filling the gap down to the original (one for a fill cell), plus the decoration. */
     int cost() {
         return (meshes.isEmpty() ? 0 : fill ? 1 : (int) Math.ceil(h)) + (decoMeshes.isEmpty() ? 0 : 1);
     }

@@ -21,6 +21,7 @@ public final class TremorClient {
         container.registerExtensionPoint(IConfigScreenFactory.class, ConfigurationScreen::new);
 
         modBus.addListener(DeformationRenderer::onModelBakingCompleted);
+        modBus.addListener(tremor.client.sound.ResonanceDaze::onEngineLoaded); // a mod bus event
         modBus.addListener(tremor.client.SeismographNeedle::onClientSetup);
         modBus.addListener(tremor.client.hollow.SinkOverlay::onRegisterGuiLayers);
         modBus.addListener(tremor.client.hollow.HollowTimeBar::onRegisterGuiLayers);
