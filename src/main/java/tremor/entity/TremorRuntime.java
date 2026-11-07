@@ -1,12 +1,9 @@
 package tremor.entity;
 
-import it.unimi.dsi.fastutil.longs.LongIterator;
-import it.unimi.dsi.fastutil.longs.LongOpenHashSet;
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
-import net.minecraft.world.level.ChunkPos;
 import net.neoforged.neoforge.network.PacketDistributor;
 import tremor.Tremor;
 import tremor.config.Difficulty;
@@ -114,7 +111,6 @@ public final class TremorRuntime {
     private final TremorSavedData data;
     /** This runtime's entity (one of the level's), or null once it is gone. */
     private TremorEntity entity;
-    private final SectionTrackingView tracked;
     /** How far ahead along its path (blocks) a leap starts to pour the hill over. */
     private static final double LEAP_LOOKAHEAD = 5;
     /** The last leap is still told this long after it (ticks), while the hill it left sinks away. */
@@ -123,6 +119,10 @@ public final class TremorRuntime {
     private TremorStatePayload.Leap leap;
     private long leapUntil;
     private final VoxelCache cache;
+    /** The level's terrain, shared by every creature ({@link WorldTerrain}); this one's graph is its own. */
+    private final WorldTerrain terrain;
+    /** The terrain's last tick this runtime followed ({@link #followTerrain}). */
+    private long terrainSeen;
     private SurfaceGraph graph;
     /** Uncached view of the world for the current pass (see {@link SectionTrackingView} on why it is replaced). */
     private LevelVoxelView live;
@@ -132,7 +132,7 @@ public final class TremorRuntime {
     /** Player told about the outcome of the running search (a goto), or null. */
     private UUID searchRequester;
     /** Terrain that changed while the search ran: its route is replanned if it passes near one of these. */
-    private final List<Box> searchChanges = new ArrayList<>();
+    private final List<WorldTerrain.Box> searchChanges = new ArrayList<>();
     private boolean searchChangesOverflow;
     /** The crawler follows a route whose arrival has not been handled yet. */
     private boolean pathActive;
@@ -143,22 +143,12 @@ public final class TremorRuntime {
     /** The target is a wander leg of the brain: each route planned for it is checked ({@link #brainGo}). */
     private boolean wanderRoute;
     private boolean replanRequested;
-    /** Block positions ({@link BlockPos#asLong}) reported changed since the last tick. */
-    private final LongOpenHashSet pendingChanges = new LongOpenHashSet();
-    /**
-     * Loaded chunks ({@link ChunkPos#asLong}) with sections the cache has read, until those are read again; kept
-     * while the chunk is not readable yet ({@link #chunkLoaded}).
-     */
-    private final LongOpenHashSet pendingChunks = new LongOpenHashSet();
-    /** Collects what a section {@linkplain VoxelCache#reload reload} changed. */
-    private final Bounds reloaded = new Bounds();
 
     /** Retarget cooldown and failed sound searches. */
     private final SoundPursuit pursuit = new SoundPursuit();
     /** Stage behaviour of the entity; made anew with each entity ({@link #mind(TremorEntity)}). */
     private TremorMind mind;
 
-    private long lastTerrainReset;
     private boolean paused;
     /** Inside {@link #tick()}. */
     private boolean ticking;
@@ -180,11 +170,10 @@ public final class TremorRuntime {
         this.level = level;
         this.data = data;
         this.entity = entity;
-        this.live = new LevelVoxelView(level);
-        this.tracked = new SectionTrackingView(level);
-        this.cache = new VoxelCache(tracked);
-        this.lastTerrainReset = level.getGameTime();
-        cache.setTime(lastTerrainReset);
+        this.terrain = WorldTerrain.of(level);
+        this.cache = terrain.cache();
+        this.live = terrain.live();
+        this.terrainSeen = terrain.tickedAt();
         this.graph = new SurfaceGraph(cache, entity != null
                 ? entity.params().maxDiveDepth() : TremorConfig.COMMON.maxDiveDepth.get(),
                 TremorConfig.COMMON.minGroundWidth.get(), TremorConfig.COMMON.cavesOnly(level));
@@ -256,7 +245,7 @@ public final class TremorRuntime {
      */
     public long snap(BlockPos pos) {
         beginPass();
-        processChanges();
+        followTerrain();
         return snapNode(pos.getX(), pos.getY(), pos.getZ());
     }
 
@@ -332,7 +321,7 @@ public final class TremorRuntime {
             return false;
         }
         beginPass();
-        processChanges();
+        followTerrain();
         long start = startNode(entity.crawler());
         if (start == SurfaceGraph.NO_NODE) {
             return false;
@@ -764,23 +753,6 @@ public final class TremorRuntime {
         PacketDistributor.sendToPlayer(player, state(entity));
     }
 
-    /** Called for every block that may have changed in the level (block update, explosion, piston). */
-    void blockChanged(BlockPos pos) {
-        if (this.entity != null && tracked.wasRead(pos.getX(), pos.getY(), pos.getZ())) {
-            pendingChanges.add(pos.asLong());
-        }
-    }
-
-    /**
-     * Called when a chunk of the level has loaded. That happens in the middle of loading it, when the level must not
-     * be read yet, so the chunk is only noted; {@link #processChanges} reads its sections again once it is readable.
-     */
-    void chunkLoaded(int chunkX, int chunkZ) {
-        if (this.entity != null && tracked.wasReadInColumn(chunkX, chunkZ)) {
-            pendingChunks.add(ChunkPos.asLong(chunkX, chunkZ));
-        }
-    }
-
     /** Before an orderly shutdown: make sure the latest position is written. */
     void markDirty() {
         if (this.entity != null) {
@@ -825,17 +797,12 @@ public final class TremorRuntime {
     private void tick(TremorEntity entity) {
         long now = level.getGameTime();
         beginPass();
-        cache.setTime(now);
         int depth = entity.params().maxDiveDepth();
         if (depth != graph.maxDiveDepth() || TremorConfig.COMMON.minGroundWidth.get() != graph.minWidth()
                 || TremorConfig.COMMON.cavesOnly(level) != graph.cavesOnly()) {
             rebuildGraph(depth); // config reload
         }
-        // Before a reset, which forgets the changes: they are still checked against the route.
-        processChanges();
-        if (search == null && now - lastTerrainReset >= TremorConfig.COMMON.cacheMaxAge.get()) {
-            resetTerrain(now);
-        }
+        followTerrain();
 
         Crawler crawler = entity.crawler();
         Vec3 p = crawler.position();
@@ -853,9 +820,10 @@ public final class TremorRuntime {
             return;
         }
         if (paused) {
-            // Sections read while chunks were missing say "unknown" for terrain that may be loaded by now.
+            // Its graph took in "unknown" for terrain that may be loaded by now (the shared terrain reads the chunks
+            // again as they load).
             paused = false;
-            resetTerrain(now);
+            resetGraph();
         }
 
         TremorMind mind = mind(entity);
@@ -1081,8 +1049,26 @@ public final class TremorRuntime {
     // ---- terrain ----
 
     private void beginPass() {
-        live = new LevelVoxelView(level);
-        tracked.refresh();
+        terrain.tick();
+        live = terrain.live();
+    }
+
+    /**
+     * What changed in the shared terrain since this runtime's last tick: its graph forgets what depended on it and the
+     * route is checked against it ({@link #applyChanges}); after a reset of the terrain, or a tick of it this runtime
+     * missed, the whole graph goes and the route is planned again ({@link #resetGraph}).
+     */
+    private void followTerrain() {
+        long at = terrain.tickedAt();
+        if (at == terrainSeen) {
+            return;
+        }
+        if (terrain.resetAt() > terrainSeen || terrainSeen < at - 1) {
+            resetGraph();
+        } else {
+            applyChanges(terrain.changes());
+        }
+        terrainSeen = at;
     }
 
     /**
@@ -1135,11 +1121,11 @@ public final class TremorRuntime {
     }
 
     /** Whether a changed box lies within {@value #REPLAN_DISTANCE} of the tracked dive (see {@link #trackDive}). */
-    private boolean nearTrackedDive(List<Box> changes) {
+    private boolean nearTrackedDive(List<WorldTerrain.Box> changes) {
         if (diveTo == SurfaceGraph.NO_NODE) {
             return false;
         }
-        for (Box change : changes) {
+        for (WorldTerrain.Box change : changes) {
             if (change.near(diveFrom, diveTo, REPLAN_DISTANCE)) {
                 return true;
             }
@@ -1254,72 +1240,17 @@ public final class TremorRuntime {
     }
 
     /**
-     * Drops the cache, the graph and the section tracking (safety net for changes no event reported). Afterwards no
-     * section along the remaining route is tracked, so changes there would go unnoticed until something reads them
-     * again, and the route itself may already cross terrain that changed without an event: an active route (or a
-     * running search) is therefore planned again. The new search reads, and so tracks again, the terrain around the
-     * new route, which it plans on the fresh terrain. Run {@link #processChanges} first: the reset forgets what is
-     * still pending.
+     * The shared terrain was all forgotten (its safety net for changes no event reported), or this runtime missed a
+     * tick of it: the graph goes too, and an active route (or a running search) is planned again on the fresh terrain.
      */
-    private void resetTerrain(long now) {
-        cache.clear();
+    private void resetGraph() {
         graph.clear();
-        tracked.forget();
-        pendingChanges.clear();
-        pendingChunks.clear();
-        lastTerrainReset = now;
         pursuit.forgetFailure(); // the safety net for changes no event reported
         requestReplan();
     }
 
-    /**
-     * Applies the reported terrain changes. A block change matters only if the cache's answer for the voxel (solid,
-     * known) differs from the world in a section the cache holds; a loaded chunk matters for the sections of its
-     * column the cache holds, once it can be read. Each such section is read again as a whole, which takes in every
-     * change in it, reported or not (typically a chunk that loaded after its section was read as unknown), so the
-     * graph forgets what depended on any voxel that differs (their bounding box). The cache then holds what the world
-     * looked like after the last processed change, and the next comparison is valid.
-     */
-    private void processChanges() {
-        if (pendingChanges.isEmpty() && pendingChunks.isEmpty()) {
-            return;
-        }
-        LongOpenHashSet sections = new LongOpenHashSet();
-        for (LongIterator it = pendingChanges.iterator(); it.hasNext(); ) {
-            long pos = it.nextLong();
-            int x = BlockPos.getX(pos), y = BlockPos.getY(pos), z = BlockPos.getZ(pos);
-            if (tracked.wasRead(x, y, z) && (cache.isSolid(x, y, z) != live.isSolid(x, y, z)
-                    || cache.isKnown(x, y, z) != live.isKnown(x, y, z))) {
-                sections.add(SectionTrackingView.sectionKey(x, y, z));
-            }
-        }
-        pendingChanges.clear();
-        for (LongIterator it = pendingChunks.iterator(); it.hasNext(); ) {
-            long chunk = it.nextLong();
-            int chunkX = ChunkPos.getX(chunk), chunkZ = ChunkPos.getZ(chunk);
-            if (level.getChunkSource().getChunkNow(chunkX, chunkZ) == null) {
-                continue; // not readable yet; dropped by the next terrain reset at the latest
-            }
-            it.remove();
-            // Outside the build height nothing depends on chunks.
-            for (int sy = level.getMinSection(); sy < level.getMaxSection(); sy++) {
-                if (tracked.wasRead(chunkX << 4, sy << 4, chunkZ << 4)) {
-                    sections.add(VoxelPos.pack(chunkX, sy, chunkZ));
-                }
-            }
-        }
-        if (sections.isEmpty()) {
-            return;
-        }
-        List<Box> changes = new ArrayList<>();
-        for (LongIterator it = sections.iterator(); it.hasNext(); ) {
-            long section = it.nextLong();
-            reloaded.reset();
-            if (cache.reload(VoxelPos.x(section) << 4, VoxelPos.y(section) << 4, VoxelPos.z(section) << 4,
-                    reloaded) > 0) {
-                changes.add(reloaded.box());
-            }
-        }
+    /** The terrain changed in {@code changes} (boxes): the graph forgets what depended on them, the route is checked. */
+    private void applyChanges(List<WorldTerrain.Box> changes) {
         if (changes.isEmpty()) {
             return;
         }
@@ -1327,7 +1258,7 @@ public final class TremorRuntime {
         if (changes.size() > MASS_CHANGE) {
             graph.clear();
         } else {
-            for (Box b : changes) {
+            for (WorldTerrain.Box b : changes) {
                 graph.invalidateBox(b.x0(), b.y0(), b.z0(), b.x1(), b.y1(), b.z1());
             }
         }
@@ -1384,7 +1315,7 @@ public final class TremorRuntime {
      * its nodes, or of the rock a dive passes through (the box spanned by the dive's ends; a long dive has no node in
      * its middle).
      */
-    private static boolean touches(Path path, int from, List<Box> changes) {
+    private static boolean touches(Path path, int from, List<WorldTerrain.Box> changes) {
         if (changes.isEmpty()) {
             return false;
         }
@@ -1392,51 +1323,13 @@ public final class TremorRuntime {
         for (int i = Math.max(0, from); i < path.size(); i++) {
             long a = path.node(i);
             long b = i < dive.length && dive[i] ? path.node(i + 1) : a;
-            for (Box change : changes) {
+            for (WorldTerrain.Box change : changes) {
                 if (change.near(a, b, REPLAN_DISTANCE)) {
                     return true;
                 }
             }
         }
         return false;
-    }
-
-    /** Inclusive voxel box of changed terrain. */
-    private record Box(int x0, int y0, int z0, int x1, int y1, int z1) {
-        /** Whether it comes within {@code margin} (Chebyshev) of the box spanned by voxels {@code a} and {@code b}. */
-        boolean near(long a, long b, int margin) {
-            return overlaps(x0, x1, VoxelPos.x(a), VoxelPos.x(b), margin)
-                    && overlaps(y0, y1, VoxelPos.y(a), VoxelPos.y(b), margin)
-                    && overlaps(z0, z1, VoxelPos.z(a), VoxelPos.z(b), margin);
-        }
-
-        private static boolean overlaps(int lo, int hi, int a, int b, int margin) {
-            return lo <= (long) Math.max(a, b) + margin && hi >= (long) Math.min(a, b) - margin;
-        }
-    }
-
-    /** Bounding box of the voxels a section reload reports. */
-    private static final class Bounds implements VoxelCache.ChangeListener {
-        private int x0, y0, z0, x1, y1, z1;
-
-        void reset() {
-            x0 = y0 = z0 = Integer.MAX_VALUE;
-            x1 = y1 = z1 = Integer.MIN_VALUE;
-        }
-
-        @Override
-        public void changed(int x, int y, int z) {
-            x0 = Math.min(x0, x);
-            y0 = Math.min(y0, y);
-            z0 = Math.min(z0, z);
-            x1 = Math.max(x1, x);
-            y1 = Math.max(y1, y);
-            z1 = Math.max(z1, z);
-        }
-
-        Box box() {
-            return new Box(x0, y0, z0, x1, y1, z1);
-        }
     }
 
     // ---- sync ----

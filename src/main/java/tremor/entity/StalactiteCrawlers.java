@@ -462,7 +462,7 @@ public final class StalactiteCrawlers {
     }
 
     private static SurfaceGraph graph(ServerLevel level) {
-        return new SurfaceGraph(new LevelVoxelView(level), TremorConfig.COMMON.maxDiveDepth.get(),
+        return new SurfaceGraph(WorldTerrain.of(level).cache(), TremorConfig.COMMON.maxDiveDepth.get(),
                 TremorConfig.COMMON.minGroundWidth.get(), true);
     }
 

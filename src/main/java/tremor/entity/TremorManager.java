@@ -223,8 +223,8 @@ public final class TremorManager {
 
     /** Not while the game is frozen ({@code /tick freeze}; {@code /tick step} still advances it). */
     public static void onLevelTick(LevelTickEvent.Post event) {
-        if (!RUNTIMES.isEmpty() && event.getLevel() instanceof ServerLevel level
-                && level.tickRateManager().runsNormally()) {
+        if (event.getLevel() instanceof ServerLevel level && level.tickRateManager().runsNormally()) {
+            WorldTerrain.tick(level); // before its users
             for (TremorRuntime runtime : runtimes(level)) {
                 runtime.tick();
             }
@@ -264,43 +264,35 @@ public final class TremorManager {
 
     /** Every block update in the level; registered to see cancelled ones too (the block has changed anyway). */
     public static void onNeighborNotify(BlockEvent.NeighborNotifyEvent event) {
-        if (!RUNTIMES.isEmpty() && event.getLevel() instanceof ServerLevel level) {
-            for (TremorRuntime runtime : runtimes(level)) {
-                runtime.blockChanged(event.getPos());
-            }
+        if (event.getLevel() instanceof ServerLevel level) {
+            WorldTerrain.blockChanged(level, event.getPos());
         }
     }
 
     /** No block event reports the terrain of a chunk that loads; the runtimes read what they cached of it again. */
     public static void onChunkLoad(ChunkEvent.Load event) {
-        if (!RUNTIMES.isEmpty() && event.getLevel() instanceof ServerLevel level) {
+        if (event.getLevel() instanceof ServerLevel level) {
             ChunkPos pos = event.getChunk().getPos();
-            for (TremorRuntime runtime : runtimes(level)) {
-                runtime.chunkLoaded(pos.x, pos.z);
-            }
+            WorldTerrain.chunkLoaded(level, pos.x, pos.z);
         }
     }
 
     public static void onExplosion(ExplosionEvent.Detonate event) {
-        if (!RUNTIMES.isEmpty() && event.getLevel() instanceof ServerLevel level) {
-            for (TremorRuntime runtime : runtimes(level)) {
-                for (BlockPos pos : event.getAffectedBlocks()) {
-                    runtime.blockChanged(pos);
-                }
+        if (event.getLevel() instanceof ServerLevel level) {
+            for (BlockPos pos : event.getAffectedBlocks()) {
+                WorldTerrain.blockChanged(level, pos);
             }
         }
     }
 
     /** The blocks in front of the piston, as far as it can push. */
     public static void onPistonMoved(PistonEvent.Post event) {
-        if (!RUNTIMES.isEmpty() && event.getLevel() instanceof ServerLevel level) {
+        if (event.getLevel() instanceof ServerLevel level) {
             Direction direction = event.getDirection();
-            for (TremorRuntime runtime : runtimes(level)) {
-                BlockPos.MutableBlockPos pos = event.getPos().mutable();
-                for (int i = 0; i <= PISTON_REACH; i++) {
-                    runtime.blockChanged(pos);
-                    pos.move(direction);
-                }
+            BlockPos.MutableBlockPos pos = event.getPos().mutable();
+            for (int i = 0; i <= PISTON_REACH; i++) {
+                WorldTerrain.blockChanged(level, pos);
+                pos.move(direction);
             }
         }
     }
