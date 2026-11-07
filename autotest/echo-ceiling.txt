@@ -1,0 +1,47 @@
+# The echo of a tremor on a ceiling (1.4.0, the user: found standing on the floor, though no ring passed under them).
+# A cave room 6 blocks high; a tremor ALERT on its ceiling, the player on the floor under it, 4 blocks off. A stone
+# lands by it: it freezes and its ring runs out over the ceiling (as drawn), so it finds nobody: no "its echo finds"
+# in the log. Then the same tremor on the floor finds the player (the echo still works).
+# Run: gradlew runClientAutotest -Ptremor_autotest_script=echo-ceiling.txt
+waitchunks
+cmd gamemode spectator
+cmd time set midnight
+cmd tremor despawn all
+cmd kill @e[type=!player]
+cmd tp @s 860.5 215.0 300.5
+wait 40
+waitchunks
+cmd fill 840 195 280 880 199 320 minecraft:stone
+cmd fill 840 200 280 880 205 320 minecraft:air
+cmd fill 840 206 280 880 210 320 minecraft:stone
+cmd kill @e[type=!player]
+config ambush.enabled false
+config echo.range 32
+config echo.speed 6
+log --- 1. on the ceiling: the ring runs over the ceiling, nobody found
+cmd tremor spawn 860 206 300
+cmd tremor stage alert
+cmd tremor anger 35
+cmd gamemode survival
+cmd effect give @s minecraft:resistance 600 4 true
+cmd tp @s 864.5 200.0 300.5 90 -20
+wait 40
+cmd tremor info
+cmd summon minecraft:item 857.5 203 300.5 {Item:{id:"minecraft:stone",count:1},PickupDelay:32767}
+wait 140
+cmd kill @e[type=minecraft:item]
+log --- 2. on the floor: found
+cmd tremor despawn all
+wait 20
+cmd tremor spawn 860 199 300
+cmd tremor stage alert
+cmd tremor anger 35
+cmd tp @s 864.5 200.0 300.5 90 20
+wait 40
+cmd tremor info
+cmd summon minecraft:item 857.5 203 300.5 {Item:{id:"minecraft:stone",count:1},PickupDelay:32767}
+wait 140
+cmd kill @e[type=minecraft:item]
+cmd tremor despawn all
+config ambush.enabled true
+quit
