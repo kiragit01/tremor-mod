@@ -70,10 +70,10 @@ public final class StalactiteCrawlers {
     /** The highest ceiling over a sound it drops on (blocks over the block the source stands on). */
     static final int MAX_DROP = 20;
     /** Open blocks a ceiling needs under it, to drop from and to spawn on. */
-    static final int MIN_OPEN = 2;
-    static final int SPAWN_OPEN = 3;
+    static final int MIN_OPEN = 4;
+    static final int SPAWN_OPEN = 4;
     /** Hanging still it is this high (a share of its full height), breathing; creeping a little more. */
-    static final double HANG_SHARE = 0.3;
+    static final double HANG_SHARE = 0.2;
     static final double CREEP_SHARE = 0.45;
     /** Breaking a block this near its middle kills it (blocks). */
     static final double KILL_RADIUS = 1.6;
@@ -487,9 +487,22 @@ public final class StalactiteCrawlers {
             });
         }
 
+        /**
+         * A dark ceiling with {@value #MIN_OPEN} open blocks under it at least: none in a low tunnel, where it would
+         * hang before a player's eyes and have no room to drop (the user).
+         */
         private boolean ceiling(long node) {
             int x = VoxelPos.x(node), y = VoxelPos.y(node), z = VoxelPos.z(node);
-            return graph.normal(x, y, z).y() <= CEILING_NORMAL && !lit(level, new BlockPos(x, y - 1, z));
+            if (graph.normal(x, y, z).y() > CEILING_NORMAL || lit(level, new BlockPos(x, y - 1, z))) {
+                return false;
+            }
+            VoxelView view = graph.view();
+            for (int d = 1; d <= MIN_OPEN; d++) {
+                if (!view.isOpen(x, y - d, z)) {
+                    return false;
+                }
+            }
+            return true;
         }
     }
 
