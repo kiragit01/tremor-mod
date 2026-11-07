@@ -154,7 +154,7 @@ final class TestGraphs {
                 throw new AssertionError("no edge " + VoxelPos.toString(path.node(i)) + " -> "
                         + VoxelPos.toString(path.node(i + 1)) + " with dive = " + path.dive()[i]);
             }
-            sum += e.dive() ? e.length() * diveCostFactor : e.length();
+            sum += e.dive() ? e.length() * diveCostFactor + PathSearch.DIVE_ENTRY : e.length();
         }
         return sum;
     }
@@ -178,7 +178,7 @@ final class TestGraphs {
             }
             done.add(bestNode);
             for (Edge e : graph.edges(bestNode)) {
-                double g = best + (e.dive() ? e.length() * diveCostFactor : e.length());
+                double g = best + (e.dive() ? e.length() * diveCostFactor + PathSearch.DIVE_ENTRY : e.length());
                 if (g < dist.getOrDefault(e.to(), Double.POSITIVE_INFINITY)) {
                     dist.put(e.to(), g);
                 }

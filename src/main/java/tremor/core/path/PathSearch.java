@@ -9,8 +9,10 @@ import tremor.core.math.VoxelPos;
 /**
  * Incremental A* over a {@link Graph} (SPEC 5.3), so a search can be spread over several server ticks.
  * <p>
- * Cost of an edge = its length, times {@code diveCostFactor} for dive edges. Heuristic = straight distance between
- * voxel centres (admissible because every factor is >= 1). Ties are broken deterministically.
+ * Cost of an edge = its length, times {@code diveCostFactor} for dive edges plus {@value #DIVE_ENTRY} for going into
+ * the rock and out (a short dive cutting a corner or a bump is dearer than going round: the user saw the bump blink
+ * out and back at every corner). Heuristic = straight distance between voxel centres (admissible because every
+ * factor is >= 1 and the entry adds). Ties are broken deterministically.
  * <p>
  * The search stops with
  * <ul>
@@ -33,6 +35,8 @@ public final class PathSearch {
     private final long start;
     private final long goal;
     private final int maxExpansions;
+    /** A dive costs this much more, as so many blocks on the surface, whatever its length. */
+    public static final double DIVE_ENTRY = 4;
     private final double diveCostFactor;
     private final int goalX, goalY, goalZ;
 
@@ -162,7 +166,7 @@ public final class PathSearch {
     }
 
     private void relax(long to, double length, boolean dive) {
-        double g = cost[current] + (dive ? length * diveCostFactor : length);
+        double g = cost[current] + (dive ? length * diveCostFactor + DIVE_ENTRY : length);
         int index = indexOf(to);
         if (index < 0) {
             push(add(to, g, current, dive));
