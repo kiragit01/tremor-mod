@@ -84,10 +84,10 @@ public final class Tremor {
         game.addListener(tremor.entity.Frenzy::onLevelTick);
         game.addListener(tremor.entity.Frenzy::onServerStopped);
         game.addListener(tremor.entity.StalactiteCrawlers::onLevelTick);
-        game.addListener(tremor.entity.StalactiteCrawlers::onBlockBreak);
+        game.addListener(net.neoforged.bus.api.EventPriority.LOWEST, tremor.entity.StalactiteCrawlers::onBlockBreak); // a cancel wins
         game.addListener(tremor.entity.StalactiteCrawlers::onServerStopped);
         game.addListener(tremor.entity.Listeners::onLevelTick);
-        game.addListener(tremor.entity.Listeners::onBlockBreak);
+        game.addListener(net.neoforged.bus.api.EventPriority.LOWEST, tremor.entity.Listeners::onBlockBreak);
         game.addListener(tremor.entity.Listeners::onServerStopped);
         game.addListener(tremor.entity.ResonanceArrows::onEntityJoin);
         game.addListener(tremor.entity.ResonanceArrows::onLevelTick);

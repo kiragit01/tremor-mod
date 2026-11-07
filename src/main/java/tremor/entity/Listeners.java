@@ -142,6 +142,8 @@ public final class Listeners {
         Set<UUID> told = new HashSet<>();
         /** Whether a listener sent it (it hears again after); else an echo running back ({@link #echoBack}). */
         boolean fromListener = true;
+        /** The listener that sent it, which hears again once it is over; null for an echo. */
+        Listener from;
         double perceived = RELAYED;
         double anger = RELAY_ANGER;
         String event = "listener";
@@ -315,8 +317,9 @@ public final class Listeners {
         long now = level.getGameTime();
         LevelVoxelView view = null;
         for (Listener l : all) {
-            if (l.sinking || l.muted || now < l.deafUntil || vibration.source().distance(l.at) > range) {
-                continue;
+            if (l.sinking || l.muted || now < l.deafUntil || vibration.source().distance(l.at) > range
+                    || signalling(level, l.owner)) {
+                continue; // one signal of a tremor at a time: three listeners heard one step (the review)
             }
             if (view == null) {
                 view = new LevelVoxelView(level);
@@ -327,6 +330,19 @@ public final class Listeners {
                 signal(level, l, vibration.source(), player, now);
             }
         }
+    }
+
+    /** Whether a listener's signal of {@code owner} is on its way. */
+    private static boolean signalling(ServerLevel level, TremorRuntime owner) {
+        List<Signal> signals = SIGNALS.get(level);
+        if (signals != null) {
+            for (Signal s : signals) {
+                if (s.fromListener && !s.dying && s.owner == owner) {
+                    return true;
+                }
+            }
+        }
+        return false;
     }
 
     private static void signal(ServerLevel level, Listener l, Vec3 source, ServerPlayer player, long now) {
@@ -340,6 +356,7 @@ public final class Listeners {
                 d0.trailLag(), d0.trailSigma(), 0.2, 0.25 + random.nextDouble() * 0.1);
         Signal s = new Signal(MinorIds.next(), l.owner, l.at, source, player == null ? null : player.getUUID(),
                 shape);
+        s.from = l;
         SIGNALS.computeIfAbsent(level, k -> new ArrayList<>()).add(s);
         Tremor.LOGGER.info("Listener #{} in {} hears {} at {} {} {} and signals its tremor", l.instance,
                 level.dimension().location(), player == null ? "something" : player.getGameProfile().getName(),
@@ -474,6 +491,11 @@ public final class Listeners {
 
     /** One tick of a listener; true once it is gone. */
     private static boolean tickListener(ServerLevel level, Listener l, long now) {
+        if (!level.isLoaded(BlockPos.containing(l.at.x(), l.at.y(), l.at.z()))) {
+            // Left behind in a chunk that unloaded: gone, rather than read its blocks and load it again (the review).
+            PacketDistributor.sendToPlayersInDimension(level, TremorStatePayload.absent(l.instance, now));
+            return true;
+        }
         if (!l.sinking && (now >= l.until || ownerGone(l.owner))) {
             sink(level, l);
         }
@@ -516,24 +538,24 @@ public final class Listeners {
             Vec3 goal = entity.crawler().position();
             double dx = goal.x() - s.at.x(), dz = goal.z() - s.at.z(), d = Math.hypot(dx, dz);
             if (d <= ARRIVE) {
-                s.owner.relay(s.source, s.player == null ? null : level.getServer().getPlayerList()
-                        .getPlayer(s.player), s.perceived, s.anger, s.event);
-                level.playSound(null, goal.x(), goal.y(), goal.z(), TremorSounds.LISTENER_RELAY.get(),
-                        SoundSource.HOSTILE, 1.2f, 0.9f + level.getRandom().nextFloat() * 0.2f);
-                Tremor.LOGGER.info("A{} reaches tremor #{} in {}", s.fromListener ? " listener's signal"
-                        : "n echo", entity.instance(), level.dimension().location());
+                arrive(level, s, goal);
                 die(level, s, null);
             } else {
                 double speed = s.speed > 0 ? s.speed : TremorConfig.COMMON.listeners.signalSpeed.get();
                 double step = Math.min(d, speed * TICK_SECONDS);
                 double nx = s.at.x() + dx / d * step, nz = s.at.z() + dz / d * step;
                 int ground = groundAt(level, nx, s.at.y(), nz);
-                if (ground == Integer.MIN_VALUE) {
-                    die(level, s, "lost over a gap");
-                } else if (level.getBlockState(BlockPos.containing(nx, ground, nz)).is(TremorTags.CONDUCTIVITY_INSULATING)
+                String stopped = ground == Integer.MIN_VALUE ? "lost: no ground ahead (a gap or a wall)"
+                        : level.getBlockState(BlockPos.containing(nx, ground, nz)).is(TremorTags.CONDUCTIVITY_INSULATING)
                         || level.getBlockState(BlockPos.containing(nx, ground + 1, nz))
-                        .is(TremorTags.CONDUCTIVITY_INSULATING)) {
-                    die(level, s, "soaked up");
+                        .is(TremorTags.CONDUCTIVITY_INSULATING) ? "soaked up" : null;
+                if (stopped != null) {
+                    if (!s.fromListener) {
+                        // A player's echo found them already (they felt the knock): it sinks here, but its tremor
+                        // knows all the same (the user: the knock came, the tremor never did).
+                        arrive(level, s, goal);
+                    }
+                    die(level, s, stopped);
                 } else {
                     Vec3 next = new Vec3(nx, ground + 0.5, nz);
                     s.velocity = next.sub(s.at).scale(1 / TICK_SECONDS);
@@ -557,33 +579,45 @@ public final class Listeners {
         return false;
     }
 
+    /** The signal reaches its tremor at {@code goal}: it hears what it carries, a player's echo for sure. */
+    private static void arrive(ServerLevel level, Signal s, Vec3 goal) {
+        ServerPlayer player = s.player == null ? null : level.getServer().getPlayerList().getPlayer(s.player);
+        if (s.fromListener || player == null) {
+            s.owner.relay(s.source, player, s.perceived, s.anger, s.event);
+        } else {
+            s.owner.echoed(s.source, player, s.perceived, s.anger);
+        }
+        level.playSound(null, goal.x(), goal.y(), goal.z(), TremorSounds.LISTENER_RELAY.get(), SoundSource.HOSTILE,
+                1.2f, 0.9f + level.getRandom().nextFloat() * 0.2f);
+        Tremor.LOGGER.info("A{} reaches tremor #{} in {}", s.fromListener ? " listener's signal" : "n echo",
+                s.owner.entity().instance(), level.dimension().location());
+    }
+
     /** The signal is over: lost or soaked up ({@code why}, dust), or there (null); its listener hears again soon. */
     private static void die(ServerLevel level, Signal s, String why) {
         s.dying = true;
         s.velocity = Vec3.ZERO;
-        List<Listener> all = s.fromListener ? LISTENERS.get(level) : null;
-        if (all != null) {
-            for (Listener l : all) {
-                if (l.owner == s.owner && l.deafUntil == Long.MAX_VALUE) {
-                    l.deafUntil = level.getGameTime() + DEAF_TICKS;
-                }
-            }
+        if (s.from != null && s.from.deafUntil == Long.MAX_VALUE) {
+            s.from.deafUntil = level.getGameTime() + DEAF_TICKS; // only the one that sent it hears again
         }
         if (why != null) {
             BlockPos under = BlockPos.containing(s.at.x(), s.at.y(), s.at.z());
             level.sendParticles(new BlockParticleOption(ParticleTypes.FALLING_DUST, level.getBlockState(under)),
                     s.at.x(), s.at.y() + 0.6, s.at.z(), 8, 0.3, 0.1, 0.3, 0);
-            Tremor.LOGGER.info("A listener's signal in {} is {}", level.dimension().location(), why);
+            Tremor.LOGGER.info("A{} in {} is {}", s.fromListener ? " listener's signal" : "n echo",
+                    level.dimension().location(), why);
         }
     }
 
     /**
-     * The top of the ground in the column at {@code x, z}, within {@value #GROUND_STEP} blocks of {@code y} (a solid
-     * block with room over it); MIN_VALUE if none.
+     * The top of the ground in the column at {@code x, z} nearest to {@code y}, within {@value #GROUND_STEP} blocks of
+     * it (a solid block with room over it), looked for outward from {@code y}: the ground it runs on, not a thin roof
+     * or leaves over it (the review); MIN_VALUE if none.
      */
     private static int groundAt(ServerLevel level, double x, double y, double z) {
         int bx = (int) Math.floor(x), bz = (int) Math.floor(z), by = (int) Math.floor(y);
-        for (int dy = GROUND_STEP; dy >= -GROUND_STEP; dy--) {
+        for (int i = 0; i <= 2 * GROUND_STEP; i++) {
+            int dy = (i + 1) / 2 * (i % 2 == 0 ? -1 : 1); // 0, +1, -1, +2, -2, ...
             BlockPos p = new BlockPos(bx, by + dy, bz);
             if (!level.isLoaded(p)) {
                 return Integer.MIN_VALUE;

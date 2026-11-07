@@ -148,9 +148,8 @@ public final class DeformationRenderer {
      */
     static final double RING_FACING = 0.35;
     static final double RING_FACING_WALL = -0.1;
-    /** The same ripple: its start within this many ticks, its centre within this far (blocks). */
+    /** The same ripple: its start within this many ticks. */
     static final double RING_SAME_TICKS = 2;
-    static final double RING_MOVE = 1.5;
     /** Scan steps between two looks at the clock, and the time a frame spends on the scan at most. */
     static final int RING_STEP = 64;
     static final long RING_NANOS = 1_500_000;
@@ -342,7 +341,8 @@ public final class DeformationRenderer {
          */
         ZoneScan ring;
         double ringStart = Double.NaN;
-        Vec3 ringCenter = Vec3.ZERO;
+        /** The frame its ripple went out from: the ring stays there while the bump moves on. */
+        BumpFrame ringFrame;
         Vec3 ringNormal = Vec3.UNIT_Y;
         int ringTaken;
         final List<Column> ringColumns = new ArrayList<>();
@@ -498,7 +498,7 @@ public final class DeformationRenderer {
                             under.add(col);
                         }
                     }
-                    spawnDust(level, under, field.frame(), field.ripple(), field.rippleAge());
+                    spawnDust(level, under, field.ringFrame(), field.ripple(), field.rippleAge());
                 }
             }
             if (rings) {
@@ -749,11 +749,12 @@ public final class DeformationRenderer {
             scanRing(level, bump, frame, ripple, state.rippleAgeSeconds(), now, tick);
         } else if (bump.ring != null) {
             bump.ring = null;
+            bump.ringFrame = null;
             bump.ringColumns.clear();
             bump.ringKeys.clear();
         }
         return new HeightField(params, frame, state.timeSeconds(), TremorConfig.CLIENT.drawJitter(), ripple,
-                state.rippleAgeSeconds());
+                state.rippleAgeSeconds(), ripple != null ? bump.ringFrame : frame);
     }
 
     /**
@@ -1090,18 +1091,18 @@ public final class DeformationRenderer {
      * ({@link ZoneScan}), out to the ripple's reach and {@value #RING_HEIGHT} blocks up and down, and takes every
      * surface voxel facing the plane of its rings ({@link HeightField#ringNormal}: the floor for a ring on the ground,
      * not the walls of a tunnel; the wall for a pulse on a wall), a little each frame from the middle out, ahead of the
-     * ring. A new ripple, or the centre moved, scans anew.
+     * ring. The ring stays where it went out while the bump creeps on, as the server's echo does (the user: jumped it,
+     * and found a second later all the same); a new ripple scans anew.
      */
     private static void scanRing(ClientLevel level, Bump bump, BumpFrame frame, RippleParams ripple, double age,
                                  double now, long tick) {
         double start = now - age * TICKS_PER_SECOND;
-        Vec3 n = HeightField.ringNormal(frame.normal());
-        Vec3 c = frame.center().add(n.scale(RING_LIFT)); // in the open in front of the surface
-        if (bump.ring == null || Math.abs(start - bump.ringStart) > RING_SAME_TICKS
-                || c.distanceSquared(bump.ringCenter) > RING_MOVE * RING_MOVE || !n.equals(bump.ringNormal)) {
+        if (bump.ring == null || Math.abs(start - bump.ringStart) > RING_SAME_TICKS) {
+            Vec3 n = HeightField.ringNormal(frame.normal());
+            Vec3 c = frame.center().add(n.scale(RING_LIFT)); // in the open in front of the surface
             bump.ring = new ZoneScan(voxels, c, Ripple.maxRadius(ripple) + 1, RING_HEIGHT, RING_HEIGHT, n);
             bump.ringStart = start;
-            bump.ringCenter = c;
+            bump.ringFrame = frame;
             bump.ringNormal = n;
             bump.ringTaken = 0;
             bump.ringColumns.clear();
@@ -1116,6 +1117,7 @@ public final class DeformationRenderer {
             }
         }
         List<SurfacePoint> points = bump.ring.points();
+        Vec3 n = bump.ringNormal;
         for (; bump.ringTaken < points.size(); bump.ringTaken++) {
             SurfacePoint p = points.get(bump.ringTaken);
             double facing = Math.abs(n.y()) >= HeightField.RING_LEVEL ? RING_FACING : RING_FACING_WALL;
