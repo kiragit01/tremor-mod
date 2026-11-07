@@ -991,8 +991,8 @@ public final class TremorConfig {
 
         Marks(ModConfigSpec.Builder b) {
             b.comment("The marks: every time a tremor takes a player into the hollow they get a mark, and their hollow is",
-                            "harder the more they have (the node farther, the walls faster, less time), from the third",
-                            "on its floor digests in waves; a hushing charm takes one off")
+                            "harder the more they have (the node farther, the walls faster, less time); a hushing charm",
+                            "takes one off")
                     .translation(KEY + "marks").push("marks");
             enabled = b.comment("Whether marks are counted and make the hollow harder")
                     .translation(KEY + "marks.enabled").define("enabled", true);
