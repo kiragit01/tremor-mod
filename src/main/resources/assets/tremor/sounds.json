@@ -99,7 +99,8 @@
   "item.tremor.resonance_arrow.draw": {
     "subtitle": "subtitles.tremor.resonance_draw",
     "sounds": [
-      "tremor:resonance_draw"
+      "tremor:resonance_draw_1",
+      "tremor:resonance_draw_2"
     ]
   },
   "item.tremor.resonance_arrow.flight": {
