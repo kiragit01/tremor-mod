@@ -20,16 +20,11 @@ class RenderReachTest {
     /** Floor bump moving along +x: local a is +x, b (side) is +z. */
     private static final BumpFrame FLOOR = BumpFrame.of(new Vec3(10.25, 64, -7.5), Vec3.UNIT_Y, Vec3.UNIT_X);
 
-    /** Larger of the bump and trail Gaussians at local (a, b): what {@link BumpShape} fades the jitter with. */
+    /** The bump's Gaussian at local (a, b): what {@link BumpShape} fades the jitter with. */
     private static double envelope(BumpParams p, double a, double b) {
         double side = b * b / (p.sigmaSide() * p.sigmaSide());
         double sigmaA = a >= 0 ? p.sigmaFront() : p.sigmaBack();
-        double bump = Math.exp(-(a * a / (sigmaA * sigmaA) + side));
-        if (p.trailDepth() == 0) {
-            return bump;
-        }
-        double t = (a + p.trailLag()) / p.trailSigma();
-        return Math.max(bump, Math.exp(-(t * t + side)));
+        return Math.exp(-(a * a / (sigmaA * sigmaA) + side));
     }
 
     /** Highest height any jitter value can give at local (a, b) of {@link #FLOOR}. */
@@ -128,34 +123,24 @@ class RenderReachTest {
 
     @Test
     void reachIsCloseToWhereTheBumpRises() {
-        // Without a dip the widest side of the bump rises exactly as far as the reach.
+        // Without a trail the widest side of the bump rises exactly as far as the reach.
         BumpParams noDip = new BumpParams(2.0, 1.6, 2.6, 2.2, 4.0, 3.0, 0, 0.06);
         double reach = RenderReach.reach(noDip);
         assertTrue(farthestRaised(noDip, reach * 1.2, 600) >= 0.98 * reach);
-        // The dip pulls the back in, so the defaults rise as far as the side: still within a block of the reach.
+        // The trail pulls the back in a little: the defaults still rise within a block of the reach.
         reach = RenderReach.reach(DEFAULTS);
         assertTrue(farthestRaised(DEFAULTS, reach * 1.2, 600) >= reach - 1);
     }
 
     @Test
-    void trailCountsOnlyWhenTheJitterCanLiftIt() {
-        BumpParams calm = new BumpParams(2.0, 1.6, 2.6, 2.2, 4.0, 3.0, 0.3, 0.3);
-        assertEquals(2.6 * Math.sqrt(Math.log(2.0 * 1.3 / T)), RenderReach.reach(calm), 1e-12);
+    void theTrailNeverRisesOnItsOwn() {
+        // It only pulls the back down: a shaky bump reaches as far as its main Gaussian, nothing behind it rises.
         BumpParams shaky = new BumpParams(2.0, 1.6, 2.6, 2.2, 4.0, 3.0, 0.3, 0.5);
-        double reach = RenderReach.reach(shaky);
-        assertEquals(4.0 + 3.0 * Math.sqrt(Math.log(2.0 * (1.5 + 0.2) / T)), reach, 1e-12);
-        assertTrue(highest(shaky, -4.0, 0) >= T, "the jitter lifts the dip");
-    }
-
-    @Test
-    void negativeAmplitudeReachesTheRaisedDip() {
-        BumpParams inverted = DEFAULTS.withAmplitude(-2.0);
-        double reach = RenderReach.reach(inverted);
-        assertTrue(reach >= inverted.trailLag());
-        Vec3 c = FLOOR.center();
-        assertTrue(BumpShape.height(inverted, FLOOR, c.x() - inverted.trailLag(), c.y(), c.z()) >= T);
-        // Without a dip and with mild jitter an inverted bump never rises.
+        assertEquals(2.6 * Math.sqrt(Math.log(2.0 * 1.5 / T)), RenderReach.reach(shaky), 1e-12);
+        // An inverted bump rises only through a jitter over what its trail leaves of it, and with mild jitter never.
+        assertEquals(0, RenderReach.reach(DEFAULTS.withAmplitude(-2.0)));
         assertEquals(0, RenderReach.reach(new BumpParams(-2.0, 1.6, 2.6, 2.2, 4.0, 3.0, 0, 0.5)));
+        assertTrue(RenderReach.reach(new BumpParams(-2.0, 1.6, 2.6, 2.2, 4.0, 3.0, 0.8, 0.5)) > 0);
     }
 
     @Test
