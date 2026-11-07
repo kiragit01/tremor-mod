@@ -11,7 +11,8 @@ import net.minecraft.world.item.enchantment.EnchantmentCategory;
  */
 public final class MuffledStepsEnchantment extends Enchantment {
     MuffledStepsEnchantment() {
-        super(Rarity.VERY_RARE, EnchantmentCategory.ARMOR_FEET, new EquipmentSlot[] {EquipmentSlot.FEET});
+        // RARE: the book costs 2 levels on an anvil, as the 1.21 data's anvil cost of 4 (never on the table anyway).
+        super(Rarity.RARE, EnchantmentCategory.ARMOR_FEET, new EquipmentSlot[] {EquipmentSlot.FEET});
     }
 
     @Override
