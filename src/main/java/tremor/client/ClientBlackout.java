@@ -43,6 +43,13 @@ public final class ClientBlackout {
     private static final BlackoutFade fade = new BlackoutFade();
     /** The blackout is the white of the way out, not black; set by every fade out, kept by the fade back. */
     private static boolean white;
+    /**
+     * A lift held back while the victor's hill is not drawn yet: its fade (ticks), or -1; and since when. It is let go
+     * once the hill shows, or after {@link #HOLD_NANOS} at most.
+     */
+    private static int heldLift = -1;
+    private static long heldSince;
+    private static final long HOLD_NANOS = 3_000_000_000L;
 
     private ClientBlackout() {
     }
@@ -55,6 +62,11 @@ public final class ClientBlackout {
                 rush(mc);
             }
             white = payload.white();
+            heldLift = -1;
+        } else if (tremor.client.awakening.ClientEmerge.awaitsHill()) {
+            heldLift = payload.fadeTicks(); // lifted once the hill shows ({@link #advance})
+            heldSince = System.nanoTime();
+            return;
         }
         fade.set(payload.dark(), payload.fadeTicks());
     }
@@ -140,6 +152,7 @@ public final class ClientBlackout {
 
     public static void onLoggingOut(ClientPlayerNetworkEvent.LoggingOut event) {
         fade.clear();
+        heldLift = -1;
     }
 
     /** Opacity of the black over the screen as of the last frame, 0 (none) to 1 (fully black). */
@@ -156,6 +169,11 @@ public final class ClientBlackout {
     }
 
     private static void advance(Minecraft mc) {
+        if (heldLift >= 0 && (!tremor.client.awakening.ClientEmerge.awaitsHill()
+                || System.nanoTime() - heldSince > HOLD_NANOS)) {
+            fade.set(false, heldLift);
+            heldLift = -1;
+        }
         if (fade.update(System.nanoTime(), mc.isPaused(), levelLoading(mc))) {
             Tremor.LOGGER.warn("Hollow: the server left the screen black for {} s; lifting it",
                     Math.round(BlackoutFade.FAILSAFE_TICKS / BlackoutFade.TICKS_PER_SECOND));

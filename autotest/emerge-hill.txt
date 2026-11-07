@@ -1,0 +1,153 @@
+# Out of the hollow by a victory, the victor's screen comes back on the hill they come out of (the user: the world
+# showed first, then the hill popped up around them, and only then it let them go). Copies tinted red; a frame every
+# 3 ticks from the victory on: no frame may show the world without the hill.
+# Run: gradlew runClientAutotest -Ptremor_autotest_script=emerge-hill.txt
+waitchunks
+cmd gamemode spectator
+cmd time set noon
+cmd tremor despawn all
+cmd tremor awaken stop
+cmd tp @s 300.5 201.0 -899.5 0 0
+wait 40
+waitchunks
+cmd fill 240 198 -960 360 199 -840 minecraft:stone
+cmd fill 240 200 -960 360 200 -840 minecraft:grass_block
+cmd fill 240 201 -960 360 206 -840 minecraft:air
+cmd kill @e[type=!player]
+cmd gamemode survival
+cmd effect give @s minecraft:resistance 600 4 true
+cmd effect give @s minecraft:night_vision infinite 0 true
+config hollow.level.stillSeconds 60
+config awakening.buildupSeconds 3
+config awakening.craterRadius 0
+config awakening.radius 128
+config marks.enabled false
+cmd tremor awaken
+wait 220
+waitchunks
+hud off
+tint on
+look 0 20
+cmd tremor hollow outcome victory
+wait 3
+screenshot e01
+wait 3
+screenshot e02
+wait 3
+screenshot e03
+wait 3
+screenshot e04
+wait 3
+screenshot e05
+wait 3
+screenshot e06
+wait 3
+screenshot e07
+wait 3
+screenshot e08
+wait 3
+screenshot e09
+wait 3
+screenshot e10
+wait 3
+screenshot e11
+wait 3
+screenshot e12
+wait 3
+screenshot e13
+wait 3
+screenshot e14
+wait 3
+screenshot e15
+wait 3
+screenshot e16
+wait 3
+screenshot e17
+wait 3
+screenshot e18
+wait 3
+screenshot e19
+wait 3
+screenshot e20
+wait 3
+screenshot e21
+wait 3
+screenshot e22
+wait 3
+screenshot e23
+wait 3
+screenshot e24
+wait 3
+screenshot e25
+wait 3
+screenshot e26
+wait 3
+screenshot e27
+wait 3
+screenshot e28
+wait 3
+screenshot e29
+wait 3
+screenshot e30
+wait 3
+screenshot e31
+wait 3
+screenshot e32
+wait 3
+screenshot e33
+wait 3
+screenshot e34
+wait 3
+screenshot e35
+wait 3
+screenshot e36
+wait 3
+screenshot e37
+wait 3
+screenshot e38
+wait 3
+screenshot e39
+wait 3
+screenshot e40
+wait 3
+screenshot e41
+wait 3
+screenshot e42
+wait 3
+screenshot e43
+wait 3
+screenshot e44
+wait 3
+screenshot e45
+wait 3
+screenshot e46
+wait 3
+screenshot e47
+wait 3
+screenshot e48
+wait 3
+screenshot e49
+wait 3
+screenshot e50
+wait 3
+screenshot e51
+wait 3
+screenshot e52
+wait 3
+screenshot e53
+wait 3
+screenshot e54
+wait 3
+screenshot e55
+wait 3
+screenshot e56
+wait 3
+screenshot e57
+wait 3
+screenshot e58
+wait 3
+screenshot e59
+wait 3
+screenshot e60
+tint off
+quit

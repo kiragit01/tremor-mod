@@ -75,6 +75,12 @@ final class Column {
     /** h at the 8 corners of the voxel, for the warp style. Index: x + 2y + 4z. */
     final double[] corners = new double[8];
     double distanceSq;
+    /**
+     * How much its copies grow on every side (blocks): a little of its own, from its place, so that faces of copies (or
+     * of a copy and a block) in one plane do not flicker ({@link VertexList#emit(com.mojang.blaze3d.vertex.VertexConsumer,
+     * float, float, float, float)}).
+     */
+    final float grow;
 
     Column(int x, int y, int z, Direction axis, Vec3 normal) {
         this.x = x;
@@ -94,6 +100,7 @@ final class Column {
         this.sy = cy;
         this.sz = cz;
         this.nudgeX = this.nudgeY = this.nudgeZ = 0;
+        this.grow = grow(x, y, z);
     }
 
     Column(ThinSwell.Fill f) {
@@ -113,6 +120,7 @@ final class Column {
         this.sx = f.sourceX() + 0.5;
         this.sy = f.sourceY() + 0.5;
         this.sz = f.sourceZ() + 0.5;
+        this.grow = grow(x, y, z);
         long hash = (x * 73856093L) ^ (y * 19349663L) ^ (z * 83492791L);
         this.nudgeX = axis.getAxis() == Direction.Axis.X ? 0 : ((hash & 1) == 0 ? 1 : -1);
         this.nudgeY = axis.getAxis() == Direction.Axis.Y ? 0 : ((hash & 2) == 0 ? 1 : -1);
@@ -131,6 +139,14 @@ final class Column {
     }
 
     /** Copies drawn: the stack filling the gap down to the original (one for a fill cell), plus the decoration. */
+    /** {@link #grow} of the column at a voxel: {@value #GROW_MIN} to twice that, from a hash of its place. */
+    static float grow(int x, int y, int z) {
+        int h = x * 73856093 ^ y * 19349663 ^ z * 83492791;
+        return GROW_MIN * (1 + ((h >>> 8) & 15) / 15f);
+    }
+
+    static final float GROW_MIN = 0.002f;
+
     int cost() {
         return (meshes.isEmpty() ? 0 : fill ? 1 : (int) Math.ceil(h)) + (decoMeshes.isEmpty() ? 0 : 1);
     }
