@@ -74,6 +74,9 @@ public final class StalactiteCrawlers {
     static final int SPAWN_OPEN = 4;
     /** Hanging still it is this high (a share of its full height), breathing; creeping a little more. */
     static final double HANG_SHARE = 0.2;
+    /** Hanging it breathes: down by this share of its height and back, once in this many ticks. */
+    static final double HANG_BREATH = 0.3;
+    static final int HANG_BREATH_TICKS = 50;
     static final double CREEP_SHARE = 0.45;
     /** Breaking a block this near its middle kills it (blocks). */
     static final double KILL_RADIUS = 1.6;
@@ -576,7 +579,9 @@ public final class StalactiteCrawlers {
             double amplitude = 0;
             switch (state) {
                 case HANG -> {
-                    amplitude = full * HANG_SHARE;
+                    // A small knot breathing slowly (the user: lying flat and wide it looked like a tremor).
+                    amplitude = full * HANG_SHARE * (1 - HANG_BREATH
+                            + HANG_BREATH * Math.sin(2 * Math.PI * now / HANG_BREATH_TICKS + instance));
                     if (sound != null && now - lastSearch >= RETARGET_TICKS && go(level, sound)) {
                         state = State.CREEP;
                         ticks = 0;
@@ -737,7 +742,7 @@ public final class StalactiteCrawlers {
             Vec3 p = c.position();
             TremorStatePayload state = new TremorStatePayload(instance, true, now, p, c.normal(), c.forward(),
                     c.velocity(), (float) c.amplitude(), (float) TremorEntity.wrapPhase(c.phase()), Stage.HUNTING,
-                    TremorStatePayload.NO_RIPPLE, this.state == State.HANG ? 1 : 0, null);
+                    TremorStatePayload.NO_RIPPLE, 0, null); // never the wide flat look of a tremor lying in wait
             double range = TremorConfig.COMMON.syncRange.get();
             Set<UUID> inRange = new HashSet<>();
             for (ServerPlayer player : level.players()) {
