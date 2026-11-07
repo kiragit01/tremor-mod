@@ -1,0 +1,19 @@
+# The resonance effect deafens every sound of the game (the user: a concussion of all of Minecraft's sound): OpenAL's
+# effects on every source, swelling in and ebbing away. The log tells whether EFX is there; no OpenAL error may follow.
+# Run: gradlew runClientAutotest -Ptremor_autotest_script=resonance-daze.txt
+waitchunks
+cmd gamemode survival
+cmd time set noon
+cmd effect give @s tremor:resonance 6
+wait 10
+cmd playsound minecraft:block.stone.break master @s ~ ~ ~ 1 1
+wait 10
+cmd playsound minecraft:entity.zombie.ambient master @s ~ ~ ~ 1 1
+wait 10
+cmd playsound minecraft:ui.button.click master @s ~ ~ ~ 1 1
+wait 40
+cmd playsound minecraft:entity.experience_orb.pickup master @s ~ ~ ~ 1 1
+wait 80
+cmd playsound minecraft:block.stone.break master @s ~ ~ ~ 1 1
+wait 40
+quit

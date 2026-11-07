@@ -334,7 +334,11 @@ final class AutoTestRunner {
         options.enableVsync().set(false);
         options.framerateLimit().set(Options.UNLIMITED_FRAMERATE_CUTOFF);
         options.renderDistance().set(RENDER_DISTANCE);
-        options.getSoundSourceOptionInstance(SoundSource.MASTER).set(0.0);
+        // Silent, unless the sound is to be heard or recorded (TREMOR_AUTOTEST_SOUND, with OpenAL Soft's wave writer).
+        options.getSoundSourceOptionInstance(SoundSource.MASTER).set(System.getenv("TREMOR_AUTOTEST_SOUND") != null ? 1.0 : 0.0);
+        if (System.getenv("TREMOR_AUTOTEST_SOUND") != null) {
+            options.getSoundSourceOptionInstance(SoundSource.MUSIC).set(0.0);
+        }
         options.narrator().set(NarratorStatus.OFF);
         // hold presses keys with KeyMapping.setDown, which flips a key in toggle mode instead of pressing it.
         options.toggleCrouch().set(false);
