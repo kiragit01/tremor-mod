@@ -105,6 +105,18 @@ public final class ClientEmerge {
     }
 
     /** Whether the local player is the one coming out of the hill. */
+    /**
+     * Whether this client is the victor's and the hill it comes out of is not drawn yet (its ground still being
+     * scanned after the move back): the screen stays dark meanwhile (the user: the world showed first, then the hill
+     * popped up around them).
+     */
+    public static boolean awaitsHill() {
+        Minecraft mc = Minecraft.getInstance();
+        TremorAwakeningPayload current = ClientAwakening.state();
+        boolean emerging = current != null && (current.phase() == Phase.EMERGING || current.phase() == Phase.SETTLING);
+        return emerging && victor(mc.player, current) && !tremor.client.render.DeformationRenderer.groundShown();
+    }
+
     private static boolean victor(LocalPlayer player, TremorAwakeningPayload state) {
         return player != null && player.getUUID().equals(state.target());
     }

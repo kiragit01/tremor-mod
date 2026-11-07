@@ -1,0 +1,40 @@
+# Where the floor turns into a wall the stacks out of the wall must not run through those risen from the floor (the
+# user: the sideways stack stood out as the main one). A big bump at the foot of a cliff, seen from the side and from
+# above; copies tinted red.
+# Run: gradlew runClientAutotest -Ptremor_autotest_script=hill-wall-junction.txt
+waitchunks
+cmd gamerule commandModificationBlockLimit 2147483647
+cmd gamemode spectator
+cmd time set noon
+cmd tremor despawn all
+cmd kill @e[type=!player]
+cmd tp @s 790.5 210.0 640.5 90 20
+wait 40
+waitchunks
+cmd fill 760 190 620 820 199 660 minecraft:stone
+cmd fill 760 200 620 820 200 660 minecraft:grass_block
+cmd fill 760 201 620 820 220 660 minecraft:air
+cmd fill 760 201 620 775 214 660 minecraft:stone
+cmd kill @e[type=minecraft:item]
+config ambush.enabled false
+config shape.amplitude 4.5
+config shape.sigmaSide 3.5
+config shape.sigmaBack 3.5
+cmd tremor spawn 776 200 640
+cmd tremor ai off
+cmd tremor stage awakening
+cmd tremor hold
+hud off
+tint on
+wait 60
+cmd tp @s 784.5 204.0 650.5 150 15
+wait 10
+screenshot 01_side
+cmd tp @s 782.5 214.0 640.5 90 60
+wait 10
+screenshot 02_above
+cmd tp @s 788.5 206.0 640.5 90 20
+wait 10
+screenshot 03_front
+tint off
+quit
