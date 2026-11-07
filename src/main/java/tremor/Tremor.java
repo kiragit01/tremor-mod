@@ -56,6 +56,8 @@ public final class Tremor {
         tremor.effect.TremorEffects.register(modBus);
         TremorBlocks.register(modBus);
         tremor.item.TremorItems.register(modBus);
+        modBus.addListener((net.minecraftforge.fml.event.lifecycle.FMLCommonSetupEvent event) ->
+                event.enqueueWork(tremor.item.ResonanceArrowItem::registerDispenser));
         tremor.hollow.HollowDrops.register(modBus);
 
         IEventBus game = MinecraftForge.EVENT_BUS;

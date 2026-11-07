@@ -2,7 +2,6 @@ package tremor.item;
 
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.projectile.AbstractArrow;
-import net.minecraft.world.entity.projectile.Arrow;
 import net.minecraft.world.item.ArrowItem;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.Level;
@@ -20,6 +19,20 @@ public final class ResonanceArrowItem extends ArrowItem {
 
     @Override
     public AbstractArrow createArrow(Level level, ItemStack ammo, LivingEntity shooter) {
-        return ResonanceArrows.mark(new Arrow(level, shooter));
+        return ResonanceArrows.mark(new ResonanceArrowEntity(level, shooter));
+    }
+
+    /** A dispenser shoots it as an arrow, ringing (1.20.1 knows only the vanilla arrows for that). */
+    public static void registerDispenser() {
+        net.minecraft.world.level.block.DispenserBlock.registerBehavior(TremorItems.RESONANCE_ARROW.get(),
+                new net.minecraft.core.dispenser.AbstractProjectileDispenseBehavior() {
+                    @Override
+                    protected net.minecraft.world.entity.projectile.Projectile getProjectile(Level level,
+                            net.minecraft.core.Position pos, ItemStack stack) {
+                        ResonanceArrowEntity arrow = new ResonanceArrowEntity(level, pos.x(), pos.y(), pos.z());
+                        arrow.pickup = AbstractArrow.Pickup.ALLOWED;
+                        return ResonanceArrows.mark(arrow);
+                    }
+                });
     }
 }

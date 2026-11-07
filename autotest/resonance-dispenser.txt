@@ -1,0 +1,22 @@
+# A dispenser shoots resonance arrows as arrows, ringing (on 1.20.1 it dropped them as items): one strikes the wall
+# in front and bursts into its pulse (the log tells).
+# Run: gradlew runClientAutotest -Ptremor_autotest_script=resonance-dispenser.txt
+waitchunks
+cmd gamemode spectator
+cmd time set noon
+cmd tremor despawn all
+cmd kill @e[type=!player]
+cmd tp @s 860.5 205.0 300.5
+wait 40
+waitchunks
+cmd fill 850 199 290 870 199 310 minecraft:stone
+cmd fill 850 200 290 870 210 310 minecraft:air
+cmd fill 866 200 295 866 205 305 minecraft:stone
+cmd setblock 860 201 300 minecraft:dispenser[facing=east]
+cmd item replace block 860 201 300 container.0 with tremor:resonance_arrow 4
+cmd tp @s 858.5 203.0 297.5 -60 20
+wait 20
+cmd setblock 860 202 300 minecraft:redstone_block
+wait 30
+cmd kill @e[type=minecraft:item]
+quit
