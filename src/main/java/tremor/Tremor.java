@@ -52,6 +52,10 @@ public final class Tremor {
         tremor.effect.TremorEffects.register(modBus);
         TremorBlocks.register(modBus);
         tremor.item.TremorItems.register(modBus);
+        // A dispenser shoots resonance arrows ringing (a modded arrow is not one it knows by itself).
+        modBus.addListener((net.neoforged.fml.event.lifecycle.FMLCommonSetupEvent event) -> event.enqueueWork(() ->
+                net.minecraft.world.level.block.DispenserBlock.registerProjectileBehavior(
+                        tremor.item.TremorItems.RESONANCE_ARROW.get())));
 
         IEventBus game = NeoForge.EVENT_BUS;
         game.addListener(TremorCommands::register);
