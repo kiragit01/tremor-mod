@@ -106,8 +106,17 @@ public final class DeformationRenderer {
      */
     private static final double RADIUS_STEP = 0.5;
     private static final double RADIUS_SHRINK = 1.0;
-    /** Columns baked per frame at most; the other newly raised ones wait for the next frames. */
-    private static final int MAX_BAKES_PER_FRAME = 48;
+    /** Columns baked per frame at least; the other newly raised ones wait for the next frames ({@link #BAKE_SHARE}). */
+    private static final int MIN_BAKES_PER_FRAME = 48;
+    /**
+     * Beyond those, a frame goes on baking while its bakes have taken less than this share of the previous frame's
+     * {@link #prepare}. A hill of the usual size bakes at about the fixed pace, its frames spending little else on the
+     * deformation. A giant's tens of thousands of columns (shape x16: some 17 000, x32: 75 000) would take hundreds or
+     * thousands of frames at it, drawn meanwhile only from the top down to the highest one still waiting, so the hill
+     * stood in a wall at its foot (the benchmarks' "pot"; at x32, a tower), however far its collection reached. A frame
+     * that spends that long on the deformation anyway can spare half as long again for the bakes.
+     */
+    private static final double BAKE_SHARE = 0.5;
     /** Ticks between checks whether the blocks under the drawn copies changed. */
     private static final int VALIDATE_INTERVAL = 5;
     /** Ticks between re-reads of the light of the drawn copies. */
@@ -310,6 +319,8 @@ public final class DeformationRenderer {
     private static int frameCopies;
     private static int frameVertices;
     private static long pendingNanos;
+    /** How long the last {@link #prepare} took, its bakes included ({@link #BAKE_SHARE}). */
+    private static long prepareNanos;
 
     /** The voxels one entity's bump may raise, as last collected, and where and when they were. */
     private static final class Bump {
@@ -398,8 +409,9 @@ public final class DeformationRenderer {
         if (stage == RenderLevelStageEvent.Stage.AFTER_BLOCK_ENTITIES) {
             long start = System.nanoTime();
             frameReady = prepare(event);
+            prepareNanos = System.nanoTime() - start;
             if (frameReady) {
-                RenderStats.recordPrepare(System.nanoTime() - start);
+                RenderStats.recordPrepare(prepareNanos);
                 for (RenderType layer : OPAQUE) {
                     draw(layer);
                 }
@@ -1357,23 +1369,26 @@ public final class DeformationRenderer {
     }
 
     /**
-     * Bakes this frame's newly raised columns, the highest first and at most {@link #MAX_BAKES_PER_FRAME}; the rest
-     * are left unbaked (and undrawn) until a later frame. Bakes to spare go to the zone's ground that is going to rise
-     * ({@link ZoneColumns#prebake}), nearest first.
+     * Bakes this frame's newly raised columns, the highest first: {@link #MIN_BAKES_PER_FRAME} of them, and more while
+     * the frame has the time to spare ({@link #BAKE_SHARE}); the rest are left unbaked (and undrawn) until a later
+     * frame. The first ones to spare go to the zone's ground that is going to rise ({@link ZoneColumns#prebake}),
+     * nearest first.
      */
     private static void bakePending(ClientLevel level, GroundField ground) {
-        if (pending.size() > MAX_BAKES_PER_FRAME) {
+        if (pending.size() > MIN_BAKES_PER_FRAME) {
             pending.sort(HIGHEST_FIRST);
-            pending.subList(MAX_BAKES_PER_FRAME, pending.size()).clear();
         }
         LevelVoxelView view = null;
+        int baked = 0;
         if (!pending.isEmpty()) {
             view = source.begin(level);
-            for (int i = 0, n = pending.size(); i < n; i++) {
-                bake(level, view, pending.get(i));
+            long start = System.nanoTime(), allowed = (long) (prepareNanos * BAKE_SHARE);
+            while (baked < pending.size()
+                    && (baked < MIN_BAKES_PER_FRAME || System.nanoTime() - start < allowed)) {
+                bake(level, view, pending.get(baked++));
             }
         }
-        int spare = MAX_BAKES_PER_FRAME - pending.size();
+        int spare = MIN_BAKES_PER_FRAME - baked;
         pending.clear();
         if (ground != null && spare > 0) {
             zone.prebake(ground, spare, pending);
