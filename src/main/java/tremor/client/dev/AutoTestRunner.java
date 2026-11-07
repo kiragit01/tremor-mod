@@ -130,7 +130,9 @@ final class AutoTestRunner {
     private static final int LOADING_ERROR_POLLS = 2;
     private static final String SCREENSHOT_FAILURE_KEY = "screenshot.failure";
     private static final DateTimeFormatter TIMESTAMP = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
-    private static final int RENDER_DISTANCE = 12;
+    /** Chunks drawn around the player; TREMOR_AUTOTEST_RD sets more (benchmarks of giants seen from far). */
+    private static final int RENDER_DISTANCE = System.getenv("TREMOR_AUTOTEST_RD") != null
+            ? Integer.parseInt(System.getenv("TREMOR_AUTOTEST_RD")) : 12;
     /** Mojang name of {@code LocalPlayer}'s protected double-tap sprint window, see {@link #suppressDoubleTapSprint}. */
     private static final String SPRINT_TRIGGER_FIELD = "sprintTriggerTime";
     /** Button labels that mean "go ahead" on screens that can interrupt world loading, in order of preference. */

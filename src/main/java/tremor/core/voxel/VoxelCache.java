@@ -33,6 +33,9 @@ public final class VoxelCache implements VoxelView {
     /** Open addressing with linear probing, keyed by section coordinates; capacity is a power of two. */
     private Section[] table = new Section[INITIAL_CAPACITY];
     private int size;
+    /** Sections read from the source so far, and the time that took (benchmarks: {@code /tremor cache}). */
+    private long loads;
+    private long loadNanos;
     /** The section of the previous query, so runs of queries in one section skip the table. */
     private Section last;
 
@@ -189,8 +192,25 @@ public final class VoxelCache implements VoxelView {
         return s;
     }
 
+    /** Sections held now. */
+    public int sections() {
+        return size;
+    }
+
+    /** Sections read from the source so far. */
+    public long loads() {
+        return loads;
+    }
+
+    /** Time spent reading them, nanoseconds. */
+    public long loadNanos() {
+        return loadNanos;
+    }
+
     /** Reads a whole section from the source in one sweep. */
     private Section load(int sx, int sy, int sz) {
+        long began = System.nanoTime();
+        loads++;
         Section s = new Section(sx, sy, sz, hash(sx, sy, sz), now);
         int x0 = sx << SHIFT, y0 = sy << SHIFT, z0 = sz << SHIFT;
         int i = 0;
@@ -207,6 +227,7 @@ public final class VoxelCache implements VoxelView {
                 }
             }
         }
+        loadNanos += System.nanoTime() - began;
         return s;
     }
 

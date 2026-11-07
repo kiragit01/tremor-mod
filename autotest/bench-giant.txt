@@ -1,0 +1,140 @@
+# Giants: one tremor of shape x4..x32 (past the config's old cap of x4), still and crawling: how many copies one
+# creature can hold, what they cost the client (bench) and the server (/tick query), and whether it holds together
+# (shots). Budget 500000.
+# Run: gradlew runClientAutotest -Ptremor_autotest_script=bench-giant.txt
+waitchunks
+cmd gamerule commandModificationBlockLimit 2147483647
+cmd gamerule doMobSpawning false
+cmd gamemode spectator
+cmd time set noon
+cmd weather clear
+cmd tremor despawn all
+cmd tremor awaken stop
+cmd kill @e[type=!player]
+
+cmd tp @s 1100.5 260.0 1000.5 0 30
+wait 40
+waitchunks
+cmd forceload add 900 900 1099 1099
+cmd forceload add 1100 900 1300 1099
+cmd forceload add 900 1100 1099 1300
+cmd forceload add 1100 1100 1300 1300
+wait 80
+waitchunks
+cmd fill 900 190 900 1300 199 1300 minecraft:stone
+cmd fill 900 200 900 1300 200 1300 minecraft:grass_block
+cmd fill 900 201 900 1300 260 1300 minecraft:air
+cmd fill 900 261 900 1300 320 1300 minecraft:air
+cmd kill @e[type=minecraft:item]
+config client:render.maxDeformedBlocks 500000
+config client:render.renderDistance 512
+config server.syncRange 1024
+hud off
+fps 260
+wait 40
+log --- size x4
+config shape.amplitude 8.00
+config shape.sigmaFront 6.40
+config shape.sigmaBack 10.40
+config shape.sigmaSide 8.80
+config shape.trailSigma 12.00
+config shape.trailLag 16.00
+cmd tp @s 1100.5 226.0 1034.5 0 20
+wait 20
+waitchunks 200
+cmd tremor spawn 1100 200 1100
+cmd tremor ai off
+cmd tremor stage hunting
+cmd tremor hold
+wait 80
+lookat 1100.5 205 1100.5
+screenshot giant_x4
+bench still_x4 100
+cmd tick query
+cmd tremor goto 1100 200 1180
+wait 10
+bench crawl_x4 100
+cmd tick query
+screenshot giant_x4_crawl
+cmd tremor despawn all
+wait 60
+log --- size x8
+config shape.amplitude 16.00
+config shape.sigmaFront 12.80
+config shape.sigmaBack 20.80
+config shape.sigmaSide 17.60
+config shape.trailSigma 24.00
+config shape.trailLag 32.00
+cmd tp @s 1100.5 242.0 998.5 0 20
+wait 20
+waitchunks 200
+cmd tremor spawn 1100 200 1100
+cmd tremor ai off
+cmd tremor stage hunting
+cmd tremor hold
+wait 80
+lookat 1100.5 205 1100.5
+screenshot giant_x8
+bench still_x8 100
+cmd tick query
+cmd tremor goto 1100 200 1180
+wait 10
+bench crawl_x8 100
+cmd tick query
+screenshot giant_x8_crawl
+cmd tremor despawn all
+wait 60
+log --- size x16
+config shape.amplitude 32.00
+config shape.sigmaFront 25.60
+config shape.sigmaBack 41.60
+config shape.sigmaSide 35.20
+config shape.trailSigma 48.00
+config shape.trailLag 64.00
+cmd tp @s 1100.5 274.0 926.5 0 20
+wait 20
+waitchunks 200
+cmd tremor spawn 1100 200 1100
+cmd tremor ai off
+cmd tremor stage hunting
+cmd tremor hold
+wait 80
+lookat 1100.5 205 1100.5
+screenshot giant_x16
+bench still_x16 100
+cmd tick query
+cmd tremor goto 1100 200 1180
+wait 10
+bench crawl_x16 100
+cmd tick query
+screenshot giant_x16_crawl
+cmd tremor despawn all
+wait 60
+log --- size x32
+config shape.amplitude 64.00
+config shape.sigmaFront 51.20
+config shape.sigmaBack 83.20
+config shape.sigmaSide 70.40
+config shape.trailSigma 96.00
+config shape.trailLag 128.00
+cmd tp @s 1100.5 338.0 782.5 0 20
+wait 20
+waitchunks 200
+cmd tremor spawn 1100 200 1100
+cmd tremor ai off
+cmd tremor stage hunting
+cmd tremor hold
+wait 80
+lookat 1100.5 205 1100.5
+screenshot giant_x32
+bench still_x32 100
+cmd tick query
+cmd tremor goto 1100 200 1180
+wait 10
+bench crawl_x32 100
+cmd tick query
+screenshot giant_x32_crawl
+cmd tremor despawn all
+wait 60
+cmd forceload remove all
+quit

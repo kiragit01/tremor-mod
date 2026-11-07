@@ -1,0 +1,102 @@
+# How far a giant tremor (shape x4) is drawn: still in the middle of the field, seen from 24 to 190 blocks
+# off (bench: copies drawn), with the deformation's draw distance at its default and at 512.
+# Run: gradlew runClientAutotest -Ptremor_autotest_script=bench-distance.txt
+waitchunks
+cmd gamerule commandModificationBlockLimit 2147483647
+cmd gamerule doMobSpawning false
+cmd gamemode spectator
+cmd time set noon
+cmd weather clear
+cmd tremor despawn all
+cmd tremor awaken stop
+cmd kill @e[type=!player]
+
+cmd tp @s 1100.5 230.0 1080.5 0 30
+wait 40
+waitchunks
+cmd forceload add 1020 1020 1180 1180
+wait 60
+waitchunks
+cmd fill 1020 190 1020 1180 199 1180 minecraft:stone
+cmd fill 1020 200 1020 1180 200 1180 minecraft:grass_block
+cmd fill 1020 201 1020 1180 240 1180 minecraft:air
+cmd fill 1020 241 1020 1180 280 1180 minecraft:air
+cmd kill @e[type=minecraft:item]
+
+config client:render.maxDeformedBlocks 20000
+config shape.amplitude 8.00
+config shape.sigmaFront 6.40
+config shape.sigmaBack 10.40
+config shape.sigmaSide 8.80
+config shape.trailSigma 12.00
+config shape.trailLag 16.00
+hud off
+fps 260
+cmd tremor spawn 1100 200 1100
+cmd tremor ai off
+cmd tremor stage hunting
+cmd tremor hold
+wait 60
+cmd tp @s 1100.5 208.0 1076.5 0 0
+wait 20
+waitchunks 200
+lookat 1100.5 203 1100.5
+screenshot far_default_24
+bench far_default_24 40
+cmd tp @s 1100.5 212.0 1052.5 0 0
+wait 20
+waitchunks 200
+lookat 1100.5 203 1100.5
+screenshot far_default_48
+bench far_default_48 40
+cmd tp @s 1100.5 224.0 1004.5 0 0
+wait 20
+waitchunks 200
+lookat 1100.5 203 1100.5
+screenshot far_default_96
+bench far_default_96 40
+cmd tp @s 1100.5 236.0 956.5 0 0
+wait 20
+waitchunks 200
+lookat 1100.5 203 1100.5
+screenshot far_default_144
+bench far_default_144 40
+cmd tp @s 1100.5 247.0 910.5 0 0
+wait 20
+waitchunks 200
+lookat 1100.5 203 1100.5
+screenshot far_default_190
+bench far_default_190 40
+config client:render.renderDistance 512
+cmd tp @s 1100.5 208.0 1076.5 0 0
+wait 20
+waitchunks 200
+lookat 1100.5 203 1100.5
+screenshot far_512_24
+bench far_512_24 40
+cmd tp @s 1100.5 212.0 1052.5 0 0
+wait 20
+waitchunks 200
+lookat 1100.5 203 1100.5
+screenshot far_512_48
+bench far_512_48 40
+cmd tp @s 1100.5 224.0 1004.5 0 0
+wait 20
+waitchunks 200
+lookat 1100.5 203 1100.5
+screenshot far_512_96
+bench far_512_96 40
+cmd tp @s 1100.5 236.0 956.5 0 0
+wait 20
+waitchunks 200
+lookat 1100.5 203 1100.5
+screenshot far_512_144
+bench far_512_144 40
+cmd tp @s 1100.5 247.0 910.5 0 0
+wait 20
+waitchunks 200
+lookat 1100.5 203 1100.5
+screenshot far_512_190
+bench far_512_190 40
+cmd forceload remove all
+quit

@@ -1,0 +1,707 @@
+# Many tremors of the default size crawling at once (1..64): the server's tick (/tick query) and client frame
+# times (bench), with the budget raised to 20000 and, for the most, the default 1500.
+# Run: gradlew runClientAutotest -Ptremor_autotest_script=bench-many.txt
+waitchunks
+cmd gamerule commandModificationBlockLimit 2147483647
+cmd gamerule doMobSpawning false
+cmd gamemode spectator
+cmd time set noon
+cmd weather clear
+cmd tremor despawn all
+cmd tremor awaken stop
+cmd kill @e[type=!player]
+
+cmd tp @s 1100.5 270.0 1060.5 0 55
+wait 40
+waitchunks
+cmd forceload add 1020 1020 1180 1180
+wait 60
+waitchunks
+cmd fill 1020 190 1020 1180 199 1180 minecraft:stone
+cmd fill 1020 200 1020 1180 200 1180 minecraft:grass_block
+cmd fill 1020 201 1020 1180 240 1180 minecraft:air
+cmd fill 1020 241 1020 1180 280 1180 minecraft:air
+cmd kill @e[type=minecraft:item]
+
+config client:render.maxDeformedBlocks 20000
+config spawn.maxEntities 64
+config spawn.spacing 0
+hud off
+fps 260
+wait 40
+log --- baseline
+bench baseline 100
+cmd tick query
+log --- 1 tremors
+cmd tremor spawn 1068 200 1070
+cmd execute positioned 1068 201 1070 run tremor ai off
+cmd execute positioned 1068 201 1070 run tremor stage hunting
+cmd execute positioned 1068 201 1070 run tremor hold
+wait 40
+cmd execute positioned 1068 201 1070 run tremor goto 1068 200 1140
+wait 10
+bench many_1 100
+cmd tick query
+cmd tremor despawn all
+wait 40
+log --- 4 tremors
+cmd tremor spawn 1068 200 1070
+cmd execute positioned 1068 201 1070 run tremor ai off
+cmd execute positioned 1068 201 1070 run tremor stage hunting
+cmd execute positioned 1068 201 1070 run tremor hold
+cmd tremor spawn 1068 200 1077
+cmd execute positioned 1068 201 1077 run tremor ai off
+cmd execute positioned 1068 201 1077 run tremor stage hunting
+cmd execute positioned 1068 201 1077 run tremor hold
+cmd tremor spawn 1077 200 1070
+cmd execute positioned 1077 201 1070 run tremor ai off
+cmd execute positioned 1077 201 1070 run tremor stage hunting
+cmd execute positioned 1077 201 1070 run tremor hold
+cmd tremor spawn 1077 200 1077
+cmd execute positioned 1077 201 1077 run tremor ai off
+cmd execute positioned 1077 201 1077 run tremor stage hunting
+cmd execute positioned 1077 201 1077 run tremor hold
+wait 40
+cmd execute positioned 1068 201 1070 run tremor goto 1068 200 1140
+cmd execute positioned 1068 201 1077 run tremor goto 1068 200 1147
+cmd execute positioned 1077 201 1070 run tremor goto 1077 200 1140
+cmd execute positioned 1077 201 1077 run tremor goto 1077 200 1147
+wait 10
+bench many_4 100
+cmd tick query
+cmd tremor despawn all
+wait 40
+log --- 8 tremors
+cmd tremor spawn 1068 200 1070
+cmd execute positioned 1068 201 1070 run tremor ai off
+cmd execute positioned 1068 201 1070 run tremor stage hunting
+cmd execute positioned 1068 201 1070 run tremor hold
+cmd tremor spawn 1068 200 1077
+cmd execute positioned 1068 201 1077 run tremor ai off
+cmd execute positioned 1068 201 1077 run tremor stage hunting
+cmd execute positioned 1068 201 1077 run tremor hold
+cmd tremor spawn 1068 200 1084
+cmd execute positioned 1068 201 1084 run tremor ai off
+cmd execute positioned 1068 201 1084 run tremor stage hunting
+cmd execute positioned 1068 201 1084 run tremor hold
+cmd tremor spawn 1077 200 1070
+cmd execute positioned 1077 201 1070 run tremor ai off
+cmd execute positioned 1077 201 1070 run tremor stage hunting
+cmd execute positioned 1077 201 1070 run tremor hold
+cmd tremor spawn 1077 200 1077
+cmd execute positioned 1077 201 1077 run tremor ai off
+cmd execute positioned 1077 201 1077 run tremor stage hunting
+cmd execute positioned 1077 201 1077 run tremor hold
+cmd tremor spawn 1077 200 1084
+cmd execute positioned 1077 201 1084 run tremor ai off
+cmd execute positioned 1077 201 1084 run tremor stage hunting
+cmd execute positioned 1077 201 1084 run tremor hold
+cmd tremor spawn 1086 200 1070
+cmd execute positioned 1086 201 1070 run tremor ai off
+cmd execute positioned 1086 201 1070 run tremor stage hunting
+cmd execute positioned 1086 201 1070 run tremor hold
+cmd tremor spawn 1086 200 1077
+cmd execute positioned 1086 201 1077 run tremor ai off
+cmd execute positioned 1086 201 1077 run tremor stage hunting
+cmd execute positioned 1086 201 1077 run tremor hold
+wait 40
+cmd execute positioned 1068 201 1070 run tremor goto 1068 200 1140
+cmd execute positioned 1068 201 1077 run tremor goto 1068 200 1147
+cmd execute positioned 1068 201 1084 run tremor goto 1068 200 1154
+cmd execute positioned 1077 201 1070 run tremor goto 1077 200 1140
+cmd execute positioned 1077 201 1077 run tremor goto 1077 200 1147
+cmd execute positioned 1077 201 1084 run tremor goto 1077 200 1154
+cmd execute positioned 1086 201 1070 run tremor goto 1086 200 1140
+cmd execute positioned 1086 201 1077 run tremor goto 1086 200 1147
+wait 10
+bench many_8 100
+cmd tick query
+cmd tremor despawn all
+wait 40
+log --- 16 tremors
+cmd tremor spawn 1068 200 1070
+cmd execute positioned 1068 201 1070 run tremor ai off
+cmd execute positioned 1068 201 1070 run tremor stage hunting
+cmd execute positioned 1068 201 1070 run tremor hold
+cmd tremor spawn 1068 200 1077
+cmd execute positioned 1068 201 1077 run tremor ai off
+cmd execute positioned 1068 201 1077 run tremor stage hunting
+cmd execute positioned 1068 201 1077 run tremor hold
+cmd tremor spawn 1068 200 1084
+cmd execute positioned 1068 201 1084 run tremor ai off
+cmd execute positioned 1068 201 1084 run tremor stage hunting
+cmd execute positioned 1068 201 1084 run tremor hold
+cmd tremor spawn 1068 200 1091
+cmd execute positioned 1068 201 1091 run tremor ai off
+cmd execute positioned 1068 201 1091 run tremor stage hunting
+cmd execute positioned 1068 201 1091 run tremor hold
+cmd tremor spawn 1077 200 1070
+cmd execute positioned 1077 201 1070 run tremor ai off
+cmd execute positioned 1077 201 1070 run tremor stage hunting
+cmd execute positioned 1077 201 1070 run tremor hold
+cmd tremor spawn 1077 200 1077
+cmd execute positioned 1077 201 1077 run tremor ai off
+cmd execute positioned 1077 201 1077 run tremor stage hunting
+cmd execute positioned 1077 201 1077 run tremor hold
+cmd tremor spawn 1077 200 1084
+cmd execute positioned 1077 201 1084 run tremor ai off
+cmd execute positioned 1077 201 1084 run tremor stage hunting
+cmd execute positioned 1077 201 1084 run tremor hold
+cmd tremor spawn 1077 200 1091
+cmd execute positioned 1077 201 1091 run tremor ai off
+cmd execute positioned 1077 201 1091 run tremor stage hunting
+cmd execute positioned 1077 201 1091 run tremor hold
+cmd tremor spawn 1086 200 1070
+cmd execute positioned 1086 201 1070 run tremor ai off
+cmd execute positioned 1086 201 1070 run tremor stage hunting
+cmd execute positioned 1086 201 1070 run tremor hold
+cmd tremor spawn 1086 200 1077
+cmd execute positioned 1086 201 1077 run tremor ai off
+cmd execute positioned 1086 201 1077 run tremor stage hunting
+cmd execute positioned 1086 201 1077 run tremor hold
+cmd tremor spawn 1086 200 1084
+cmd execute positioned 1086 201 1084 run tremor ai off
+cmd execute positioned 1086 201 1084 run tremor stage hunting
+cmd execute positioned 1086 201 1084 run tremor hold
+cmd tremor spawn 1086 200 1091
+cmd execute positioned 1086 201 1091 run tremor ai off
+cmd execute positioned 1086 201 1091 run tremor stage hunting
+cmd execute positioned 1086 201 1091 run tremor hold
+cmd tremor spawn 1095 200 1070
+cmd execute positioned 1095 201 1070 run tremor ai off
+cmd execute positioned 1095 201 1070 run tremor stage hunting
+cmd execute positioned 1095 201 1070 run tremor hold
+cmd tremor spawn 1095 200 1077
+cmd execute positioned 1095 201 1077 run tremor ai off
+cmd execute positioned 1095 201 1077 run tremor stage hunting
+cmd execute positioned 1095 201 1077 run tremor hold
+cmd tremor spawn 1095 200 1084
+cmd execute positioned 1095 201 1084 run tremor ai off
+cmd execute positioned 1095 201 1084 run tremor stage hunting
+cmd execute positioned 1095 201 1084 run tremor hold
+cmd tremor spawn 1095 200 1091
+cmd execute positioned 1095 201 1091 run tremor ai off
+cmd execute positioned 1095 201 1091 run tremor stage hunting
+cmd execute positioned 1095 201 1091 run tremor hold
+wait 40
+cmd execute positioned 1068 201 1070 run tremor goto 1068 200 1140
+cmd execute positioned 1068 201 1077 run tremor goto 1068 200 1147
+cmd execute positioned 1068 201 1084 run tremor goto 1068 200 1154
+cmd execute positioned 1068 201 1091 run tremor goto 1068 200 1161
+cmd execute positioned 1077 201 1070 run tremor goto 1077 200 1140
+cmd execute positioned 1077 201 1077 run tremor goto 1077 200 1147
+cmd execute positioned 1077 201 1084 run tremor goto 1077 200 1154
+cmd execute positioned 1077 201 1091 run tremor goto 1077 200 1161
+cmd execute positioned 1086 201 1070 run tremor goto 1086 200 1140
+cmd execute positioned 1086 201 1077 run tremor goto 1086 200 1147
+cmd execute positioned 1086 201 1084 run tremor goto 1086 200 1154
+cmd execute positioned 1086 201 1091 run tremor goto 1086 200 1161
+cmd execute positioned 1095 201 1070 run tremor goto 1095 200 1140
+cmd execute positioned 1095 201 1077 run tremor goto 1095 200 1147
+cmd execute positioned 1095 201 1084 run tremor goto 1095 200 1154
+cmd execute positioned 1095 201 1091 run tremor goto 1095 200 1161
+wait 10
+bench many_16 100
+cmd tick query
+cmd tremor despawn all
+wait 40
+log --- 32 tremors
+cmd tremor spawn 1068 200 1070
+cmd execute positioned 1068 201 1070 run tremor ai off
+cmd execute positioned 1068 201 1070 run tremor stage hunting
+cmd execute positioned 1068 201 1070 run tremor hold
+cmd tremor spawn 1068 200 1077
+cmd execute positioned 1068 201 1077 run tremor ai off
+cmd execute positioned 1068 201 1077 run tremor stage hunting
+cmd execute positioned 1068 201 1077 run tremor hold
+cmd tremor spawn 1068 200 1084
+cmd execute positioned 1068 201 1084 run tremor ai off
+cmd execute positioned 1068 201 1084 run tremor stage hunting
+cmd execute positioned 1068 201 1084 run tremor hold
+cmd tremor spawn 1068 200 1091
+cmd execute positioned 1068 201 1091 run tremor ai off
+cmd execute positioned 1068 201 1091 run tremor stage hunting
+cmd execute positioned 1068 201 1091 run tremor hold
+cmd tremor spawn 1068 200 1098
+cmd execute positioned 1068 201 1098 run tremor ai off
+cmd execute positioned 1068 201 1098 run tremor stage hunting
+cmd execute positioned 1068 201 1098 run tremor hold
+cmd tremor spawn 1068 200 1105
+cmd execute positioned 1068 201 1105 run tremor ai off
+cmd execute positioned 1068 201 1105 run tremor stage hunting
+cmd execute positioned 1068 201 1105 run tremor hold
+cmd tremor spawn 1077 200 1070
+cmd execute positioned 1077 201 1070 run tremor ai off
+cmd execute positioned 1077 201 1070 run tremor stage hunting
+cmd execute positioned 1077 201 1070 run tremor hold
+cmd tremor spawn 1077 200 1077
+cmd execute positioned 1077 201 1077 run tremor ai off
+cmd execute positioned 1077 201 1077 run tremor stage hunting
+cmd execute positioned 1077 201 1077 run tremor hold
+cmd tremor spawn 1077 200 1084
+cmd execute positioned 1077 201 1084 run tremor ai off
+cmd execute positioned 1077 201 1084 run tremor stage hunting
+cmd execute positioned 1077 201 1084 run tremor hold
+cmd tremor spawn 1077 200 1091
+cmd execute positioned 1077 201 1091 run tremor ai off
+cmd execute positioned 1077 201 1091 run tremor stage hunting
+cmd execute positioned 1077 201 1091 run tremor hold
+cmd tremor spawn 1077 200 1098
+cmd execute positioned 1077 201 1098 run tremor ai off
+cmd execute positioned 1077 201 1098 run tremor stage hunting
+cmd execute positioned 1077 201 1098 run tremor hold
+cmd tremor spawn 1077 200 1105
+cmd execute positioned 1077 201 1105 run tremor ai off
+cmd execute positioned 1077 201 1105 run tremor stage hunting
+cmd execute positioned 1077 201 1105 run tremor hold
+cmd tremor spawn 1086 200 1070
+cmd execute positioned 1086 201 1070 run tremor ai off
+cmd execute positioned 1086 201 1070 run tremor stage hunting
+cmd execute positioned 1086 201 1070 run tremor hold
+cmd tremor spawn 1086 200 1077
+cmd execute positioned 1086 201 1077 run tremor ai off
+cmd execute positioned 1086 201 1077 run tremor stage hunting
+cmd execute positioned 1086 201 1077 run tremor hold
+cmd tremor spawn 1086 200 1084
+cmd execute positioned 1086 201 1084 run tremor ai off
+cmd execute positioned 1086 201 1084 run tremor stage hunting
+cmd execute positioned 1086 201 1084 run tremor hold
+cmd tremor spawn 1086 200 1091
+cmd execute positioned 1086 201 1091 run tremor ai off
+cmd execute positioned 1086 201 1091 run tremor stage hunting
+cmd execute positioned 1086 201 1091 run tremor hold
+cmd tremor spawn 1086 200 1098
+cmd execute positioned 1086 201 1098 run tremor ai off
+cmd execute positioned 1086 201 1098 run tremor stage hunting
+cmd execute positioned 1086 201 1098 run tremor hold
+cmd tremor spawn 1086 200 1105
+cmd execute positioned 1086 201 1105 run tremor ai off
+cmd execute positioned 1086 201 1105 run tremor stage hunting
+cmd execute positioned 1086 201 1105 run tremor hold
+cmd tremor spawn 1095 200 1070
+cmd execute positioned 1095 201 1070 run tremor ai off
+cmd execute positioned 1095 201 1070 run tremor stage hunting
+cmd execute positioned 1095 201 1070 run tremor hold
+cmd tremor spawn 1095 200 1077
+cmd execute positioned 1095 201 1077 run tremor ai off
+cmd execute positioned 1095 201 1077 run tremor stage hunting
+cmd execute positioned 1095 201 1077 run tremor hold
+cmd tremor spawn 1095 200 1084
+cmd execute positioned 1095 201 1084 run tremor ai off
+cmd execute positioned 1095 201 1084 run tremor stage hunting
+cmd execute positioned 1095 201 1084 run tremor hold
+cmd tremor spawn 1095 200 1091
+cmd execute positioned 1095 201 1091 run tremor ai off
+cmd execute positioned 1095 201 1091 run tremor stage hunting
+cmd execute positioned 1095 201 1091 run tremor hold
+cmd tremor spawn 1095 200 1098
+cmd execute positioned 1095 201 1098 run tremor ai off
+cmd execute positioned 1095 201 1098 run tremor stage hunting
+cmd execute positioned 1095 201 1098 run tremor hold
+cmd tremor spawn 1095 200 1105
+cmd execute positioned 1095 201 1105 run tremor ai off
+cmd execute positioned 1095 201 1105 run tremor stage hunting
+cmd execute positioned 1095 201 1105 run tremor hold
+cmd tremor spawn 1104 200 1070
+cmd execute positioned 1104 201 1070 run tremor ai off
+cmd execute positioned 1104 201 1070 run tremor stage hunting
+cmd execute positioned 1104 201 1070 run tremor hold
+cmd tremor spawn 1104 200 1077
+cmd execute positioned 1104 201 1077 run tremor ai off
+cmd execute positioned 1104 201 1077 run tremor stage hunting
+cmd execute positioned 1104 201 1077 run tremor hold
+cmd tremor spawn 1104 200 1084
+cmd execute positioned 1104 201 1084 run tremor ai off
+cmd execute positioned 1104 201 1084 run tremor stage hunting
+cmd execute positioned 1104 201 1084 run tremor hold
+cmd tremor spawn 1104 200 1091
+cmd execute positioned 1104 201 1091 run tremor ai off
+cmd execute positioned 1104 201 1091 run tremor stage hunting
+cmd execute positioned 1104 201 1091 run tremor hold
+cmd tremor spawn 1104 200 1098
+cmd execute positioned 1104 201 1098 run tremor ai off
+cmd execute positioned 1104 201 1098 run tremor stage hunting
+cmd execute positioned 1104 201 1098 run tremor hold
+cmd tremor spawn 1104 200 1105
+cmd execute positioned 1104 201 1105 run tremor ai off
+cmd execute positioned 1104 201 1105 run tremor stage hunting
+cmd execute positioned 1104 201 1105 run tremor hold
+cmd tremor spawn 1113 200 1070
+cmd execute positioned 1113 201 1070 run tremor ai off
+cmd execute positioned 1113 201 1070 run tremor stage hunting
+cmd execute positioned 1113 201 1070 run tremor hold
+cmd tremor spawn 1113 200 1077
+cmd execute positioned 1113 201 1077 run tremor ai off
+cmd execute positioned 1113 201 1077 run tremor stage hunting
+cmd execute positioned 1113 201 1077 run tremor hold
+wait 40
+cmd execute positioned 1068 201 1070 run tremor goto 1068 200 1140
+cmd execute positioned 1068 201 1077 run tremor goto 1068 200 1147
+cmd execute positioned 1068 201 1084 run tremor goto 1068 200 1154
+cmd execute positioned 1068 201 1091 run tremor goto 1068 200 1161
+cmd execute positioned 1068 201 1098 run tremor goto 1068 200 1168
+cmd execute positioned 1068 201 1105 run tremor goto 1068 200 1175
+cmd execute positioned 1077 201 1070 run tremor goto 1077 200 1140
+cmd execute positioned 1077 201 1077 run tremor goto 1077 200 1147
+cmd execute positioned 1077 201 1084 run tremor goto 1077 200 1154
+cmd execute positioned 1077 201 1091 run tremor goto 1077 200 1161
+cmd execute positioned 1077 201 1098 run tremor goto 1077 200 1168
+cmd execute positioned 1077 201 1105 run tremor goto 1077 200 1175
+cmd execute positioned 1086 201 1070 run tremor goto 1086 200 1140
+cmd execute positioned 1086 201 1077 run tremor goto 1086 200 1147
+cmd execute positioned 1086 201 1084 run tremor goto 1086 200 1154
+cmd execute positioned 1086 201 1091 run tremor goto 1086 200 1161
+cmd execute positioned 1086 201 1098 run tremor goto 1086 200 1168
+cmd execute positioned 1086 201 1105 run tremor goto 1086 200 1175
+cmd execute positioned 1095 201 1070 run tremor goto 1095 200 1140
+cmd execute positioned 1095 201 1077 run tremor goto 1095 200 1147
+cmd execute positioned 1095 201 1084 run tremor goto 1095 200 1154
+cmd execute positioned 1095 201 1091 run tremor goto 1095 200 1161
+cmd execute positioned 1095 201 1098 run tremor goto 1095 200 1168
+cmd execute positioned 1095 201 1105 run tremor goto 1095 200 1175
+cmd execute positioned 1104 201 1070 run tremor goto 1104 200 1140
+cmd execute positioned 1104 201 1077 run tremor goto 1104 200 1147
+cmd execute positioned 1104 201 1084 run tremor goto 1104 200 1154
+cmd execute positioned 1104 201 1091 run tremor goto 1104 200 1161
+cmd execute positioned 1104 201 1098 run tremor goto 1104 200 1168
+cmd execute positioned 1104 201 1105 run tremor goto 1104 200 1175
+cmd execute positioned 1113 201 1070 run tremor goto 1113 200 1140
+cmd execute positioned 1113 201 1077 run tremor goto 1113 200 1147
+wait 10
+bench many_32 100
+cmd tick query
+cmd tremor despawn all
+wait 40
+log --- 64 tremors
+cmd tremor spawn 1068 200 1070
+cmd execute positioned 1068 201 1070 run tremor ai off
+cmd execute positioned 1068 201 1070 run tremor stage hunting
+cmd execute positioned 1068 201 1070 run tremor hold
+cmd tremor spawn 1068 200 1077
+cmd execute positioned 1068 201 1077 run tremor ai off
+cmd execute positioned 1068 201 1077 run tremor stage hunting
+cmd execute positioned 1068 201 1077 run tremor hold
+cmd tremor spawn 1068 200 1084
+cmd execute positioned 1068 201 1084 run tremor ai off
+cmd execute positioned 1068 201 1084 run tremor stage hunting
+cmd execute positioned 1068 201 1084 run tremor hold
+cmd tremor spawn 1068 200 1091
+cmd execute positioned 1068 201 1091 run tremor ai off
+cmd execute positioned 1068 201 1091 run tremor stage hunting
+cmd execute positioned 1068 201 1091 run tremor hold
+cmd tremor spawn 1068 200 1098
+cmd execute positioned 1068 201 1098 run tremor ai off
+cmd execute positioned 1068 201 1098 run tremor stage hunting
+cmd execute positioned 1068 201 1098 run tremor hold
+cmd tremor spawn 1068 200 1105
+cmd execute positioned 1068 201 1105 run tremor ai off
+cmd execute positioned 1068 201 1105 run tremor stage hunting
+cmd execute positioned 1068 201 1105 run tremor hold
+cmd tremor spawn 1068 200 1112
+cmd execute positioned 1068 201 1112 run tremor ai off
+cmd execute positioned 1068 201 1112 run tremor stage hunting
+cmd execute positioned 1068 201 1112 run tremor hold
+cmd tremor spawn 1068 200 1119
+cmd execute positioned 1068 201 1119 run tremor ai off
+cmd execute positioned 1068 201 1119 run tremor stage hunting
+cmd execute positioned 1068 201 1119 run tremor hold
+cmd tremor spawn 1077 200 1070
+cmd execute positioned 1077 201 1070 run tremor ai off
+cmd execute positioned 1077 201 1070 run tremor stage hunting
+cmd execute positioned 1077 201 1070 run tremor hold
+cmd tremor spawn 1077 200 1077
+cmd execute positioned 1077 201 1077 run tremor ai off
+cmd execute positioned 1077 201 1077 run tremor stage hunting
+cmd execute positioned 1077 201 1077 run tremor hold
+cmd tremor spawn 1077 200 1084
+cmd execute positioned 1077 201 1084 run tremor ai off
+cmd execute positioned 1077 201 1084 run tremor stage hunting
+cmd execute positioned 1077 201 1084 run tremor hold
+cmd tremor spawn 1077 200 1091
+cmd execute positioned 1077 201 1091 run tremor ai off
+cmd execute positioned 1077 201 1091 run tremor stage hunting
+cmd execute positioned 1077 201 1091 run tremor hold
+cmd tremor spawn 1077 200 1098
+cmd execute positioned 1077 201 1098 run tremor ai off
+cmd execute positioned 1077 201 1098 run tremor stage hunting
+cmd execute positioned 1077 201 1098 run tremor hold
+cmd tremor spawn 1077 200 1105
+cmd execute positioned 1077 201 1105 run tremor ai off
+cmd execute positioned 1077 201 1105 run tremor stage hunting
+cmd execute positioned 1077 201 1105 run tremor hold
+cmd tremor spawn 1077 200 1112
+cmd execute positioned 1077 201 1112 run tremor ai off
+cmd execute positioned 1077 201 1112 run tremor stage hunting
+cmd execute positioned 1077 201 1112 run tremor hold
+cmd tremor spawn 1077 200 1119
+cmd execute positioned 1077 201 1119 run tremor ai off
+cmd execute positioned 1077 201 1119 run tremor stage hunting
+cmd execute positioned 1077 201 1119 run tremor hold
+cmd tremor spawn 1086 200 1070
+cmd execute positioned 1086 201 1070 run tremor ai off
+cmd execute positioned 1086 201 1070 run tremor stage hunting
+cmd execute positioned 1086 201 1070 run tremor hold
+cmd tremor spawn 1086 200 1077
+cmd execute positioned 1086 201 1077 run tremor ai off
+cmd execute positioned 1086 201 1077 run tremor stage hunting
+cmd execute positioned 1086 201 1077 run tremor hold
+cmd tremor spawn 1086 200 1084
+cmd execute positioned 1086 201 1084 run tremor ai off
+cmd execute positioned 1086 201 1084 run tremor stage hunting
+cmd execute positioned 1086 201 1084 run tremor hold
+cmd tremor spawn 1086 200 1091
+cmd execute positioned 1086 201 1091 run tremor ai off
+cmd execute positioned 1086 201 1091 run tremor stage hunting
+cmd execute positioned 1086 201 1091 run tremor hold
+cmd tremor spawn 1086 200 1098
+cmd execute positioned 1086 201 1098 run tremor ai off
+cmd execute positioned 1086 201 1098 run tremor stage hunting
+cmd execute positioned 1086 201 1098 run tremor hold
+cmd tremor spawn 1086 200 1105
+cmd execute positioned 1086 201 1105 run tremor ai off
+cmd execute positioned 1086 201 1105 run tremor stage hunting
+cmd execute positioned 1086 201 1105 run tremor hold
+cmd tremor spawn 1086 200 1112
+cmd execute positioned 1086 201 1112 run tremor ai off
+cmd execute positioned 1086 201 1112 run tremor stage hunting
+cmd execute positioned 1086 201 1112 run tremor hold
+cmd tremor spawn 1086 200 1119
+cmd execute positioned 1086 201 1119 run tremor ai off
+cmd execute positioned 1086 201 1119 run tremor stage hunting
+cmd execute positioned 1086 201 1119 run tremor hold
+cmd tremor spawn 1095 200 1070
+cmd execute positioned 1095 201 1070 run tremor ai off
+cmd execute positioned 1095 201 1070 run tremor stage hunting
+cmd execute positioned 1095 201 1070 run tremor hold
+cmd tremor spawn 1095 200 1077
+cmd execute positioned 1095 201 1077 run tremor ai off
+cmd execute positioned 1095 201 1077 run tremor stage hunting
+cmd execute positioned 1095 201 1077 run tremor hold
+cmd tremor spawn 1095 200 1084
+cmd execute positioned 1095 201 1084 run tremor ai off
+cmd execute positioned 1095 201 1084 run tremor stage hunting
+cmd execute positioned 1095 201 1084 run tremor hold
+cmd tremor spawn 1095 200 1091
+cmd execute positioned 1095 201 1091 run tremor ai off
+cmd execute positioned 1095 201 1091 run tremor stage hunting
+cmd execute positioned 1095 201 1091 run tremor hold
+cmd tremor spawn 1095 200 1098
+cmd execute positioned 1095 201 1098 run tremor ai off
+cmd execute positioned 1095 201 1098 run tremor stage hunting
+cmd execute positioned 1095 201 1098 run tremor hold
+cmd tremor spawn 1095 200 1105
+cmd execute positioned 1095 201 1105 run tremor ai off
+cmd execute positioned 1095 201 1105 run tremor stage hunting
+cmd execute positioned 1095 201 1105 run tremor hold
+cmd tremor spawn 1095 200 1112
+cmd execute positioned 1095 201 1112 run tremor ai off
+cmd execute positioned 1095 201 1112 run tremor stage hunting
+cmd execute positioned 1095 201 1112 run tremor hold
+cmd tremor spawn 1095 200 1119
+cmd execute positioned 1095 201 1119 run tremor ai off
+cmd execute positioned 1095 201 1119 run tremor stage hunting
+cmd execute positioned 1095 201 1119 run tremor hold
+cmd tremor spawn 1104 200 1070
+cmd execute positioned 1104 201 1070 run tremor ai off
+cmd execute positioned 1104 201 1070 run tremor stage hunting
+cmd execute positioned 1104 201 1070 run tremor hold
+cmd tremor spawn 1104 200 1077
+cmd execute positioned 1104 201 1077 run tremor ai off
+cmd execute positioned 1104 201 1077 run tremor stage hunting
+cmd execute positioned 1104 201 1077 run tremor hold
+cmd tremor spawn 1104 200 1084
+cmd execute positioned 1104 201 1084 run tremor ai off
+cmd execute positioned 1104 201 1084 run tremor stage hunting
+cmd execute positioned 1104 201 1084 run tremor hold
+cmd tremor spawn 1104 200 1091
+cmd execute positioned 1104 201 1091 run tremor ai off
+cmd execute positioned 1104 201 1091 run tremor stage hunting
+cmd execute positioned 1104 201 1091 run tremor hold
+cmd tremor spawn 1104 200 1098
+cmd execute positioned 1104 201 1098 run tremor ai off
+cmd execute positioned 1104 201 1098 run tremor stage hunting
+cmd execute positioned 1104 201 1098 run tremor hold
+cmd tremor spawn 1104 200 1105
+cmd execute positioned 1104 201 1105 run tremor ai off
+cmd execute positioned 1104 201 1105 run tremor stage hunting
+cmd execute positioned 1104 201 1105 run tremor hold
+cmd tremor spawn 1104 200 1112
+cmd execute positioned 1104 201 1112 run tremor ai off
+cmd execute positioned 1104 201 1112 run tremor stage hunting
+cmd execute positioned 1104 201 1112 run tremor hold
+cmd tremor spawn 1104 200 1119
+cmd execute positioned 1104 201 1119 run tremor ai off
+cmd execute positioned 1104 201 1119 run tremor stage hunting
+cmd execute positioned 1104 201 1119 run tremor hold
+cmd tremor spawn 1113 200 1070
+cmd execute positioned 1113 201 1070 run tremor ai off
+cmd execute positioned 1113 201 1070 run tremor stage hunting
+cmd execute positioned 1113 201 1070 run tremor hold
+cmd tremor spawn 1113 200 1077
+cmd execute positioned 1113 201 1077 run tremor ai off
+cmd execute positioned 1113 201 1077 run tremor stage hunting
+cmd execute positioned 1113 201 1077 run tremor hold
+cmd tremor spawn 1113 200 1084
+cmd execute positioned 1113 201 1084 run tremor ai off
+cmd execute positioned 1113 201 1084 run tremor stage hunting
+cmd execute positioned 1113 201 1084 run tremor hold
+cmd tremor spawn 1113 200 1091
+cmd execute positioned 1113 201 1091 run tremor ai off
+cmd execute positioned 1113 201 1091 run tremor stage hunting
+cmd execute positioned 1113 201 1091 run tremor hold
+cmd tremor spawn 1113 200 1098
+cmd execute positioned 1113 201 1098 run tremor ai off
+cmd execute positioned 1113 201 1098 run tremor stage hunting
+cmd execute positioned 1113 201 1098 run tremor hold
+cmd tremor spawn 1113 200 1105
+cmd execute positioned 1113 201 1105 run tremor ai off
+cmd execute positioned 1113 201 1105 run tremor stage hunting
+cmd execute positioned 1113 201 1105 run tremor hold
+cmd tremor spawn 1113 200 1112
+cmd execute positioned 1113 201 1112 run tremor ai off
+cmd execute positioned 1113 201 1112 run tremor stage hunting
+cmd execute positioned 1113 201 1112 run tremor hold
+cmd tremor spawn 1113 200 1119
+cmd execute positioned 1113 201 1119 run tremor ai off
+cmd execute positioned 1113 201 1119 run tremor stage hunting
+cmd execute positioned 1113 201 1119 run tremor hold
+cmd tremor spawn 1122 200 1070
+cmd execute positioned 1122 201 1070 run tremor ai off
+cmd execute positioned 1122 201 1070 run tremor stage hunting
+cmd execute positioned 1122 201 1070 run tremor hold
+cmd tremor spawn 1122 200 1077
+cmd execute positioned 1122 201 1077 run tremor ai off
+cmd execute positioned 1122 201 1077 run tremor stage hunting
+cmd execute positioned 1122 201 1077 run tremor hold
+cmd tremor spawn 1122 200 1084
+cmd execute positioned 1122 201 1084 run tremor ai off
+cmd execute positioned 1122 201 1084 run tremor stage hunting
+cmd execute positioned 1122 201 1084 run tremor hold
+cmd tremor spawn 1122 200 1091
+cmd execute positioned 1122 201 1091 run tremor ai off
+cmd execute positioned 1122 201 1091 run tremor stage hunting
+cmd execute positioned 1122 201 1091 run tremor hold
+cmd tremor spawn 1122 200 1098
+cmd execute positioned 1122 201 1098 run tremor ai off
+cmd execute positioned 1122 201 1098 run tremor stage hunting
+cmd execute positioned 1122 201 1098 run tremor hold
+cmd tremor spawn 1122 200 1105
+cmd execute positioned 1122 201 1105 run tremor ai off
+cmd execute positioned 1122 201 1105 run tremor stage hunting
+cmd execute positioned 1122 201 1105 run tremor hold
+cmd tremor spawn 1122 200 1112
+cmd execute positioned 1122 201 1112 run tremor ai off
+cmd execute positioned 1122 201 1112 run tremor stage hunting
+cmd execute positioned 1122 201 1112 run tremor hold
+cmd tremor spawn 1122 200 1119
+cmd execute positioned 1122 201 1119 run tremor ai off
+cmd execute positioned 1122 201 1119 run tremor stage hunting
+cmd execute positioned 1122 201 1119 run tremor hold
+cmd tremor spawn 1131 200 1070
+cmd execute positioned 1131 201 1070 run tremor ai off
+cmd execute positioned 1131 201 1070 run tremor stage hunting
+cmd execute positioned 1131 201 1070 run tremor hold
+cmd tremor spawn 1131 200 1077
+cmd execute positioned 1131 201 1077 run tremor ai off
+cmd execute positioned 1131 201 1077 run tremor stage hunting
+cmd execute positioned 1131 201 1077 run tremor hold
+cmd tremor spawn 1131 200 1084
+cmd execute positioned 1131 201 1084 run tremor ai off
+cmd execute positioned 1131 201 1084 run tremor stage hunting
+cmd execute positioned 1131 201 1084 run tremor hold
+cmd tremor spawn 1131 200 1091
+cmd execute positioned 1131 201 1091 run tremor ai off
+cmd execute positioned 1131 201 1091 run tremor stage hunting
+cmd execute positioned 1131 201 1091 run tremor hold
+cmd tremor spawn 1131 200 1098
+cmd execute positioned 1131 201 1098 run tremor ai off
+cmd execute positioned 1131 201 1098 run tremor stage hunting
+cmd execute positioned 1131 201 1098 run tremor hold
+cmd tremor spawn 1131 200 1105
+cmd execute positioned 1131 201 1105 run tremor ai off
+cmd execute positioned 1131 201 1105 run tremor stage hunting
+cmd execute positioned 1131 201 1105 run tremor hold
+cmd tremor spawn 1131 200 1112
+cmd execute positioned 1131 201 1112 run tremor ai off
+cmd execute positioned 1131 201 1112 run tremor stage hunting
+cmd execute positioned 1131 201 1112 run tremor hold
+cmd tremor spawn 1131 200 1119
+cmd execute positioned 1131 201 1119 run tremor ai off
+cmd execute positioned 1131 201 1119 run tremor stage hunting
+cmd execute positioned 1131 201 1119 run tremor hold
+wait 40
+cmd execute positioned 1068 201 1070 run tremor goto 1068 200 1140
+cmd execute positioned 1068 201 1077 run tremor goto 1068 200 1147
+cmd execute positioned 1068 201 1084 run tremor goto 1068 200 1154
+cmd execute positioned 1068 201 1091 run tremor goto 1068 200 1161
+cmd execute positioned 1068 201 1098 run tremor goto 1068 200 1168
+cmd execute positioned 1068 201 1105 run tremor goto 1068 200 1175
+cmd execute positioned 1068 201 1112 run tremor goto 1068 200 1182
+cmd execute positioned 1068 201 1119 run tremor goto 1068 200 1189
+cmd execute positioned 1077 201 1070 run tremor goto 1077 200 1140
+cmd execute positioned 1077 201 1077 run tremor goto 1077 200 1147
+cmd execute positioned 1077 201 1084 run tremor goto 1077 200 1154
+cmd execute positioned 1077 201 1091 run tremor goto 1077 200 1161
+cmd execute positioned 1077 201 1098 run tremor goto 1077 200 1168
+cmd execute positioned 1077 201 1105 run tremor goto 1077 200 1175
+cmd execute positioned 1077 201 1112 run tremor goto 1077 200 1182
+cmd execute positioned 1077 201 1119 run tremor goto 1077 200 1189
+cmd execute positioned 1086 201 1070 run tremor goto 1086 200 1140
+cmd execute positioned 1086 201 1077 run tremor goto 1086 200 1147
+cmd execute positioned 1086 201 1084 run tremor goto 1086 200 1154
+cmd execute positioned 1086 201 1091 run tremor goto 1086 200 1161
+cmd execute positioned 1086 201 1098 run tremor goto 1086 200 1168
+cmd execute positioned 1086 201 1105 run tremor goto 1086 200 1175
+cmd execute positioned 1086 201 1112 run tremor goto 1086 200 1182
+cmd execute positioned 1086 201 1119 run tremor goto 1086 200 1189
+cmd execute positioned 1095 201 1070 run tremor goto 1095 200 1140
+cmd execute positioned 1095 201 1077 run tremor goto 1095 200 1147
+cmd execute positioned 1095 201 1084 run tremor goto 1095 200 1154
+cmd execute positioned 1095 201 1091 run tremor goto 1095 200 1161
+cmd execute positioned 1095 201 1098 run tremor goto 1095 200 1168
+cmd execute positioned 1095 201 1105 run tremor goto 1095 200 1175
+cmd execute positioned 1095 201 1112 run tremor goto 1095 200 1182
+cmd execute positioned 1095 201 1119 run tremor goto 1095 200 1189
+cmd execute positioned 1104 201 1070 run tremor goto 1104 200 1140
+cmd execute positioned 1104 201 1077 run tremor goto 1104 200 1147
+cmd execute positioned 1104 201 1084 run tremor goto 1104 200 1154
+cmd execute positioned 1104 201 1091 run tremor goto 1104 200 1161
+cmd execute positioned 1104 201 1098 run tremor goto 1104 200 1168
+cmd execute positioned 1104 201 1105 run tremor goto 1104 200 1175
+cmd execute positioned 1104 201 1112 run tremor goto 1104 200 1182
+cmd execute positioned 1104 201 1119 run tremor goto 1104 200 1189
+cmd execute positioned 1113 201 1070 run tremor goto 1113 200 1140
+cmd execute positioned 1113 201 1077 run tremor goto 1113 200 1147
+cmd execute positioned 1113 201 1084 run tremor goto 1113 200 1154
+cmd execute positioned 1113 201 1091 run tremor goto 1113 200 1161
+cmd execute positioned 1113 201 1098 run tremor goto 1113 200 1168
+cmd execute positioned 1113 201 1105 run tremor goto 1113 200 1175
+cmd execute positioned 1113 201 1112 run tremor goto 1113 200 1182
+cmd execute positioned 1113 201 1119 run tremor goto 1113 200 1189
+cmd execute positioned 1122 201 1070 run tremor goto 1122 200 1140
+cmd execute positioned 1122 201 1077 run tremor goto 1122 200 1147
+cmd execute positioned 1122 201 1084 run tremor goto 1122 200 1154
+cmd execute positioned 1122 201 1091 run tremor goto 1122 200 1161
+cmd execute positioned 1122 201 1098 run tremor goto 1122 200 1168
+cmd execute positioned 1122 201 1105 run tremor goto 1122 200 1175
+cmd execute positioned 1122 201 1112 run tremor goto 1122 200 1182
+cmd execute positioned 1122 201 1119 run tremor goto 1122 200 1189
+cmd execute positioned 1131 201 1070 run tremor goto 1131 200 1140
+cmd execute positioned 1131 201 1077 run tremor goto 1131 200 1147
+cmd execute positioned 1131 201 1084 run tremor goto 1131 200 1154
+cmd execute positioned 1131 201 1091 run tremor goto 1131 200 1161
+cmd execute positioned 1131 201 1098 run tremor goto 1131 200 1168
+cmd execute positioned 1131 201 1105 run tremor goto 1131 200 1175
+cmd execute positioned 1131 201 1112 run tremor goto 1131 200 1182
+cmd execute positioned 1131 201 1119 run tremor goto 1131 200 1189
+wait 10
+bench many_64 100
+cmd tick query
+config client:render.maxDeformedBlocks 1500
+bench many_64_budget1500 60
+cmd tick query
+config client:render.maxDeformedBlocks 20000
+cmd tremor despawn all
+wait 40
+cmd forceload remove all
+quit

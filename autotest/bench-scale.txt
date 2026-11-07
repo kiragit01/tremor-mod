@@ -1,0 +1,119 @@
+# Scale benchmark: one tremor of growing size (shape x1..x4, the config's cap), still and crawling: client frame
+# times, the renderer's cost, copies and vertices (bench), the server's tick (/tick query). Budget 20000.
+# Run: gradlew runClientAutotest -Ptremor_autotest_script=bench-scale.txt
+waitchunks
+cmd gamerule commandModificationBlockLimit 2147483647
+cmd gamerule doMobSpawning false
+cmd gamemode spectator
+cmd time set noon
+cmd weather clear
+cmd tremor despawn all
+cmd tremor awaken stop
+cmd kill @e[type=!player]
+
+cmd tp @s 1100.5 245.0 1050.5 0 40
+wait 40
+waitchunks
+cmd forceload add 1020 1020 1180 1180
+wait 60
+waitchunks
+cmd fill 1020 190 1020 1180 199 1180 minecraft:stone
+cmd fill 1020 200 1020 1180 200 1180 minecraft:grass_block
+cmd fill 1020 201 1020 1180 240 1180 minecraft:air
+cmd fill 1020 241 1020 1180 280 1180 minecraft:air
+cmd kill @e[type=minecraft:item]
+
+config client:render.maxDeformedBlocks 20000
+config spawn.maxEntities 64
+hud off
+fps 260
+wait 40
+log --- baseline
+bench baseline 100
+cmd tick query
+log --- size x1
+config shape.amplitude 2.00
+config shape.sigmaFront 1.60
+config shape.sigmaBack 2.60
+config shape.sigmaSide 2.20
+config shape.trailSigma 3.00
+config shape.trailLag 4.00
+cmd tremor spawn 1100 200 1100
+cmd tremor ai off
+cmd tremor stage hunting
+cmd tremor hold
+wait 60
+screenshot scale_x1
+bench still_x1 100
+cmd tick query
+cmd tremor goto 1100 200 1150
+wait 10
+bench crawl_x1 100
+cmd tick query
+cmd tremor despawn all
+wait 40
+log --- size x2
+config shape.amplitude 4.00
+config shape.sigmaFront 3.20
+config shape.sigmaBack 5.20
+config shape.sigmaSide 4.40
+config shape.trailSigma 6.00
+config shape.trailLag 8.00
+cmd tremor spawn 1100 200 1100
+cmd tremor ai off
+cmd tremor stage hunting
+cmd tremor hold
+wait 60
+screenshot scale_x2
+bench still_x2 100
+cmd tick query
+cmd tremor goto 1100 200 1150
+wait 10
+bench crawl_x2 100
+cmd tick query
+cmd tremor despawn all
+wait 40
+log --- size x3
+config shape.amplitude 6.00
+config shape.sigmaFront 4.80
+config shape.sigmaBack 7.80
+config shape.sigmaSide 6.60
+config shape.trailSigma 9.00
+config shape.trailLag 12.00
+cmd tremor spawn 1100 200 1100
+cmd tremor ai off
+cmd tremor stage hunting
+cmd tremor hold
+wait 60
+screenshot scale_x3
+bench still_x3 100
+cmd tick query
+cmd tremor goto 1100 200 1150
+wait 10
+bench crawl_x3 100
+cmd tick query
+cmd tremor despawn all
+wait 40
+log --- size x4
+config shape.amplitude 8.00
+config shape.sigmaFront 6.40
+config shape.sigmaBack 10.40
+config shape.sigmaSide 8.80
+config shape.trailSigma 12.00
+config shape.trailLag 16.00
+cmd tremor spawn 1100 200 1100
+cmd tremor ai off
+cmd tremor stage hunting
+cmd tremor hold
+wait 60
+screenshot scale_x4
+bench still_x4 100
+cmd tick query
+cmd tremor goto 1100 200 1150
+wait 10
+bench crawl_x4 100
+cmd tick query
+cmd tremor despawn all
+wait 40
+cmd forceload remove all
+quit

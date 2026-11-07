@@ -158,17 +158,17 @@ public final class TremorConfig {
             b.comment("Shape of the bump the entity pushes through the ground. Lengths are in blocks.")
                     .translation(KEY + "shape").push("shape");
             amplitude = b.comment("A: height of the bump")
-                    .translation(KEY + "shape.amplitude").defineInRange("amplitude", d.amplitude(), 0.1, 8.0);
+                    .translation(KEY + "shape.amplitude").defineInRange("amplitude", d.amplitude(), 0.1, 128.0);
             sigmaFront = b.comment("Half-length ahead of the bump (smaller = steeper front)")
-                    .translation(KEY + "shape.sigmaFront").defineInRange("sigmaFront", d.sigmaFront(), 0.25, 16.0);
+                    .translation(KEY + "shape.sigmaFront").defineInRange("sigmaFront", d.sigmaFront(), 0.25, 256.0);
             sigmaBack = b.comment("Half-length behind the bump")
-                    .translation(KEY + "shape.sigmaBack").defineInRange("sigmaBack", d.sigmaBack(), 0.25, 16.0);
+                    .translation(KEY + "shape.sigmaBack").defineInRange("sigmaBack", d.sigmaBack(), 0.25, 256.0);
             sigmaSide = b.comment("Half-width of the bump")
-                    .translation(KEY + "shape.sigmaSide").defineInRange("sigmaSide", d.sigmaSide(), 0.25, 16.0);
+                    .translation(KEY + "shape.sigmaSide").defineInRange("sigmaSide", d.sigmaSide(), 0.25, 256.0);
             trailLag = b.comment("L: how far behind the bump the trailing depression sits")
-                    .translation(KEY + "shape.trailLag").defineInRange("trailLag", d.trailLag(), 0.0, 32.0);
+                    .translation(KEY + "shape.trailLag").defineInRange("trailLag", d.trailLag(), 0.0, 512.0);
             trailSigma = b.comment("Length of the trailing depression")
-                    .translation(KEY + "shape.trailSigma").defineInRange("trailSigma", d.trailSigma(), 0.25, 16.0);
+                    .translation(KEY + "shape.trailSigma").defineInRange("trailSigma", d.trailSigma(), 0.25, 256.0);
             trailDepth = b.comment("k: depth of the trailing depression relative to A")
                     .translation(KEY + "shape.trailDepth").defineInRange("trailDepth", d.trailDepth(), 0.0, 1.0);
             jitter = b.comment("epsilon: amplitude of the fine tremble relative to A")
@@ -652,7 +652,7 @@ public final class TremorConfig {
                             "are: none appears by itself within this distance (blocks) of another one, nor of where",
                             "one has just left or gone deep after an Awakening. A command spawn this near another",
                             "replaces it")
-                    .translation(KEY + "spawn.spacing").defineInRange("spacing", 500, 64, 100000);
+                    .translation(KEY + "spawn.spacing").defineInRange("spacing", 500, 0, 100000);
             maxEntities = b.comment("At most this many entities appear by themselves in a dimension at once (1: one",
                             "for the whole dimension, as before 1.1.0)")
                     .translation(KEY + "spawn.maxEntities").defineInRange("maxEntities", 4, 1, 64);
@@ -1214,7 +1214,7 @@ public final class TremorConfig {
                             "HIGH everything as set below")
                     .translation(KEY + "render.quality").defineEnum("quality", Quality.HIGH);
             maxDeformedBlocks = b.comment("Upper bound of block copies drawn per frame; the rest is skipped")
-                    .translation(KEY + "render.maxDeformedBlocks").defineInRange("maxDeformedBlocks", 1500, 0, 20000);
+                    .translation(KEY + "render.maxDeformedBlocks").defineInRange("maxDeformedBlocks", 1500, 0, 500000);
             awakeningMaxBlocks = b.comment("The same bound while the ground of an Awakening zone is drawn,",
                             "where all of it in view breathes; the nearest is kept, and it lowers smoothly towards",
                             "where the bound cuts it off")
