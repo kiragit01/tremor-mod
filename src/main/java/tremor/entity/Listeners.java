@@ -21,6 +21,7 @@ import net.minecraftforge.event.server.ServerStoppedEvent;
 import net.minecraftforge.event.TickEvent;
 import tremor.Tremor;
 import tremor.config.TremorConfig;
+import tremor.core.surface.Flatness;
 import tremor.core.behavior.Stage;
 import tremor.core.graph.SurfaceGraph;
 import tremor.core.hearing.Hearing;
@@ -63,7 +64,10 @@ public final class Listeners {
     /** It lies this far at most from where it lost the player (blocks), no two nearer than this. */
     static final double PLACE_RADIUS = 6;
     static final double SPACING = 3;
-    static final int PLACE_TRIES = 10;
+    static final int PLACE_TRIES = 24;
+    /** It sits on ground flat this far around ({@link Flatness}): steps of a block at most, mostly level. */
+    static final double FLAT_RADIUS = 2;
+    static final double FLAT_LEVEL = 0.75;
     /** A floor: a node whose smoothed normal points at least this much up. */
     static final double FLOOR_NORMAL = 0.7;
     /** Breaking a block this near its middle kills it (blocks). */
@@ -221,8 +225,9 @@ public final class Listeners {
             }
             Vec3 normal = graph.normal(VoxelPos.x(node), VoxelPos.y(node), VoxelPos.z(node));
             Vec3 at = VoxelPos.center(node);
-            if (normal.y() < FLOOR_NORMAL || near(level, at, SPACING)) {
-                continue;
+            if (normal.y() < FLOOR_NORMAL || near(level, at, SPACING) || !Flatness.flat(graph.view(), VoxelPos.x(node),
+                    VoxelPos.y(node), VoxelPos.z(node), FLAT_RADIUS, 1, FLAT_LEVEL)) {
+                continue; // not in a pit nor on a ledge, where its middle could not be told (the user)
             }
             int instance = MinorIds.next();
             BumpParams d0 = BumpParams.defaults().scaled(SIZE * (0.85 + random.nextDouble() * 0.3));
