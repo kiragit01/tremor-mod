@@ -1,5 +1,6 @@
 # The marks (1.4.0). A player with 2 marks is taken into the hollow: the 3rd mark (told under the time bar a little after coming in: small, red, fading in and out quickly), the hollow
-# harder. Then out by a victory, and a hushing charm takes a mark off.
+# harder. Then out by a victory with a Fortune III pickaxe in hand (a shard, or two at 60%), and a hushing charm takes
+# two marks off.
 # Run: gradlew runClientAutotest -Ptremor_autotest_script=marks.txt
 waitchunks
 cmd gamemode spectator
@@ -95,9 +96,13 @@ wait 200
 wait 100
 cmd tremor marks
 screenshot 02_later
+cmd clear @s tremor:tremor_shard
+cmd item replace entity @s weapon.mainhand with minecraft:diamond_pickaxe{Enchantments:[{id:"minecraft:fortune",lvl:3s}]}
 cmd tremor hollow outcome victory
 wait 200
 waitchunks
+log --- the node's shards (1, or 2 by Fortune III at 60%)
+cmd clear @s tremor:tremor_shard 0
 cmd item replace entity @s weapon.mainhand with tremor:hush_charm
 wait 10
 hold use 2

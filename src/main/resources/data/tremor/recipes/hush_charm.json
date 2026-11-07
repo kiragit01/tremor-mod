@@ -2,11 +2,14 @@
   "type": "minecraft:crafting_shaped",
   "category": "misc",
   "pattern": [
-    " S ",
-    " A ",
+    " E ",
+    "SAS",
     " W "
   ],
   "key": {
+    "E": {
+      "item": "minecraft:echo_shard"
+    },
     "S": {
       "item": "tremor:tremor_shard"
     },
