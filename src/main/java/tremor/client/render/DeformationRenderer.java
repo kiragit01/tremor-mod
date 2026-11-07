@@ -70,6 +70,7 @@ import java.util.Set;
  * The bump's voxels are re-collected only when the bump has moved or turned noticeably (or every few ticks), over a
  * client-side {@link VoxelCache} of the level, and only as far out as the height can reach the render threshold
  * ({@link RenderReach}): a starting ripple widens the collection once, and it shrinks back once the ripple is over.
+ * A big bump's collection is spread over frames, its last one drawn meanwhile ({@link #advanceCollect}).
  * The zone's voxels are scanned once over several frames and kept ({@link ZoneColumns}); each frame evaluates only
  * those in view. A voxel's block model is tesselated into {@link VertexList}s (with the real biome tint and the
  * light of the open space next to the original block) the first time it rises above the threshold, a limited number
@@ -106,6 +107,14 @@ public final class DeformationRenderer {
      */
     private static final double RADIUS_STEP = 0.5;
     private static final double RADIUS_SHRINK = 1.0;
+    /**
+     * A bump whose own collection radius is this (blocks) or more has it spread over frames ({@link #advanceCollect}):
+     * a giant's takes a hundred milliseconds and more in one go, an ordinary bump's well under one.
+     */
+    private static final double SPREAD_RADIUS = 20;
+    /** Steps of a spread collection between two looks at the clock, and the time a frame spends on one at most. */
+    private static final int COLLECT_STEP = 64;
+    private static final long COLLECT_NANOS = 1_500_000;
     /** Columns baked per frame at least; the other newly raised ones wait for the next frames ({@link #BAKE_SHARE}). */
     private static final int MIN_BAKES_PER_FRAME = 48;
     /**
@@ -325,9 +334,11 @@ public final class DeformationRenderer {
     /** The voxels one entity's bump may raise, as last collected, and where and when they were. */
     private static final class Bump {
         /** Columns of the last collection. */
-        final List<Column> active = new ArrayList<>();
+        List<Column> active = new ArrayList<>();
         boolean collected;
         boolean recollect;
+        /** The next collection while it is spread over frames ({@link #advanceCollect}); null if none. */
+        Collecting collecting;
         double collectX, collectY, collectZ;
         Vec3 collectNormal = Vec3.UNIT_Y;
         double collectRadius;
@@ -344,7 +355,7 @@ public final class DeformationRenderer {
         Vec3 normal;
         double normalAt = Double.NaN;
         /** Voxels of {@link #active}, to keep the ring's columns apart from them. */
-        final it.unimi.dsi.fastutil.longs.LongOpenHashSet activeKeys = new it.unimi.dsi.fastutil.longs.LongOpenHashSet();
+        it.unimi.dsi.fastutil.longs.LongOpenHashSet activeKeys = new it.unimi.dsi.fastutil.longs.LongOpenHashSet();
         /**
          * The ground its running ripple runs over ({@link #scanRing}): every surface connected through the open
          * space to its centre within the ripple's reach and facing the plane of its rings, scanned a little at a
@@ -358,6 +369,32 @@ public final class DeformationRenderer {
         int ringTaken;
         final List<Column> ringColumns = new ArrayList<>();
         final it.unimi.dsi.fastutil.longs.LongOpenHashSet ringKeys = new it.unimi.dsi.fastutil.longs.LongOpenHashSet();
+    }
+
+    /**
+     * A big bump's collection being made over frames ({@link #advanceCollect}): its scan, the sorting of what that
+     * finds ({@link ThinSwell.Sort}), then the columns of what is kept, made into the bump's next {@link Bump#active}
+     * and {@link Bump#activeKeys} apart from the drawn ones, which they replace at once when complete.
+     */
+    private static final class Collecting {
+        final SurfaceCollector.Scan scan;
+        final ThinSwell.Sort sort;
+        /** Where the bump was when it started, and how far out it looks. */
+        final BumpFrame frame;
+        final double radius;
+        /** Points of the scan sorted so far; of the points kept, those made into columns so far. */
+        int sorted, built;
+        /** What the sorting kept, once the scan is complete; null until then. */
+        ThinSwell.Result thin;
+        final List<Column> active = new ArrayList<>();
+        final it.unimi.dsi.fastutil.longs.LongOpenHashSet activeKeys = new it.unimi.dsi.fastutil.longs.LongOpenHashSet();
+
+        Collecting(SurfaceCollector.Scan scan, ThinSwell.Sort sort, BumpFrame frame, double radius) {
+            this.scan = scan;
+            this.sort = sort;
+            this.frame = frame;
+            this.radius = radius;
+        }
     }
 
     private DeformationRenderer() {
@@ -622,6 +659,8 @@ public final class DeformationRenderer {
                 bump.field = bump(level, state, bump, frameBumps.isEmpty(), tick, tick + partialTick);
                 if (bump.field != null) {
                     frameBumps.add(bump);
+                } else {
+                    bump.collecting = null; // dived or far off: collected anew where it shows again
                 }
             }
         }
@@ -771,9 +810,15 @@ public final class DeformationRenderer {
         }
         SurfaceCollector.Options options = SurfaceCollector.Options.forParams(params);
         double radius = RenderReach.collectRadius(params, ripple, REACH_SLACK, options.normalBand(), RADIUS_STEP);
-        if (needsCollect(bump, frame, radius, tick)) {
+        if (bump.collecting == null && needsCollect(bump, frame, radius, tick)) {
+            // Spread by the bump's own reach, not a ripple's: an ordinary bump's echo stays as it was.
+            boolean spread = bump.collected && RenderReach.collectRadius(params, null, REACH_SLACK,
+                    options.normalBand(), RADIUS_STEP) >= SPREAD_RADIUS;
             collect(level, bump, frame, params, new SurfaceCollector.Options(radius, options.normalBand(),
-                    options.minNormalDot()), tick);
+                    options.minNormalDot()), spread, tick);
+        }
+        if (bump.collecting != null) {
+            advanceCollect(level, bump, tick);
         }
         if (ripple != null) {
             scanRing(level, bump, frame, ripple, state.rippleAgeSeconds(), now, tick);
@@ -1060,13 +1105,20 @@ public final class DeformationRenderer {
 
     /**
      * Finds the voxels the bump may raise now, and the cells a thin structure the entity is on swells into
-     * ({@link ThinSwell}). New ones are not baked here but once they rise above the threshold ({@link #bakePending}).
+     * ({@link ThinSwell}): at once, or, if {@code spread}, over the next frames ({@link #advanceCollect}). New ones are
+     * not baked here but once they rise above the threshold ({@link #bakePending}).
      */
     private static void collect(ClientLevel level, Bump bump, BumpFrame frame, BumpParams params,
-                                SurfaceCollector.Options options, long tick) {
+                                SurfaceCollector.Options options, boolean spread, long tick) {
         source.begin(level);
         voxels.setTime(tick);
         refreshSections(bump, frame.center(), options.radius(), tick);
+        bump.recollect = false; // a change seen from now on, while a spread one is made too, collects again
+        if (spread) {
+            bump.collecting = new Collecting(new SurfaceCollector.Scan(voxels, frame, options),
+                    new ThinSwell.Sort(voxels, frame, params, options.radius()), frame, options.radius());
+            return;
+        }
         List<SurfacePoint> points = SurfaceCollector.collect(voxels, frame, options);
         ThinSwell.Result thin = ThinSwell.apply(voxels, frame, params, options.radius(), points);
 
@@ -1076,10 +1128,66 @@ public final class DeformationRenderer {
             bump.active.add(column(p, tick));
             bump.activeKeys.add(VoxelPos.pack(p.x(), p.y(), p.z()));
         }
+        collected(bump, thin.fills(), frame, options.radius(), tick);
+    }
+
+    /**
+     * Works on a big bump's spread collection for about {@link #COLLECT_NANOS} a frame: its scan along with the
+     * sorting of what it finds, then the columns of what is kept; once they are all made they become its collection at
+     * once, the last one drawn until then, as the ground of a zone is scanned ({@link ZoneColumns}). In one frame a
+     * giant's collection stalls it for a hundred milliseconds and more, again every half block it crawls.
+     * <p>
+     * Meanwhile the giant crawls on a few blocks past its last collection: the front of its hill falls off well within
+     * the reach taken for its long back ({@link RenderReach}), so that still holds it. (shortcut: a giant as long in
+     * front as behind would show a low rim cut off at its front; add the distance crawled during a collection to the
+     * slack if such shapes are wanted.)
+     */
+    private static void advanceCollect(ClientLevel level, Bump bump, long tick) {
+        Collecting next = bump.collecting;
+        source.begin(level);
+        voxels.setTime(tick);
+        for (int i = 0, n = bump.active.size(); i < n; i++) {
+            bump.active.get(i).lastUsed = tick; // drawn meanwhile, however many frames it takes: not to be evicted
+        }
+        long began = System.nanoTime();
+        do {
+            if (next.thin == null) {
+                boolean done = next.scan.advance(COLLECT_STEP);
+                List<SurfacePoint> points = next.scan.points();
+                for (; next.sorted < points.size(); next.sorted++) {
+                    next.sort.keep(points.get(next.sorted));
+                }
+                if (done) {
+                    next.thin = next.sort.result();
+                }
+                continue;
+            }
+            List<SurfacePoint> points = next.thin.points();
+            for (int end = Math.min(points.size(), next.built + COLLECT_STEP); next.built < end; next.built++) {
+                SurfacePoint p = points.get(next.built);
+                next.active.add(column(p, tick));
+                next.activeKeys.add(VoxelPos.pack(p.x(), p.y(), p.z()));
+            }
+            if (next.built == points.size()) {
+                bump.active = next.active;
+                bump.activeKeys = next.activeKeys;
+                bump.collecting = null;
+                collected(bump, next.thin.fills(), next.frame, next.radius, tick);
+                return;
+            }
+        } while (System.nanoTime() - began < COLLECT_NANOS);
+    }
+
+    /**
+     * The bump's new collection is in ({@link Bump#active} holds the columns of its points): the cells a thin
+     * structure swells into join them, those of the collection before still going down too, and where it was taken
+     * is kept for {@link #needsCollect}.
+     */
+    private static void collected(Bump bump, List<ThinSwell.Fill> fills, BumpFrame frame, double radius, long tick) {
         for (Column col : bump.fills.values()) {
             col.swelling = false;
         }
-        for (ThinSwell.Fill f : thin.fills()) {
+        for (ThinSwell.Fill f : fills) {
             long key = VoxelPos.pack(f.x(), f.y(), f.z());
             Column old = bump.fills.get(key), col = fill(f, tick);
             if (old == null) {
@@ -1102,10 +1210,9 @@ public final class DeformationRenderer {
         bump.collectY = c.y();
         bump.collectZ = c.z();
         bump.collectNormal = frame.normal();
-        bump.collectRadius = options.radius();
+        bump.collectRadius = radius;
         bump.collectTick = tick;
         bump.collected = true;
-        bump.recollect = false;
     }
 
     /**
