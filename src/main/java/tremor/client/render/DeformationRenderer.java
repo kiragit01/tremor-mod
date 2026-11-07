@@ -294,6 +294,8 @@ public final class DeformationRenderer {
     private static boolean frameReady;
     /** Number of the frame, for {@link Column#stamp}. */
     private static int frameStamp;
+    /** Copies grow by their {@link Column#grow} out to this far from the camera, and in proportion beyond (blocks). */
+    static final float GROW_DISTANCE = 16;
     /** Game time the ground was last drawn ({@link #groundShown}). */
     private static long groundShownAt = Long.MIN_VALUE / 2;
     private static boolean frameWarp;
@@ -1505,6 +1507,9 @@ public final class DeformationRenderer {
             float bx = (float) (col.x - camX);
             float by = (float) (col.y - camY);
             float bz = (float) (col.z - camZ);
+            // A grown copy keeps in front of what shares its faces however far it is: the depth buffer grows coarser
+            // with the distance, so the growth does too (still well under a pixel).
+            float grow = col.grow * Math.max(1f, (float) Math.sqrt(bx * bx + by * by + bz * bz) / GROW_DISTANCE);
             // The blocks style draws the copies out along the axis nearest to the normal: a slanted normal (an edge, a
             // step) would set them off along a diagonal, away from their neighbours, with holes behind.
             int ax = col.axis.getStepX(), ay = col.axis.getStepY(), az = col.axis.getStepZ();
@@ -1525,7 +1530,7 @@ public final class DeformationRenderer {
                         // Near the camera every face: swallowed by the hill off the middle of a block, the copy
                         // beside the one it is in showed hollow, the face toward it left out (the user).
                         boolean near = within(x, y, z, NEAR_CAMERA);
-                        frameVertices += mesh.emitCulled(consumer, x, y, z, near ? 0 : hidden(col, k, off), col.grow);
+                        frameVertices += mesh.emitCulled(consumer, x, y, z, near ? 0 : hidden(col, k, off), grow);
                         if (near && within(x, y, z, INSIDE_MARGIN)) {
                             // The camera is inside this copy, or so near it that the view starts inside it (a hill
                             // risen around the player): seen from inside, its faces would be culled and show what
@@ -1544,7 +1549,7 @@ public final class DeformationRenderer {
                         double off = Math.max(0, col.h - k);
                         for (int s = 1; s <= (int) Math.floor(col.h - off + 1e-9); s++) {
                             mesh.emit(consumer, bx + (float) (ax * off) + cx * s, by + (float) (ay * off) + cy * s,
-                                    bz + (float) (az * off) + cz * s, col.grow);
+                                    bz + (float) (az * off) + cz * s, grow);
                             frameVertices += mesh.size();
                             frameCopies++;
                         }
@@ -1647,7 +1652,7 @@ public final class DeformationRenderer {
         float x = bx + (float) (col.nudgeX * nudge - ray.x() * back);
         float y = by + (float) (col.nudgeY * nudge - ray.y() * back);
         float z = bz + (float) (col.nudgeZ * nudge - ray.z() * back);
-        mesh.emit(consumer, x, y, z, col.grow);
+        mesh.emit(consumer, x, y, z, col.grow * Math.max(1f, (float) Math.sqrt(x * x + y * y + z * z) / GROW_DISTANCE));
         if (x <= 0 && x + 1 >= 0 && y <= 0 && y + 1 >= 0 && z <= 0 && z + 1 >= 0) {
             mesh.emitInside(consumer, x, y, z, insideShade);
             frameVertices += mesh.size();
