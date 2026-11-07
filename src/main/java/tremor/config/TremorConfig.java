@@ -77,6 +77,7 @@ public final class TremorConfig {
         public final ForgeConfigSpec.DoubleValue muffledStepsFactor;
         public final ForgeConfigSpec.IntValue shardsMin;
         public final ForgeConfigSpec.IntValue shardsMax;
+        public final ForgeConfigSpec.BooleanValue shardFortune;
         public final ForgeConfigSpec.DoubleValue frenzySpeedFactor;
         public final ForgeConfigSpec.DoubleValue frenzyAmplitudeFactor;
         public final ForgeConfigSpec.IntValue frenzyBuildupTicks;
@@ -453,6 +454,9 @@ public final class TremorConfig {
                     .translation(KEY + "items.shardsMin").defineInRange("shardsMin", 1, 0, 64);
             shardsMax = b.comment("...and at most")
                     .translation(KEY + "items.shardsMax").defineInRange("shardsMax", 1, 0, 64);
+            shardFortune = b.comment("Fortune on the tool that breaks the node may give one more shard, at the chance",
+                            "it gives an ore: level/(level+2) (33% with Fortune I, 60% with III)")
+                    .translation(KEY + "items.shardFortune").define("shardFortune", true);
             frenzySpeedFactor = b.comment("A dropped shard is lost to the ground at once and drives the entity into a",
                             "frenzy: it rushes to whoever dropped it. Its speed is this many times its HUNTING speed...")
                     .translation(KEY + "items.frenzySpeedFactor").defineInRange("frenzySpeedFactor", 4.5, 1.0, 10.0);
