@@ -1354,7 +1354,10 @@ final class TremorMind {
 
     /** Its ring runs through the ground: what stands where it passes gives an echo back ({@link Echo}). */
     private void startEcho(long now) {
-        if (TremorConfig.COMMON.echo.enabled.get()) {
+        // A ring on a ceiling runs over the ceiling, as the client draws it: nobody stands there to give an echo (the
+        // user: found from a ceiling standing on the floor, though no ring passed under them).
+        if (TremorConfig.COMMON.echo.enabled.get()
+                && tremor.core.shape.Ripple.ringNormal(entity.crawler().normal()).y() >= 0) {
             echo = new Echo(skin(), now);
         }
     }
