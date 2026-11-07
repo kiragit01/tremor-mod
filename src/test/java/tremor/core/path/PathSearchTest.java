@@ -204,23 +204,37 @@ class PathSearchTest {
 
     @Test
     void diveCostFactorChangesTheRoute() {
-        // A 2-long dive straight through, or a 6-long skin detour around it.
+        // A 2-long dive straight through, or a 12-long skin detour around it.
         long a = p(0, 0, 0), b = p(2, 0, 0);
-        MapGraph g = new MapGraph()
-                .edge(a, b, true)
-                .edge(a, p(0, 0, 1), false).edge(p(0, 0, 1), p(0, 0, 2), false).edge(p(0, 0, 2), p(1, 0, 2), false)
-                .edge(p(1, 0, 2), p(2, 0, 2), false).edge(p(2, 0, 2), p(2, 0, 1), false).edge(p(2, 0, 1), b, false);
+        MapGraph g = new MapGraph().edge(a, b, true);
+        long[] way = {a, p(0, 0, 1), p(0, 0, 2), p(0, 0, 3), p(0, 0, 4), p(0, 0, 5), p(1, 0, 5), p(2, 0, 5), p(2, 0, 4),
+                p(2, 0, 3), p(2, 0, 2), p(2, 0, 1), b};
+        for (int i = 0; i + 1 < way.length; i++) {
+            g.edge(way[i], way[i + 1], false);
+        }
 
-        PathSearch cheapDive = new PathSearch(g, a, b, 100, 2);
+        PathSearch cheapDive = new PathSearch(g, a, b, 100, 2); // 2 * 2 + entry 4 = 8 < 12
         assertEquals(Status.FOUND, cheapDive.run());
         assertArrayEquals(new long[]{a, b}, cheapDive.path().nodes());
         assertArrayEquals(new boolean[]{true}, cheapDive.path().dive());
 
-        PathSearch dearDive = new PathSearch(g, a, b, 100, 3.5);
+        PathSearch dearDive = new PathSearch(g, a, b, 100, 5); // 2 * 5 + 4 = 14 > 12
         assertEquals(Status.FOUND, dearDive.run());
-        assertEquals(7, dearDive.path().size());
-        assertArrayEquals(new boolean[6], dearDive.path().dive());
-        assertEquals(6, dearDive.path().length(), EPS);
+        assertEquals(13, dearDive.path().size());
+        assertArrayEquals(new boolean[12], dearDive.path().dive());
+        assertEquals(12, dearDive.path().length(), EPS);
+    }
+
+    @Test
+    void aShortDiveDoesNotCutACorner() {
+        // Round a corner: one block through the rock, or three over the skin. The entry makes the dive dearer (the
+        // user: the bump blinked out and back at every corner).
+        long a = p(0, 0, 0), b = p(1, 0, 1);
+        MapGraph g = new MapGraph().edge(a, b, true)
+                .edge(a, p(0, 1, 0), false).edge(p(0, 1, 0), p(1, 1, 1), false).edge(p(1, 1, 1), b, false);
+        PathSearch search = new PathSearch(g, a, b, 100, 2);
+        assertEquals(Status.FOUND, search.run());
+        assertArrayEquals(new boolean[3], search.path().dive());
     }
 
     @Test
