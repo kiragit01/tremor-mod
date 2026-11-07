@@ -140,6 +140,8 @@ final class TremorMind {
     static final float RIPPLE_VOLUME = 2;
     /** How loud it hums drawing in before its ring. */
     static final float CHARGE_VOLUME = 1.6f;
+    /** It lies in wait on ground with steps of this many blocks at most around it (the user: one or two are fine). */
+    static final int AMBUSH_STEP = 2;
     /** How often (ticks) {@link #alone} looks for players again. */
     private static final int ALONE_CHECK_TICKS = 20;
     /** A leaving entity is removed once its bump is lower than this (blocks)... */
@@ -1132,6 +1134,8 @@ final class TremorMind {
         double sense = config.senseDistance.get();
         Vec3 skin = skin();
         Vec3 seen = skin.add(entity.crawler().normal().scale(0.3));
+        // Its crest too: in a hollow the rim hides its foot from a player who sees the hill over it (the user).
+        Vec3 crest = skin.add(entity.crawler().normal().scale(Math.max(0.3, motion().amplitude() * 0.8)));
         boolean coming = false;
         Map<UUID, Vec3> feet = new HashMap<>();
         for (ServerPlayer player : level.players()) {
@@ -1139,7 +1143,7 @@ final class TremorMind {
             if (player.isSpectator() || dx * dx + dz * dz > 4 * sense * sense) {
                 continue;
             }
-            if (sees(player, seen)) {
+            if (sees(player, seen) || sees(player, crest)) {
                 feetBefore.clear();
                 return; // not in front of anybody
             }
@@ -1157,8 +1161,11 @@ final class TremorMind {
             return;
         }
         if (level.getRandom().nextDouble() >= Difficulty.current().ambushChance(config.chance.get())
-                || !tremor.awakening.Quicksand.fits(level, skin, config.triggerRadius.get())) {
-            lurkAgain = now + RETRY_TICKS; // a no, or no ground for quicksand here
+                || !tremor.awakening.Quicksand.fits(level, skin, config.triggerRadius.get())
+                || !tremor.core.surface.Flatness.flat(runtime.liveView(), (int) Math.floor(skin.x()),
+                (int) Math.floor(skin.y() - 0.5), (int) Math.floor(skin.z()), config.triggerRadius.get(), AMBUSH_STEP, 0)) {
+            // A no, or no ground for quicksand here: not in a pit nor by a drop deeper than a step or two (the user).
+            lurkAgain = now + RETRY_TICKS;
             return;
         }
         lurk(now, "a player is coming");
