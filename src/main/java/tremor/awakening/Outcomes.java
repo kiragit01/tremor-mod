@@ -14,6 +14,8 @@ import net.minecraft.world.effect.MobEffectInstance;
 import net.minecraft.world.effect.MobEffects;
 import net.minecraft.world.entity.item.ItemEntity;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.enchantment.EnchantmentHelper;
+import net.minecraft.world.item.enchantment.Enchantments;
 import net.neoforged.neoforge.event.server.ServerStoppingEvent;
 import net.neoforged.neoforge.network.PacketDistributor;
 import net.neoforged.neoforge.server.ServerLifecycleHooks;
@@ -184,6 +186,13 @@ public final class Outcomes {
         int count = min + player.getRandom().nextInt(Math.max(0, TremorConfig.COMMON.shardsMax.get() - min) + 1);
         if (count <= 0) {
             return;
+        }
+        // The tool that broke the node is still in the hand: Fortune on it may give one more (the user).
+        int fortune = TremorConfig.COMMON.shardFortune.get() ? EnchantmentHelper.getItemEnchantmentLevel(
+                player.registryAccess().registryOrThrow(Registries.ENCHANTMENT).getHolderOrThrow(Enchantments.FORTUNE),
+                player.getMainHandItem()) : 0;
+        if (fortune > 0 && player.getRandom().nextInt(fortune + 2) >= 2) {
+            count++; // at the chance it gives an ore: level/(level+2)
         }
         ItemStack shards = new ItemStack(TremorItems.SHARD.get(), count);
         if (!player.getInventory().add(shards) && !shards.isEmpty() && real != null) {
