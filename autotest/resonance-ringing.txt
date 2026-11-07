@@ -1,0 +1,57 @@
+# Struck by a resonance arrow a creature rings (the user): a player's steps are heard even sneaking, a mob's louder.
+# A calm field, a tremor ALERT 4-5 blocks off: the player sneaks past it, first without the effect (it hears nothing),
+# then with it (it hears the steps: "last heard" in /tremor info). Then a miss of an arrow 20 blocks from a calm
+# tremor: it notices it (the lure).
+waitchunks
+cmd gamemode spectator
+cmd time set noon
+cmd tremor despawn all
+cmd kill @e[type=!player]
+cmd tp @s 860.5 215.0 300.5
+wait 40
+waitchunks
+cmd fill 800 199 260 920 199 340 minecraft:dirt
+cmd fill 800 200 260 920 200 340 minecraft:grass_block
+cmd fill 800 201 260 920 230 340 minecraft:air
+cmd kill @e[type=!player]
+config ambush.enabled false
+cmd tremor spawn 860 200 305
+cmd tremor stage alert
+cmd tremor anger 30
+cmd gamemode survival
+cmd effect give @s minecraft:resistance 600 4 true
+cmd tp @s 860.5 201.0 300.5 90 0
+wait 40
+log --- 1. sneaking, no effect: unheard
+hold sneak+forward 40
+wait 10
+cmd tremor info
+cmd tp @s 860.5 201.0 300.5 270 0
+wait 40
+log --- 2. sneaking, ringing: heard
+cmd tremor anger 30
+cmd effect give @s tremor:resonance 10
+hold sneak+forward 40
+wait 10
+cmd tremor info
+log --- 2b. walking, no effect (control)
+cmd effect clear @s tremor:resonance
+cmd tp @s 860.5 201.0 300.5 90 0
+cmd tremor anger 30
+wait 60
+hold forward 30
+wait 10
+cmd tremor info
+cmd effect clear @s tremor:resonance
+log --- 3. a miss 20 blocks from a calm tremor: noticed
+cmd tremor despawn all
+cmd gamemode spectator
+cmd tp @s 860.5 215.0 300.5
+cmd tremor spawn 860 200 300
+cmd tremor stage dormant
+wait 40
+cmd summon minecraft:arrow 880.5 206 300.5 {Tags:["tremor_resonance"],Motion:[0.0,-1.5,0.0]}
+wait 30
+cmd tremor info
+cmd tremor despawn all
+quit

@@ -1,0 +1,123 @@
+# A resonance arrow's pulse under an overhanging diagonal wall of steps, each block showing its bottom and two sides
+# (the user's screenshot, looking up): shot up into it from below.
+# Run: gradlew runClientAutotest -Ptremor_autotest_script=pulse-overhang.txt
+waitchunks
+cmd gamerule commandModificationBlockLimit 2147483647
+cmd gamemode spectator
+cmd time set noon
+cmd tremor despawn all
+cmd kill @e[type=!player]
+cmd tp @s 738.5 203.0 566.5 135 -40
+wait 40
+waitchunks
+cmd fill 700 190 530 780 199 600 minecraft:stone
+cmd fill 700 200 530 780 200 600 minecraft:grass_block
+cmd fill 700 201 530 780 230 600 minecraft:air
+cmd fill 720 214 550 720 214 562 minecraft:cobbled_deepslate
+cmd fill 721 214 550 721 214 561 minecraft:cobbled_deepslate
+cmd fill 722 214 550 722 214 560 minecraft:cobbled_deepslate
+cmd fill 723 214 550 723 214 559 minecraft:cobbled_deepslate
+cmd fill 724 214 550 724 214 558 minecraft:cobbled_deepslate
+cmd fill 725 214 550 725 214 557 minecraft:cobbled_deepslate
+cmd fill 726 214 550 726 214 556 minecraft:cobbled_deepslate
+cmd fill 727 214 550 727 214 555 minecraft:cobbled_deepslate
+cmd fill 728 214 550 728 214 554 minecraft:cobbled_deepslate
+cmd fill 729 214 550 729 214 553 minecraft:cobbled_deepslate
+cmd fill 730 214 550 730 214 552 minecraft:cobbled_deepslate
+cmd fill 731 214 550 731 214 551 minecraft:cobbled_deepslate
+cmd fill 732 214 550 732 214 550 minecraft:cobbled_deepslate
+cmd fill 720 213 550 720 213 561 minecraft:cobbled_deepslate
+cmd fill 721 213 550 721 213 560 minecraft:cobbled_deepslate
+cmd fill 722 213 550 722 213 559 minecraft:cobbled_deepslate
+cmd fill 723 213 550 723 213 558 minecraft:cobbled_deepslate
+cmd fill 724 213 550 724 213 557 minecraft:cobbled_deepslate
+cmd fill 725 213 550 725 213 556 minecraft:cobbled_deepslate
+cmd fill 726 213 550 726 213 555 minecraft:cobbled_deepslate
+cmd fill 727 213 550 727 213 554 minecraft:cobbled_deepslate
+cmd fill 728 213 550 728 213 553 minecraft:cobbled_deepslate
+cmd fill 729 213 550 729 213 552 minecraft:cobbled_deepslate
+cmd fill 730 213 550 730 213 551 minecraft:cobbled_deepslate
+cmd fill 731 213 550 731 213 550 minecraft:cobbled_deepslate
+cmd fill 720 212 550 720 212 560 minecraft:cobbled_deepslate
+cmd fill 721 212 550 721 212 559 minecraft:cobbled_deepslate
+cmd fill 722 212 550 722 212 558 minecraft:cobbled_deepslate
+cmd fill 723 212 550 723 212 557 minecraft:cobbled_deepslate
+cmd fill 724 212 550 724 212 556 minecraft:cobbled_deepslate
+cmd fill 725 212 550 725 212 555 minecraft:cobbled_deepslate
+cmd fill 726 212 550 726 212 554 minecraft:cobbled_deepslate
+cmd fill 727 212 550 727 212 553 minecraft:cobbled_deepslate
+cmd fill 728 212 550 728 212 552 minecraft:cobbled_deepslate
+cmd fill 729 212 550 729 212 551 minecraft:cobbled_deepslate
+cmd fill 730 212 550 730 212 550 minecraft:cobbled_deepslate
+cmd fill 720 211 550 720 211 559 minecraft:cobbled_deepslate
+cmd fill 721 211 550 721 211 558 minecraft:cobbled_deepslate
+cmd fill 722 211 550 722 211 557 minecraft:cobbled_deepslate
+cmd fill 723 211 550 723 211 556 minecraft:cobbled_deepslate
+cmd fill 724 211 550 724 211 555 minecraft:cobbled_deepslate
+cmd fill 725 211 550 725 211 554 minecraft:cobbled_deepslate
+cmd fill 726 211 550 726 211 553 minecraft:cobbled_deepslate
+cmd fill 727 211 550 727 211 552 minecraft:cobbled_deepslate
+cmd fill 728 211 550 728 211 551 minecraft:cobbled_deepslate
+cmd fill 729 211 550 729 211 550 minecraft:cobbled_deepslate
+cmd fill 720 210 550 720 210 558 minecraft:cobbled_deepslate
+cmd fill 721 210 550 721 210 557 minecraft:cobbled_deepslate
+cmd fill 722 210 550 722 210 556 minecraft:cobbled_deepslate
+cmd fill 723 210 550 723 210 555 minecraft:cobbled_deepslate
+cmd fill 724 210 550 724 210 554 minecraft:cobbled_deepslate
+cmd fill 725 210 550 725 210 553 minecraft:cobbled_deepslate
+cmd fill 726 210 550 726 210 552 minecraft:cobbled_deepslate
+cmd fill 727 210 550 727 210 551 minecraft:cobbled_deepslate
+cmd fill 728 210 550 728 210 550 minecraft:cobbled_deepslate
+cmd fill 720 209 550 720 209 557 minecraft:cobbled_deepslate
+cmd fill 721 209 550 721 209 556 minecraft:cobbled_deepslate
+cmd fill 722 209 550 722 209 555 minecraft:cobbled_deepslate
+cmd fill 723 209 550 723 209 554 minecraft:cobbled_deepslate
+cmd fill 724 209 550 724 209 553 minecraft:cobbled_deepslate
+cmd fill 725 209 550 725 209 552 minecraft:cobbled_deepslate
+cmd fill 726 209 550 726 209 551 minecraft:cobbled_deepslate
+cmd fill 727 209 550 727 209 550 minecraft:cobbled_deepslate
+cmd fill 720 208 550 720 208 556 minecraft:cobbled_deepslate
+cmd fill 721 208 550 721 208 555 minecraft:cobbled_deepslate
+cmd fill 722 208 550 722 208 554 minecraft:cobbled_deepslate
+cmd fill 723 208 550 723 208 553 minecraft:cobbled_deepslate
+cmd fill 724 208 550 724 208 552 minecraft:cobbled_deepslate
+cmd fill 725 208 550 725 208 551 minecraft:cobbled_deepslate
+cmd fill 726 208 550 726 208 550 minecraft:cobbled_deepslate
+cmd fill 720 207 550 720 207 555 minecraft:cobbled_deepslate
+cmd fill 721 207 550 721 207 554 minecraft:cobbled_deepslate
+cmd fill 722 207 550 722 207 553 minecraft:cobbled_deepslate
+cmd fill 723 207 550 723 207 552 minecraft:cobbled_deepslate
+cmd fill 724 207 550 724 207 551 minecraft:cobbled_deepslate
+cmd fill 725 207 550 725 207 550 minecraft:cobbled_deepslate
+cmd fill 720 206 550 720 206 554 minecraft:cobbled_deepslate
+cmd fill 721 206 550 721 206 553 minecraft:cobbled_deepslate
+cmd fill 722 206 550 722 206 552 minecraft:cobbled_deepslate
+cmd fill 723 206 550 723 206 551 minecraft:cobbled_deepslate
+cmd fill 724 206 550 724 206 550 minecraft:cobbled_deepslate
+cmd fill 720 205 550 720 205 553 minecraft:cobbled_deepslate
+cmd fill 721 205 550 721 205 552 minecraft:cobbled_deepslate
+cmd fill 722 205 550 722 205 551 minecraft:cobbled_deepslate
+cmd fill 723 205 550 723 205 550 minecraft:cobbled_deepslate
+cmd fill 720 204 550 720 204 552 minecraft:cobbled_deepslate
+cmd fill 721 204 550 721 204 551 minecraft:cobbled_deepslate
+cmd fill 722 204 550 722 204 550 minecraft:cobbled_deepslate
+cmd fill 720 203 550 720 203 551 minecraft:cobbled_deepslate
+cmd fill 721 203 550 721 203 550 minecraft:cobbled_deepslate
+cmd fill 720 202 550 720 202 550 minecraft:cobbled_deepslate
+cmd fill 718 215 548 736 216 566 minecraft:cobbled_deepslate
+cmd kill @e[type=minecraft:item]
+hud off
+tint on
+cmd tp @s 735.5 202.0 563.5 135 -45
+wait 20
+cmd summon minecraft:arrow 733.5 203.5 561.5 {Tags:["tremor_resonance"],Motion:[-0.8,0.9,-0.8]}
+wait 10
+screenshot 01_up
+wait 4
+screenshot 02_up
+wait 4
+screenshot 03_up
+wait 4
+screenshot 04_up
+tint off
+quit

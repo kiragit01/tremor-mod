@@ -141,8 +141,13 @@ public final class DeformationRenderer {
     static final int RING_HEIGHT = 6;
     /** Its centre this far out in front of the surface, in the open. */
     static final double RING_LIFT = 0.6;
-    /** A surface facing the plane of its rings this much at least (the cosine) moves with it. */
+    /**
+     * A surface facing the plane of its rings this much at least (the cosine) moves with it: for a ring on the ground
+     * the floors and slopes, not the walls of a tunnel; for a pulse on a wall every face but those turned away from it,
+     * so it runs down a wall of steps over their tops too (the user).
+     */
     static final double RING_FACING = 0.35;
+    static final double RING_FACING_WALL = -0.1;
     /** The same ripple: its start within this many ticks, its centre within this far (blocks). */
     static final double RING_SAME_TICKS = 2;
     static final double RING_MOVE = 1.5;
@@ -1098,7 +1103,8 @@ public final class DeformationRenderer {
         List<SurfacePoint> points = bump.ring.points();
         for (; bump.ringTaken < points.size(); bump.ringTaken++) {
             SurfacePoint p = points.get(bump.ringTaken);
-            if (p.normal().dot(n) >= RING_FACING && bump.ringKeys.add(VoxelPos.pack(p.x(), p.y(), p.z()))) {
+            double facing = Math.abs(n.y()) >= HeightField.RING_LEVEL ? RING_FACING : RING_FACING_WALL;
+            if (p.normal().dot(n) >= facing && bump.ringKeys.add(VoxelPos.pack(p.x(), p.y(), p.z()))) {
                 bump.ringColumns.add(column(p, tick));
             }
         }

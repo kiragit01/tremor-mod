@@ -153,13 +153,19 @@ public final class VibrationListener {
             loudness *= SNOWBALL_SHARE; // a snowball is soft: it hardly knocks on the ground
         }
         String note = null;
+        boolean ringing = cause instanceof LivingEntity living && living.hasEffect(tremor.effect.TremorEffects.RESONANCE);
         if (cause instanceof Player player) {
             if (step || landing) {
                 boolean sneaking = player.isSteppingCarefully() || player.isCrouching();
                 boolean sprinting = player.isSprinting();
-                loudness = SoundRules.playerMovement(base, landing, sneaking, sprinting,
+                loudness = SoundRules.playerMovement(base, landing, sneaking && !ringing, sprinting,
                         config.sprintStepLoudness.getAsDouble());
+                if (ringing) {
+                    // Struck by a resonance arrow it rings with every step: even sneaking a little (the user).
+                    loudness *= sneaking ? RINGING_SNEAK : RINGING_LOUDER;
+                }
                 note = sneaking ? "sneaking" : step && sprinting ? "sprinting" : null;
+                note = ringing ? (note == null ? "ringing" : note + ", ringing") : note;
                 if (muffled(player)) {
                     loudness *= config.muffledStepsFactor.getAsDouble();
                     note = note == null ? "muffled" : note + ", muffled";
@@ -176,8 +182,8 @@ public final class VibrationListener {
                 note = "mount";
             }
         } else if (cause instanceof LivingEntity) {
-            loudness *= config.mobLoudnessFactor.getAsDouble();
-            note = "mob";
+            loudness *= config.mobLoudnessFactor.getAsDouble() * (ringing ? RINGING_MOB : 1);
+            note = "mob"; // louder when ringing, still a mob to whoever lets mobs be
             if (!(loudness > 0)) {
                 return;
             }
@@ -294,7 +300,8 @@ public final class VibrationListener {
             return;
         }
         Contact contact = Contact.ofBlock(new LevelVoxelView(level), at, null);
-        emit(level, runtimes, new Vibration("resonance", contact.point(), loudness, contact.footing(), 0,
+        // A lure even a calm tremor notices however faint it comes (the user: sometimes nothing came).
+        emit(level, runtimes, new Vibration("resonance", contact.point(), loudness, contact.footing(), RESONANCE_BONUS,
                 "resonance arrow"), null);
     }
 
@@ -327,6 +334,16 @@ public final class VibrationListener {
         tremor.entity.Listeners.vibration(level, vibration,
                 player instanceof net.minecraft.server.level.ServerPlayer p ? p : null);
     }
+
+    /** The anger bonus of a resonance arrow's miss: noticed even calm. */
+    static final float RESONANCE_BONUS = 4;
+    /**
+     * A creature struck by a resonance arrow rings ({@link tremor.effect.TremorEffects#RESONANCE}): a player's steps
+     * sneaking come this loud of a plain step, its other steps this much louder; a mob this much louder.
+     */
+    static final double RINGING_SNEAK = 0.5;
+    static final double RINGING_LOUDER = 1.5;
+    static final double RINGING_MOB = 2.5;
 
     private static boolean hasEntity(List<TremorRuntime> runtimes) {
         return !runtimes.isEmpty();

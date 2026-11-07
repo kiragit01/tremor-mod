@@ -1,0 +1,55 @@
+# A resonance arrow's pulse on walls of steps (the user: shot into a side wall of steps, the ring would not run
+# down the steps): one stepping back as it rises, one overhanging; the ring must run over the faces and the tops of
+# the steps alike. Copies tinted red.
+# Run: gradlew runClientAutotest -Ptremor_autotest_script=pulse-steps.txt
+waitchunks
+cmd gamerule commandModificationBlockLimit 2147483647
+cmd gamemode spectator
+cmd time set noon
+cmd tremor despawn all
+cmd kill @e[type=!player]
+cmd tp @s 740.5 205.0 560.5 90 0
+wait 40
+waitchunks
+cmd fill 700 190 540 780 199 600 minecraft:stone
+cmd fill 700 200 540 780 200 600 minecraft:grass_block
+cmd fill 700 201 540 780 225 600 minecraft:air
+cmd fill 718 201 552 730 201 568 minecraft:cobbled_deepslate
+cmd fill 718 202 552 729 202 568 minecraft:cobbled_deepslate
+cmd fill 718 203 552 728 203 568 minecraft:cobbled_deepslate
+cmd fill 718 204 552 727 204 568 minecraft:cobbled_deepslate
+cmd fill 718 205 552 726 205 568 minecraft:cobbled_deepslate
+cmd fill 718 206 552 725 206 568 minecraft:cobbled_deepslate
+cmd fill 718 207 552 724 207 568 minecraft:cobbled_deepslate
+cmd fill 700 201 576 705 201 592 minecraft:cobbled_deepslate
+cmd fill 700 202 576 706 202 592 minecraft:cobbled_deepslate
+cmd fill 700 203 576 707 203 592 minecraft:cobbled_deepslate
+cmd fill 700 204 576 708 204 592 minecraft:cobbled_deepslate
+cmd fill 700 205 576 709 205 592 minecraft:cobbled_deepslate
+cmd fill 700 206 576 710 206 592 minecraft:cobbled_deepslate
+cmd fill 700 207 576 711 207 592 minecraft:cobbled_deepslate
+cmd kill @e[type=minecraft:item]
+hud off
+tint on
+log --- a wall stepping back as it rises
+cmd tp @s 737.5 204.0 560.5 90 0
+wait 20
+cmd summon minecraft:arrow 734.5 204.5 560.5 {Tags:["tremor_resonance"],Motion:[-1.5,0.0,0.0]}
+wait 7
+screenshot 01_back
+wait 4
+screenshot 02_back
+wait 4
+screenshot 03_back
+log --- an overhanging wall of steps
+cmd tp @s 715.5 204.0 584.5 90 0
+wait 20
+cmd summon minecraft:arrow 712.5 204.5 584.5 {Tags:["tremor_resonance"],Motion:[-1.5,0.0,0.0]}
+wait 7
+screenshot 04_over
+wait 4
+screenshot 05_over
+wait 4
+screenshot 06_over
+tint off
+quit
