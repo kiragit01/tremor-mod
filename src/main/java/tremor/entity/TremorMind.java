@@ -433,6 +433,11 @@ final class TremorMind {
                 world);
         if (brain.takeGivenUp()) {
             Listeners.lost(runtime, brain.lastHeard()); // lost the one it hunted: it leaves listeners there
+            // ...and sends its echo out to find them again (the user: hunting it was more helpless than alert).
+            if (!entity.crawler().diving() && ripple.freeze(now, false)) {
+                charge(now);
+                tremor.Tremor.LOGGER.info("Tremor #{}: lost the one it hunted, it sends its echo out", entity.instance());
+            }
         }
         BrainOrders.Order order = orders.next(decision, brain.lastHeardLoudness(), manual,
                 perceived -> runtime.mayRetarget(entity, now, perceived));

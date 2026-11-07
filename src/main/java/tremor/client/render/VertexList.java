@@ -55,9 +55,22 @@ final class VertexList implements VertexConsumer {
     }
 
     void emit(VertexConsumer out, float dx, float dy, float dz) {
+        emit(out, dx, dy, dz, 0);
+    }
+
+    /**
+     * {@link #emit}, the copy grown by {@code grow} on every side about its middle: two copies (or a copy and the block
+     * it is laid over) whose faces would lie in one plane, each grown by a little of its own, show the same one in
+     * front frame after frame instead of flickering between them (the user).
+     */
+    void emit(VertexConsumer out, float dx, float dy, float dz, float grow) {
         float[] d = data;
+        float s = 1 + 2 * grow, c = 0.5f - 0.5f * s;
+        dx += c;
+        dy += c;
+        dz += c;
         for (int i = 0, o = 0; i < size; i++, o += STRIDE) {
-            out.addVertex(d[o] + dx, d[o + 1] + dy, d[o + 2] + dz, tint(Float.floatToRawIntBits(d[o + 8])),
+            out.addVertex(d[o] * s + dx, d[o + 1] * s + dy, d[o + 2] * s + dz, tint(Float.floatToRawIntBits(d[o + 8])),
                     d[o + 3], d[o + 4], OverlayTexture.NO_OVERLAY, Float.floatToRawIntBits(d[o + 9]),
                     d[o + 5], d[o + 6], d[o + 7]);
         }
@@ -67,13 +80,17 @@ final class VertexList implements VertexConsumer {
      * Emits every quad but those on a face of the voxel whose bit is set in {@code hidden} (by {@link Direction}
      * ordinal), translated by {@code (dx, dy, dz)}; returns how many vertices it emitted. Quads only.
      */
-    int emitCulled(VertexConsumer out, float dx, float dy, float dz, int hidden) {
+    int emitCulled(VertexConsumer out, float dx, float dy, float dz, int hidden, float grow) {
         if (hidden == 0) {
-            emit(out, dx, dy, dz);
+            emit(out, dx, dy, dz, grow);
             return size;
         }
         byte[] face = faces();
         float[] d = data;
+        float s = 1 + 2 * grow, c = 0.5f - 0.5f * s;
+        dx += c;
+        dy += c;
+        dz += c;
         int emitted = 0;
         for (int q = 0; q + 4 <= size; q += 4) {
             int f = face[q >> 2];
@@ -81,9 +98,9 @@ final class VertexList implements VertexConsumer {
                 continue;
             }
             for (int i = q, o = q * STRIDE; i < q + 4; i++, o += STRIDE) {
-                out.addVertex(d[o] + dx, d[o + 1] + dy, d[o + 2] + dz, tint(Float.floatToRawIntBits(d[o + 8])),
-                        d[o + 3], d[o + 4], OverlayTexture.NO_OVERLAY, Float.floatToRawIntBits(d[o + 9]),
-                        d[o + 5], d[o + 6], d[o + 7]);
+                out.addVertex(d[o] * s + dx, d[o + 1] * s + dy, d[o + 2] * s + dz,
+                        tint(Float.floatToRawIntBits(d[o + 8])), d[o + 3], d[o + 4], OverlayTexture.NO_OVERLAY,
+                        Float.floatToRawIntBits(d[o + 9]), d[o + 5], d[o + 6], d[o + 7]);
             }
             emitted += 4;
         }

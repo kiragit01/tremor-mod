@@ -294,6 +294,8 @@ public final class DeformationRenderer {
     private static boolean frameReady;
     /** Number of the frame, for {@link Column#stamp}. */
     private static int frameStamp;
+    /** Game time the ground was last drawn ({@link #groundShown}). */
+    private static long groundShownAt = Long.MIN_VALUE / 2;
     private static boolean frameWarp;
     /** Distance from the camera at which the budget cut an Awakening's ground off ({@link RenderBudget}); NaN: none. */
     private static double frameCut = Double.NaN;
@@ -532,6 +534,11 @@ public final class DeformationRenderer {
         if (total > budget) {
             trim(budget, ground != null);
         }
+        if (!frameWarp) {
+            for (int i = 0, n = drawn.size(); i < n; i++) {
+                yieldToFloor(drawn.get(i));
+            }
+        }
         LevelVoxelView seams = source.begin(level);
         for (int i = 0, n = drawn.size(); i < n; i++) {
             Column col = drawn.get(i);
@@ -769,7 +776,18 @@ public final class DeformationRenderer {
             return null;
         }
         source.begin(level);
-        return zone.update(ground, tick, camX, camY, camZ) ? ground : null;
+        boolean ready = zone.update(ground, tick, camX, camY, camZ);
+        groundShownAt = ready ? tick : groundShownAt;
+        return ready ? ground : null;
+    }
+
+    /**
+     * Whether the ground of an Awakening or the hollow was drawn lately (its region scanned): the victor's screen
+     * stays dark until the hill they come out of shows ({@code tremor.client.ClientBlackout}).
+     */
+    public static boolean groundShown() {
+        Minecraft mc = Minecraft.getInstance();
+        return mc.level != null && mc.level.getGameTime() - groundShownAt <= 2;
     }
 
     /** Whether the ground's region can lie within the deformation draw distance of the camera. */
@@ -835,6 +853,33 @@ public final class DeformationRenderer {
             drawn.removeLast();
         }
     }
+
+    /**
+     * A copy of a wall pushed out sideways stops short of the cells the copies risen from the floor under it fill (the
+     * user: where the floor turns into a wall, the stack out of the wall ran through those of the floor and stood out
+     * as the main one): its height is cut to the cells before the first one a floor column of this frame reaches up
+     * into, {@value #FLOOR_LOOK} blocks under it at most.
+     */
+    private static void yieldToFloor(Column col) {
+        if (col.fill || col.axis.getAxis() == Direction.Axis.Y || col.h < BumpShape.RENDER_THRESHOLD) {
+            return;
+        }
+        int ax = col.axis.getStepX(), az = col.axis.getStepZ();
+        for (int k = 1; k <= (int) Math.ceil(col.h); k++) {
+            int cx = col.x + ax * k, cz = col.z + az * k;
+            for (int m = 1; m <= FLOOR_LOOK; m++) {
+                Column floor = columns.get(VoxelPos.pack(cx, col.y - m, cz));
+                if (floor != null && floor.stamp == frameStamp && !floor.fill && floor.axis == Direction.UP
+                        && col.y - m + floor.h >= col.y - 0.5) {
+                    col.h = Math.min(col.h, k - 1);
+                    return;
+                }
+            }
+        }
+    }
+
+    /** {@link #yieldToFloor} looks this far down for a floor under a sideways stack. */
+    static final int FLOOR_LOOK = 3;
 
     /** Warp style: the height at the 8 corners of the voxel, from the fields that cover it this frame. */
     private static void warpCorners(Column col, GroundField ground) {
@@ -1512,7 +1557,7 @@ public final class DeformationRenderer {
                         // Near the camera every face: swallowed by the hill off the middle of a block, the copy
                         // beside the one it is in showed hollow, the face toward it left out (the user).
                         boolean near = within(x, y, z, NEAR_CAMERA);
-                        frameVertices += mesh.emitCulled(consumer, x, y, z, near ? 0 : hidden(col, k, off));
+                        frameVertices += mesh.emitCulled(consumer, x, y, z, near ? 0 : hidden(col, k, off), col.grow);
                         if (near && within(x, y, z, INSIDE_MARGIN)) {
                             // The camera is inside this copy, or so near it that the view starts inside it (a hill
                             // risen around the player): seen from inside, its faces would be culled and show what
@@ -1531,7 +1576,7 @@ public final class DeformationRenderer {
                         double off = Math.max(0, col.h - k);
                         for (int s = 1; s <= (int) Math.floor(col.h - off + 1e-9); s++) {
                             mesh.emit(consumer, bx + (float) (ax * off) + cx * s, by + (float) (ay * off) + cy * s,
-                                    bz + (float) (az * off) + cz * s);
+                                    bz + (float) (az * off) + cz * s, col.grow);
                             frameVertices += mesh.size();
                             frameCopies++;
                         }
@@ -1634,7 +1679,7 @@ public final class DeformationRenderer {
         float x = bx + (float) (col.nudgeX * nudge - ray.x() * back);
         float y = by + (float) (col.nudgeY * nudge - ray.y() * back);
         float z = bz + (float) (col.nudgeZ * nudge - ray.z() * back);
-        mesh.emit(consumer, x, y, z);
+        mesh.emit(consumer, x, y, z, col.grow);
         if (x <= 0 && x + 1 >= 0 && y <= 0 && y + 1 >= 0 && z <= 0 && z + 1 >= 0) {
             mesh.emitInside(consumer, x, y, z, insideShade);
             frameVertices += mesh.size();
