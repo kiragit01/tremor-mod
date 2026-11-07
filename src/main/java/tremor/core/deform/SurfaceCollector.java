@@ -119,45 +119,134 @@ public final class SurfaceCollector {
      * @return a new mutable list, sorted by y, then z, then x
      */
     public static List<SurfacePoint> collect(VoxelView view, BumpFrame frame, Options options) {
-        Vec3 c = frame.center(), n = frame.normal();
-        double cx = c.x(), cy = c.y(), cz = c.z();
-        double nx = n.x(), ny = n.y(), nz = n.z();
-        double r = options.radius(), r2 = r * r;
-        double band = options.normalBand(), minDot = options.minNormalDot();
+        Scan scan = new Scan(view, frame, options);
+        scan.advance(Integer.MAX_VALUE);
+        return scan.points();
+    }
 
-        // Voxel x is inside the box if its centre x + 0.5 lies in [cx - r, cx + r].
-        int minX = (int) Math.ceil(cx - r - 0.5), maxX = (int) Math.floor(cx + r - 0.5);
-        int minY = (int) Math.ceil(cy - r - 0.5), maxY = (int) Math.floor(cy + r - 0.5);
-        int minZ = (int) Math.ceil(cz - r - 0.5), maxZ = (int) Math.floor(cz + r - 0.5);
+    /**
+     * {@link #collect} a little at a time: the same points in the same order, over as many {@link #advance} calls as
+     * the caller likes, so that the collection of a giant bump (tens of thousands of surface voxels) can be spread over
+     * frames. Each row of the box along x is first cut down to where the sphere and the band can hold a voxel centre,
+     * so the scan costs about the band's volume rather than the box's (most of a giant's box is far off its band).
+     * Not thread-safe; the view must not change during the scan.
+     */
+    public static final class Scan {
+        /** Slack for rounding when a whole row is cut away: far above it, far below a voxel. */
+        private static final double ROUNDING = 1e-6;
+        private final VoxelView view;
+        private final NormalField field;
+        private final Vec3 n;
+        private final double cx, cy, cz, nx, ny, nz, r, r2, band, minDot;
+        private final int minX, maxX, minY, maxY, minZ, maxZ;
+        /** The row being scanned, the voxel looked at next in it and the last one of it worth a look. */
+        private int y, z, x, rowEnd;
+        private boolean done;
+        private final List<SurfacePoint> points = new ArrayList<>();
 
-        NormalField field = new NormalField(view);
-        List<SurfacePoint> points = new ArrayList<>();
-        for (int y = minY; y <= maxY; y++) {
-            double dy = y + 0.5 - cy;
-            for (int z = minZ; z <= maxZ; z++) {
-                double dz = z + 0.5 - cz;
-                for (int x = minX; x <= maxX; x++) {
-                    double dx = x + 0.5 - cx;
-                    if (dx * dx + dy * dy + dz * dz > r2) {
-                        continue;
-                    }
-                    if (Math.abs(dx * nx + dy * ny + dz * nz) > band) {
-                        continue;
-                    }
-                    if (!field.isSurface(x, y, z)) {
-                        continue;
-                    }
-                    Vec3 normal = field.smooth(x, y, z);
-                    if (normal.isNearZero() || pushNormal(view, x, y, z, normal) == null) {
-                        normal = openWay(view, x, y, z);
-                    }
-                    if (normal == null || normal.dot(n) < minDot) {
-                        continue;
-                    }
-                    points.add(new SurfacePoint(x, y, z, normal));
+        public Scan(VoxelView view, BumpFrame frame, Options options) {
+            this.view = view;
+            this.field = new NormalField(view);
+            Vec3 c = frame.center();
+            n = frame.normal();
+            cx = c.x();
+            cy = c.y();
+            cz = c.z();
+            nx = n.x();
+            ny = n.y();
+            nz = n.z();
+            r = options.radius();
+            r2 = r * r;
+            band = options.normalBand();
+            minDot = options.minNormalDot();
+            // Voxel x is inside the box if its centre x + 0.5 lies in [cx - r, cx + r].
+            minX = (int) Math.ceil(cx - r - 0.5);
+            maxX = (int) Math.floor(cx + r - 0.5);
+            minY = (int) Math.ceil(cy - r - 0.5);
+            maxY = (int) Math.floor(cy + r - 0.5);
+            minZ = (int) Math.ceil(cz - r - 0.5);
+            maxZ = (int) Math.floor(cz + r - 0.5);
+            done = minX > maxX || minY > maxY || minZ > maxZ;
+            y = minY;
+            z = minZ - 1; // the first advance steps into the first row
+            x = 1;
+            rowEnd = 0;
+        }
+
+        /**
+         * Looks at up to {@code maxVoxels} more voxels of the box (a row cut away whole counts as one).
+         *
+         * @return true once the scan is complete (then {@link #points} is final)
+         */
+        public boolean advance(int maxVoxels) {
+            for (int left = maxVoxels; left > 0 && !done; left--) {
+                if (x > rowEnd) {
+                    nextRow();
+                } else {
+                    look(x++);
                 }
             }
+            return done;
         }
-        return points;
+
+        public boolean done() {
+            return done;
+        }
+
+        /** Surface points found so far, sorted by y, then z, then x; a live view, final once {@link #done}. */
+        public List<SurfacePoint> points() {
+            return points;
+        }
+
+        /**
+         * Steps to the next row and cuts it to the voxels whose centres can lie in the sphere and in the band, with a
+         * voxel to spare at each end for rounding: every one of them still goes through the exact tests in
+         * {@link #look}, so the cut changes nothing but the cost.
+         */
+        private void nextRow() {
+            if (++z > maxZ) {
+                z = minZ;
+                if (++y > maxY) {
+                    done = true;
+                    return;
+                }
+            }
+            double dy = y + 0.5 - cy, dz = z + 0.5 - cz;
+            double s = Math.sqrt(Math.max(0, r2 - dy * dy - dz * dz)); // |dx| at most, in the sphere
+            double lo = cx - s - 0.5, hi = cx + s - 0.5;
+            double k = dy * ny + dz * nz; // the row's offset from the tangent plane, but for dx·nx
+            if (Math.abs(nx) * r >= 1e-9) {
+                double a = (-band - k) / nx, b = (band - k) / nx; // where dx·nx + k leaves the band
+                lo = Math.max(lo, Math.min(a, b) + cx - 0.5);
+                hi = Math.min(hi, Math.max(a, b) + cx - 0.5);
+            } else if (Math.abs(k) > band + ROUNDING) {
+                x = 1; // dx·nx is next to nothing here: the whole row is off the band
+                rowEnd = 0;
+                return;
+            }
+            x = (int) Math.max(minX, Math.ceil(lo) - 1);
+            rowEnd = (int) Math.min(maxX, Math.floor(hi) + 1);
+        }
+
+        private void look(int x) {
+            double dx = x + 0.5 - cx, dy = y + 0.5 - cy, dz = z + 0.5 - cz;
+            if (dx * dx + dy * dy + dz * dz > r2) {
+                return;
+            }
+            if (Math.abs(dx * nx + dy * ny + dz * nz) > band) {
+                return;
+            }
+            if (!field.isSurface(x, y, z)) {
+                return;
+            }
+            Vec3 normal = field.smooth(x, y, z);
+            if (normal.isNearZero() || pushNormal(view, x, y, z, normal) == null) {
+                normal = openWay(view, x, y, z);
+            }
+            if (normal == null || normal.dot(n) < minDot) {
+                return;
+            }
+            points.add(new SurfacePoint(x, y, z, normal));
+        }
     }
 }
