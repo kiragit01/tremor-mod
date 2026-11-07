@@ -526,33 +526,13 @@ def echo_found(rng):
     return finish(cave(body + sub + grit, rt=0.7, wet=0.2, lp=1100, rng=rng), peak_db=-2)
 
 
-def digest_wave(rng):
-    """A digesting wave of the hollow running at the player: a rumble swelling for 1.6 s to a wet crunch as it reaches
-    them (when to jump), then a short drag after. The crunch must stay at 1.6 s: the server times the wave by it."""
-    n = samples(2.4)
-    t = np.arange(n) / SR
-    hit = 1.6
-    rise = np.where(t < hit, (t / hit) ** 3, np.exp(-(t - hit) / 0.25))
-    low = filt(noise(n, -6, rng), lo=30, hi=260)
-    low = low / (np.std(low) + 1e-12) * 0.35 * rise
-    churn = grains(n, 160, (0.004, 0.02), (150, 900), (0.1, 0.6), rng, density_env=np.clip(rise, 0.03, 1)) * rise
-    crunch = np.zeros(n)
-    i = samples(hit)
-    body = thump(0.8, 90, 40, 0.15, rng, click=0.5)
-    crunch[i:i + len(body)] += body[:n - i]
-    bits = grains(samples(0.5), 220, (0.002, 0.01), (500, 3500), (0.2, 0.9), rng)
-    crunch[i:i + len(bits)] += bits[:n - i] * env(len(bits), 0.002, 0.12)[:n - i]
-    return finish(cave(low + churn * 0.6 + crunch, rt=1.0, wet=0.3, lp=3000, rng=rng), peak_db=-1)
-
-
 SOUNDS = {'rustle': rustle, 'rumble': rumble, 'crack': crack, 'pulse': pulse, 'thump': thump_sound, 'strike': strike,
           'sigh': sigh, 'awaken': awaken, 'rage': rage, 'release': release, 'hum': hum, 'pull': pull, 'ripple': ripple,
           'escape': escape, 'resonance_draw': resonance_draw, 'resonance_flight': resonance_flight,
           'resonance_hit': resonance_hit, 'resonance_daze': resonance_daze, 'listener_ping': listener_ping,
           'listener_breath': listener_breath, 'listener_relay': listener_relay, 'crawler_grind': crawler_grind,
           'crawler_creep': crawler_creep, 'crawler_crackle': crawler_crackle, 'crawler_sink': crawler_sink,
-          'echo_charge': echo_charge, 'echo_found': echo_found,
-          'digest_wave': digest_wave}
+          'echo_charge': echo_charge, 'echo_found': echo_found}
 
 
 def write_wav(path, x):

@@ -1,23 +1,15 @@
 package tremor.hollow;
 
-import net.minecraft.core.BlockPos;
-import net.minecraft.core.registries.Registries;
-import net.minecraft.resources.ResourceKey;
-import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerPlayer;
-import net.minecraft.world.damagesource.DamageType;
 import net.minecraft.world.entity.player.Player;
 import net.minecraftforge.event.entity.player.PlayerEvent;
 import tremor.Tremor;
 import tremor.config.TremorConfig;
-import tremor.world.TremorTags;
 
 /**
  * The marks (1.4.0, as the comments asked: the creature learns you): every time a tremor takes a player into the
  * hollow they get a mark, and their hollow is harder the more they have: the node farther, the walls closing faster,
- * less time ({@link #nodeFactor}, {@link #closeFactor}, {@link #breathFactor}, each to a limit), and from the
- * {@value #DIGEST_FROM}rd on the hollow digests: waves run along its floor that hurt whoever stands on the ground as one
- * passes (a jump just then, wool or a carpet under the feet, and it passes). A hushing charm takes one off. Kept with
+ * less time ({@link #nodeFactor}, {@link #closeFactor}, {@link #breathFactor}, each to a limit), and A hushing charm takes one off. Kept with
  * the player (its persistent data, over a death too).
  */
 public final class Marks {
@@ -31,14 +23,6 @@ public final class Marks {
     /** This much less time per mark after the first, at least {@value #BREATH_MIN} of it. */
     static final double BREATH_PER = 0.07;
     static final double BREATH_MIN = 0.6;
-    /** From this many marks on the hollow digests. */
-    public static final int DIGEST_FROM = 3;
-    /** A digesting wave hurts this much (scaled by the difficulty). */
-    public static final double DIGEST_DAMAGE = 3;
-    /** The damage type of a digesting wave: the tremor's own. */
-    public static final ResourceKey<DamageType> DAMAGE = ResourceKey.create(Registries.DAMAGE_TYPE,
-            new ResourceLocation(Tremor.MODID, "tremor"));
-
     private Marks() {
     }
 
@@ -76,20 +60,6 @@ public final class Marks {
 
     public static double breathFactor(int marks) {
         return Math.max(BREATH_MIN, 1 - BREATH_PER * extra(marks));
-    }
-
-    public static boolean digests(int marks) {
-        return TremorConfig.COMMON.marks.enabled.get() && marks >= DIGEST_FROM;
-    }
-
-    /** Whether {@code player} stands on the ground as a wave passes: not in the air, in water, on wool or a carpet. */
-    public static boolean grounded(ServerPlayer player) {
-        if (!player.onGround() || player.isInWater()) {
-            return false;
-        }
-        BlockPos feet = BlockPos.containing(player.getX(), player.getY() + 0.01, player.getZ());
-        return !player.level().getBlockState(feet).is(TremorTags.CONDUCTIVITY_INSULATING)
-                && !player.level().getBlockState(feet.below()).is(TremorTags.CONDUCTIVITY_INSULATING);
     }
 
     /** The marks go with the player over a death (a new player entity). */

@@ -168,25 +168,17 @@ public final class ResonanceArrows {
         final int lasts;
         int ticks;
 
-        Pulse(Vec3 center, Vec3 normal, boolean big) {
-            this.instance = big ? MinorIds.next() : MinorIds.nextPulse();
+        Pulse(Vec3 center, Vec3 normal) {
+            this.instance = MinorIds.nextPulse();
             this.center = center;
             this.normal = normal;
-            this.lasts = big ? (int) RippleTimer.RUN_TICKS + 6 : PULSE_TICKS;
+            this.lasts = PULSE_TICKS;
         }
     }
 
     /** A pulse at the voxel {@code center} of the surface struck, its face {@code normal}. */
     static void pulse(ServerLevel level, Vec3 center, Vec3 normal) {
-        ring(level, center, normal, false);
-    }
-
-    /**
-     * A ring at {@code center}: small (a resonance arrow's pulse) or {@code big}, the big ring of a tremor's echo
-     * (the hollow's digesting waves, {@code tremor.hollow.Marks}).
-     */
-    public static void ring(ServerLevel level, Vec3 center, Vec3 normal, boolean big) {
-        Pulse p = new Pulse(center, normal, big);
+        Pulse p = new Pulse(center, normal);
         PULSES.computeIfAbsent(level, l -> new java.util.ArrayList<>()).add(p);
         sendPulse(level, p, true);
     }

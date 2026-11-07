@@ -90,8 +90,6 @@ public final class TremorSounds {
     public static final RegistryObject<SoundEvent> ECHO_CHARGE = register("entity.tremor.echo.charge");
     /** Its echo found the player who hears it: a dull knock from below (to them only). */
     public static final RegistryObject<SoundEvent> ECHO_FOUND = register("entity.tremor.echo.found");
-    /** A digesting wave of the hollow running at the player: a rumble swelling to a crunch as it reaches them. */
-    public static final RegistryObject<SoundEvent> DIGEST_WAVE = register("entity.tremor.digest.wave");
 
     public static void register(IEventBus modBus) {
         SOUNDS.register(modBus);

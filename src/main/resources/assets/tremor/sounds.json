@@ -181,11 +181,5 @@
     "sounds": [
       "tremor:echo_found"
     ]
-  },
-  "entity.tremor.digest.wave": {
-    "subtitle": "subtitles.tremor.digest_wave",
-    "sounds": [
-      "tremor:digest_wave"
-    ]
   }
 }
