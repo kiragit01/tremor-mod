@@ -81,6 +81,11 @@ public final class Listeners {
     static final double RELAYED = 1.0;
     static final double RELAY_ANGER = 30;
     static final double SUNK = 0.03;
+    /**
+     * A listener going sinks back into the ground this share of the way each tick (some 1.5 s; a signal twice as
+     * fast), never at once (the user: nothing pops out of sight).
+     */
+    static final double SINK_RATE = 0.07;
     static final double TICK_SECONDS = 0.05;
 
     private static final Map<ServerLevel, List<Listener>> LISTENERS = new HashMap<>();
@@ -178,7 +183,7 @@ public final class Listeners {
                     break;
                 }
                 if (l.owner == runtime && !l.sinking) {
-                    l.sinking = true; // the oldest of its own go
+                    sink(level, l); // the oldest of its own go
                     own--;
                 }
             }
@@ -376,8 +381,7 @@ public final class Listeners {
         if (all != null) {
             for (Listener l : all) {
                 if (!l.sinking && l.at.distance(at) <= creatureRadius) {
-                    l.sinking = true;
-                    l.amplitude = 0;
+                    sink(level, l);
                     level.sendParticles(ParticleTypes.REVERSE_PORTAL, l.at.x(), l.at.y() + 0.6, l.at.z(), 30, 0.4,
                             0.2, 0.4, 0.05);
                     Tremor.LOGGER.info("Listener #{} in {} dissolves in a resonance arrow's pulse", l.instance,
@@ -425,6 +429,7 @@ public final class Listeners {
         BlockPos pos = event.getPos();
         for (Listener l : all) {
             if (!l.sinking && Math.sqrt(pos.distToCenterSqr(l.at.x(), l.at.y(), l.at.z())) <= KILL_RADIUS) {
+                // Gone with its block at once, under the block's own burst: a copy of a broken block cannot sink.
                 l.sinking = true;
                 l.amplitude = 0;
                 level.sendParticles(new BlockParticleOption(ParticleTypes.BLOCK, event.getState()), l.at.x(),
@@ -449,10 +454,23 @@ public final class Listeners {
         return entity == null || entity.absorbed() || !TremorManager.runtimes(owner.level()).contains(owner);
     }
 
+    /** {@code l} goes: it sinks back into the ground ({@link #SINK_RATE}) with a last puff of dust and an exhale. */
+    private static void sink(ServerLevel level, Listener l) {
+        if (l.sinking) {
+            return;
+        }
+        l.sinking = true;
+        BlockPos under = BlockPos.containing(l.at.x(), l.at.y(), l.at.z());
+        level.sendParticles(new BlockParticleOption(ParticleTypes.FALLING_DUST, level.getBlockState(under)),
+                l.at.x(), l.at.y() + 0.7, l.at.z(), 8, 0.35, 0.05, 0.35, 0);
+        level.playSound(null, l.at.x(), l.at.y(), l.at.z(), TremorSounds.LISTENER_BREATH.get(), SoundSource.HOSTILE,
+                0.3f, 0.6f + level.getRandom().nextFloat() * 0.1f);
+    }
+
     /** One tick of a listener; true once it is gone. */
     private static boolean tickListener(ServerLevel level, Listener l, long now) {
         if (!l.sinking && (now >= l.until || ownerGone(l.owner))) {
-            l.sinking = true;
+            sink(level, l);
         }
         if (now % 10 == 0) {
             BlockPos over = BlockPos.containing(l.at.x(), l.at.y() + 1, l.at.z());
@@ -469,7 +487,7 @@ public final class Listeners {
                     SoundSource.HOSTILE, 0.35f, 0.9f + random.nextFloat() * 0.2f);
         }
         double target = l.sinking ? 0 : now < l.perkUntil ? PERK_AMPLITUDE : AMPLITUDE;
-        l.amplitude += (target - l.amplitude) * (l.sinking ? 0.15 : 0.25);
+        l.amplitude += (target - l.amplitude) * (l.sinking ? SINK_RATE : 0.25);
         if (l.sinking && l.amplitude < SUNK) {
             PacketDistributor.sendToPlayersInDimension(level, TremorStatePayload.absent(l.instance, now));
             return true;
@@ -520,7 +538,7 @@ public final class Listeners {
             }
         }
         double target = s.dying ? 0 : SIGNAL_AMPLITUDE;
-        s.amplitude += (target - s.amplitude) * (s.dying ? 0.3 : 0.35);
+        s.amplitude += (target - s.amplitude) * (s.dying ? SINK_RATE * 2 : 0.35);
         if (s.dying && s.amplitude < SUNK) {
             PacketDistributor.sendToPlayersInDimension(level, TremorStatePayload.absent(s.instance, now));
             return true;
