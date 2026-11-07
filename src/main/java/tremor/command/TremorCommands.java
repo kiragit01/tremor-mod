@@ -141,6 +141,7 @@ public final class TremorCommands {
                                 .then(Commands.argument("pos", BlockPosArgument.blockPos())
                                         .executes(ctx -> spawnCrawler(ctx, BlockPosArgument.getBlockPos(ctx, "pos")))))
                         .then(Commands.literal("clear").executes(TremorCommands::clearCrawlers)))
+                .then(Commands.literal("cache").executes(TremorCommands::cache))
                 .then(Commands.literal("goto")
                         .executes(ctx -> goTo(ctx, null))
                         .then(Commands.argument("pos", BlockPosArgument.blockPos())
@@ -808,6 +809,32 @@ public final class TremorCommands {
     }
 
     /** The entity nearest to where the command runs (a dimension may have several). */
+    /**
+     * {@code /tremor cache}: the terrain the entities of this dimension hold (benchmarks): caches, 16³ sections and
+     * about how much memory, sections read from the world so far and the time that took.
+     */
+    private static int cache(CommandContext<CommandSourceStack> ctx) {
+        java.util.Set<tremor.core.voxel.VoxelCache> seen = java.util.Collections.newSetFromMap(
+                new java.util.IdentityHashMap<>());
+        long sections = 0, loads = 0, nanos = 0;
+        for (TremorRuntime runtime : TremorManager.runtimes(ctx.getSource().getLevel())) {
+            tremor.core.voxel.VoxelCache cache = runtime.cache();
+            if (seen.add(cache)) {
+                sections += cache.sections();
+                loads += cache.loads();
+                nanos += cache.loadNanos();
+            }
+        }
+        long caches = seen.size(), s = sections, l = loads, n = nanos;
+        ctx.getSource().sendSuccess(() -> Component.literal(String.format(Locale.ROOT,
+                "Terrain cache: %d caches, %d sections (~%.1f MB), %d sections read, %.1f ms reading", caches, s,
+                s * SECTION_BYTES / 1048576.0, l, n / 1e6)), false);
+        return (int) caches;
+    }
+
+    /** About the memory of a cached section: two bitsets of 4096 bits, its object and its table slot. */
+    private static final int SECTION_BYTES = 2 * 512 + 64;
+
     private static TremorRuntime requireRuntime(CommandSourceStack source) throws CommandSyntaxException {
         TremorRuntime runtime = TremorManager.nearest(source.getLevel(), source.getPosition().x,
                 source.getPosition().y, source.getPosition().z);
