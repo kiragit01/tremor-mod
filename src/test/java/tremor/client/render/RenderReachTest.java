@@ -181,6 +181,22 @@ class RenderReachTest {
         }
     }
 
+    @Test
+    void giantsAreCollectedAsFarAsTheyRise() {
+        // The benchmarks' giants (shape x8..x32, as high as hunting makes them, A up to 80): the reach, not the
+        // influence radius, sizes their collection, and they rise nowhere beyond it. Their "pot" (a wall at the foot)
+        // was not the collection's: it was the bakes' (DeformationRenderer).
+        for (int size : new int[] {8, 16, 32}) {
+            BumpParams p = DEFAULTS.scaled(size).withAmplitude(1.25 * size * DEFAULTS.amplitude());
+            double reach = RenderReach.reach(p);
+            assertTrue(reach < p.influenceRadius(), p + ": reach " + reach);
+            double radius = RenderReach.collectRadius(p, null, 1.5, 2.5, 0.5);
+            assertTrue(radius >= reach + 1.5 && radius < reach + 2.5, p + ": radius " + radius);
+            double farthest = farthestRaised(p, 1.2 * reach, 600);
+            assertTrue(farthest > 0.75 * reach && farthest <= reach, p + ": rises to " + farthest + " of " + reach);
+        }
+    }
+
     private static RippleParams randomRipple(Random random) {
         return new RippleParams(random.nextDouble() * 0.6, 1 + random.nextDouble() * 9, 0.5 + random.nextDouble() * 4,
                 1 + random.nextInt(4), 0.5 + random.nextDouble() * 4);
