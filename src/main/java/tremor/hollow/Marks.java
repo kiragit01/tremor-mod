@@ -36,6 +36,11 @@ public final class Marks {
     }
 
     /** A tremor took {@code player} into the hollow: one more mark (none counted with marks off); how many now. */
+    /** The marks {@code player} has once taken in once more ({@link #add}), not counted yet: the hollow is planned by it. */
+    public static int next(Player player) {
+        return TremorConfig.COMMON.marks.enabled.get() ? of(player) + 1 : of(player);
+    }
+
     public static int add(ServerPlayer player) {
         if (!TremorConfig.COMMON.marks.enabled.get()) {
             return of(player);

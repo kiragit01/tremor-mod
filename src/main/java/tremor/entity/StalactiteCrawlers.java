@@ -385,6 +385,12 @@ public final class StalactiteCrawlers {
                 }
             }
         }
+        List<Stalactite> falling = FALLING.remove(level);
+        if (falling != null) {
+            for (Stalactite s : falling) {
+                s.pieces().forEach(FallingBlockEntity::discard); // none lands (and smashes) later (the review)
+            }
+        }
         List<Creature> creatures = CRAWLERS.remove(level);
         if (creatures == null) {
             return 0;
@@ -395,7 +401,6 @@ public final class StalactiteCrawlers {
         return creatures.size();
     }
 
-    /** How many crawlers of {@code level} are within {@code radius} of the point. */
     /**
      * The spots over ({@code x}, {@code z}) it may go for, nearest first: that one if no other crawler's spot
      * ({@link #spot}) is within {@value #MIN_GAP}, then those around it {@value #MIN_GAP} and one more block out by a
@@ -445,6 +450,7 @@ public final class StalactiteCrawlers {
         return new double[]{p.x(), p.z()};
     }
 
+    /** How many crawlers of {@code level} are within {@code radius} of the point. */
     public static int near(ServerLevel level, double x, double y, double z, double radius) {
         List<Creature> creatures = CRAWLERS.get(level);
         int count = 0;
@@ -826,10 +832,13 @@ public final class StalactiteCrawlers {
     }
 
     private static void dropOne(ServerLevel level, BlockPos at, int length) {
-        int pieces = 0;
-        while (pieces < length && level.getBlockState(at.below(pieces)).isAir()) {
-            pieces++;
+        int open = 0;
+        while (open < MAX_DROP && level.getBlockState(at.below(open)).isAir()) {
+            open++;
         }
+        // Its tip starts 3 blocks over the floor at least, never in a standing player's head (the review).
+        int pieces = Math.min(length, Math.max(1, open - 3));
+        pieces = Math.min(pieces, open);
         if (pieces == 0) {
             return;
         }
@@ -892,8 +901,12 @@ public final class StalactiteCrawlers {
     private static boolean tickStalactite(ServerLevel level, Stalactite s) {
         FallingBlockEntity tip = s.tip();
         if (tip.isRemoved()) {
-            shatter(level, tip);
-            smash(level, tip.blockPosition());
+            // Landed (it discards itself), not unloaded with its chunk: no block read or broken where nothing is loaded.
+            if (tip.getRemovalReason() == net.minecraft.world.entity.Entity.RemovalReason.DISCARDED
+                    && level.isLoaded(tip.blockPosition())) {
+                shatter(level, tip);
+                smash(level, tip.blockPosition());
+            }
             return true;
         }
         List<LivingEntity> struck = level.getEntitiesOfClass(LivingEntity.class, tip.getBoundingBox(),

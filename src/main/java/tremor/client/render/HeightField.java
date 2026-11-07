@@ -18,12 +18,20 @@ import tremor.core.shape.RippleParams;
  * @param jitter    whether to include the jitter term
  * @param ripple    the ripple running now, null if none (then this is exactly the bump)
  * @param rippleAge seconds since the ripple started; ignored without a ripple
+ * @param ringFrame the bump's frame as the ripple went out: its rings stay centred there while the bump moves on, as
+ *                  the server's echo does (the user: jumped the ring, found a second later all the same)
  */
 record HeightField(BumpParams params, BumpFrame frame, double time, boolean jitter, RippleParams ripple,
-                   double rippleAge) {
+                   double rippleAge, BumpFrame ringFrame) {
+    /** A ripple centred on the bump as it is. */
+    HeightField(BumpParams params, BumpFrame frame, double time, boolean jitter, RippleParams ripple,
+                double rippleAge) {
+        this(params, frame, time, jitter, ripple, rippleAge, frame);
+    }
+
     double at(double x, double y, double z) {
         double h = jitter ? BumpShape.height(params, frame, x, y, z, time) : BumpShape.height(params, frame, x, y, z);
-        return ripple == null ? h : h + Ripple.height(ripple, tangentDistance(frame, x, y, z), rippleAge);
+        return ripple == null ? h : h + Ripple.height(ripple, tangentDistance(ringFrame, x, y, z), rippleAge);
     }
 
     /** A bump facing up (or down) at least this much has its rings run level. */

@@ -148,9 +148,8 @@ public final class DeformationRenderer {
      */
     static final double RING_FACING = 0.35;
     static final double RING_FACING_WALL = -0.1;
-    /** The same ripple: its start within this many ticks, its centre within this far (blocks). */
+    /** The same ripple: its start within this many ticks. */
     static final double RING_SAME_TICKS = 2;
-    static final double RING_MOVE = 1.5;
     /** Scan steps between two looks at the clock, and the time a frame spends on the scan at most. */
     static final int RING_STEP = 64;
     static final long RING_NANOS = 1_500_000;
@@ -334,7 +333,7 @@ public final class DeformationRenderer {
         Vec3 normal;
         double normalAt = Double.NaN;
         /** Voxels of {@link #active}, to keep the ring's columns apart from them. */
-        final java.util.Set<Long> activeKeys = new java.util.HashSet<>();
+        final it.unimi.dsi.fastutil.longs.LongOpenHashSet activeKeys = new it.unimi.dsi.fastutil.longs.LongOpenHashSet();
         /**
          * The ground its running ripple runs over ({@link #scanRing}): every surface connected through the open
          * space to its centre within the ripple's reach and facing the plane of its rings, scanned a little at a
@@ -342,11 +341,12 @@ public final class DeformationRenderer {
          */
         ZoneScan ring;
         double ringStart = Double.NaN;
-        Vec3 ringCenter = Vec3.ZERO;
+        /** The frame its ripple went out from: the ring stays there while the bump moves on. */
+        BumpFrame ringFrame;
         Vec3 ringNormal = Vec3.UNIT_Y;
         int ringTaken;
         final List<Column> ringColumns = new ArrayList<>();
-        final java.util.Set<Long> ringKeys = new java.util.HashSet<>();
+        final it.unimi.dsi.fastutil.longs.LongOpenHashSet ringKeys = new it.unimi.dsi.fastutil.longs.LongOpenHashSet();
     }
 
     private DeformationRenderer() {
@@ -364,6 +364,7 @@ public final class DeformationRenderer {
 
     /** Drops everything that references the old level. */
     public static void reset() {
+        groundShownAt = Long.MIN_VALUE / 2; // a new level's ground is not shown yet
         columns.clear();
         bumps.clear();
         frameBumps.clear();
@@ -509,7 +510,7 @@ public final class DeformationRenderer {
                             under.add(col);
                         }
                     }
-                    spawnDust(level, under, field.frame(), field.ripple(), field.rippleAge());
+                    spawnDust(level, under, field.ringFrame(), field.ripple(), field.rippleAge());
                 }
             }
             if (rings) {
@@ -738,6 +739,12 @@ public final class DeformationRenderer {
         BumpParams params = state.params();
         RippleParams ripple = runningRipple(state.rippleAgeSeconds(),
                 Ripple.visibility(params.amplitude(), state.fullAmplitude()), pulse);
+        if (ripple == null && bump.ring != null) {
+            bump.ring = null;
+            bump.ringFrame = null;
+            bump.ringColumns.clear();
+            bump.ringKeys.clear();
+        }
         if (!(params.amplitude() >= BumpShape.RENDER_THRESHOLD) && ripple == null) {
             return null; // dived (or inverted), and its ripple is gone with it, or there is none
         }
@@ -758,13 +765,9 @@ public final class DeformationRenderer {
         }
         if (ripple != null) {
             scanRing(level, bump, frame, ripple, state.rippleAgeSeconds(), now, tick);
-        } else if (bump.ring != null) {
-            bump.ring = null;
-            bump.ringColumns.clear();
-            bump.ringKeys.clear();
         }
         return new HeightField(params, frame, state.timeSeconds(), TremorConfig.CLIENT.drawJitter(), ripple,
-                state.rippleAgeSeconds());
+                state.rippleAgeSeconds(), ripple != null ? bump.ringFrame : frame);
     }
 
     /**
@@ -1101,18 +1104,18 @@ public final class DeformationRenderer {
      * ({@link ZoneScan}), out to the ripple's reach and {@value #RING_HEIGHT} blocks up and down, and takes every
      * surface voxel facing the plane of its rings ({@link HeightField#ringNormal}: the floor for a ring on the ground,
      * not the walls of a tunnel; the wall for a pulse on a wall), a little each frame from the middle out, ahead of the
-     * ring. A new ripple, or the centre moved, scans anew.
+     * ring. The ring stays where it went out while the bump creeps on, as the server's echo does (the user: jumped it,
+     * and found a second later all the same); a new ripple scans anew.
      */
     private static void scanRing(ClientLevel level, Bump bump, BumpFrame frame, RippleParams ripple, double age,
                                  double now, long tick) {
         double start = now - age * TICKS_PER_SECOND;
-        Vec3 n = HeightField.ringNormal(frame.normal());
-        Vec3 c = frame.center().add(n.scale(RING_LIFT)); // in the open in front of the surface
-        if (bump.ring == null || Math.abs(start - bump.ringStart) > RING_SAME_TICKS
-                || c.distanceSquared(bump.ringCenter) > RING_MOVE * RING_MOVE || !n.equals(bump.ringNormal)) {
+        if (bump.ring == null || Math.abs(start - bump.ringStart) > RING_SAME_TICKS) {
+            Vec3 n = HeightField.ringNormal(frame.normal());
+            Vec3 c = frame.center().add(n.scale(RING_LIFT)); // in the open in front of the surface
             bump.ring = new ZoneScan(voxels, c, Ripple.maxRadius(ripple) + 1, RING_HEIGHT, RING_HEIGHT, n);
             bump.ringStart = start;
-            bump.ringCenter = c;
+            bump.ringFrame = frame;
             bump.ringNormal = n;
             bump.ringTaken = 0;
             bump.ringColumns.clear();
@@ -1127,11 +1130,21 @@ public final class DeformationRenderer {
             }
         }
         List<SurfacePoint> points = bump.ring.points();
+        Vec3 n = bump.ringNormal;
         for (; bump.ringTaken < points.size(); bump.ringTaken++) {
             SurfacePoint p = points.get(bump.ringTaken);
             double facing = Math.abs(n.y()) >= HeightField.RING_LEVEL ? RING_FACING : RING_FACING_WALL;
-            if (p.normal().dot(n) >= facing && bump.ringKeys.add(VoxelPos.pack(p.x(), p.y(), p.z()))) {
-                bump.ringColumns.add(column(p, tick));
+            long key = VoxelPos.pack(p.x(), p.y(), p.z());
+            if (p.normal().dot(n) >= facing && bump.ringKeys.add(key)) {
+                // A voxel that has its column already (the bump's, its axis maybe another way) keeps it: making one of
+                // the ring's own would replace it, and the two would take turns, each new one unbaked (the review).
+                Column col = columns.get(key);
+                if (col == null) {
+                    bump.ringColumns.add(column(p, tick));
+                } else if (!col.fill) {
+                    col.lastUsed = tick;
+                    bump.ringColumns.add(col);
+                }
             }
         }
         for (int i = 0, k = bump.ringColumns.size(); i < k; i++) {
@@ -1541,7 +1554,8 @@ public final class DeformationRenderer {
                         // Near the camera every face: swallowed by the hill off the middle of a block, the copy
                         // beside the one it is in showed hollow, the face toward it left out (the user).
                         boolean near = within(x, y, z, NEAR_CAMERA);
-                        frameVertices += mesh.emitCulled(consumer, x, y, z, near ? 0 : hidden(col, k, off), grow);
+                        frameVertices += mesh.emitCulled(consumer, x, y, z, near ? 0 : hidden(col, k, off),
+                                Column.stackGrow(grow, k));
                         if (near && within(x, y, z, INSIDE_MARGIN)) {
                             // The camera is inside this copy, or so near it that the view starts inside it (a hill
                             // risen around the player): seen from inside, its faces would be culled and show what
@@ -1560,7 +1574,7 @@ public final class DeformationRenderer {
                         double off = Math.max(0, col.h - k);
                         for (int s = 1; s <= (int) Math.floor(col.h - off + 1e-9); s++) {
                             mesh.emit(consumer, bx + (float) (ax * off) + cx * s, by + (float) (ay * off) + cy * s,
-                                    bz + (float) (az * off) + cz * s, grow);
+                                    bz + (float) (az * off) + cz * s, Column.stackGrow(grow, k + s));
                             frameVertices += mesh.size();
                             frameCopies++;
                         }
