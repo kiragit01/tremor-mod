@@ -4,6 +4,7 @@ import org.junit.jupiter.api.Test;
 import tremor.core.math.Vec3;
 import tremor.core.shape.BumpFrame;
 import tremor.core.shape.BumpParams;
+import tremor.core.shape.BumpShape;
 import tremor.core.testing.ArrayVoxelGrid;
 
 import java.util.List;
@@ -112,7 +113,13 @@ class ThinSwellTest {
         ThinSwell.Result result = ThinSwell.apply(g, frame, PARAMS, PARAMS.influenceRadius(), collect(g, frame));
         assertTrue(result.fills().isEmpty());
         assertTrue(result.points().stream().anyMatch(p -> p.y() == 0), "the floor");
-        assertFalse(result.points().stream().anyMatch(p -> p.y() > 0), "nothing of the pillar's sides");
+        for (SurfacePoint p : result.points()) {
+            if (p.y() > 0) {
+                // Its top, four blocks up, is within the band, but the hill has faded out there (BumpShape.BAND).
+                assertEquals(4, p.y(), "nothing of the pillar's sides");
+                assertTrue(BumpShape.height(PARAMS, frame, p.x() + 0.5, p.y() + 0.5, p.z() + 0.5) < BumpShape.RENDER_THRESHOLD);
+            }
+        }
     }
 
     @Test
