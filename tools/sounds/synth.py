@@ -410,6 +410,35 @@ def resonance_hit(rng):
     return finish(presence(cave(x * 0.55 + click + thrum, rt=1.6, wet=0.35, lp=5000, rng=rng), 0.3))
 
 
+def resonance_soak(rng):
+    """A resonance arrow's pulse soaks up a listener's signal or the small ones: its strike is swallowed, the ring
+    drawn in at once, its pitch sinking and its brightness shut off within a quarter second, dry, a soft gulp under
+    it (the user: to tell a sound soaked up from a miss the tremor hears)."""
+    n = samples(0.9)
+    t = np.arange(n) / SR
+    bend = 1.0 - 0.5 * (1 - np.exp(-t / 0.12))
+    ring = crystal(n, rng.uniform(820, 980), 0.6, rng, bend=bend, beat=0.006)
+    shut = np.clip(t / 0.22, 0, 1) ** 1.5
+    x = (ring * (1 - shut) + filt(ring, hi=600) * shut) * env(n, 0.002, 0.18)
+    click = filt(rng.normal(size=n), lo=2500, hi=8000) * env(n, 0.0005, 0.008) * 0.4
+    gulp = thump(0.9, 160, 55, 0.12, rng, click=0.1) * 0.8
+    gulp = np.concatenate([np.zeros(samples(0.06)), gulp])[:n]
+    return finish(cave(x * 0.6 + click + gulp, rt=0.3, wet=0.06, lp=2500, rng=rng), peak_db=-4)
+
+
+def resonance_ground(rng):
+    """A resonance arrow that struck nothing rings into the ground: a deep hum spreading through the rock under the
+    strike, swelling a little and dying slowly, beating, a rumble in it (the tremor may hear it)."""
+    n = samples(2.6)
+    t = np.arange(n) / SR
+    f = rng.uniform(56, 66) * (1 + 0.02 * np.sin(2 * np.pi * 0.7 * t))
+    hum = osc(f) + 0.5 * osc(f * 1.5, 0.8) + 0.3 * osc(f * 2.01, 1.7)
+    hum *= env(n, 0.12, 0.9) * (1 + 0.35 * np.sin(2 * np.pi * 3.1 * t))
+    rumble = filt(noise(n, -6, rng), lo=30, hi=170) * env(n, 0.08, 0.7)
+    rumble = rumble / (np.std(rumble) + 1e-12) * 0.12
+    return finish(presence(cave(hum * 0.5 + rumble, rt=1.8, wet=0.3, lp=700, rng=rng), 0.35), peak_db=-3)
+
+
 def resonance_daze(rng):
     """Struck by a resonance arrow: a ringing in the ears, high and wavering, fading slowly."""
     n = samples(3.6)
@@ -532,7 +561,8 @@ def echo_found(rng):
 SOUNDS = {'rustle': rustle, 'rumble': rumble, 'crack': crack, 'pulse': pulse, 'thump': thump_sound, 'strike': strike,
           'sigh': sigh, 'awaken': awaken, 'rage': rage, 'release': release, 'hum': hum, 'pull': pull, 'ripple': ripple,
           'escape': escape, 'resonance_draw': resonance_draw, 'resonance_flight': resonance_flight,
-          'resonance_hit': resonance_hit, 'resonance_daze': resonance_daze, 'listener_ping': listener_ping,
+          'resonance_hit': resonance_hit, 'resonance_soak': resonance_soak, 'resonance_ground': resonance_ground,
+          'resonance_daze': resonance_daze, 'listener_ping': listener_ping,
           'listener_breath': listener_breath, 'listener_relay': listener_relay, 'crawler_grind': crawler_grind,
           'crawler_creep': crawler_creep, 'crawler_crackle': crawler_crackle, 'crawler_sink': crawler_sink,
           'echo_charge': echo_charge, 'echo_found': echo_found}
@@ -548,7 +578,7 @@ def write_wav(path, x):
 
 
 #: Sounds heard again and again get variants (other seeds of the same recipe): name_1.ogg ... name_k.ogg.
-VARIANTS = {'resonance_draw': 2, 'crawler_creep': 3, 'crawler_crackle': 2, 'resonance_hit': 3, 'resonance_flight': 2, 'listener_ping': 2, 'listener_breath': 2, 'crack': 3, 'pulse': 3, 'thump': 3, 'pull': 3, 'ripple': 3, 'strike': 2, 'rumble': 2, 'sigh': 2}
+VARIANTS = {'resonance_soak': 2, 'resonance_ground': 2, 'resonance_draw': 2, 'crawler_creep': 3, 'crawler_crackle': 2, 'resonance_hit': 3, 'resonance_flight': 2, 'listener_ping': 2, 'listener_breath': 2, 'crack': 3, 'pulse': 3, 'thump': 3, 'pull': 3, 'ripple': 3, 'strike': 2, 'rumble': 2, 'sigh': 2}
 
 
 def main():

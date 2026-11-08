@@ -70,6 +70,10 @@ public final class TremorSounds {
     public static final RegistryObject<SoundEvent> RESONANCE_FLIGHT = register("item.tremor.resonance_arrow.flight");
     /** A resonance arrow bursts into its pulse. */
     public static final RegistryObject<SoundEvent> RESONANCE_HIT = register("item.tremor.resonance_arrow.hit");
+    /** A resonance arrow's pulse soaks up a listener's signal or the small ones: its ring swallowed. */
+    public static final RegistryObject<SoundEvent> RESONANCE_SOAK = register("item.tremor.resonance_arrow.soak");
+    /** A resonance arrow that struck nothing rings into the ground: a deep hum the tremor may hear. */
+    public static final RegistryObject<SoundEvent> RESONANCE_GROUND = register("item.tremor.resonance_arrow.ground");
     /** Struck by a resonance arrow: the ears ring. */
     public static final RegistryObject<SoundEvent> RESONANCE_DAZE = register("entity.tremor.resonance.daze");
     /** A listener hears and sends its signal. */

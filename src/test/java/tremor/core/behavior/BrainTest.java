@@ -356,6 +356,25 @@ class BrainTest {
         assertGo(tick(ALERT, true), S2, "creep");
     }
 
+    @Test
+    void aPlayerItKnowsThePlaceOfSendsItOnAtOnceWithoutAFreeze() {
+        // A player's echo come back: it knows where, it goes (the user: it stood a while after the echo came back).
+        brain = new Brain(params(100), 1);
+        assertStays(4, ALERT, true, "rest");
+        brain.knows(S1, 10);
+        assertGo(tick(ALERT, true), S1, "creep");
+        // ...and out of a freeze from another sound too
+        brain = new Brain(params(100), 1);
+        brain.hear(S2, 0.2);
+        assertFreeze(tick(ALERT, true), S2);
+        brain.knows(S1, 10);
+        assertGo(tick(ALERT, true), S1, "creep");
+        // any other sound still freezes it first
+        brain = new Brain(params(100), 1);
+        brain.hear(S1, 0.2);
+        assertFreeze(tick(ALERT, true), S1);
+    }
+
     // ---------------------------------------------------------------- the remembered sound
 
     @Test

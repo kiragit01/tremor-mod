@@ -1,0 +1,45 @@
+# How soon a tremor goes once a player's echo comes back to it (1.4.0, the user: it did not always react at once, as if
+# it waited for the ring to end). A tremor ALERT, the player 20 blocks off; a stone lands by it, its ring finds the
+# player, and while the echo runs back its brain starts afresh (ai off, on): idle, as after a lost hunt. Once the echo
+# is there it should creep to the player at once ("creeping to the sound"), not stand frozen 2.5 s first.
+# Run: gradlew runClientAutotest -Ptremor_autotest_script=echo-react.txt
+waitchunks
+cmd gamemode spectator
+cmd time set noon
+cmd tremor despawn all
+cmd kill @e[type=!player]
+cmd tp @s 860.5 215.0 300.5
+wait 40
+waitchunks
+cmd fill 800 195 260 920 199 340 minecraft:dirt
+cmd fill 800 200 260 920 200 340 minecraft:grass_block
+cmd fill 800 201 260 920 230 340 minecraft:air
+cmd kill @e[type=!player]
+config ambush.enabled false
+config echo.range 32
+config echo.speed 6
+cmd tremor spawn 860 200 300
+cmd tremor stage alert
+cmd tremor anger 35
+cmd gamemode survival
+cmd effect give @s minecraft:resistance 600 4 true
+cmd tp @s 880.5 201.0 300.5 90 20
+wait 60
+cmd summon minecraft:item 857.5 204 300.5 {Item:{id:"minecraft:stone",Count:1b},PickupDelay:32767}
+wait 130
+cmd tremor ai off
+cmd tremor ai on
+wait 30
+cmd tremor info
+wait 10
+cmd tremor info
+wait 10
+cmd tremor info
+wait 20
+cmd tremor info
+wait 20
+cmd tremor info
+cmd kill @e[type=minecraft:item]
+cmd tremor despawn all
+config ambush.enabled true
+quit
