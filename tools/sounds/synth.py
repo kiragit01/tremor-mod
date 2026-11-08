@@ -411,19 +411,17 @@ def resonance_hit(rng):
 
 
 def resonance_soak(rng):
-    """A resonance arrow's pulse soaks up a listener's signal or the small ones: its strike is swallowed, the ring
-    drawn in at once, its pitch sinking and its brightness shut off within a quarter second, dry, a soft gulp under
-    it (the user: to tell a sound soaked up from a miss the tremor hears)."""
-    n = samples(0.9)
+    """A resonance arrow's pulse soaks up a listener's signal or the small ones: its crystal note breaks up, a short
+    ring falling apart into a trickle of tiny shards, dull and fading, a soft settling under it (the user chose it
+    from three: the first, a gliding tone, sounded electronic)."""
+    n = samples(1.0)
     t = np.arange(n) / SR
-    bend = 1.0 - 0.5 * (1 - np.exp(-t / 0.12))
-    ring = crystal(n, rng.uniform(820, 980), 0.6, rng, bend=bend, beat=0.006)
-    shut = np.clip(t / 0.22, 0, 1) ** 1.5
-    x = (ring * (1 - shut) + filt(ring, hi=600) * shut) * env(n, 0.002, 0.18)
-    click = filt(rng.normal(size=n), lo=2500, hi=8000) * env(n, 0.0005, 0.008) * 0.4
-    gulp = thump(0.9, 160, 55, 0.12, rng, click=0.1) * 0.8
-    gulp = np.concatenate([np.zeros(samples(0.06)), gulp])[:n]
-    return finish(cave(x * 0.6 + click + gulp, rt=0.3, wet=0.06, lp=2500, rng=rng), peak_db=-4)
+    note = crystal(n, rng.uniform(760, 900), 0.08, rng) * 0.4
+    shards = grains(n, 140, (0.002, 0.007), (2500, 7000), (0.1, 0.5), rng, width=0.25, density_env=np.exp(-t / 0.18))
+    shards = filt(shards, hi=6000)
+    settle = filt(noise(n, -6, rng), lo=50, hi=350) * env(n, 0.01, 0.15)
+    settle = settle / (np.std(settle) + 1e-12) * 0.2
+    return finish(cave(note + shards * 0.5 + settle, rt=0.7, wet=0.18, lp=4000, rng=rng), peak_db=-6)
 
 
 def resonance_ground(rng):
