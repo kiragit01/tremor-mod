@@ -110,6 +110,20 @@
       "tremor:resonance_flight_2"
     ]
   },
+  "item.tremor.resonance_arrow.soak": {
+    "subtitle": "subtitles.tremor.resonance_soak",
+    "sounds": [
+      "tremor:resonance_soak_1",
+      "tremor:resonance_soak_2"
+    ]
+  },
+  "item.tremor.resonance_arrow.ground": {
+    "subtitle": "subtitles.tremor.resonance_ground",
+    "sounds": [
+      "tremor:resonance_ground_1",
+      "tremor:resonance_ground_2"
+    ]
+  },
   "item.tremor.resonance_arrow.hit": {
     "subtitle": "subtitles.tremor.resonance_hit",
     "sounds": [

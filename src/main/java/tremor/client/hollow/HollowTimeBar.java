@@ -47,18 +47,9 @@ public final class HollowTimeBar {
     /** The marks are told this long after the player comes in, for this long, fading in and out this long (ticks). */
     private static final double NOTICE_DELAY = 40;
     private static final double NOTICE_TICKS = 70;
-    /** It comes in over this many ticks and goes over this many (its lift and fall). */
-    private static final double NOTICE_IN = 7;
-    private static final double NOTICE_OUT = 10;
-    /** At first it is this much bigger (a share), easing to its size as it comes in. */
-    private static final double NOTICE_POP = 0.12;
-    /** Under the bar's frame by this much, sliding down this far into place and as far on (pixels), this small. */
+    /** Under the bar's frame by this much (pixels), this small; it moves as {@link tremor.client.NoticeMotion} has it. */
     private static final int NOTICE_GAP = 3;
-    private static final int NOTICE_DROP = 3;
     private static final float NOTICE_SCALE = 0.75f;
-    /** It rises and falls this much (pixels) once in this many ticks. */
-    private static final double NOTICE_BREATH = 1.3;
-    private static final double NOTICE_BREATH_TICKS = 50;
     /** The hollow event the marks were told for, and the time it was first seen. */
     private static int noticeEvent = Integer.MIN_VALUE;
     private static double noticeStart;
@@ -149,31 +140,19 @@ public final class HollowTimeBar {
         if (state.marks() <= 0 || t < 0 || t > NOTICE_TICKS) {
             return;
         }
-        double in = Mth.clamp(t / NOTICE_IN, 0, 1), out = Mth.clamp((t - NOTICE_TICKS + NOTICE_OUT) / NOTICE_OUT, 0, 1);
-        // Out it first lifts a little, then falls away gathering speed, fading on the way (the user: livelier).
-        double alpha = Math.min(in * 1.5, 1) * (1 - Mth.clamp((out - 0.35) / 0.65, 0, 1));
-        if (alpha < 0.05) {
+        tremor.client.NoticeMotion.Pose pose = tremor.client.NoticeMotion.at(t, NOTICE_TICKS, time);
+        if (pose.alpha() < 0.05) {
             return; // the font draws a nearly clear colour opaque
         }
         Component text = Component.translatable("tremor.marks.known", state.marks());
-        // It breathes: a slow rise and fall of a pixel or so (the user: not static).
-        double breath = NOTICE_BREATH * Math.sin(2 * Math.PI * time / NOTICE_BREATH_TICKS);
-        // In it drops into place with a little spring past it; out the lift and the fall: 12t² - 7t.
-        double enter = -NOTICE_DROP * (1 - backOut(in)), leave = 12 * out * out - 7 * out;
-        float y = TOP + HEIGHT + FRAME_HEIGHT - FRAME_INSET_Y + NOTICE_GAP + (float) (enter + leave + breath);
-        float scale = NOTICE_SCALE * (float) (1 + NOTICE_POP * (1 - in) * (1 - in)); // a little big at first
+        float y = TOP + HEIGHT + FRAME_HEIGHT - FRAME_INSET_Y + NOTICE_GAP + (float) pose.dy();
+        float scale = NOTICE_SCALE * (float) pose.scale();
         graphics.pose().pushPose();
         graphics.pose().translate(graphics.guiWidth() / 2f, y, 0);
         graphics.pose().scale(scale, scale, 1);
         graphics.drawString(mc.font, text, -mc.font.width(text) / 2, 0,
-                (int) Math.round(alpha * 255) << 24 | 0xC81818, true);
+                (int) Math.round(pose.alpha() * 255) << 24 | 0xC81818, true);
         graphics.pose().popPose();
-    }
-
-    /** Eases out past the end and back (a spring): 0 at 0, 1 at 1, a little over 1 between. */
-    private static double backOut(double t) {
-        double c = 1.70158, u = t - 1;
-        return 1 + (c + 1) * u * u * u + c * u * u;
     }
 
     private static int lerp(int from, int to, double share) {

@@ -115,9 +115,19 @@ public final class ResonanceArrows {
             net.minecraft.core.BlockPos b = net.minecraft.core.BlockPos.containing(at.x, at.y - 0.5, at.z);
             pulse(level, new Vec3(b.getX() + 0.5, b.getY() + 0.5, b.getZ() + 0.5), Vec3.UNIT_Y);
         }
-        level.playSound(null, at.x, at.y, at.z, TremorSounds.RESONANCE_HIT.get(), SoundSource.PLAYERS, 1.6f,
-                0.95f + level.getRandom().nextFloat() * 0.1f);
-        level.playSound(null, at.x, at.y, at.z, SoundEvents.AMETHYST_BLOCK_CHIME, SoundSource.PLAYERS, 1.0f, 0.6f);
+        // Each its own sound (the user: to tell a sound soaked up from one the tremor hears): the pulse swallowing a
+        // signal or the small ones; a miss into a block, ringing on into the ground; an entity struck.
+        float pitch = 0.95f + level.getRandom().nextFloat() * 0.1f;
+        if (struck) {
+            level.playSound(null, at.x, at.y, at.z, TremorSounds.RESONANCE_SOAK.get(), SoundSource.PLAYERS, 1.6f, pitch);
+        } else {
+            level.playSound(null, at.x, at.y, at.z, TremorSounds.RESONANCE_HIT.get(), SoundSource.PLAYERS, 1.6f, pitch);
+            level.playSound(null, at.x, at.y, at.z, SoundEvents.AMETHYST_BLOCK_CHIME, SoundSource.PLAYERS, 1.0f, 0.6f);
+            if (hit.getType() == HitResult.Type.BLOCK) {
+                level.playSound(null, at.x, at.y, at.z, TremorSounds.RESONANCE_GROUND.get(), SoundSource.PLAYERS, 1.4f,
+                        pitch);
+            }
+        }
         if (hit instanceof net.minecraft.world.phys.EntityHitResult struckEntity
                 && struckEntity.getEntity() instanceof net.minecraft.world.entity.LivingEntity living) {
             // A small concussion of sound: the ears ring, every sound goes detuned for a while (the user).
