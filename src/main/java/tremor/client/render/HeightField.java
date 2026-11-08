@@ -28,6 +28,11 @@ record HeightField(BumpParams params, BumpFrame frame, double time, boolean jitt
         this(params, frame, time, jitter, ripple, rippleAge, frame);
     }
 
+    /** The ripple alone at {@code (x, y, z)}: for ground only its ring took, beyond the bump's own. */
+    double ripple(double x, double y, double z) {
+        return ripple == null ? 0 : Ripple.height(ripple, ringDistance(ringFrame, x, y, z), rippleAge);
+    }
+
     double at(double x, double y, double z) {
         double h = jitter ? BumpShape.height(params, frame, x, y, z, time) : BumpShape.height(params, frame, x, y, z);
         return ripple == null ? h : h + Ripple.height(ripple, ringDistance(ringFrame, x, y, z), rippleAge);
