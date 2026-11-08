@@ -1,0 +1,56 @@
+# The hushing charm's counter (1.4.0, the user: a nicer aside than a line over the hotbar, the count rolled down):
+# shots along its way, 3 -> 1 (it drops in, the wheel turns down a touch past and back, it breathes, lifts and falls
+# away), 12 -> 10 (the tens turn as the ones pass from 0 to 9), and no mark to take.
+# Run: gradlew runClientAutotest -Ptremor_autotest_script=charm-counter.txt
+waitchunks
+cmd gamemode survival
+cmd gamerule sendCommandFeedback false
+cmd time set noon
+cmd weather clear
+cmd tremor despawn all
+cmd tp @s 860.5 201.0 300.5 90 0
+wait 40
+waitchunks
+cmd fill 850 199 290 870 199 310 minecraft:stone
+cmd fill 850 200 290 870 200 310 minecraft:grass_block
+cmd fill 850 201 290 870 210 310 minecraft:air
+log --- 3 -> 1
+cmd tremor marks @s set 3
+cmd item replace entity @s weapon.mainhand with tremor:hush_charm
+wait 10
+hold use 1
+wait 2
+screenshot 01_in
+wait 9
+screenshot 02_rolling
+wait 5
+screenshot 03_rolling
+wait 6
+screenshot 04_settled
+wait 30
+screenshot 05_breathing
+wait 22
+screenshot 06_leaving
+wait 20
+log --- 12 -> 10
+cmd tremor marks @s set 12
+cmd item replace entity @s weapon.mainhand with tremor:hush_charm
+wait 10
+hold use 1
+wait 14
+screenshot 07_tens
+wait 4
+screenshot 08_tens
+wait 6
+screenshot 09_tens
+wait 60
+log --- none
+cmd tremor marks @s set 0
+cmd item replace entity @s weapon.mainhand with tremor:hush_charm
+wait 10
+hold use 1
+wait 12
+screenshot 10_none
+wait 60
+cmd gamerule sendCommandFeedback true
+quit

@@ -23,7 +23,7 @@
   "item.tremor.tremor_shard": "Tremor Shard",
   "item.tremor.hush_charm": "Hushing Charm",
   "tremor.marks.known": "The creature knows you (mark %s)",
-  "tremor.marks.removed": "The marks fade (%s left)",
+  "tremor.marks.counter": "Marks:",
   "tremor.marks.none": "You have no marks",
   "tremor.configuration.marks": "Marks",
   "tremor.configuration.marks.enabled": "Count marks",

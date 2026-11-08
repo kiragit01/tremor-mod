@@ -23,7 +23,7 @@
   "item.tremor.tremor_shard": "Осколок Тремора",
   "item.tremor.hush_charm": "Оберег тишины",
   "tremor.marks.known": "Тварь узнаёт тебя (метка %s)",
-  "tremor.marks.removed": "Метки стираются (осталось %s)",
+  "tremor.marks.counter": "Метки:",
   "tremor.marks.none": "У тебя нет меток",
   "tremor.configuration.marks": "Метки",
   "tremor.configuration.marks.enabled": "Считать метки",
