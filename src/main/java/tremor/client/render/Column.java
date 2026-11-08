@@ -39,12 +39,6 @@ final class Column {
     /** Smoothed surface normal, refreshed by every collection. */
     Vec3 normal;
     /**
-     * Its copies go the bump's way, not the way it faces ({@code DeformationRenderer.LEAN}), and it is open beside that
-     * way: one more copy in its own place covers its face below the lowest (the face of a ledge rising with the top
-     * showed its own block at its foot, grey under the tint).
-     */
-    boolean foot;
-    /**
      * This frame: the way the column also fills, at a seam where the column behind it goes that way while it goes
      * along its own axis (a ledge under a hill: the top up, the face sideways); null if none.
      */

@@ -1,0 +1,61 @@
+# A tremor's hill in the corner of a room (1.4.0, the user's screenshot: the walls by it slid their faces up along the
+# wall, as a texture moving, instead of the blocks pushing out). A still tremor (AI off) on the floor by the corner,
+# then on a wall by it; plain and tinted shots, still and as it draws in for an echo.
+# Run: gradlew runClientAutotest -Ptremor_autotest_script=corner-hill.txt
+waitchunks
+cmd gamerule commandModificationBlockLimit 2147483647
+cmd gamemode spectator
+cmd time set noon
+cmd tremor despawn all
+cmd kill @e[type=!player]
+cmd tp @s 860.5 215.0 300.5
+wait 40
+waitchunks
+cmd fill 830 195 280 890 200 320 minecraft:cobbled_deepslate
+cmd fill 830 201 280 890 230 320 minecraft:air
+cmd fill 840 201 280 850 207 320 minecraft:cobbled_deepslate
+cmd fill 840 201 280 890 207 290 minecraft:cobbled_deepslate
+config ambush.enabled false
+config echo.rings 1
+hud off
+log --- A. on the floor by the corner
+cmd tremor spawn 852 200 292
+cmd tremor ai off
+cmd tremor stage alert
+cmd tp @s 858.5 205.5 298.5 135 30
+wait 60
+cmd tremor info
+screenshot A0_still
+tint on
+screenshot A0_still_tint
+tint off
+cmd tremor echo
+wait 16
+screenshot A1_drawing_in
+tint on
+screenshot A1_drawing_in_tint
+tint off
+wait 120
+log --- B. on the wall by the corner
+cmd tremor despawn all
+wait 10
+cmd tremor spawn 851 203 296
+cmd tremor ai off
+cmd tremor stage alert
+cmd tp @s 858.5 205.5 300.5 120 25
+wait 60
+cmd tremor info
+screenshot B0_still
+tint on
+screenshot B0_still_tint
+tint off
+cmd tremor echo
+wait 16
+screenshot B1_drawing_in
+tint on
+screenshot B1_drawing_in_tint
+tint off
+cmd tremor despawn all
+config ambush.enabled true
+config echo.rings 3
+quit
