@@ -31,7 +31,7 @@ record HeightField(BumpParams params, BumpFrame frame, double time, boolean jitt
 
     double at(double x, double y, double z) {
         double h = jitter ? BumpShape.height(params, frame, x, y, z, time) : BumpShape.height(params, frame, x, y, z);
-        return ripple == null ? h : h + Ripple.height(ripple, tangentDistance(ringFrame, x, y, z), rippleAge);
+        return ripple == null ? h : h + Ripple.height(ripple, ringDistance(ringFrame, x, y, z), rippleAge);
     }
 
     /** A bump facing up (or down) at least this much has its rings run level ({@link Ripple#RING_LEVEL}). */
@@ -42,11 +42,21 @@ record HeightField(BumpParams params, BumpFrame frame, double time, boolean jitt
         return Ripple.ringNormal(normal);
     }
 
-    /** Distance of {@code (x, y, z)} from the frame's centre within the plane of its rings ({@link #ringNormal}). */
-    static double tangentDistance(BumpFrame frame, double x, double y, double z) {
+    /**
+     * Distance of {@code (x, y, z)} from the frame's centre as its rings measure it: across the level plane for rings
+     * running level ({@link #ringNormal} straight up or down), so a ring on the ground stays a ring whatever the height
+     * of a voxel; in space for rings on a wall or a steep slope, so where they run over onto the floor at the wall's
+     * foot they spread there as a half ring from under the strike (the user: in the wall's own plane the floor took
+     * them as two straight stripes away from the wall).
+     */
+    static double ringDistance(BumpFrame frame, double x, double y, double z) {
         Vec3 c = frame.center(), n = ringNormal(frame.normal());
         double dx = x - c.x(), dy = y - c.y(), dz = z - c.z();
+        double d2 = dx * dx + dy * dy + dz * dz;
+        if (Math.abs(n.y()) < RING_LEVEL) {
+            return Math.sqrt(d2);
+        }
         double along = dx * n.x() + dy * n.y() + dz * n.z();
-        return Math.sqrt(Math.max(0, dx * dx + dy * dy + dz * dz - along * along));
+        return Math.sqrt(Math.max(0, d2 - along * along));
     }
 }
