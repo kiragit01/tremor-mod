@@ -930,7 +930,8 @@ public final class TremorConfig {
                     .translation(KEY + "awakening.lethal").define("lethal", true);
             spawnProtection = b.comment("Whether the server's spawn protection (spawn-protection of server.properties, 16",
                             "blocks in single player) is spared: no crater there, nothing taken there for what it builds,",
-                            "no leaves shaken down. Off: a player who builds where they were born is not safe either")
+                            "no leaves shaken down, no block broken by a stalactite (the tremor's or a stalactite",
+                            "crawler's). Off: a player who builds where they were born is not safe either")
                     .translation(KEY + "awakening.spawnProtection").define("spawnProtection", false);
             b.pop();
         }

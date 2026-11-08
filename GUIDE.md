@@ -81,7 +81,7 @@ If the Awakening catches you on leaves, a ragged funnel crumbles away under you 
 
 A hut or a floor of your own leaves won't save you either: the same funnel opens under you, up to 12 layers deep.
 
-In all this it doesn't touch spawn protection, the world border or blocks tagged `#tremor:protected`.
+In all this it never touches the world border or blocks tagged `#tremor:protected`, and spares spawn protection only if the config says so (`awakening.spawnProtection`, off by default).
 
 ## The Awakening
 
