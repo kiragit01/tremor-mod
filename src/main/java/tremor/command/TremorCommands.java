@@ -107,13 +107,15 @@ public final class TremorCommands {
         dispatcher.register(Commands.literal("tremor")
                 .requires(source -> source.hasPermission(2))
                 .then(Commands.literal("spawn")
-                        .executes(ctx -> spawn(ctx, null))
+                        .executes(ctx -> spawn(ctx, null, true))
                         .then(Commands.literal("natural").executes(TremorCommands::spawnNatural))
                         .then(Commands.literal("near").then(Commands.argument("player",
                                 net.minecraft.commands.arguments.EntityArgument.player())
                                 .executes(TremorCommands::spawnNear)))
                         .then(Commands.argument("pos", BlockPosArgument.blockPos())
-                                .executes(ctx -> spawn(ctx, BlockPosArgument.getBlockPos(ctx, "pos")))))
+                                .executes(ctx -> spawn(ctx, BlockPosArgument.getBlockPos(ctx, "pos"), true))
+                                .then(Commands.literal("add")
+                                        .executes(ctx -> spawn(ctx, BlockPosArgument.getBlockPos(ctx, "pos"), false)))))
                 .then(Commands.literal("system").executes(ctx -> system(ctx, null))
                         .then(Commands.literal("on").executes(ctx -> system(ctx, true)))
                         .then(Commands.literal("off").executes(ctx -> system(ctx, false))))
@@ -174,6 +176,7 @@ public final class TremorCommands {
                                 .executes(ctx -> voice(ctx, DoubleArgumentType.getDouble(ctx, "db"), false))
                                 .then(Commands.literal("whisper").executes(ctx -> voice(ctx,
                                         DoubleArgumentType.getDouble(ctx, "db"), true)))))
+                .then(Commands.literal("echo").executes(TremorCommands::echo))
                 .then(Commands.literal("ambush").executes(TremorCommands::ambush)
                         .then(Commands.literal("stop").executes(TremorCommands::ambushStop)))
                 .then(HollowCommands.hollow())
@@ -267,6 +270,24 @@ public final class TremorCommands {
     }
 
     /** {@code /tremor ambush}: the nearest tremor lies in wait where it is ({@link TremorRuntime#lurk}). */
+    /**
+     * {@code /tremor echo}: the nearest tremor stops, draws in and sends its echo out, ring after ring while they find
+     * nobody ({@code echo.rings}), as when it froze to listen; for tests.
+     */
+    private static int echo(CommandContext<CommandSourceStack> ctx) throws CommandSyntaxException {
+        TremorRuntime runtime = requireRuntime(ctx.getSource());
+        int instance = runtime.entity().instance();
+        if (!runtime.listenHere()) {
+            ctx.getSource().sendFailure(Component.literal("Tremor #" + instance
+                    + " cannot send its echo now: a ring still runs, or it dives"));
+            return 0;
+        }
+        int rings = TremorConfig.COMMON.echo.rings.get();
+        answer(ctx.getSource(), () -> Component.literal(String.format(Locale.ROOT, "Tremor #%d draws in and sends its "
+                + "echo out: up to %d ring%s while they find nobody", instance, rings, rings == 1 ? "" : "s")));
+        return 1;
+    }
+
     private static int ambush(CommandContext<CommandSourceStack> ctx) throws CommandSyntaxException {
         TremorRuntime runtime = requireRuntime(ctx.getSource());
         int instance = runtime.entity().instance();
@@ -431,12 +452,18 @@ public final class TremorCommands {
         return off ? 0 : 1;
     }
 
-    private static int spawn(CommandContext<CommandSourceStack> ctx, BlockPos requested) throws CommandSyntaxException {
+    /**
+     * {@code /tremor spawn [pos [add]]}: a tremor at the block (looked at, by default), in place of the nearest one
+     * within {@code spawn.spacing}; with {@code add}, one more whatever is near (the debug probe's Alt+click).
+     */
+    private static int spawn(CommandContext<CommandSourceStack> ctx, BlockPos requested, boolean replace)
+            throws CommandSyntaxException {
         CommandSourceStack source = ctx.getSource();
         if (tremor.TremorSwitch.off(source.getLevel())) {
             throw OFF.create();
         }
-        TremorEntity entity = TremorManager.spawn(source.getLevel(), requested != null ? requested : lookTarget(source));
+        TremorEntity entity = TremorManager.spawn(source.getLevel(), requested != null ? requested : lookTarget(source),
+                false, replace);
         if (entity == null) {
             throw NO_NODE.create();
         }

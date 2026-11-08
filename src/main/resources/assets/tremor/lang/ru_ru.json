@@ -270,6 +270,7 @@
   "tremor.configuration.echo.enabled": "Кольцо находит стоящих на земле",
   "tremor.configuration.echo.range": "Дальность (блоков)",
   "tremor.configuration.echo.speed": "Скорость фронта (блоков/с)",
+  "tremor.configuration.echo.rings": "Колец подряд, пока никого не нашли",
   "tremor.configuration.listeners": "Подслушиватели",
   "tremor.configuration.listeners.enabled": "Тварь оставляет подслушивателей",
   "tremor.configuration.listeners.count": "Не больше",

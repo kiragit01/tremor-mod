@@ -1009,6 +1009,7 @@ public final class TremorConfig {
         public final ModConfigSpec.BooleanValue enabled;
         public final ModConfigSpec.DoubleValue range;
         public final ModConfigSpec.DoubleValue speed;
+        public final ModConfigSpec.IntValue rings;
 
         Echo(ModConfigSpec.Builder b) {
             b.comment("Echolocation: the ring a frozen tremor sends through the ground gives an echo back from whatever",
@@ -1021,6 +1022,9 @@ public final class TremorConfig {
                     .translation(KEY + "echo.range").defineInRange("range", 32.0, 2.0, 64.0);
             speed = b.comment("How fast its front runs (blocks per second): as the ring is seen by default")
                     .translation(KEY + "echo.speed").defineInRange("speed", 6.0, 1.0, 40.0);
+            rings = b.comment("Rings a tremor sends one after another while they find nobody and it hears nothing,",
+                            "drawing in before each")
+                    .translation(KEY + "echo.rings").defineInRange("rings", 3, 1, 6);
             b.pop();
         }
     }

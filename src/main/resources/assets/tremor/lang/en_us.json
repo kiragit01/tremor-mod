@@ -270,6 +270,7 @@
   "tremor.configuration.echo.enabled": "The ring finds who stands on the ground",
   "tremor.configuration.echo.range": "Reach (blocks)",
   "tremor.configuration.echo.speed": "Front speed (blocks/s)",
+  "tremor.configuration.echo.rings": "Rings in a row while they find nobody",
   "tremor.configuration.listeners": "Listeners",
   "tremor.configuration.listeners.enabled": "A tremor leaves listeners",
   "tremor.configuration.listeners.count": "At most",

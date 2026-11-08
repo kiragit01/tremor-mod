@@ -445,12 +445,13 @@ public final class TremorRuntime {
     }
 
     /** A route's listening stop: it stands and sends a ring of ripples ({@link TremorMind#listenNow}). */
-    void listenHere() {
+    public boolean listenHere() {
         TremorEntity entity = this.entity;
         if (entity != null) {
             beginPass();
-            mind(entity).listenNow();
+            return mind(entity).listenNow();
         }
+        return false;
     }
 
     /**
