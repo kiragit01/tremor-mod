@@ -2,6 +2,7 @@ package tremor.client.awakening;
 
 import net.minecraft.SharedConstants;
 import tremor.core.shape.AwakeningField;
+import tremor.core.shape.GroundField;
 import tremor.core.shape.AwakeningParams;
 import tremor.core.shape.AwakeningShape;
 import tremor.core.shape.Ripple;
@@ -58,8 +59,15 @@ public final class AwakeningGround {
     private static List<ClientAwakening.StepRipple> lastRipples = List.of();
     /** Game time the settling started at; NaN while the Awakening is known. */
     private static double releaseStart = Double.NaN;
+    /** The field of the last frame whose hill swallows a player (or settles after taking one); null if none. */
+    private static AwakeningField swallowing;
 
     private AwakeningGround() {
+    }
+
+    /** {@code ground} if it is the field of a hill swallowing a player ({@link #frame}), else null. */
+    public static AwakeningField swallowing(GroundField ground) {
+        return ground != null && ground == swallowing ? swallowing : null;
     }
 
     /**
@@ -113,7 +121,8 @@ public final class AwakeningGround {
             state = last;
             ripples = lastRipples;
         }
-        return field(state, ripples, gameTime, release);
+        swallowing = field(state, ripples, gameTime, release);
+        return swallowing;
     }
 
     /** Forgets everything, e.g. when the level changes. */
