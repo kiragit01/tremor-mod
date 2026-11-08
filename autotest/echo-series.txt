@@ -1,0 +1,66 @@
+# A series of echo rings (1.4.0, the user: two or three while it hears nobody). /tremor echo: the nearest tremor
+# draws in and sends its echo; while a ring finds nobody and it hears nothing it draws in again and sends another,
+# up to echo.rings (3). 1. the player out of reach: three rings in a row ("found nobody, it sends another" twice);
+# 2. a second /tremor echo while a ring runs is refused; 3. the player standing within reach: found by the first,
+# no more rings; 4. a pig in reach, the player not: the rings go on all three (the user: not after a mob at the
+# first one), then it goes for the pig.
+# Run: gradlew runClientAutotest -Ptremor_autotest_script=echo-series.txt
+waitchunks
+cmd gamemode spectator
+cmd time set noon
+cmd tremor despawn all
+cmd kill @e[type=!player]
+cmd tp @s 860.5 215.0 300.5
+wait 40
+waitchunks
+cmd fill 800 195 260 920 199 340 minecraft:dirt
+cmd fill 800 200 260 920 200 340 minecraft:grass_block
+cmd fill 800 201 260 920 230 340 minecraft:air
+cmd kill @e[type=!player]
+config ambush.enabled false
+config echo.range 32
+config echo.rings 3
+cmd tremor spawn 860 200 300
+cmd tremor stage alert
+cmd tremor anger 35
+cmd gamemode survival
+cmd effect give @s minecraft:resistance 600 4 true
+log --- 1. out of reach: three rings
+cmd tp @s 905.5 201.0 300.5 90 10
+wait 40
+cmd tremor echo
+wait 40
+log --- 2. again while a ring runs: refused
+cmd tremor echo
+wait 460
+cmd tremor info
+log --- 3. within reach: found by the first, no more
+cmd tremor despawn all
+wait 20
+cmd tremor spawn 860 200 300
+cmd tremor stage alert
+cmd tremor anger 35
+cmd tp @s 875.5 201.0 300.5 90 15
+wait 60
+cmd tremor echo
+wait 300
+cmd tremor info
+log --- 4. a pig in reach, the player out of reach: three rings all the same, then it goes for the pig
+cmd tremor despawn all
+wait 20
+cmd tremor spawn 860 200 300
+cmd tremor stage alert
+cmd tremor anger 35
+cmd tp @s 905.5 201.0 300.5 90 10
+cmd fill 871 201 295 873 202 297 minecraft:glass
+cmd fill 872 201 296 872 202 296 minecraft:air
+cmd summon minecraft:pig 872.5 201 296.5 {PersistenceRequired:1b}
+wait 40
+cmd tremor echo
+wait 500
+cmd tremor info
+cmd kill @e[type=minecraft:pig]
+cmd fill 871 201 295 873 202 297 minecraft:air
+cmd tremor despawn all
+config ambush.enabled true
+quit

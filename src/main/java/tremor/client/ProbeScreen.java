@@ -41,9 +41,11 @@ final class ProbeScreen extends Screen {
         int y = TOP;
         row(y, "click", mode(ProbeTool.Mode.LURE), mode(ProbeTool.Mode.ROUTE), mode(ProbeTool.Mode.LISTEN));
         y += ROW;
+        row(y, "spawn", kind(ProbeTool.Kind.TREMOR), kind(ProbeTool.Kind.CRAWLER), kind(ProbeTool.Kind.LISTENER));
+        y += ROW;
         row(y, "look", command("dormant", "tremor stage dormant"), command("alert", "tremor stage alert"),
                 command("hunting", "tremor stage hunting"), command("hold", "tremor hold"),
-                command("ambush", "tremor ambush"));
+                command("ambush", "tremor ambush"), command("echo", "tremor echo"));
         y += ROW;
         row(y, "speed", command("slow", "tremor set speed 1.5"), command("normal", "tremor set reset"),
                 command("fast", "tremor set speed 6"));
@@ -53,7 +55,7 @@ final class ProbeScreen extends Screen {
                 command("clear", "tremor route clear"));
         y += ROW;
         row(y, "show", command("show", "tremor route show"), panel(), answers(),
-                command("ai", "tremor ai toggle"));
+                command("ai", "tremor ai toggle"), settings());
         y += ROW;
         row(y, "difficulty", command("difficulty.calm", "tremor difficulty calm"),
                 command("difficulty.normal", "tremor difficulty normal"),
@@ -88,6 +90,20 @@ final class ProbeScreen extends Screen {
                     ProbeTool.mode = mode;
                     rebuildWidgets();
                 }, ProbeTool.mode != mode);
+    }
+
+    /** Makes an Alt + left click call up {@code kind}; the one chosen shows as a button that cannot be pressed. */
+    private Entry kind(ProbeTool.Kind kind) {
+        return new Entry(kind.label(), button -> {
+            ProbeTool.kind = kind;
+            rebuildWidgets();
+        }, ProbeTool.kind != kind);
+    }
+
+    /** All the mod's settings: the config folder (Forge 1.20.1 has no screen for them). */
+    private Entry settings() {
+        return new Entry(Component.translatable("tremor.probe.button.settings"), button -> net.minecraft.Util.getPlatform()
+                .openFile(net.minecraftforge.fml.loading.FMLPaths.CONFIGDIR.get().toFile()), true);
     }
 
     /** Where the panel of the probe shows: with it in hand, always, hidden, and round again. */
