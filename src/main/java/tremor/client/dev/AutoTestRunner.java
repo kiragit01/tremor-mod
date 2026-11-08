@@ -436,6 +436,12 @@ final class AutoTestRunner {
             pressKeys(h.keys);
             LocalPlayer player = mc.player;
             if (player != null && h.keys.contains(Script.HoldKey.ATTACK)) {
+                if (!h.clicked) {
+                    // One click as a press of the key makes, through the game's own input (its events: the debug
+                    // probe's Alt + click); then it mines as long as it is held.
+                    h.clicked = true;
+                    KeyMapping.click(mc.options.keyAttack.getKey());
+                }
                 mine(player);
             }
             if (player != null && h.keys.contains(Script.HoldKey.DROP) && !h.dropped) {
@@ -979,6 +985,7 @@ final class AutoTestRunner {
             case ATTACK -> options.keyAttack;
             case DROP -> options.keyDrop;
             case USE -> options.keyUse;
+            case PROBE_ADD -> tremor.client.ProbeTool.ADD;
         };
     }
 
@@ -1054,8 +1061,9 @@ final class AutoTestRunner {
         final int total;
         final Vec3 start;
         final HoldTally tally;
-        /** A held drop key has dropped its one item. */
+        /** A held drop key has dropped its one item; a held attack key has made its one click. */
         boolean dropped;
+        boolean clicked;
 
         Hold(Script.Step step, Vec3 start) {
             this.label = step.text();

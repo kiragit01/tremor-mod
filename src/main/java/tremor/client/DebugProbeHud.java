@@ -61,8 +61,8 @@ public final class DebugProbeHud {
         List<String> shown = new java.util.ArrayList<>();
         if (held) {
             // How to use it shows while it is in hand, the panel hidden or not.
-            shown.add(net.minecraft.network.chat.Component.translatable("tremor.probe.hint", ProbeTool.mode.label())
-                    .getString());
+            shown.add(net.minecraft.network.chat.Component.translatable("tremor.probe.hint", ProbeTool.mode.label(),
+                    ProbeTool.kind.label()).getString());
         }
         if (fresh) {
             shown.addAll(lines);
