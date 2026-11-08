@@ -1,0 +1,12 @@
+# The mod's recipes load (1.4.0): each one is given; "Unlocked 1 recipe" for each, and no recipe parsing errors in the
+# log. Muffled Steps: an amethyst shard over two shards of the tremor round a book, two diamonds and wool under them.
+# Run: gradlew runClientAutotest -Ptremor_autotest_script=recipes.txt
+waitchunks
+cmd recipe take @s *
+cmd recipe give @s tremor:muffled_steps_book
+cmd recipe give @s tremor:hush_charm
+cmd recipe give @s tremor:resonance_arrow
+cmd recipe give @s tremor:geophone
+cmd recipe give @s tremor:seismograph
+wait 10
+quit
