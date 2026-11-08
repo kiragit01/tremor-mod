@@ -75,7 +75,16 @@ final class Echo {
     /** Seconds since the ring went out, and how far across {@code e} is from where it did (for the log). */
     String where(LivingEntity e, long now) {
         return String.format(java.util.Locale.ROOT, "%.1f blocks off, %.2f s into its ring",
-                Math.hypot(e.getX() - center.x(), e.getZ() - center.z()), (now - start) / 20.0);
+                distance(e), (now - start) / 20.0);
+    }
+
+    /**
+     * How far {@code e} stands from where the ring went out, in space, as the client measures its rings: a player up on
+     * a ledge sees the crest come a little later, and is judged by it.
+     */
+    private double distance(LivingEntity e) {
+        double dx = e.getX() - center.x(), dy = e.getY() - center.y(), dz = e.getZ() - center.z();
+        return Math.sqrt(dx * dx + dy * dy + dz * dz);
     }
 
     boolean over(long now) {
@@ -90,7 +99,7 @@ final class Echo {
                 center.y() + HEIGHT, center.z() + from + 1);
         RandomSource random = level.getRandom();
         for (LivingEntity e : level.getEntitiesOfClass(LivingEntity.class, box, Echo::answers)) {
-            double d = Math.hypot(e.getX() - center.x(), e.getZ() - center.z());
+            double d = distance(e);
             if (d > from || d <= swept - CATCH || met.contains(e.getUUID())) {
                 continue; // not seen it yet, or it passed before they came
             }
