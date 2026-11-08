@@ -10,9 +10,8 @@ import tremor.core.shape.RippleParams;
 /**
  * The displacement along the surface normal that one frame draws: the bump (SPEC 6.1) plus, while one runs, the
  * ground ripple of an ALERT freeze (SPEC 8: "по земле вокруг идёт мелкая рябь") centred on the bump. The ripple's
- * distance is measured in the plane of its rings ({@link #ringNormal}: level for a bump facing up or down mostly, the
- * bump's own tangent plane otherwise), so its rings stay rings on a floor (or a wall) whatever the height of a voxel
- * above it. Pure math, no game classes.
+ * distance is measured in space from where it went out ({@link #ringDistance}), so its rings run on over the ground,
+ * the walls and the steps they reach as one wave. Pure math, no game classes.
  *
  * @param time      animation clock of the jitter, seconds
  * @param jitter    whether to include the jitter term
@@ -43,20 +42,14 @@ record HeightField(BumpParams params, BumpFrame frame, double time, boolean jitt
     }
 
     /**
-     * Distance of {@code (x, y, z)} from the frame's centre as its rings measure it: across the level plane for rings
-     * running level ({@link #ringNormal} straight up or down), so a ring on the ground stays a ring whatever the height
-     * of a voxel; in space for rings on a wall or a steep slope, so where they run over onto the floor at the wall's
-     * foot they spread there as a half ring from under the strike (the user: in the wall's own plane the floor took
-     * them as two straight stripes away from the wall).
+     * Distance of {@code (x, y, z)} from the frame's centre as its rings measure it: in space, from where they went
+     * out, so they run on over every surface they reach as a wave would: across the ground, up a wall from its foot in
+     * an arc, down from a wall onto the floor in a half ring, a little behind up a hill (the user: measured in a plane,
+     * a wall's ring ran onto the floor as two stripes and a floor's climbed a wall as two blocks).
      */
     static double ringDistance(BumpFrame frame, double x, double y, double z) {
-        Vec3 c = frame.center(), n = ringNormal(frame.normal());
+        Vec3 c = frame.center();
         double dx = x - c.x(), dy = y - c.y(), dz = z - c.z();
-        double d2 = dx * dx + dy * dy + dz * dz;
-        if (Math.abs(n.y()) < RING_LEVEL) {
-            return Math.sqrt(d2);
-        }
-        double along = dx * n.x() + dy * n.y() + dz * n.z();
-        return Math.sqrt(Math.max(0, d2 - along * along));
+        return Math.sqrt(dx * dx + dy * dy + dz * dz);
     }
 }

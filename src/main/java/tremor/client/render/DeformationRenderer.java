@@ -142,12 +142,12 @@ public final class DeformationRenderer {
     /** Its centre this far out in front of the surface, in the open. */
     static final double RING_LIFT = 0.6;
     /**
-     * A surface facing the plane of its rings this much at least (the cosine) moves with it: for a ring on the ground
-     * the floors and slopes, not the walls of a tunnel; for a pulse on a wall every face but those turned away from it,
-     * so it runs down a wall of steps over their tops too (the user).
+     * A surface facing the plane of its rings this much at least (the cosine) moves with it: every face but those
+     * turned away from it. A ring on the ground climbs the walls rising from it, one on a wall runs down onto the floor
+     * at its foot and over the tops of a wall of steps (the user); their distance in space makes it arcs there
+     * ({@link HeightField#ringDistance}).
      */
-    static final double RING_FACING = 0.35;
-    static final double RING_FACING_WALL = -0.1;
+    static final double RING_FACING = -0.1;
     /** The same ripple: its start within this many ticks. */
     static final double RING_SAME_TICKS = 2;
     /** Scan steps between two looks at the clock, and the time a frame spends on the scan at most. */
@@ -1091,9 +1091,9 @@ public final class DeformationRenderer {
      * the collection keeps to a band along the bump's normal, which a ring dozens of blocks wide leaves on any hill,
      * step or slope. This floods the open space from the ring's centre instead, as an Awakening's zone does
      * ({@link ZoneScan}), out to the ripple's reach and {@value #RING_HEIGHT} blocks up and down, and takes every
-     * surface voxel facing the plane of its rings ({@link HeightField#ringNormal}: the floor for a ring on the ground,
-     * not the walls of a tunnel; the wall for a pulse on a wall), a little each frame from the middle out, ahead of the
-     * ring. The ring stays where it went out while the bump creeps on, as the server's echo does (the user: jumped it,
+     * surface voxel not turned away from the plane of its rings ({@link HeightField#ringNormal}, {@link #RING_FACING}:
+     * the ground and the walls rising from it for a ring on the ground; the wall and the floor at its foot for a pulse
+     * on a wall), a little each frame from the middle out, ahead of the ring. The ring stays where it went out while the bump creeps on, as the server's echo does (the user: jumped it,
      * and found a second later all the same); a new ripple scans anew.
      */
     private static void scanRing(ClientLevel level, Bump bump, BumpFrame frame, RippleParams ripple, double age,
@@ -1122,9 +1122,8 @@ public final class DeformationRenderer {
         Vec3 n = bump.ringNormal;
         for (; bump.ringTaken < points.size(); bump.ringTaken++) {
             SurfacePoint p = points.get(bump.ringTaken);
-            double facing = Math.abs(n.y()) >= HeightField.RING_LEVEL ? RING_FACING : RING_FACING_WALL;
             long key = VoxelPos.pack(p.x(), p.y(), p.z());
-            if (p.normal().dot(n) >= facing && bump.ringKeys.add(key)) {
+            if (p.normal().dot(n) >= RING_FACING && bump.ringKeys.add(key)) {
                 // A voxel that has its column already (the bump's, its axis maybe another way) keeps it: making one of
                 // the ring's own would replace it, and the two would take turns, each new one unbaked (the review).
                 Column col = columns.get(key);
