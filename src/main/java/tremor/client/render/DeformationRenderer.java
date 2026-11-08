@@ -1176,7 +1176,7 @@ public final class DeformationRenderer {
             List<SurfacePoint> points = next.thin.points();
             for (int end = Math.min(points.size(), next.built + COLLECT_STEP); next.built < end; next.built++) {
                 SurfacePoint p = points.get(next.built);
-                next.active.add(column(p, tick));
+                next.active.add(column(p, tick, next.frame.normal()));
                 next.activeKeys.add(VoxelPos.pack(p.x(), p.y(), p.z()));
             }
             if (next.built == points.size()) {
