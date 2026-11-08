@@ -1,0 +1,71 @@
+# The hill that swallows a player on a ledge, seen in first person (1.4.0, the user: being sucked in on a ledge some
+# blocks of the hill showed hollow, their faces left out). A step two blocks high; the player right on its edge,
+# sneaking over the drop as the user stood, looking over it, then along it; shots as the hill rises around them.
+# Run: gradlew runClientAutotest -Ptremor_autotest_script=swallow-ledge.txt
+waitchunks
+cmd gamerule commandModificationBlockLimit 2147483647
+cmd gamemode spectator
+cmd time set noon
+cmd tremor despawn all
+cmd tremor awaken stop
+cmd kill @e[type=!player]
+cmd tp @s 860.5 205.0 300.5
+wait 40
+waitchunks
+cmd fill 830 194 280 890 199 360 minecraft:dirt
+cmd fill 830 200 280 890 200 360 minecraft:grass_block
+cmd fill 830 201 280 890 215 360 minecraft:air
+cmd fill 860 201 280 890 201 320 minecraft:dirt
+cmd fill 860 202 280 890 202 320 minecraft:grass_block
+cmd effect give @s minecraft:night_vision infinite 0 true
+config awakening.buildupSeconds 4
+hud off
+log --- on the edge of a step two blocks high, looking over the drop
+cmd tp @s 859.72 203.0 300.5 90 35
+cmd gamemode survival
+cmd effect give @s minecraft:instant_health 1 4 true
+cmd effect give @s minecraft:resistance 600 4 true
+cmd tremor spawn 862 202 312
+wait 20
+cmd tremor awaken
+hold sneak 80
+screenshot 01_drop
+wait 10
+screenshot 02_drop
+wait 10
+screenshot 03_drop
+wait 10
+screenshot 04_drop
+wait 10
+screenshot 05_drop
+wait 10
+screenshot 06_drop
+cmd gamemode spectator
+cmd tremor hollow leave
+cmd tremor awaken stop
+cmd tremor despawn all
+wait 40
+log --- the same edge, looking along it
+cmd tp @s 859.72 203.0 300.5 160 30
+cmd gamemode survival
+cmd effect give @s minecraft:instant_health 1 4 true
+cmd tremor spawn 862 202 312
+wait 20
+cmd tremor awaken
+hold sneak 80
+screenshot 11_along
+wait 10
+screenshot 12_along
+wait 10
+screenshot 13_along
+wait 10
+screenshot 14_along
+wait 10
+screenshot 15_along
+wait 10
+screenshot 16_along
+cmd gamemode spectator
+cmd tremor hollow leave
+cmd tremor awaken stop
+cmd tremor despawn all
+quit

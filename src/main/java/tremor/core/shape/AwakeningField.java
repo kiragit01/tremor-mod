@@ -155,15 +155,7 @@ public final class AwakeningField implements GroundField {
             h += breath * AwakeningShape.zoneFade(params, radius, Math.sqrt(dx * dx + dz * dz), y - center.y())
                     * swells.at(x, y, z);
         }
-        if (hill > 0) {
-            double dx = x - focus.x(), dz = z - focus.z(), dh2 = dx * dx + dz * dz;
-            double under = focus.y() - (y + 0.5);
-            double dy = under > 0 ? -0.5 : y - focus.y();
-            double d2 = dh2 + dy * dy;
-            if (d2 < hillCutSq) {
-                h += AwakeningShape.hill(hill, params.hillSigma(), d2) + lift(under, dh2, share());
-            }
-        }
+        h += hill(x, y, z);
         for (int i = 0, n = ringX.length; i < n; i++) {
             double dx = x - ringX[i], dy = y - ringY[i], dz = z - ringZ[i];
             double d2 = dx * dx + dy * dy + dz * dz;
@@ -174,6 +166,18 @@ public final class AwakeningField implements GroundField {
             h += Ripple.height(ring.params(), Math.sqrt(d2), ring.ageSeconds());
         }
         return h;
+    }
+
+    /** The hill's own part of {@link #at}: 0 away from it, or if there is none. */
+    public double hill(double x, double y, double z) {
+        if (!(hill > 0)) {
+            return 0;
+        }
+        double dx = x - focus.x(), dz = z - focus.z(), dh2 = dx * dx + dz * dz;
+        double under = focus.y() - (y + 0.5);
+        double dy = under > 0 ? -0.5 : y - focus.y();
+        double d2 = dh2 + dy * dy;
+        return d2 < hillCutSq ? AwakeningShape.hill(hill, params.hillSigma(), d2) + lift(under, dh2, share()) : 0;
     }
 
     /**
