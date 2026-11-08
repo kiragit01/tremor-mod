@@ -37,6 +37,8 @@ public final class ZoneScan {
 
     private final VoxelView view;
     private final Vec3 prefer;
+    /** {@link #prefer} snapped to its nearest axis, as {@link SurfaceCollector#openWay} goes; null without it. */
+    private final Vec3 preferAxis;
     private final NormalField normals;
     private final double cx, cz, radiusSq;
     private final int startX, startY, startZ;
@@ -79,6 +81,8 @@ public final class ZoneScan {
         }
         this.view = view;
         this.prefer = prefer;
+        int[] axis = prefer == null ? null : ThinSwell.axisStep(prefer);
+        this.preferAxis = axis == null ? null : new Vec3(axis[0], axis[1], axis[2]);
         this.normals = new NormalField(view);
         this.cx = center.x();
         this.cz = center.z();
@@ -192,17 +196,43 @@ public final class ZoneScan {
             enqueue(x, y, z);
         } else if (normals.isSurface(x, y, z)) {
             Vec3 normal = normals.smooth(x, y, z);
-            if (normal.isNearZero() || SurfaceCollector.pushNormal(view, x, y, z, normal) == null
-                    || ThinSwell.thin(view, x, y, z) && ThinSwell.axisStep(normal)[1] == 0) {
+            boolean none = normal.isNearZero() || SurfaceCollector.pushNormal(view, x, y, z, normal) == null;
+            if (prefer != null) {
+                // A ring running by: the sides of a thin wall ripple out of it as any wall's do (the user: a floor's
+                // ring climbed a wall as two blocks). One with no normal of its own (a wall one block thick) moves
+                // along the ring's axis if open there, else out of the side the ring comes from.
+                if (none) {
+                    Vec3 way = SurfaceCollector.openWay(view, x, y, z, prefer);
+                    normal = way != null && way.equals(preferAxis) ? way : toward(x, y, z, way);
+                }
+            } else if (none || ThinSwell.thin(view, x, y, z) && ThinSwell.axisStep(normal)[1] == 0) {
                 // Thin ground (a pillar, a ridge one or two blocks wide) only rises at its top: its sides, all edges
                 // and corners, would fan out every way. Its top, a floor one block thick, a lip over a drop go
                 // straight up instead of standing still (the user).
-                normal = SurfaceCollector.openWay(view, x, y, z, prefer);
+                normal = SurfaceCollector.openWay(view, x, y, z, null);
             }
             if (normal != null) {
                 points.add(new SurfacePoint(x, y, z, normal));
             }
         }
+    }
+
+    /**
+     * The open side of the voxel facing the centre across (the way a ring comes from), else {@code fallback}: the side
+     * of a wall one block thick a ring on the ground reaches first.
+     */
+    private Vec3 toward(int x, int y, int z, Vec3 fallback) {
+        double dx = cx - (x + 0.5), dz = cz - (z + 0.5);
+        int sx = dx > 0 ? 1 : -1, sz = dz > 0 ? 1 : -1;
+        boolean xFirst = Math.abs(dx) >= Math.abs(dz);
+        for (int i = 0; i < 2; i++) {
+            boolean alongX = xFirst == (i == 0);
+            int ax = alongX ? sx : 0, az = alongX ? 0 : sz;
+            if ((alongX ? Math.abs(dx) : Math.abs(dz)) > 0.25 && view.isOpen(x + ax, y, z + az)) {
+                return new Vec3(ax, 0, az);
+            }
+        }
+        return fallback;
     }
 
     private boolean inside(int x, int y, int z) {

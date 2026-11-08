@@ -78,6 +78,27 @@ class ZoneScanOpenTopTest {
     }
 
     @Test
+    void aRingOnTheGroundClimbsTheSidesOfThinWallsToo() {
+        // The user: a floor's ring climbed a wall as two blocks. A wall two blocks thick and one a block thick, the
+        // ring's centre on the floor in front of them: their sides up to the top move out toward the ring.
+        ArrayVoxelGrid g = ArrayVoxelGrid.flatFloor(0);
+        g.fill(-4, 1, -6, -3, 6, 6, true); // two thick, its face at x -3
+        g.fill(5, 1, -6, 5, 6, 6, true);   // one thick, at x 5
+        ZoneScan ring = new ZoneScan(g, new Vec3(0.5, 1.6, 0.5), 8, 6, 6, tremor.core.math.Vec3.UNIT_Y);
+        assertTrue(ring.advance(Integer.MAX_VALUE));
+        for (int y = 1; y <= 5; y++) {
+            int yy = y;
+            SurfacePoint thick = ring.points().stream().filter(p -> p.x() == -3 && p.y() == yy && p.z() == 0)
+                    .findFirst().orElse(null);
+            SurfacePoint thin = ring.points().stream().filter(p -> p.x() == 5 && p.y() == yy && p.z() == 0)
+                    .findFirst().orElse(null);
+            assertTrue(thick != null && thick.normal().x() > 0.8, "two thick at y " + y + ": " + thick);
+            assertTrue(thin != null && thin.normal().equals(new tremor.core.math.Vec3(-1, 0, 0)),
+                    "one thick at y " + y + ", out toward the ring: " + thin);
+        }
+    }
+
+    @Test
     void aRaggedEdgeOverADrop() {
         ArrayVoxelGrid g = ArrayVoxelGrid.flatFloor(0);
         g.fill(3, -6, -6, 8, 0, 6, false); // a drop beyond x 3
