@@ -1,0 +1,88 @@
+# A tremor's echo by edges and in a pit (1.4.0, the user: standing by other planes, its hill stretched over blocks it
+# should not touch as it sent its echo). A tremor still (AI off) on the edge of a raised floor, then down in a small
+# pit, then on a wall by the floor, /tremor echo; tinted shots as it draws in and as its ring starts out.
+# Run: gradlew runClientAutotest -Ptremor_autotest_script=echo-edges.txt
+waitchunks
+cmd gamerule commandModificationBlockLimit 2147483647
+cmd gamemode spectator
+cmd time set noon
+cmd tremor despawn all
+cmd kill @e[type=!player]
+cmd tp @s 860.5 215.0 300.5
+wait 40
+waitchunks
+cmd fill 830 195 280 890 199 320 minecraft:cobbled_deepslate
+cmd fill 830 200 280 890 200 320 minecraft:cobbled_deepslate
+cmd fill 830 201 280 890 230 320 minecraft:air
+cmd fill 830 201 280 860 202 320 minecraft:cobbled_deepslate
+cmd fill 866 197 294 869 200 297 minecraft:air
+cmd fill 866 197 294 866 197 297 minecraft:cobbled_deepslate
+cmd fill 867 198 294 867 198 297 minecraft:air
+config ambush.enabled false
+config echo.rings 1
+hud off
+tint on
+log --- A. on the edge of a raised floor
+cmd tremor spawn 860 202 300
+cmd tremor ai off
+cmd tremor stage alert
+cmd tp @s 866.5 206.0 306.5 135 35
+wait 40
+screenshot A0_still
+cmd tremor echo
+wait 6
+screenshot A1_drawing_in
+wait 10
+screenshot A2_drawing_in
+wait 8
+screenshot A3_ring
+wait 8
+screenshot A4_ring
+wait 10
+screenshot A5_ring
+wait 120
+log --- B. down in a small pit
+cmd tremor despawn all
+wait 10
+cmd tremor spawn 868 196 296
+cmd tremor ai off
+cmd tremor stage alert
+cmd tp @s 872.5 203.0 300.5 135 50
+wait 40
+screenshot B0_still
+cmd tremor echo
+wait 6
+screenshot B1_drawing_in
+wait 10
+screenshot B2_drawing_in
+wait 8
+screenshot B3_ring
+wait 8
+screenshot B4_ring
+wait 10
+screenshot B5_ring
+wait 120
+log --- C. on a wall by the floor
+cmd tremor despawn all
+cmd fill 830 201 281 846 204 290 minecraft:cobbled_deepslate
+wait 10
+cmd tremor spawn 846 202 285
+cmd tremor ai off
+cmd tremor stage alert
+cmd tp @s 852.5 205.0 291.5 135 30
+wait 40
+screenshot C0_still
+cmd tremor echo
+wait 6
+screenshot C1_drawing_in
+wait 10
+screenshot C2_drawing_in
+wait 8
+screenshot C3_ring
+wait 10
+screenshot C4_ring
+tint off
+cmd tremor despawn all
+config ambush.enabled true
+config echo.rings 3
+quit

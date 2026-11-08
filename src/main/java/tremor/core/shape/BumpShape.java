@@ -16,10 +16,16 @@ import tremor.core.noise.PerlinNoise;
  * The trail pulls the back down but never through 0: the back fades out as gently as the sides (the user: a crawling
  * tremor's sides end soft, its back in a cliff). It was a dip subtracted once, never drawn (a hole needs the real
  * blocks hidden), that only cut the back off along a straight line where it crossed the bump.
- * The height is independent of {@code d·n}, i.e. of where along the normal the sample point lies.
+ * Within {@value #PLANE} block of its plane ({@code |d·n|}) the height is independent of where along the normal the
+ * sample point lies (steps, a rough floor rise as the ground under them); farther off it fades as at its sides, so the
+ * floor before a wall a tremor is on, or the ground around a pit it is down in, does not rise with it (the user: its
+ * hill stretched over blocks it should not touch).
  * All methods are allocation-free and thread-safe.
  */
 public final class BumpShape {
+    /** Within this far of its plane (blocks, along the normal) the bump is as on it; beyond, it fades over {@link #OFF_SIGMA}. */
+    public static final double PLANE = 1.0;
+    static final double OFF_SIGMA = 1.2;
     /** Points with {@code |h|} below this are not rendered (SPEC 6.1). */
     public static final double RENDER_THRESHOLD = 0.05;
     /** Spatial frequency of the jitter noise, per block. */
@@ -72,7 +78,8 @@ public final class BumpShape {
         double sigmaSide = params.sigmaSide();
         double side = b2 / (sigmaSide * sigmaSide);
         double sigmaA = a >= 0 ? params.sigmaFront() : params.sigmaBack();
-        double bump = Math.exp(-(a * a / (sigmaA * sigmaA) + side));
+        double off = Math.abs(along) - PLANE;
+        double bump = Math.exp(-(a * a / (sigmaA * sigmaA) + side + (off > 0 ? off * off / (OFF_SIGMA * OFF_SIGMA) : 0)));
         double h = amplitude * bump;
 
         double trailDepth = params.trailDepth();

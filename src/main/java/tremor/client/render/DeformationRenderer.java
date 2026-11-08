@@ -148,6 +148,12 @@ public final class DeformationRenderer {
      * ({@link HeightField#ringDistance}).
      */
     static final double RING_FACING = -0.1;
+    /**
+     * A face of the bump's turned within this of its normal (the cosine) has its copies go the bump's way, not its own:
+     * on the edge of a ledge the face below the edge rose with the top as one, not out in shelves with holes between
+     * (the user: on the ground below it filled up whole).
+     */
+    static final double LEAN = 0.5;
     /** The same ripple: its start within this many ticks. */
     static final double RING_SAME_TICKS = 2;
     /** Scan steps between two looks at the clock, and the time a frame spends on the scan at most. */
@@ -471,12 +477,12 @@ public final class DeformationRenderer {
         for (int b = 0; b < frameBumps.size(); b++) {
             Bump bump = frameBumps.get(b);
             for (int i = 0, n = bump.active.size(); i < n; i++) {
-                evaluate(bump, b, bump.active.get(i), now);
+                evaluate(bump, b, bump.active.get(i), now, false);
             }
             for (int i = 0, n = bump.ringColumns.size(); i < n; i++) {
                 Column col = bump.ringColumns.get(i);
                 if (!bump.activeKeys.contains(VoxelPos.pack(col.x, col.y, col.z))) {
-                    evaluate(bump, b, col, now);
+                    evaluate(bump, b, col, now, true);
                 }
             }
         }
@@ -570,9 +576,14 @@ public final class DeformationRenderer {
         return !drawn.isEmpty();
     }
 
-    /** The height of {@code col} under the {@code b}-th bump of this frame, added to what other bumps raise it. */
-    private static void evaluate(Bump bump, int b, Column col, double now) {
-        double h = col.fill ? fillCoverage(bump.field, col, rise(col, now)) : bump.field.at(col.cx, col.cy, col.cz);
+    /**
+     * The height of {@code col} under the {@code b}-th bump of this frame, added to what other bumps raise it;
+     * {@code ringOnly}: ground only the bump's ring took, beyond its own, moves with the ring alone (the user: the
+     * ground around a pit a tremor was down in, the walls of the pit, rose with its hill as it sent its echo).
+     */
+    private static void evaluate(Bump bump, int b, Column col, double now, boolean ringOnly) {
+        double h = ringOnly ? bump.field.ripple(col.cx, col.cy, col.cz)
+                : col.fill ? fillCoverage(bump.field, col, rise(col, now)) : bump.field.at(col.cx, col.cy, col.cz);
         if (col.stamp != frameStamp) {
             col.stamp = frameStamp;
             col.inBump = true;
@@ -1061,7 +1072,7 @@ public final class DeformationRenderer {
         bump.active.clear();
         bump.activeKeys.clear();
         for (SurfacePoint p : thin.points()) {
-            bump.active.add(column(p, tick));
+            bump.active.add(column(p, tick, frame.normal()));
             bump.activeKeys.add(VoxelPos.pack(p.x(), p.y(), p.z()));
         }
         for (Column col : bump.fills.values()) {
@@ -1153,12 +1164,30 @@ public final class DeformationRenderer {
 
     /** The column of a collected surface voxel (the bump's or the zone's), made or refreshed, used at {@code tick}. */
     private static Column column(SurfacePoint p, long tick) {
+        return column(p, tick, null);
+    }
+
+    /**
+     * {@link #column(SurfacePoint, long)}; {@code bumpNormal}, if not null, the bump's: a face turned within
+     * {@link #LEAN} of it has its copies go the bump's way.
+     */
+    private static Column column(SurfacePoint p, long tick, Vec3 bumpNormal) {
         long key = VoxelPos.pack(p.x(), p.y(), p.z());
         Vec3 n = p.normal();
-        // The way its copies go: up for a slope of steps, the open side for the face of a ledge (SurfaceCollector).
-        Vec3 push = SurfaceCollector.pushNormal(voxels, p.x(), p.y(), p.z(), n);
-        Vec3 way = push == null ? n : push;
-        Direction axis = Direction.getNearest(way.x(), way.y(), way.z());
+        Direction axis;
+        boolean foot = false;
+        if (bumpNormal != null && n.dot(bumpNormal) >= LEAN) {
+            // shortcut: the zone (an Awakening's or the hollow's ground) makes its columns without the lean, so a bump
+            // leaning on ground the zone has too would split it into two columns, both drawn; the entity is the zone
+            // in an Awakening, so they do not meet yet. Share the column between them if they ever do.
+            axis = Direction.getNearest(bumpNormal.x(), bumpNormal.y(), bumpNormal.z());
+            foot = openAcross(p.x(), p.y(), p.z(), axis);
+        } else {
+            // The way its copies go: up for a slope of steps, the open side for the face of a ledge (SurfaceCollector).
+            Vec3 push = SurfaceCollector.pushNormal(voxels, p.x(), p.y(), p.z(), n);
+            Vec3 way = push == null ? n : push;
+            axis = Direction.getNearest(way.x(), way.y(), way.z());
+        }
         Column col = columns.get(key);
         if (col == null || col.axis != axis || col.fill) {
             col = new Column(p.x(), p.y(), p.z(), axis, n);
@@ -1167,8 +1196,19 @@ public final class DeformationRenderer {
             col.baked = false; // baked empty (no model, chunk not loaded): look again when it rises next
         }
         col.normal = n;
+        col.foot = foot;
         col.lastUsed = tick;
         return col;
+    }
+
+    /** Whether one of the four neighbours of the voxel across {@code axis} is open: a face its copies leave bare. */
+    private static boolean openAcross(int x, int y, int z, Direction axis) {
+        for (Direction d : Direction.values()) {
+            if (d.getAxis() != axis.getAxis() && voxels.isOpen(x + d.getStepX(), y + d.getStepY(), z + d.getStepZ())) {
+                return true;
+            }
+        }
+        return false;
     }
 
     /** The column of a cell a thin structure swells into ({@link ThinSwell}), made or refreshed, used at {@code tick}. */
@@ -1542,12 +1582,14 @@ public final class DeformationRenderer {
                 frameCopies++;
             } else if (mesh != null) {
                 int stack = (int) Math.ceil(col.h); // copies at h, h-1, ... fill the gap down to the original
-                for (int k = 0; k < stack; k++) {
+                // and, for a face going the hill's way (Column.foot), one more in the place of its own block
+                int copies = col.foot && !frameWarp ? stack + 1 : stack;
+                for (int k = 0; k < copies; k++) {
                     if (frameWarp) {
                         emitWarped(consumer, mesh, col, k, bx, by, bz, 0, 0, 0);
                         frameVertices += mesh.size();
                     } else {
-                        double off = col.h - k;
+                        double off = k < stack ? col.h - k : 0;
                         float x = bx + (float) (ax * off), y = by + (float) (ay * off);
                         float z = bz + (float) (az * off);
                         // Near the camera every face: swallowed by the hill off the middle of a block, the copy
@@ -1564,7 +1606,7 @@ public final class DeformationRenderer {
                         }
                     }
                 }
-                frameCopies += stack;
+                frameCopies += copies;
                 if (col.cross != null && !frameWarp) {
                     // The seam: a staircase toward the other way, from the top of the stack down to its foot, as far
                     // out as the copy is high, so the corner fills like the slope of a hill.
