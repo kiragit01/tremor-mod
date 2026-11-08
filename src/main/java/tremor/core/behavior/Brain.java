@@ -129,6 +129,9 @@ public final class Brain {
     /** How much the remembered sound weighed when it was heard (the anger it added). */
     private double salience;
     private double secondsSinceHeard = Double.POSITIVE_INFINITY;
+    /** The sound heard this tick is one it knows the place of ({@link #knows}), and the one pending is. */
+    private boolean heardSure;
+    private boolean pendingKnown;
 
     /** Stage of the last tick; null before the first one. */
     private Stage stage;
@@ -171,6 +174,15 @@ public final class Brain {
         hear(position, perceived, Double.POSITIVE_INFINITY);
     }
 
+    /**
+     * It knows where a player is (their echo came back to it): taken whatever it remembers, and ALERT it goes there
+     * at once, no freeze first (the user: the echo came back and it stood a while before it went).
+     */
+    public void knows(Vec3 position, double perceived) {
+        hear(position, perceived);
+        pendingKnown = true;
+    }
+
     /** The weight of the remembered sound now; 0 if none. */
     private double remembered() {
         return lastHeard == null ? 0 : salience * Math.pow(0.5, secondsSinceHeard / MEMORY_HALF_LIFE);
@@ -194,6 +206,8 @@ public final class Brain {
         boolean near = lastHeard != null && pendingPosition != null
                 && pendingPosition.distance(lastHeard) <= SAME_PLACE;
         boolean heard = pendingPosition != null && (near || pendingSalience >= memory);
+        heardSure = heard && pendingKnown;
+        pendingKnown = false;
         if (heard) {
             salience = Double.isInfinite(pendingSalience) ? memory
                     : near ? Math.max(memory, pendingSalience) : pendingSalience;
@@ -285,7 +299,8 @@ public final class Brain {
     /**
      * ALERT: at a sound out of the blue it freezes, turned to it; sounds during the freeze turn it but do not draw the
      * freeze out (the user: it stood as long as sounds kept coming); then it creeps to the last one, each new one
-     * redirecting it, and listens there; a sound while it listens sends it on, no freeze.
+     * redirecting it, and listens there; a sound while it listens sends it on, no freeze. A player it knows the place
+     * of ({@link #knows}) sends it on at once, from a freeze too.
      */
     private Decision alert(double dt, boolean heard, Vec3 position, boolean idle, BrainWorld world) {
         switch (mode) {
@@ -294,7 +309,7 @@ public final class Brain {
             default -> {
             }
         }
-        if (heard && mode == Mode.LISTEN) {
+        if (heard && (mode == Mode.LISTEN || heardSure)) {
             mode = Mode.CREEP;
         } else if (heard && mode != Mode.FREEZE && mode != Mode.CREEP) {
             mode = Mode.FREEZE;

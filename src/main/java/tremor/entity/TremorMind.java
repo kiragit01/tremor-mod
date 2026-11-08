@@ -299,6 +299,11 @@ final class TremorMind {
         brain.hear(at, STRIKE_LOUDNESS);
     }
 
+    /** A player's echo came back from {@code at}: it knows where they are, and goes ({@link Brain#knows}). */
+    void knew(Vec3 at) {
+        brain.knows(at, STRIKE_LOUDNESS);
+    }
+
     /** The entity is gone: what it sent out goes with it. */
     void discard() {
         perch.discard();

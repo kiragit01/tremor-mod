@@ -1248,7 +1248,7 @@ public final class TremorRuntime {
         relay(source, player, perceived, bonus, "echo");
         TremorEntity entity = this.entity;
         if (entity != null && error == null && !paused && !entity.leaving() && !entity.absorbed()) {
-            mind(entity).felt(source);
+            mind(entity).knew(source);
         }
     }
 
