@@ -22,6 +22,7 @@
   "tremor.configuration.items.frenzySeconds": "Бешенство стихает через (с)",
   "item.tremor.tremor_shard": "Осколок Тремора",
   "item.tremor.hush_charm": "Оберег тишины",
+  "tremor.marks.first": "Тварь запомнила твои шаги (метка %s)",
   "tremor.marks.known": "Тварь узнаёт тебя (метка %s)",
   "tremor.marks.counter": "Метки",
   "tremor.marks.none": "У тебя нет меток",
