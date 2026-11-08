@@ -50,18 +50,23 @@ class HeightFieldTest {
     }
 
     @Test
-    void distanceIsMeasuredInTheTangentPlaneOfTheNormal() {
+    void ringsRunLevelOnTheGroundAndThroughSpaceOnAWall() {
+        // On a wall the distance is in space: within the wall (y, z) as before, and the floor at its foot reached as a
+        // half ring from under the strike, not as stripes straight out from the wall (the user).
         BumpFrame wall = BumpFrame.of(new Vec3(0, 70, 0), Vec3.UNIT_X, Vec3.UNIT_Y);
-        // Along the normal does not count; within the wall plane (y, z) it does.
-        assertEquals(0, HeightField.tangentDistance(wall, 5, 70, 0), 1e-12);
-        assertEquals(5, HeightField.tangentDistance(wall, -2, 73, 4), 1e-12);
+        assertEquals(5, HeightField.ringDistance(wall, 0, 73, 4), 1e-12);
+        assertEquals(5, HeightField.ringDistance(wall, 3, 66, 0), 1e-12);
+        assertEquals(Math.sqrt(29), HeightField.ringDistance(wall, -2, 73, 4), 1e-12);
+        assertEquals(HeightField.ringDistance(wall, 2, 68, 1), HeightField.ringDistance(wall, 2, 68, -1), 1e-12);
+        assertTrue(HeightField.ringDistance(wall, 4, 68, 1) > HeightField.ringDistance(wall, 1, 68, 1),
+                "out on the floor, farther from the wall is farther");
         BumpFrame slope = BumpFrame.of(Vec3.ZERO, new Vec3(1, 1, 0), Vec3.UNIT_Z);
         Vec3 n = slope.normal(), side = slope.side();
-        Vec3 p = n.scale(1.7).add(side.scale(3)).add(slope.forward().scale(-4));
-        assertEquals(5, HeightField.tangentDistance(slope, p.x(), p.y(), p.z()), 1e-12);
+        Vec3 p = side.scale(3).add(slope.forward().scale(-4));
+        assertEquals(5, HeightField.ringDistance(slope, p.x(), p.y(), p.z()), 1e-12);
         // A gentle slope runs its rings level: only the horizontal distance counts.
         BumpFrame gentle = BumpFrame.of(new Vec3(0, 64, 0), new Vec3(0.3, 1, 0), Vec3.UNIT_Z);
-        assertEquals(5, HeightField.tangentDistance(gentle, 3, 61, 4), 1e-12);
-        assertEquals(5, HeightField.tangentDistance(gentle, -4, 66.5, 3), 1e-12);
+        assertEquals(5, HeightField.ringDistance(gentle, 3, 61, 4), 1e-12);
+        assertEquals(5, HeightField.ringDistance(gentle, -4, 66.5, 3), 1e-12);
     }
 }

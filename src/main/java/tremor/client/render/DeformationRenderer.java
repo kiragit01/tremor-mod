@@ -902,7 +902,7 @@ public final class DeformationRenderer {
         double front = RippleDust.front(ripple, ageSeconds);
         for (int i = 0, n = active.size(); i < n; i++) {
             Column col = active.get(i);
-            if (!col.fill && RippleDust.onFront(HeightField.tangentDistance(frame, col.cx, col.cy, col.cz), front)) {
+            if (!col.fill && RippleDust.onFront(HeightField.ringDistance(frame, col.cx, col.cy, col.cz), front)) {
                 dustFront.add(col);
             }
         }
