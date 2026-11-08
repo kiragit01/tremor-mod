@@ -35,6 +35,11 @@ cmd tremor echo
 wait 460
 cmd tremor info
 log --- 3. within reach: found by the first, no more
+cmd tremor despawn all
+wait 20
+cmd tremor spawn 860 200 300
+cmd tremor stage alert
+cmd tremor anger 35
 cmd tp @s 875.5 201.0 300.5 90 15
 wait 60
 cmd tremor echo
