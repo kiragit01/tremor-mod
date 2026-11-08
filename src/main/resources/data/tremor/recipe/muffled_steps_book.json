@@ -1,26 +1,28 @@
 {
-  "type": "minecraft:crafting_shapeless",
+  "type": "minecraft:crafting_shaped",
   "category": "misc",
-  "ingredients": [
-    {
+  "pattern": [
+    " A ",
+    "SBS",
+    "DWD"
+  ],
+  "key": {
+    "A": {
+      "item": "minecraft:amethyst_shard"
+    },
+    "S": {
+      "item": "tremor:tremor_shard"
+    },
+    "B": {
       "item": "minecraft:book"
     },
-    {
-      "item": "tremor:tremor_shard"
-    },
-    {
-      "item": "tremor:tremor_shard"
-    },
-    {
+    "D": {
       "item": "minecraft:diamond"
     },
-    {
-      "item": "minecraft:diamond"
-    },
-    {
+    "W": {
       "tag": "minecraft:wool"
     }
-  ],
+  },
   "result": {
     "id": "minecraft:enchanted_book",
     "count": 1,
