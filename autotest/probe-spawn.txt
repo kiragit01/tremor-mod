@@ -36,6 +36,10 @@ cmd tp @s 860.5 201.0 300.5 160 45
 wait 10
 hold probe_add+attack 2
 wait 30
+log --- Shift + a right click: the menu
+hold sneak+use 1
+wait 10
+screenshot 01_menu
 cmd tremor despawn all
 config ambush.enabled true
 quit
