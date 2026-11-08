@@ -166,12 +166,6 @@ public final class DeformationRenderer {
      * ({@link HeightField#ringDistance}).
      */
     static final double RING_FACING = -0.1;
-    /**
-     * A face of the bump's turned within this of its normal (the cosine) has its copies go the bump's way, not its own:
-     * on the edge of a ledge the face below the edge rose with the top as one, not out in shelves with holes between
-     * (the user: on the ground below it filled up whole).
-     */
-    static final double LEAN = 0.5;
     /** The same ripple: its start within this many ticks. */
     static final double RING_SAME_TICKS = 2;
     /** Scan steps between two looks at the clock, and the time a frame spends on the scan at most. */
@@ -1125,7 +1119,7 @@ public final class DeformationRenderer {
         bump.active.clear();
         bump.activeKeys.clear();
         for (SurfacePoint p : thin.points()) {
-            bump.active.add(column(p, tick, frame.normal()));
+            bump.active.add(column(p, tick));
             bump.activeKeys.add(VoxelPos.pack(p.x(), p.y(), p.z()));
         }
         collected(bump, thin.fills(), frame, options.radius(), tick);
@@ -1165,7 +1159,7 @@ public final class DeformationRenderer {
             List<SurfacePoint> points = next.thin.points();
             for (int end = Math.min(points.size(), next.built + COLLECT_STEP); next.built < end; next.built++) {
                 SurfacePoint p = points.get(next.built);
-                next.active.add(column(p, tick, next.frame.normal()));
+                next.active.add(column(p, tick));
                 next.activeKeys.add(VoxelPos.pack(p.x(), p.y(), p.z()));
             }
             if (next.built == points.size()) {
@@ -1272,30 +1266,12 @@ public final class DeformationRenderer {
 
     /** The column of a collected surface voxel (the bump's or the zone's), made or refreshed, used at {@code tick}. */
     private static Column column(SurfacePoint p, long tick) {
-        return column(p, tick, null);
-    }
-
-    /**
-     * {@link #column(SurfacePoint, long)}; {@code bumpNormal}, if not null, the bump's: a face turned within
-     * {@link #LEAN} of it has its copies go the bump's way.
-     */
-    private static Column column(SurfacePoint p, long tick, Vec3 bumpNormal) {
         long key = VoxelPos.pack(p.x(), p.y(), p.z());
         Vec3 n = p.normal();
-        Direction axis;
-        boolean foot = false;
-        if (bumpNormal != null && n.dot(bumpNormal) >= LEAN) {
-            // shortcut: the zone (an Awakening's or the hollow's ground) makes its columns without the lean, so a bump
-            // leaning on ground the zone has too would split it into two columns, both drawn; the entity is the zone
-            // in an Awakening, so they do not meet yet. Share the column between them if they ever do.
-            axis = Direction.getNearest(bumpNormal.x(), bumpNormal.y(), bumpNormal.z());
-            foot = openAcross(p.x(), p.y(), p.z(), axis);
-        } else {
-            // The way its copies go: up for a slope of steps, the open side for the face of a ledge (SurfaceCollector).
-            Vec3 push = SurfaceCollector.pushNormal(voxels, p.x(), p.y(), p.z(), n);
-            Vec3 way = push == null ? n : push;
-            axis = Direction.getNearest(way.x(), way.y(), way.z());
-        }
+        // The way its copies go: up for a slope of steps, the open side for the face of a ledge (SurfaceCollector).
+        Vec3 push = SurfaceCollector.pushNormal(voxels, p.x(), p.y(), p.z(), n);
+        Vec3 way = push == null ? n : push;
+        Direction axis = Direction.getNearest(way.x(), way.y(), way.z());
         Column col = columns.get(key);
         if (col == null || col.axis != axis || col.fill) {
             col = new Column(p.x(), p.y(), p.z(), axis, n);
@@ -1304,19 +1280,8 @@ public final class DeformationRenderer {
             col.baked = false; // baked empty (no model, chunk not loaded): look again when it rises next
         }
         col.normal = n;
-        col.foot = foot;
         col.lastUsed = tick;
         return col;
-    }
-
-    /** Whether one of the four neighbours of the voxel across {@code axis} is open: a face its copies leave bare. */
-    private static boolean openAcross(int x, int y, int z, Direction axis) {
-        for (Direction d : Direction.values()) {
-            if (d.getAxis() != axis.getAxis() && voxels.isOpen(x + d.getStepX(), y + d.getStepY(), z + d.getStepZ())) {
-                return true;
-            }
-        }
-        return false;
     }
 
     /** The column of a cell a thin structure swells into ({@link ThinSwell}), made or refreshed, used at {@code tick}. */
@@ -1693,14 +1658,12 @@ public final class DeformationRenderer {
                 frameCopies++;
             } else if (mesh != null) {
                 int stack = (int) Math.ceil(col.h); // copies at h, h-1, ... fill the gap down to the original
-                // and, for a face going the hill's way (Column.foot), one more in the place of its own block
-                int copies = col.foot && !frameWarp ? stack + 1 : stack;
-                for (int k = 0; k < copies; k++) {
+                for (int k = 0; k < stack; k++) {
                     if (frameWarp) {
                         emitWarped(consumer, mesh, col, k, bx, by, bz, 0, 0, 0);
                         frameVertices += mesh.size();
                     } else {
-                        double off = k < stack ? col.h - k : 0;
+                        double off = col.h - k;
                         float x = bx + (float) (ax * off), y = by + (float) (ay * off);
                         float z = bz + (float) (az * off);
                         // Near the camera every face: swallowed by the hill off the middle of a block, the copy
@@ -1717,7 +1680,7 @@ public final class DeformationRenderer {
                         }
                     }
                 }
-                frameCopies += copies;
+                frameCopies += stack;
                 if (col.cross != null && !frameWarp) {
                     // The seam: a staircase toward the other way, from the top of the stack down to its foot, as far
                     // out as the copy is high, so the corner fills like the slope of a hill.
