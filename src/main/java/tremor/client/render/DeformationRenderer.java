@@ -298,6 +298,8 @@ public final class DeformationRenderer {
     /** Game time the ground was last drawn ({@link #groundShown}). */
     private static long groundShownAt = Long.MIN_VALUE / 2;
     private static boolean frameWarp;
+    /** This frame's ground if it is a hill swallowing a player, its copies drawn whole ({@link #draw}); else null. */
+    private static AwakeningField frameSwallowing;
     /** Distance from the camera at which the budget cut an Awakening's ground off ({@link RenderBudget}); NaN: none. */
     private static double frameCut = Double.NaN;
     private static double camX, camY, camZ;
@@ -450,6 +452,7 @@ public final class DeformationRenderer {
         camZ = cam.z;
         bumps(level, partialTick, tick);
         GroundField ground = ground(level, (double) tick + partialTick, partialTick, tick);
+        frameSwallowing = AwakeningGround.swallowing(ground);
         if (frameBumps.isEmpty() && ground == null && frameBridges.isEmpty()) {
             return false;
         }
@@ -1536,6 +1539,10 @@ public final class DeformationRenderer {
                 frameCopies++;
             } else if (mesh != null) {
                 int stack = (int) Math.ceil(col.h); // copies at h, h-1, ... fill the gap down to the original
+                // The hill swallowing a player draws all its faces: it is seen from inside, through the gaps between
+                // its stacks, and the faces left out showed its blocks hollow (the user, on the edge of a ledge).
+                boolean whole = col.inZone && frameSwallowing != null
+                        && frameSwallowing.hill(col.cx, col.cy, col.cz) >= BumpShape.RENDER_THRESHOLD;
                 for (int k = 0; k < stack; k++) {
                     if (frameWarp) {
                         emitWarped(consumer, mesh, col, k, bx, by, bz, 0, 0, 0);
@@ -1547,7 +1554,7 @@ public final class DeformationRenderer {
                         // Near the camera every face: swallowed by the hill off the middle of a block, the copy
                         // beside the one it is in showed hollow, the face toward it left out (the user).
                         boolean near = within(x, y, z, NEAR_CAMERA);
-                        frameVertices += mesh.emitCulled(consumer, x, y, z, near ? 0 : hidden(col, k, off),
+                        frameVertices += mesh.emitCulled(consumer, x, y, z, near || whole ? 0 : hidden(col, k, off),
                                 Column.stackGrow(grow, k));
                         if (near && within(x, y, z, INSIDE_MARGIN)) {
                             // The camera is inside this copy, or so near it that the view starts inside it (a hill
