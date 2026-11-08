@@ -38,6 +38,8 @@ public final class TremorClient {
         game.addListener(ClientTremor::onLoggingOut);
         game.addListener(tremor.client.DebugProbeHud::onLoggingOut);
         game.addListener(tremor.client.ProbeTool::onClientTick);
+        game.addListener(tremor.client.ProbeTool::onMouseScroll);
+        game.addListener(tremor.client.ProbeTool::onInteraction);
         game.addListener(DeformationRenderer::onLoggingOut);
         game.addListener(RustleSound::onClientTick);
         game.addListener(tremor.client.sound.SoundFades::onClientTick);
