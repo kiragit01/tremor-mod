@@ -7,6 +7,7 @@ import tremor.core.VoxelView;
 import tremor.core.math.Vec3;
 import tremor.core.shape.BumpFrame;
 import tremor.core.shape.BumpParams;
+import tremor.core.shape.BumpShape;
 import tremor.core.surface.NormalField;
 
 /** Finds the surface voxels a bump deforms. */
@@ -34,7 +35,7 @@ public final class SurfaceCollector {
 
         /** {@code radius = params.influenceRadius()}, {@code normalBand = 2.5}, {@code minNormalDot = -0.2}. */
         public static Options forParams(BumpParams params) {
-            return new Options(params.influenceRadius(), 2.5, -0.2);
+            return new Options(params.influenceRadius(), BumpShape.BAND, -0.2);
         }
     }
 

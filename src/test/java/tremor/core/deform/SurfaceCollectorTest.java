@@ -13,6 +13,7 @@ import org.junit.jupiter.api.Test;
 import tremor.core.math.Vec3;
 import tremor.core.shape.BumpFrame;
 import tremor.core.shape.BumpParams;
+import tremor.core.shape.BumpShape;
 import tremor.core.surface.SurfaceNormals;
 import tremor.core.testing.ArrayVoxelGrid;
 
@@ -52,7 +53,7 @@ class SurfaceCollectorTest {
     void optionsForParams() {
         SurfaceCollector.Options options = SurfaceCollector.Options.forParams(BumpParams.defaults());
         assertEquals(BumpParams.defaults().influenceRadius(), options.radius());
-        assertEquals(2.5, options.normalBand());
+        assertEquals(BumpShape.BAND, options.normalBand());
         assertEquals(-0.2, options.minNormalDot());
         assertThrows(IllegalArgumentException.class, () -> new SurfaceCollector.Options(-1, 2, 0));
         assertThrows(IllegalArgumentException.class, () -> new SurfaceCollector.Options(Double.NaN, 2, 0));
@@ -129,7 +130,8 @@ class SurfaceCollectorTest {
         for (SurfacePoint p : points) {
             assertEquals(SurfaceNormals.smoothNormal(g, p.x(), p.y(), p.z()), p.normal());
             assertEquals(1, p.normal().length(), EPS);
-            assertTrue(Math.abs(p.center().sub(frame.center()).dot(frame.normal())) <= 2.5 + EPS, "band: " + p);
+            assertTrue(Math.abs(p.center().sub(frame.center()).dot(frame.normal())) <= DEFAULT_OPTIONS.normalBand() + EPS,
+                    "band: " + p);
             assertTrue(p.normal().dot(frame.normal()) >= -0.2, "normal filter: " + p);
         }
     }
