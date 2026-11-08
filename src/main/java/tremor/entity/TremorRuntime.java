@@ -434,12 +434,13 @@ public final class TremorRuntime {
     }
 
     /** A route's listening stop: it stands and sends a ring of ripples ({@link TremorMind#listenNow}). */
-    void listenHere() {
+    public boolean listenHere() {
         TremorEntity entity = this.entity;
         if (entity != null) {
             beginPass();
-            mind(entity).listenNow();
+            return mind(entity).listenNow();
         }
+        return false;
     }
 
     /**
@@ -584,7 +585,7 @@ public final class TremorRuntime {
                         * (level.dimension() == net.minecraft.world.level.Level.NETHER
                         ? TremorConfig.COMMON.netherAngerFactor.getAsDouble() : 1)
                         * TremorConfig.COMMON.depth(level, listener.y(), TremorConfig.COMMON.depthAngerFactor)
-                        + vibration.angerBonus());
+                        + vibration.angerBonus(), "mob".equals(vibration.note()));
         return new Perception(listener, distance, perceived, true, entity.anger() - before, entity.anger(), stage,
                 entity.stage(), reaction);
     }
@@ -1220,7 +1221,7 @@ public final class TremorRuntime {
         entity.setLastHeard(new TremorEntity.Heard(source, now, perceived, event));
         data.setDirty();
         mind(entity).heard(source, perceived, bonus + perceived * Difficulty.current().anger(
-                TremorConfig.COMMON.angerPerLoudness.getAsDouble()));
+                TremorConfig.COMMON.angerPerLoudness.getAsDouble()), player == null && "echo".equals(event));
         if (player != null) {
             heardPlayer(player, source);
         }

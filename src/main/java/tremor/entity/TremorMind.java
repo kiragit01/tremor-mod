@@ -257,6 +257,20 @@ final class TremorMind {
     private Echo echo;
     /** Game time its ring goes out, drawn in until then ({@link RippleTimer#CHARGE_TICKS}); {@link #NO_RING}: none. */
     private long ringAt = NO_RING;
+    /**
+     * Rings still to send in this series, each once the last has run out and found nobody, drawing in before it
+     * ({@code echo.rings}: the user, it may call two or three); a sound heard meanwhile, or a player found, ends it.
+     */
+    private int ringsLeft;
+    private boolean seriesHeard;
+    /**
+     * A series of rings under way (from its first drawing in until its last ring has run out), and the loudest mob it
+     * heard meanwhile: kept back while it goes on looking for a player (the user: it should not go after a mob at the
+     * first ring), told to the brain once the series has found nobody.
+     */
+    private boolean series;
+    private Vec3 heldMob;
+    private double heldMobPerceived, heldMobAnger;
     private static final long NO_RING = Long.MIN_VALUE;
 
     /** {@code player} made a sound at {@code at} that the entity heard. */
@@ -318,13 +332,34 @@ final class TremorMind {
      * ({@code ai off}, {@code goto under way}, {@code leaving}, {@code awakening})
      */
     String heard(Vec3 source, double perceived, double anger) {
+        return heard(source, perceived, anger, false);
+    }
+
+    /**
+     * {@link #heard(Vec3, double, double)}; {@code mob}: made by a mob (its steps, its echo). While a series of rings
+     * runs that is kept back, the loudest one, and the rings go on looking for a player; a player's sound ends the
+     * series at once.
+     */
+    String heard(Vec3 source, double perceived, double anger, boolean mob) {
         if (entity.leaving()) {
             return "leaving";
         }
         if (entity.absorbed()) {
             return "awakening";
         }
+        if (mob && series && !entity.frenzy()) {
+            if (heldMob == null || perceived > heldMobPerceived) {
+                heldMob = source;
+                heldMobPerceived = perceived;
+                heldMobAnger = anger;
+            }
+            return "keeps looking for a player";
+        }
         heardSinceTick = true;
+        if (!mob) {
+            seriesHeard = true; // a player's sound: something to go on, no more rings of this series
+            heldMob = null;
+        }
         addAnger(anger); // held, it stays where it is: the look stays, but it still hears and reacts as its stage says
         if (entity.frenzy()) {
             return "frenzy";
@@ -392,6 +427,7 @@ final class TremorMind {
             startEcho(now);
         }
         tickEcho(now);
+        nextRing(now);
         Stage before = entity.stage();
         if (angerHeld) {
             // A route for filming: its look stays as it was set.
@@ -613,17 +649,20 @@ final class TremorMind {
     }
 
     /**
-     * A listening stop of a route ({@link Routes}): it stands where it is and sends a ring of ripples through the
-     * ground, with its sound, as when it freezes to listen (SPEC 8 ALERT); none while it dives or one still runs.
+     * A listening stop of a route ({@link Routes}), {@code /tremor echo}: it stands where it is and sends its rings
+     * through the ground, with its sound, as when it freezes to listen (SPEC 8 ALERT); none while it dives or one still
+     * runs. Whether a ring was started.
      */
-    void listenNow() {
+    boolean listenNow() {
         long now = level.getGameTime();
         Vec3 at = entity.crawler().position();
         Vec3 ahead = entity.crawler().forward();
         runtime.freeze(entity, new Vec3(at.x() + ahead.x(), at.y() + ahead.y(), at.z() + ahead.z()));
         if (ripple.freeze(now, entity.crawler().diving())) {
             charge(now);
+            return true;
         }
+        return false;
     }
 
     /** {@code /tremor ai on|off}: switched back on, the brain starts afresh (it heard nothing meanwhile). */
@@ -1372,8 +1411,47 @@ final class TremorMind {
      * ({@link RippleTimer#CHARGE_TICKS}).
      */
     private void charge(long now) {
+        ringsLeft = TremorConfig.COMMON.echo.rings.get() - 1;
+        seriesHeard = false;
+        series = true;
+        heldMob = null;
+        drawIn(now);
+    }
+
+    private void drawIn(long now) {
         ringAt = now + RippleTimer.CHARGE_TICKS;
         play(TremorSounds.ECHO_CHARGE, skin(), CHARGE_VOLUME, 1);
+    }
+
+    /**
+     * The next ring of the series: once the last has run out (its echo over) having found nobody, and the tremor has
+     * heard nothing meanwhile, it stops and draws in again as before the first.
+     */
+    private void nextRing(long now) {
+        if (seriesHeard || entity.frenzy()) {
+            ringsLeft = 0;
+        }
+        if (series && ringsLeft <= 0 && echo == null && ringAt == NO_RING) {
+            series = false; // over: the last ring has run out
+            if (heldMob != null && !seriesHeard && !entity.frenzy()) {
+                Vec3 mob = heldMob;
+                heldMob = null;
+                tremor.Tremor.LOGGER.info("Tremor #{}: its rings found no player, it goes for the mob it heard",
+                        entity.instance());
+                // At least loud enough to go and look calm: it was looking for something all this while.
+                heard(mob, Math.max(heldMobPerceived, params.dormantReactLoudness()), heldMobAnger, true);
+            }
+            heldMob = null;
+        }
+        if (ringsLeft <= 0 || echo != null || ringAt != NO_RING || entity.crawler().diving() || !ripple.freeze(now, false)) {
+            return;
+        }
+        ringsLeft--;
+        Vec3 at = entity.crawler().position(), ahead = entity.crawler().forward();
+        runtime.freeze(entity, new Vec3(at.x() + ahead.x(), at.y() + ahead.y(), at.z() + ahead.z()));
+        drawIn(now);
+        tremor.Tremor.LOGGER.info("Tremor #{}: its echo found nobody, it sends another ({} more after it)",
+                entity.instance(), ringsLeft);
     }
 
     /**
@@ -1403,6 +1481,8 @@ final class TremorMind {
                     player.getId(), yaw));
             Listeners.echoBack(level, runtime, new Vec3(player.getX(), Math.floor(player.getY() - 0.5) + 0.5,
                     player.getZ()), hit.at(), player, hit.perceived(), hit.anger());
+            ringsLeft = 0; // found: no more rings, and the mobs heard meanwhile do not matter
+            heldMob = null;
             tremor.Tremor.LOGGER.info("Tremor #{}: its echo finds {}, {}", entity.instance(),
                     player.getGameProfile().getName(), echo.where(player, now));
         }

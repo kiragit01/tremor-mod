@@ -1,0 +1,45 @@
+# The debug probe calls tremors up (1.4.0, the user: no typing). With no tremor near, a right click (luring) calls one
+# up where the player looks; with one there it goes there instead; held with left Alt (the probe's add key) a left
+# click calls up one more of the kind chosen (a tremor at first). The server answers above the hotbar.
+# Run: gradlew runClientAutotest -Ptremor_autotest_script=probe-spawn.txt
+waitchunks
+cmd gamemode creative
+cmd time set noon
+cmd tremor despawn all
+cmd tremor crawler clear
+cmd tremor listener clear
+cmd kill @e[type=!player]
+cmd tp @s 860.5 215.0 300.5
+wait 40
+waitchunks
+cmd fill 830 195 280 890 199 320 minecraft:dirt
+cmd fill 830 200 280 890 200 320 minecraft:grass_block
+cmd fill 830 201 280 890 230 320 minecraft:air
+config ambush.enabled false
+cmd item replace entity @s weapon.mainhand with tremor:debug_probe
+cmd tp @s 860.5 201.0 300.5 90 40
+wait 30
+log --- a right click, no tremor near: one comes up there
+hold use 1
+wait 40
+log --- a right click again: it goes there
+cmd tp @s 860.5 201.0 300.5 120 50
+wait 10
+hold use 1
+wait 30
+log --- left Alt + a left click: one more
+cmd tp @s 860.5 201.0 300.5 60 45
+wait 10
+hold probe_add+attack 2
+wait 30
+cmd tp @s 860.5 201.0 300.5 160 45
+wait 10
+hold probe_add+attack 2
+wait 30
+log --- Shift + a right click: the menu
+hold sneak+use 1
+wait 10
+screenshot 01_menu
+cmd tremor despawn all
+config ambush.enabled true
+quit

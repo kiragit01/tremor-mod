@@ -13,14 +13,17 @@ import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.HitResult;
 import net.neoforged.neoforge.client.event.ClientTickEvent;
 import net.neoforged.neoforge.client.event.RegisterKeyMappingsEvent;
+import net.neoforged.neoforge.client.event.InputEvent;
 import tremor.item.DebugProbeItem;
 
 /**
  * The debug probe as an operator's multitool on the client ({@link DebugProbeItem}): a right click acts where the
- * player looks (up to {@value #RANGE} blocks), by the mode chosen in its menu ({@link ProbeScreen}); a right click while
- * sneaking opens the menu; a key (unbound at first) hides the panel of the probe or shows it again. Every action is
- * one of the {@code /tremor} commands, run as the player, so the server checks the permission and answers as for a
- * typed command. Main thread only.
+ * player looks (up to {@value #RANGE} blocks), by the mode chosen in its menu ({@link ProbeScreen}), and with no tremor
+ * near calls one up there; a right click while sneaking opens the menu; Alt + a left click calls up one more of the
+ * kind chosen (a tremor, a stalactite crawler, a listener), Shift + the wheel chooses it (the user: no typing); a key
+ * (unbound at first) hides the panel of the probe or shows it again. Every action is one of the {@code /tremor}
+ * commands, run as the player, so the server checks the permission and answers as for a typed command. Main thread
+ * only.
  */
 public final class ProbeTool {
     /** How far a right click reaches (blocks). */
@@ -29,6 +32,9 @@ public final class ProbeTool {
     private static final int REPEAT_TICKS = 10;
     /** Hides the panel of the probe, or shows it again where it was, whatever is in hand. */
     static final KeyMapping PANEL = new KeyMapping("key.tremor.probe_panel", InputConstants.UNKNOWN.getValue(),
+            "key.categories.tremor");
+    /** Held with a left click: one more of the kind chosen (left Alt at first, rebindable: Alt + click on a laptop). */
+    public static final KeyMapping ADD = new KeyMapping("key.tremor.probe_add", InputConstants.KEY_LALT,
             "key.categories.tremor");
 
     /** What a right click does. */
@@ -69,7 +75,30 @@ public final class ProbeTool {
         }
     }
 
+    /** Who an Alt + left click calls up there; Shift + the wheel turns through them. */
+    enum Kind {
+        TREMOR("tremor spawn %s add"),
+        CRAWLER("tremor crawler spawn %s"),
+        LISTENER("tremor listener spawn %s");
+
+        private final String command;
+
+        Kind(String command) {
+            this.command = command;
+        }
+
+        Component label() {
+            return Component.translatable("tremor.probe.kind." + name().toLowerCase(Locale.ROOT));
+        }
+
+        Kind turn(int by) {
+            int n = values().length;
+            return values()[((ordinal() + by) % n + n) % n];
+        }
+    }
+
     static Mode mode = Mode.LURE;
+    static Kind kind = Kind.TREMOR;
     static Panel panel = Panel.HIDDEN;
     /** Whether the short answers of the server go above the hotbar rather than into the chat (at first they do). */
     static boolean quiet = true;
@@ -86,6 +115,7 @@ public final class ProbeTool {
 
     public static void onRegisterKeys(RegisterKeyMappingsEvent event) {
         event.register(PANEL);
+        event.register(ADD);
     }
 
     public static void onClientTick(ClientTickEvent.Post event) {
@@ -111,19 +141,63 @@ public final class ProbeTool {
             mc.setScreen(new ProbeScreen());
             return;
         }
-        Entity eye = mc.getCameraEntity() != null ? mc.getCameraEntity() : player;
-        HitResult hit = eye.pick(RANGE, 1.0F, false);
-        if (hit.getType() != HitResult.Type.BLOCK || !(hit instanceof BlockHitResult block)) {
-            player.displayClientMessage(Component.translatable("tremor.probe.nothing"), true);
+        String at = aimed(mc, player);
+        if (at == null) {
             return;
         }
-        BlockPos pos = block.getBlockPos();
-        String at = pos.getX() + " " + pos.getY() + " " + pos.getZ();
+        if (mode == Mode.LURE && ClientTremor.presence() == null) {
+            command("tremor spawn " + at); // no tremor near to lure: one comes up there (the user)
+            return;
+        }
         command(switch (mode) {
             case LURE -> "tremor goto " + at;
             case ROUTE -> "tremor route add " + at;
             case LISTEN -> "tremor route listen " + at;
         });
+    }
+
+    /** The block looked at, as command coordinates; null (and the player told) if there is none in reach. */
+    private static String aimed(Minecraft mc, LocalPlayer player) {
+        Entity eye = mc.getCameraEntity() != null ? mc.getCameraEntity() : player;
+        HitResult hit = eye.pick(RANGE, 1.0F, false);
+        if (hit.getType() != HitResult.Type.BLOCK || !(hit instanceof BlockHitResult block)) {
+            player.displayClientMessage(Component.translatable("tremor.probe.nothing"), true);
+            return null;
+        }
+        BlockPos pos = block.getBlockPos();
+        return pos.getX() + " " + pos.getY() + " " + pos.getZ();
+    }
+
+    /** Whether the player holds the probe in the main hand, no screen open. */
+    private static boolean holding(Minecraft mc) {
+        return mc.player != null && mc.screen == null
+                && mc.player.getMainHandItem().getItem() instanceof DebugProbeItem;
+    }
+
+    /** Shift + the wheel with the probe in hand: the kind an Alt + left click calls up, not the hotbar slot. */
+    public static void onMouseScroll(InputEvent.MouseScrollingEvent event) {
+        Minecraft mc = Minecraft.getInstance();
+        double delta = event.getScrollDeltaY();
+        if (!holding(mc) || !mc.options.keyShift.isDown() || delta == 0) {
+            return;
+        }
+        event.setCanceled(true);
+        kind = kind.turn(delta > 0 ? -1 : 1);
+        mc.player.displayClientMessage(Component.translatable("tremor.probe.kind_chosen", kind.label()), true);
+    }
+
+    /** Alt + a left click with the probe in hand: one more of the kind chosen where the player looks. */
+    public static void onInteraction(InputEvent.InteractionKeyMappingTriggered event) {
+        Minecraft mc = Minecraft.getInstance();
+        if (!event.isAttack() || !holding(mc) || !ADD.isDown()) {
+            return;
+        }
+        event.setCanceled(true);
+        event.setSwingHand(false);
+        String at = aimed(mc, mc.player);
+        if (at != null) {
+            command(String.format(Locale.ROOT, kind.command, at));
+        }
     }
 
     /** Shows the panel of the probe {@code where} ({@code /tremor probe unpin|pin|hide}). */

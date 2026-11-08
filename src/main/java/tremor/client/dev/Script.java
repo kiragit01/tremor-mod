@@ -80,7 +80,7 @@ record Script(Path path, List<Step> steps) {
 
     /** Movement keys for {@code hold}, named in scripts by their lower-case names. */
     enum HoldKey {
-        FORWARD, BACK, LEFT, RIGHT, JUMP, SNEAK, SPRINT, ATTACK, DROP, USE;
+        FORWARD, BACK, LEFT, RIGHT, JUMP, SNEAK, SPRINT, ATTACK, DROP, USE, PROBE_ADD;
 
         final String id = name().toLowerCase(Locale.ROOT);
 
