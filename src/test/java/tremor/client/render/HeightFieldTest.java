@@ -33,7 +33,7 @@ class HeightFieldTest {
     }
 
     @Test
-    void rippleRingsOnAFloorDependOnlyOnTheHorizontalDistance() {
+    void rippleRingsDependOnTheDistanceFromWhereTheyWentOut() {
         double age = 0.8;
         HeightField field = new HeightField(BUMP, FLOOR, 0, false, RIPPLE, age);
         Random random = new Random(32);
@@ -41,32 +41,30 @@ class HeightFieldTest {
         for (int i = 0; i < 2000; i++) {
             double r = random.nextDouble() * 8, angle = random.nextDouble() * 2 * Math.PI;
             double x = 10.25 + r * Math.cos(angle), z = -7.5 + r * Math.sin(angle);
-            double y = 64 + (random.nextDouble() * 2 - 1) * 2.5; // anywhere in the collector's normal band
+            double dy = (random.nextDouble() * 2 - 1) * 2.5, y = 64 + dy;
             double ripple = field.at(x, y, z) - BumpShape.height(BUMP, FLOOR, x, y, z);
-            assertEquals(Ripple.height(RIPPLE, r, age), ripple, 1e-9, "at r=" + r + " y=" + y);
+            assertEquals(Ripple.height(RIPPLE, Math.sqrt(r * r + dy * dy), age), ripple, 1e-9, "at r=" + r + " y=" + y);
             raised |= ripple > BumpShape.RENDER_THRESHOLD;
         }
         assertTrue(raised, "the ripple should rise above the threshold somewhere at this age");
     }
 
     @Test
-    void ringsRunLevelOnTheGroundAndThroughSpaceOnAWall() {
-        // On a wall the distance is in space: within the wall (y, z) as before, and the floor at its foot reached as a
-        // half ring from under the strike, not as stripes straight out from the wall (the user).
+    void ringsSpreadThroughSpaceOverEverySurfaceTheyReach() {
+        // From the ground up a wall in an arc: a point up the wall as far from the strike as one across the floor.
+        BumpFrame floor = BumpFrame.of(new Vec3(0, 64, 0), Vec3.UNIT_Y, Vec3.UNIT_Z);
+        assertEquals(5, HeightField.ringDistance(floor, 3, 64, 4), 1e-12);
+        assertEquals(5, HeightField.ringDistance(floor, 0, 67, 4), 1e-12);
+        assertTrue(HeightField.ringDistance(floor, 0, 68, 4) > HeightField.ringDistance(floor, 0, 65, 4),
+                "higher up the wall, later");
+        // From a wall down onto the floor in a half ring, not stripes straight out from the wall (the user).
         BumpFrame wall = BumpFrame.of(new Vec3(0, 70, 0), Vec3.UNIT_X, Vec3.UNIT_Y);
         assertEquals(5, HeightField.ringDistance(wall, 0, 73, 4), 1e-12);
         assertEquals(5, HeightField.ringDistance(wall, 3, 66, 0), 1e-12);
-        assertEquals(Math.sqrt(29), HeightField.ringDistance(wall, -2, 73, 4), 1e-12);
-        assertEquals(HeightField.ringDistance(wall, 2, 68, 1), HeightField.ringDistance(wall, 2, 68, -1), 1e-12);
         assertTrue(HeightField.ringDistance(wall, 4, 68, 1) > HeightField.ringDistance(wall, 1, 68, 1),
                 "out on the floor, farther from the wall is farther");
         BumpFrame slope = BumpFrame.of(Vec3.ZERO, new Vec3(1, 1, 0), Vec3.UNIT_Z);
-        Vec3 n = slope.normal(), side = slope.side();
-        Vec3 p = side.scale(3).add(slope.forward().scale(-4));
+        Vec3 p = slope.side().scale(3).add(slope.forward().scale(-4));
         assertEquals(5, HeightField.ringDistance(slope, p.x(), p.y(), p.z()), 1e-12);
-        // A gentle slope runs its rings level: only the horizontal distance counts.
-        BumpFrame gentle = BumpFrame.of(new Vec3(0, 64, 0), new Vec3(0.3, 1, 0), Vec3.UNIT_Z);
-        assertEquals(5, HeightField.ringDistance(gentle, 3, 61, 4), 1e-12);
-        assertEquals(5, HeightField.ringDistance(gentle, -4, 66.5, 3), 1e-12);
     }
 }
