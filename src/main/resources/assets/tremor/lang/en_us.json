@@ -22,6 +22,7 @@
   "tremor.configuration.items.frenzySeconds": "Frenzy dies down after (s)",
   "item.tremor.tremor_shard": "Tremor Shard",
   "item.tremor.hush_charm": "Hushing Charm",
+  "tremor.marks.first": "The creature has learned your steps (mark %s)",
   "tremor.marks.known": "The creature knows you (mark %s)",
   "tremor.marks.counter": "Marks",
   "tremor.marks.none": "You have no marks",

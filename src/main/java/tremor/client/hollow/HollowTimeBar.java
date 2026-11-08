@@ -144,7 +144,9 @@ public final class HollowTimeBar {
         if (pose.alpha() < 0.05) {
             return; // the font draws a nearly clear colour opaque
         }
-        Component text = Component.translatable("tremor.marks.known", state.marks());
+        // The first: it has not met them before, there is nothing to know them by yet (the user).
+        Component text = Component.translatable(state.marks() == 1 ? "tremor.marks.first" : "tremor.marks.known",
+                state.marks());
         float y = TOP + HEIGHT + FRAME_HEIGHT - FRAME_INSET_Y + NOTICE_GAP + (float) pose.dy();
         float scale = NOTICE_SCALE * (float) pose.scale();
         graphics.pose().pushPose();
