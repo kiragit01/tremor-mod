@@ -123,7 +123,7 @@ You get a shard for a broken heart.
 
 - Seismograph: a shard, 3 copper ingots and redstone. Its needle points at the creature within 64 blocks and shakes harder the angrier it is.
 - Geophone: a shard, an amethyst shard, 2 redstone and 3 cobbled deepslate. A block that gives a redstone signal (1 to 15), the stronger the closer the creature is, within 32 blocks; a comparator next to it shows its mood. Wire it to a lamp or a bell and you'll know when the creature is near.
-- Muffled Steps: a book, 2 shards, 2 diamonds and any wool give an enchanted book. Put it on boots with an anvil: steps and landings are 5 times quieter.
+- Muffled Steps: a book, 2 shards, 2 diamonds, an amethyst shard and any wool give an enchanted book. Put it on boots with an anvil: steps and landings are 5 times quieter.
 
 Never throw a shard on the ground. Nobody can pick it back up: where it fell, a little mound rises and takes it in a second and a half. And the creature of that area (or a new one that crawls out about 24 blocks from you) goes into a frenzy and comes straight for you, 4.5 times faster than when it hunts and much taller. If it gets to you, the Awakening starts almost at once, you won't have time to run, and the hollow will be a nightmare one: only 30 seconds, the heart further away, the walls close four times faster and with no pause, the ground softens faster, there's no way out through the edge, a victory gives no shard, and a defeat kills you and takes everything you had. If it hasn't reached you in 90 seconds, the frenzy dies down.
 
