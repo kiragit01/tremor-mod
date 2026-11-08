@@ -280,6 +280,8 @@
   "subtitles.tremor.resonance_draw": "Резонансная стрела звенит",
   "subtitles.tremor.resonance_flight": "Резонансная стрела поёт в полёте",
   "subtitles.tremor.resonance_hit": "Резонансный импульс",
+  "subtitles.tremor.resonance_soak": "Резонанс поглощает звук",
+  "subtitles.tremor.resonance_ground": "Земля гудит",
   "subtitles.tremor.resonance_daze": "Звон в ушах",
   "subtitles.tremor.listener_ping": "Подслушиватель подаёт сигнал",
   "subtitles.tremor.listener_breath": "Подслушиватель дышит",
