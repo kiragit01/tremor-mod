@@ -132,7 +132,7 @@ class RippleDustTest {
             for (int x = -10; x <= 30; x++) {
                 for (int z = -28; z <= 12; z++) {
                     // the floor: the layer of voxels just under the bump centre
-                    if (RippleDust.onFront(HeightField.tangentDistance(floor, x + 0.5, 63.5, z + 0.5), front)) {
+                    if (RippleDust.onFront(HeightField.ringDistance(floor, x + 0.5, 63.5, z + 0.5), front)) {
                         on++;
                     }
                 }

@@ -6,7 +6,7 @@ import tremor.core.shape.RippleParams;
 /**
  * How much dust the ground ripple of an ALERT freeze (SPEC 8: "по земле вокруг идёт мелкая рябь") kicks up per game
  * tick, and where: along its front, the circle of radius {@code speed·age} around the bump centre in the tangent
- * plane of its normal ({@link HeightField#tangentDistance}). Raised copies of a block over the same block show only
+ * plane of its normal ({@link HeightField#ringDistance}). Raised copies of a block over the same block show only
  * as thin seams; the dust makes the rings read. {@link DeformationRenderer} spawns it. Pure math, no game classes.
  * <p>
  * The dust follows the height of the ripple: {@link #DENSITY} particles per tick per block of the front circle, times

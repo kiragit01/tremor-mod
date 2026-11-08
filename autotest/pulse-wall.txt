@@ -1,0 +1,47 @@
+# A resonance arrow's pulse on a plain wall over a floor (1.4.0, the user: struck into a wall, on the floor at its foot
+# it ran out in two straight stripes away from the wall, not as a wave). A wall of deepslate bricks, a floor of cobbled
+# deepslate; the arrow strikes the wall a block and a half over the floor. Shots from the floor looking at the wall and
+# from above, copies tinted: on the wall a ring, on the floor its half ring spreading from under the strike.
+# Run: gradlew runClientAutotest -Ptremor_autotest_script=pulse-wall.txt
+waitchunks
+cmd gamerule commandModificationBlockLimit 2147483647
+cmd gamemode spectator
+cmd time set noon
+cmd tremor despawn all
+cmd kill @e[type=!player]
+cmd tp @s 760.5 205.0 620.5 90 0
+wait 40
+waitchunks
+cmd fill 730 190 600 790 199 640 minecraft:stone
+cmd fill 730 200 600 790 200 640 minecraft:cobbled_deepslate
+cmd fill 730 201 600 790 225 640 minecraft:air
+cmd fill 740 201 605 741 212 635 minecraft:deepslate_bricks
+cmd kill @e[type=minecraft:item]
+hud off
+tint on
+log --- from the floor, looking at the wall
+cmd tp @s 749.5 203.6 620.5 90 25
+wait 20
+cmd summon minecraft:arrow 744.5 202.5 620.5 {Tags:["tremor_resonance"],Motion:[-1.5,0.0,0.0]}
+wait 5
+screenshot 01_floor
+wait 4
+screenshot 02_floor
+wait 4
+screenshot 03_floor
+wait 4
+screenshot 04_floor
+log --- from above
+cmd tp @s 748.5 214.0 620.5 90 70
+wait 30
+cmd summon minecraft:arrow 744.5 202.5 620.5 {Tags:["tremor_resonance"],Motion:[-1.5,0.0,0.0]}
+wait 5
+screenshot 05_above
+wait 4
+screenshot 06_above
+wait 4
+screenshot 07_above
+wait 4
+screenshot 08_above
+tint off
+quit
