@@ -63,14 +63,19 @@ class BumpShapeTest {
     }
 
     @Test
-    void displacementAlongNormalDoesNotChangeHeight() {
+    void withinABlockOfItsPlaneTheHeightIsAsOnItAndFartherOffItFades() {
+        // A step up or down rises as the ground under it; the floor before a wall a tremor is on does not (the user).
         for (BumpFrame frame : frames()) {
             for (double a = -8; a <= 8; a += 1.3) {
                 for (double b = -5; b <= 5; b += 1.1) {
                     double onPlane = h(DEFAULTS, frame, local(frame, a, b, 0));
-                    for (double s : new double[]{-3, -0.5, 0.5, 2, 10}) {
+                    for (double s : new double[]{-1, -0.5, 0.5, 1}) {
                         assertEquals(onPlane, h(DEFAULTS, frame, local(frame, a, b, s)), 1e-12);
                     }
+                    double two = h(DEFAULTS, frame, local(frame, a, b, 2)), three = h(DEFAULTS, frame, local(frame, a, b, -3));
+                    assertTrue(Math.abs(two) <= Math.abs(onPlane) + 1e-12 && Math.abs(three) <= Math.abs(two) + 1e-12,
+                            "fades off the plane at a=" + a + " b=" + b);
+                    assertEquals(0, h(DEFAULTS, frame, local(frame, a, b, 10)), 1e-6);
                 }
             }
         }
@@ -221,9 +226,9 @@ class BumpShapeTest {
         // Ceiling bump moving along +z: a point below the ceiling centre and ahead of it is in front.
         BumpFrame ceiling = BumpFrame.of(new Vec3(0.5, 30, 0.5), Vec3.UNIT_Y.negate(), new Vec3(0, 0, 1));
         assertTrue(BumpShape.height(DEFAULTS, ceiling, 0.5, 29.5, 2.5) < BumpShape.height(DEFAULTS, ceiling, 0.5, 29.5, -1.5));
-        // Wall facing +x: height does not depend on x (the normal axis).
+        // Wall facing +x: within a block of it the height does not depend on x (the normal axis).
         BumpFrame wall = BumpFrame.of(new Vec3(-3, 12, 8), Vec3.UNIT_X, new Vec3(0, 1, 0));
-        assertEquals(BumpShape.height(DEFAULTS, wall, -3, 13, 9), BumpShape.height(DEFAULTS, wall, -1, 13, 9), 1e-12);
+        assertEquals(BumpShape.height(DEFAULTS, wall, -3, 13, 9), BumpShape.height(DEFAULTS, wall, -2, 13, 9), 1e-12);
         assertTrue(BumpShape.height(DEFAULTS, wall, -3, 13, 9) > BumpShape.RENDER_THRESHOLD);
     }
 }
