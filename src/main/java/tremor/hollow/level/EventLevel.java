@@ -330,7 +330,12 @@ final class EventLevel {
                     + BlockPos.of(plan.node()).toShortString() + " from the player at " + start.toShortString());
         }
         if (!nightmare) {
-            tunnel = EscapeTunnel.plan(grid, centreX, centreZ, start.getY(), boxRadius, seed, plan.fill());
+            tunnel = EscapeTunnel.plan(grid, plan, centreX, centreZ, start.getX(), start.getY(), start.getZ(),
+                    boxRadius, seed);
+            if (tunnel == null) {
+                throw new IllegalStateException("no escape tunnel a player walks from " + start.toShortString()
+                        + " to the edge");
+            }
         }
         grid = null;
         Set<Long> carve = new LinkedHashSet<>();
@@ -344,14 +349,12 @@ final class EventLevel {
         fill.removeAll(plan.carve());
         carve.addAll(plan.carve());
         fill.addAll(plan.fill());
-        // The escape tunnel goes through whatever is there; its floor never closes a cell another way leaves open.
+        // The escape tunnel goes through whatever is there; its floors and seals are never a cell of the ways
+        // (EscapeTunnel), and over the cave they close what the cave opened under it.
         fill.removeAll(tunnel.carve());
         carve.addAll(tunnel.carve());
-        for (long cell : tunnel.floor()) {
-            if (!carve.contains(cell)) {
-                fill.add(cell);
-            }
-        }
+        carve.removeAll(tunnel.floor());
+        fill.addAll(tunnel.floor());
         carving = carve.stream().mapToLong(Long::longValue).toArray();
         filling = fill.stream().mapToLong(Long::longValue).toArray();
         way = new LongOpenHashSet(plan.way());
