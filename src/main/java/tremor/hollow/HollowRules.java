@@ -463,10 +463,10 @@ public final class HollowRules {
             HollowManager.DropSite site = HollowManager.dropSite(player);
             if (site != null) {
                 for (ItemEntity drop : event.getDrops()) {
-                    dropAt(site, drop.getItem().copy());
+                    dropAt(site, drop.getItem().copy(), true);
                 }
                 for (ItemStack loose : takeLoose(player)) {
-                    dropAt(site, loose);
+                    dropAt(site, loose, true);
                 }
                 event.setCanceled(true);
             }
@@ -500,7 +500,7 @@ public final class HollowRules {
             player.getInventory().add(stack);
             if (!stack.isEmpty()) {
                 if (site != null) {
-                    dropAt(site, stack);
+                    dropAt(site, stack, false);
                 } else {
                     player.drop(stack, false);
                 }
@@ -659,18 +659,25 @@ public final class HollowRules {
 
     /**
      * Lays {@code stack} at the drop site, as an item that never despawns (the player may be dead and far away for
-     * long, and what despawns the bump may eat too), as the other things the mod gives back lie: a defeat with no
-     * place for a cache (the bottom of the world, the spawn protection, a crater given up) left all the player
-     * carried there for five minutes. But a shard: the ground takes it in a moment.
+     * long, or offline, and what despawns the bump may eat too), as the other things the mod gives back lie: a defeat
+     * with no place for a cache (the bottom of the world, the spawn protection, a crater given up) left all the player
+     * carried there for five minutes.
+     *
+     * @param dead the player died: a shard among the things is the ground's, as any shard a dead player drops
+     *             ({@link tremor.entity.Frenzy#takeAway}; gone in a moment, so it keeps its lifetime). Not so for one
+     *             who only logged out: what did not fit into the inventory is theirs when they are back, a shard too
      */
-    private static void dropAt(HollowManager.DropSite site, ItemStack stack) {
+    private static void dropAt(HollowManager.DropSite site, ItemStack stack, boolean dead) {
         ItemEntity moved = new ItemEntity(site.level(), site.position().x, site.position().y, site.position().z, stack);
         moved.setDefaultPickUpDelay();
-        if (!stack.is(tremor.item.TremorItems.SHARD.get())) {
+        boolean grounds = dead && stack.is(tremor.item.TremorItems.SHARD.get());
+        if (!grounds) {
             moved.setUnlimitedLifetime();
         }
         site.level().addFreshEntity(moved);
-        tremor.entity.Frenzy.takeAway(site.level(), moved); // a shard: the ground takes it, the player is dead
+        if (grounds) {
+            tremor.entity.Frenzy.takeAway(site.level(), moved);
+        }
     }
 
     /**
