@@ -657,9 +657,18 @@ public final class HollowRules {
         return stacks;
     }
 
+    /**
+     * Lays {@code stack} at the drop site, as an item that never despawns (the player may be dead and far away for
+     * long, and what despawns the bump may eat too), as the other things the mod gives back lie: a defeat with no
+     * place for a cache (the bottom of the world, the spawn protection, a crater given up) left all the player
+     * carried there for five minutes. But a shard: the ground takes it in a moment.
+     */
     private static void dropAt(HollowManager.DropSite site, ItemStack stack) {
         ItemEntity moved = new ItemEntity(site.level(), site.position().x, site.position().y, site.position().z, stack);
         moved.setDefaultPickUpDelay();
+        if (!stack.is(tremor.item.TremorItems.SHARD.get())) {
+            moved.setUnlimitedLifetime();
+        }
         site.level().addFreshEntity(moved);
         tremor.entity.Frenzy.takeAway(site.level(), moved); // a shard: the ground takes it, the player is dead
     }
