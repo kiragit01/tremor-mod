@@ -644,7 +644,7 @@ public final class DeformationRenderer {
             }
         }
         if (ground != null) {
-            zone.evaluate(ground, event.getFrustum(), frameStamp, frameColumns);
+            zone.evaluate(ground, event.getFrustum(), frameStamp, frameColumns, now);
             swellZone(level, ground, tick, ((double) tick + partialTick) / 20.0);
         }
         pourBridges();
