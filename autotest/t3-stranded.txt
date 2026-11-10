@@ -1,0 +1,35 @@
+# Т3: the ground within 7 blocks of a tremor is dug away (it hangs over a pit 9 deep): told to go somewhere, it sinks
+# where it is, comes up on the floor of the pit and crawls on; it is not stuck for ever.
+waitchunks
+cmd gamerule commandModificationBlockLimit 2147483647
+cmd gamemode spectator
+cmd time set noon
+cmd tremor despawn all
+cmd tremor awaken stop
+cmd tp @s 300.5 201.0 300.5 270 10
+wait 40
+waitchunks
+cmd fill 240 185 280 360 200 320 minecraft:stone
+cmd fill 240 201 280 360 206 320 minecraft:air
+cmd tremor spawn 262 201 300
+wait 40
+cmd tremor ai off
+cmd tremor info
+log --- the ground around it goes
+cmd fill 255 192 293 269 200 307 minecraft:air
+cmd tp @s 262.5 212 285.5
+lookat 262.5 196 300.5
+hud off
+wait 40
+screenshot 01_hanging
+log --- goto
+cmd tremor goto 300 201 300
+wait 30
+screenshot 02_sinking
+wait 60
+cmd tremor info
+screenshot 03_moved
+wait 200
+cmd tremor info
+screenshot 04_end
+quit
