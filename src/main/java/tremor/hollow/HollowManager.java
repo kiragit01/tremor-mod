@@ -451,6 +451,7 @@ public final class HollowManager {
     public static void onServerStopped(ServerStoppedEvent event) {
         state = null;
         moving = null;
+        DEATH_KEEPERS.clear();
     }
 
     // ---- internals ----
@@ -664,6 +665,7 @@ public final class HollowManager {
                         // Give up on the slot rather than fail every tick; the next event in it empties it first.
                         releaseTicket(event);
                         data.remove(event);
+                        DEATH_KEEPERS.remove(event);
                     } else {
                         abort(event, HollowEvent.End.ERROR, now);
                     }
@@ -888,6 +890,7 @@ public final class HollowManager {
             collect(event, slot);
             releaseTicket(event);
             data.remove(event);
+            DEATH_KEEPERS.remove(event); // a keeper holds its level: let a closed world go
         }
 
         /**
