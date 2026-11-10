@@ -479,10 +479,23 @@ public final class HollowManager {
     private static void move(Entity entity, Runnable teleport) {
         Entity outer = moving;
         moving = entity;
+        net.minecraft.world.level.Level from = entity.level();
         try {
             teleport.run();
         } finally {
             moving = outer;
+        }
+        if (entity instanceof ServerPlayer player && player.level() != from) {
+            // In 1.20.1 a teleport to another level, unlike a change of dimension, does not send these again: the
+            // client would show no experience and no effects (and stop night vision, jump boost) until they change.
+            player.connection.send(new net.minecraft.network.protocol.game.ClientboundPlayerAbilitiesPacket(
+                    player.getAbilities()));
+            for (net.minecraft.world.effect.MobEffectInstance effect : player.getActiveEffects()) {
+                player.connection.send(new net.minecraft.network.protocol.game.ClientboundUpdateMobEffectPacket(
+                        player.getId(), effect));
+            }
+            player.connection.send(new net.minecraft.network.protocol.game.ClientboundSetExperiencePacket(
+                    player.experienceProgress, player.totalExperience, player.experienceLevel));
         }
     }
 
