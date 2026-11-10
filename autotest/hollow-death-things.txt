@@ -1,0 +1,66 @@
+# The things of a player who dies in the hollow with no crater to keep them (the review, А1 and А4): they lie where
+# the player was swallowed as items that never despawn, the stack on the cursor and the crafting grid among them from
+# the moment of the death (those two lay in the copy as plain items until it was cleared); a shard is the ground's.
+# A player with three diamonds and two shards goes into the hollow (/tremor hollow enter at 860.5 201 300.5: no
+# Awakening, no crater), gets two emeralds on the cursor and four gold ingots in the crafting grid there, and dies.
+# Every "execute ... if|unless" line must answer "Test passed", every Age is -32768s, and the server log has no
+# "gave back ... stacks" of the hollow for this death (the copy held nothing of the player's when it was cleared).
+# (The cursor and the grid are set by commands of 1.20.5 and later: the script of the Forge 1.20.1 branch has the
+# diamonds and the shards only.)
+# Run: gradlew runClientAutotest -Ptremor_autotest_script=hollow-death-things.txt
+waitchunks
+cmd gamerule commandModificationBlockLimit 2147483647
+cmd gamerule doImmediateRespawn true
+cmd gamerule keepInventory false
+cmd gamemode spectator
+cmd time set noon
+cmd tremor despawn all
+cmd tremor awaken stop
+cmd tremor restore
+cmd kill @e[type=!player]
+cmd tp @s 860.5 202.0 300.5
+wait 40
+waitchunks
+cmd fill 840 194 280 880 199 320 minecraft:dirt
+cmd fill 840 200 280 880 200 320 minecraft:grass_block
+cmd fill 840 201 280 880 230 320 minecraft:air
+cmd forceload add 850 290 870 310
+cmd kill @e[type=!player]
+cmd tp @s 860.5 201.0 300.5 0 30
+cmd gamemode survival
+cmd clear @s
+cmd effect clear @s
+cmd effect give @s minecraft:instant_health 1 4 true
+cmd give @s minecraft:diamond 3
+cmd give @s tremor:tremor_shard 2
+wait 10
+cmd tremor hollow enter
+wait 160
+waitchunks
+cmd data get entity @s Dimension
+cmd item replace entity @s player.cursor with minecraft:emerald 2
+cmd item replace entity @s player.crafting.0 with minecraft:gold_ingot 4
+wait 5
+cmd kill @s
+wait 5
+cmd gamemode spectator
+cmd execute in minecraft:overworld run tp @s 862.5 203.0 300.5 90 40
+wait 10
+log --- right after the death: the three stacks lie at the swallow point, items that never despawn
+cmd execute positioned 860.5 201 300.5 if entity @e[type=item,nbt={Item:{id:"minecraft:diamond"}},distance=..8]
+cmd execute positioned 860.5 201 300.5 if entity @e[type=item,nbt={Item:{id:"minecraft:emerald"}},distance=..8]
+cmd execute positioned 860.5 201 300.5 if entity @e[type=item,nbt={Item:{id:"minecraft:gold_ingot"}},distance=..8]
+cmd execute positioned 860.5 201 300.5 as @e[type=item,nbt={Item:{id:"minecraft:diamond"}},distance=..8] run data get entity @s Age
+cmd execute positioned 860.5 201 300.5 as @e[type=item,nbt={Item:{id:"minecraft:emerald"}},distance=..8] run data get entity @s Age
+cmd execute positioned 860.5 201 300.5 as @e[type=item,nbt={Item:{id:"minecraft:gold_ingot"}},distance=..8] run data get entity @s Age
+screenshot 10_the_things
+wait 100
+log --- five seconds later: the ground has taken the shards
+cmd execute positioned 860.5 201 300.5 unless entity @e[type=item,nbt={Item:{id:"tremor:tremor_shard"}},distance=..8]
+cmd execute positioned 860.5 201 300.5 if entity @e[type=item,distance=..8]
+cmd tremor hollow status
+cmd kill @e[type=item]
+cmd kill @e[type=experience_orb]
+cmd forceload remove 850 290 870 310
+cmd gamerule doImmediateRespawn false
+quit

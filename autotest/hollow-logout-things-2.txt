@@ -1,0 +1,23 @@
+# Part 2 of leaving the game inside the hollow with things on the cursor and in the crafting grid (run
+# hollow-logout-things-1.txt first): the player is back at 860.5 201 300.5 in the overworld with the five diamonds of
+# the cursor in the slot that was free ("Found 5"), and the two shards of the grid, which did not fit, lie there: one
+# item that never despawns (Age -32768s) and can be picked up, still there five seconds later (the ground has not
+# taken it). Both "execute if" lines must answer "Test passed, count: 1".
+# Run: gradlew runClientAutotest -Ptremor_autotest_script=hollow-logout-things-2.txt
+waitchunks
+wait 40
+cmd data get entity @s Dimension
+cmd data get entity @s Pos
+cmd tremor hollow status
+cmd clear @s minecraft:diamond 0
+cmd clear @s minecraft:iron_sword 0
+cmd execute positioned 860.5 201 300.5 if entity @e[type=item,nbt={Item:{id:"tremor:tremor_shard"}},distance=..8]
+cmd execute positioned 860.5 201 300.5 as @e[type=item,nbt={Item:{id:"tremor:tremor_shard"}},distance=..8] run data get entity @s Age
+cmd execute positioned 860.5 201 300.5 as @e[type=item,nbt={Item:{id:"tremor:tremor_shard"}},distance=..8] run data get entity @s PickupDelay
+screenshot 10_back
+wait 100
+cmd execute positioned 860.5 201 300.5 if entity @e[type=item,nbt={Item:{id:"tremor:tremor_shard"}},distance=..8]
+cmd clear @s
+cmd kill @e[type=item]
+cmd gamemode spectator
+quit
