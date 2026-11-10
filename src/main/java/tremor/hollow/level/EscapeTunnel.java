@@ -1,5 +1,6 @@
 package tremor.hollow.level;
 
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -16,7 +17,7 @@ import java.util.Set;
  * a light ({@link #glow}): the way out shows only to whoever is already in it. Plain Java.
  *
  * @param carve cells to empty (feet and head, {@link CellKey}), in order from the start outward
- * @param floor cells to fill under it, where the copy had nothing to stand on
+ * @param floor cells to fill: under it, where the copy had nothing to stand on, and the seals around it
  */
 public record EscapeTunnel(Set<Long> carve, Set<Long> floor) {
     /** None: a nightmare has no way out over the edge. */
@@ -30,6 +31,8 @@ public record EscapeTunnel(Set<Long> carve, Set<Long> floor) {
     static final int GLOW = 13;
     /** Blocks of the tunnel from its entrance that its light never reaches: from the hollow it is a dark hole. */
     static final int DARK_ENTRANCE = 5;
+    /** Directions tried for a tunnel a player walks to the end of. */
+    static final int TRIES = 6;
 
     /**
      * Plans the tunnel at the height of {@code startY} (the player's feet), from {@value #ENTRANCE} blocks off the
@@ -38,6 +41,63 @@ public record EscapeTunnel(Set<Long> carve, Set<Long> floor) {
      */
     public static EscapeTunnel plan(VoxelGrid grid, double centreX, double centreZ, int startY, double edge, long seed,
                                     Set<Long> keep) {
+        return plan(grid, centreX, centreZ, startY, ENTRANCE, edge, seed, keep);
+    }
+
+    /**
+     * The tunnel for a level planned by {@link WayPlanner} ({@code way}, for a player at {@code startX, startY,
+     * startZ} of {@code grid} as it was before), checked: it goes through the walls and vaults of the ways it crosses
+     * (only their floors are kept), never fills a cell of theirs, is sealed from fluids, lava and fire as they are, and
+     * a player walks from the start to its far end. Where the start has no way into it, it begins at the player's feet;
+     * where it still leads nowhere (a drop into a corridor under it, say), another direction is tried,
+     * {@value #TRIES} at most. Null if none is walked to the end: the level is not to be made.
+     */
+    public static EscapeTunnel plan(VoxelGrid grid, WayPlanner.Plan way, double centreX, double centreZ, int startX,
+                                    int startY, int startZ, double edge, long seed) {
+        VoxelGrid dug = grid.copy();
+        way.applyTo(dug);
+        Set<Long> keep = new HashSet<>();
+        keep.add(way.node());
+        for (long cell : way.fill()) {
+            if (way.network().contains(CellKey.above(cell, 1))) {
+                keep.add(cell); // the floor of a way
+            }
+        }
+        for (int i = 0; i < TRIES; i++) {
+            for (double from : new double[] {ENTRANCE, 1}) {
+                EscapeTunnel tunnel = plan(dug, centreX, centreZ, startY, from, edge, seed + i, keep);
+                Set<Long> fill = new LinkedHashSet<>(tunnel.floor());
+                fill.addAll(dug.leaksAround(tunnel.carve(), keep));
+                fill.removeAll(way.network());
+                tunnel = new EscapeTunnel(tunnel.carve(), fill);
+                if (tunnel.walked(dug, startX, startY, startZ)) {
+                    return tunnel;
+                }
+            }
+        }
+        return null;
+    }
+
+    /** Whether a player at {@code x, y, z} of {@code grid} with this tunnel dug walks to its far end. */
+    boolean walked(VoxelGrid grid, int x, int y, int z) {
+        long end = Long.MIN_VALUE;
+        for (long cell : carve) {
+            if (CellKey.y(cell) == y) {
+                end = cell; // cells go from the start outward: the last at the feet is the far end
+            }
+        }
+        if (end == Long.MIN_VALUE) {
+            return false;
+        }
+        VoxelGrid dug = grid.copy();
+        carve.forEach(dug::carve);
+        floor.forEach(dug::fill);
+        return WayPlanner.distances(dug, x, y, z, Integer.MAX_VALUE).distance(CellKey.x(end), y, CellKey.z(end)) >= 0;
+    }
+
+    /** {@link #plan(VoxelGrid, double, double, int, double, long, Set)} from {@code from} blocks off the centre. */
+    private static EscapeTunnel plan(VoxelGrid grid, double centreX, double centreZ, int startY, double from,
+                                     double edge, long seed, Set<Long> keep) {
         Random random = new Random(seed ^ 0x5EC2E7L);
         double angle = random.nextDouble() * 2 * Math.PI;
         double dx = Math.cos(angle);
@@ -47,7 +107,7 @@ public record EscapeTunnel(Set<Long> carve, Set<Long> floor) {
         Set<Long> floor = new LinkedHashSet<>();
         int lastX = Integer.MIN_VALUE;
         int lastZ = Integer.MIN_VALUE;
-        for (double t = ENTRANCE; t <= edge + 1; t += 0.5) {
+        for (double t = from; t <= edge + 1; t += 0.5) {
             double side = WIND * Math.sin(t / WIND_LENGTH + phase);
             int x = (int) Math.floor(centreX + dx * t - dz * side);
             int z = (int) Math.floor(centreZ + dz * t + dx * side);
