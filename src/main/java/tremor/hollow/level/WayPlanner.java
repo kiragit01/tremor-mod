@@ -59,6 +59,8 @@ public final class WayPlanner {
     static final int MAX_DROP = 3;
     /** Solid ground over the node's chamber, at least (blocks). */
     static final int COVER = 4;
+    /** The open ground is told this far over the feet (blocks), under the vault. */
+    static final int SKY_LOOK = 8;
     /** Tries of the way to the node before the best one is taken. */
     static final int TRIES = 12;
     /** The walk around the start, where the throats and the dead end out of the start begin (steps). */
@@ -827,14 +829,16 @@ public final class WayPlanner {
 
     /**
      * Whether a player standing at {@code x, y, z} is under the sky or nearly: fewer than {@value #COVER} solid cells
-     * over the head (leaves, a roof), and open at the top of the grid.
+     * over the head (leaves, a roof), and open {@value #SKY_LOOK} blocks over the feet. Not up to the top of the grid:
+     * the vault of the hollow lies there over every copy.
      */
     static boolean nearSurface(VoxelGrid grid, int x, int y, int z) {
-        if (!grid.open(x, grid.maxY(), z)) {
+        int top = Math.min(y + SKY_LOOK, grid.maxY());
+        if (!grid.open(x, top, z)) {
             return false;
         }
         int solid = 0;
-        for (int h = y + 2; h < grid.maxY() && solid < COVER; h++) {
+        for (int h = y + 2; h < top && solid < COVER; h++) {
             solid += grid.open(x, h, z) ? 0 : 1;
         }
         return solid < COVER;
