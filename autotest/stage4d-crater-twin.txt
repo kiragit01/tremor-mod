@@ -1,0 +1,168 @@
+# Two craters at once (the review, А5: two players of one ambush lose seconds apart, their craters overlap, and the one
+# still being dug carved the fresh caches of the other: the things lay about as plain items). A crater does not carve
+# the cache of another: the cache comes down with the dig, whole, and lies on the new bottom (the user: no pillar under
+# it, nothing spilled, nothing lost).
+# B: /tremor crater at 462 201 400, wide and deep (radius 12, depth 26), dug slowly. A: the defeat of the player at
+# 460 201 400, with a small crater (radius 6, depth 12) inside B: it is dug long before B gets down there, the player
+# dies and the twelve stacks go into three caches on its bottom (y 192), in B's way. Then B goes on down, and they
+# with it. Two more caches, one on the other, stand on the ground in a column of B's wall from the start (three
+# apples in the lower, four gold nuggets in the upper): they come down too, and at the end the upper one is moved off
+# the lower to the nearest free place of the bottom.
+# Checks once both are dug: no stack lies about as an item (five "Test passed"); the five caches lie on B's bottom
+# where its log says ("a cache in its way came down with it and lies at ..."; five "Test passed", the data of each
+# listed), and broken open they give back all: Found 7 diamonds, 5 emeralds, 9 gold ingots, 11 iron ingots, 16 bread,
+# 32 torches, 1 sword, 320 cobblestone, 3 apples, 4 gold nuggets.
+# Before the fix: the stacks of the player lay on the bottom of B as items, and A's caches were gone.
+# Site: the block of ground in the sky of stage4d-crater-defeat.txt B (x 436..484, z 376..424, y 170..200).
+# Run: gradlew runClientAutotest -Ptremor_autotest_script=stage4d-crater-twin.txt
+waitchunks
+cmd gamemode spectator
+cmd time set noon
+cmd gamerule doDaylightCycle false
+cmd gamerule doMobSpawning false
+cmd gamerule keepInventory false
+cmd gamerule doImmediateRespawn true
+cmd gamerule commandModificationBlockLimit 2147483647
+cmd tremor despawn
+cmd tremor awaken stop
+cmd kill @e[type=!player]
+cmd effect clear @s
+cmd effect give @s minecraft:night_vision infinite 0 true
+cmd tp @s 460.5 210.0 400.5 0 20
+wait 40
+waitchunks
+cmd fill 436 170 376 484 182 424 minecraft:stone
+cmd fill 436 183 376 484 195 424 minecraft:stone
+cmd fill 436 196 376 484 199 424 minecraft:dirt
+cmd fill 436 200 376 484 200 424 minecraft:grass_block
+cmd fill 436 201 376 484 213 424 minecraft:air
+cmd forceload add 436 376 484 424
+cmd kill @e[type=item]
+cmd kill @e[type=experience_orb]
+# Two caches, one on the other, in a column of B's wall outside A
+cmd setblock 462 201 408 tremor:rubble_cache{Items:[{id:"minecraft:apple",count:3,Count:3b}]}
+cmd setblock 462 202 408 tremor:rubble_cache{Items:[{id:"minecraft:gold_nugget",count:4,Count:4b}]}
+config awakening.lethal true
+config awakening.craterBlocksPerTick 40
+
+log --- the player goes into the hollow with twelve stacks
+cmd tp @s 460.5 201.0 400.5 0 10
+wait 20
+waitchunks
+cmd gamemode survival
+cmd clear @s
+cmd effect give @s minecraft:instant_health 1 4 true
+cmd xp set @s 0 levels
+cmd xp set @s 0 points
+cmd give @s minecraft:diamond 7
+cmd give @s minecraft:emerald 5
+cmd give @s minecraft:gold_ingot 9
+cmd give @s minecraft:iron_ingot 11
+cmd give @s minecraft:bread 16
+cmd give @s minecraft:torch 32
+cmd give @s minecraft:iron_sword
+cmd give @s minecraft:cobblestone 320
+wait 10
+cmd tremor hollow enter
+wait 160
+waitchunks
+cmd data get entity @s Dimension
+
+log --- B: the wide, deep crater; A: the defeat, its small crater inside B
+config awakening.craterRadius 12
+config awakening.craterDepth 26
+cmd execute in minecraft:overworld run tremor crater 462 201 400
+config awakening.craterRadius 6
+config awakening.craterDepth 12
+cmd tremor hollow outcome defeat
+waitfor 900 swallowed by the ground
+wait 10
+cmd gamemode spectator
+cmd execute in minecraft:overworld run tp @s 462.5 215.0 384.5 0 50
+wait 20
+waitchunks
+log --- A is dug, the things are in its caches; B is still on its way down
+cmd tremor info
+screenshot 10_a_dug_b_digging
+wait 400
+cmd tremor info
+wait 200
+log --- both dug: nothing lies about, the five caches lie on the bottom of B, whole
+cmd tremor info
+cmd execute positioned 461.5 185 400.5 unless entity @e[type=minecraft:item,nbt={Item:{id:"minecraft:diamond"}},distance=..40]
+cmd execute positioned 461.5 185 400.5 unless entity @e[type=minecraft:item,nbt={Item:{id:"minecraft:emerald"}},distance=..40]
+cmd execute positioned 461.5 185 400.5 unless entity @e[type=minecraft:item,nbt={Item:{id:"minecraft:iron_sword"}},distance=..40]
+cmd execute positioned 461.5 185 400.5 unless entity @e[type=minecraft:item,nbt={Item:{id:"minecraft:cobblestone"}},distance=..40]
+cmd execute positioned 461.5 185 400.5 unless entity @e[type=minecraft:item,nbt={Item:{id:"minecraft:apple"}},distance=..40]
+screenshot 11_both_dug
+cmd tp @s 462.5 196.0 392.5 0 40
+wait 10
+screenshot 12_the_caches_on_the_bottom
+# The five caches where the log of B says they came down to (the craters and the layout follow from the places and
+# the world's seed), each with what it holds
+# of the defeat, from 457 192 397
+cmd execute if block 457 183 397 tremor:rubble_cache
+cmd data get block 457 183 397 Items
+# of the defeat, from 460 192 404
+cmd execute if block 460 178 404 tremor:rubble_cache
+cmd data get block 460 178 404 Items
+# of the defeat, from 462 192 399
+cmd execute if block 462 175 399 tremor:rubble_cache
+cmd data get block 462 175 399 Items
+# the lower of the two, from 462 201 408: the apples
+cmd execute if block 462 190 408 tremor:rubble_cache
+cmd data get block 462 190 408 Items
+# the upper of the two, from 462 202 408, moved off the lower: the nuggets
+cmd execute if block 462 194 409 tremor:rubble_cache
+cmd data get block 462 194 409 Items
+# Nothing stands on another, none hangs in the air: under each lies the ground of the bottom
+cmd execute unless block 462 191 408 tremor:rubble_cache
+cmd execute unless block 457 182 397 minecraft:air
+cmd execute unless block 460 177 404 minecraft:air
+cmd execute unless block 462 174 399 minecraft:air
+cmd execute unless block 462 189 408 minecraft:air
+cmd execute unless block 462 193 409 minecraft:air
+cmd tp @s 462.5 179.5 402.5
+wait 5
+lookat 462.5 175.5 399.5
+wait 5
+screenshot 13_a_cache_on_the_bottom
+cmd tp @s 460.5 185.0 400.5
+wait 5
+lookat 457.5 183.5 397.5
+wait 5
+screenshot 14_a_cache_on_the_wall
+# Broken open, they give back all that went into them
+cmd gamemode survival
+cmd clear @s
+cmd tp @s 462.5 177.0 401.5 0 0
+wait 20
+cmd setblock 457 183 397 minecraft:air destroy
+cmd setblock 460 178 404 minecraft:air destroy
+cmd setblock 462 175 399 minecraft:air destroy
+cmd setblock 462 190 408 minecraft:air destroy
+cmd setblock 462 194 409 minecraft:air destroy
+wait 20
+cmd tp @e[type=minecraft:item,distance=..40] @s
+wait 40
+cmd tp @e[type=minecraft:item,distance=..40] @s
+wait 20
+cmd clear @s minecraft:diamond 0
+cmd clear @s minecraft:emerald 0
+cmd clear @s minecraft:gold_ingot 0
+cmd clear @s minecraft:iron_ingot 0
+cmd clear @s minecraft:bread 0
+cmd clear @s minecraft:torch 0
+cmd clear @s minecraft:iron_sword 0
+cmd clear @s minecraft:cobblestone 0
+cmd clear @s minecraft:apple 0
+cmd clear @s minecraft:gold_nugget 0
+cmd execute positioned 461.5 185 400.5 unless entity @e[type=minecraft:item,distance=..40]
+cmd fill 444 172 384 480 200 416 minecraft:air replace tremor:rubble_cache
+cmd kill @e[type=item]
+cmd kill @e[type=experience_orb]
+cmd clear @s
+cmd gamemode spectator
+cmd forceload remove 436 376 484 424
+cmd gamerule doImmediateRespawn false
+quit
