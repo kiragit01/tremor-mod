@@ -308,7 +308,7 @@ public final class Listeners {
      */
     public static void vibration(ServerLevel level, Vibration vibration, ServerPlayer player) {
         List<Listener> all = LISTENERS.get(level);
-        if (all == null || all.isEmpty() || "mob".equals(vibration.note())) {
+        if (all == null || all.isEmpty() || vibration.mob()) {
             return;
         }
         TremorConfig.Listeners config = TremorConfig.COMMON.listeners;
