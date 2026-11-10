@@ -24,6 +24,8 @@ import net.minecraft.world.phys.Vec3;
 import net.neoforged.neoforge.event.server.ServerStoppedEvent;
 import net.neoforged.neoforge.event.tick.ServerTickEvent;
 import tremor.Tremor;
+import tremor.block.RubbleCacheBlockEntity;
+import tremor.block.TremorBlocks;
 import tremor.config.TremorConfig;
 import tremor.sound.TremorSounds;
 import tremor.world.TremorTags;
@@ -71,8 +73,10 @@ import java.util.function.Consumer;
  * safe), every block of the spawn protection (the overworld around the world spawn, a square of the server's spawn protection radius:
  * {@code spawn-protection} of server.properties, 16 blocks in single player and on LAN) whoever the player is. Chests,
  * beds and every other block with a block entity go too (the user: a creeper spares nothing, the player should fear
- * for the house; a pillar was left under each), dropping as an item, and what they hold spills, the caches of an
- * earlier crater too. Other carved blocks
+ * for the house; a pillar was left under each), dropping as an item, and what they hold spills. Not so the caches of
+ * another crater (an earlier one, or the one of another player the same ambush took, dug at the same time): a cache
+ * is not carved, the ground goes from under it and it comes down with the dig, whole, to lie on the new bottom (the
+ * user: no pillar under it, nothing spilled, nothing lost). Other carved blocks
  * drop nothing, and their neighbours are not updated: nothing next to the crater pops off, falls or flows because
  * of it; only a plant next to a carved block that cannot stay without it drops as usual, and the leaves of a tree whose
  * trunk was carved wither as after a felling. Entities standing over the crater fall in, and mobs walking about do not
@@ -344,6 +348,8 @@ public final class Craters {
         final List<BlockState> shownStates = new ArrayList<>();
         /** No longer wanted: given up without telling {@link #done}. */
         boolean calledOff;
+        /** Where the caches of other craters that came down with this one lie now ({@link #move}). */
+        final Set<BlockPos> lowered = new java.util.LinkedHashSet<>();
 
         Job(int id, ServerLevel level, BlockPos top, String why, CraterShape shape, BooleanSupplier wanted,
             Consumer<Crater> done) {
@@ -481,6 +487,7 @@ public final class Craters {
          * {@link #follow}), or null if it was called off.
          */
         Crater finish() {
+            settle();
             area.release();
             int blocks = carved + sealed + rubble;
             if (blocks > 0) {
@@ -548,10 +555,30 @@ public final class Craters {
 
         // ---- the works ----
 
+        /**
+         * The block at {@code x, y, z} goes. But a cache of another crater ({@link CraterCaches}) is not carved: what
+         * is under it goes instead and the cache comes down into its place ({@link #drop}), layer after layer, until it
+         * lies on the last block of its column, the new bottom (two players of one ambush lost seconds apart and their
+         * craters overlapped: the one still being dug carved the fresh caches of the other, and the things lay about
+         * as plain items). It stays above what the dig itself would not carve (a kept block, or one fixed to it).
+         */
         @Override
         public void carve(int x, int y, int z) {
             BlockPos pos = new BlockPos(x, y, z);
             BlockState state = level.getBlockState(pos);
+            if (state.is(TremorBlocks.RUBBLE_CACHE.get())) {
+                CraterRules.Column column = digging.dig().column(x, z);
+                if (column != null && y > column.bottom) {
+                    CraterRules.Cell under = cell(x, y - 1, z);
+                    if (under == CraterRules.Cell.AIR) {
+                        drop(pos.below());
+                        changes++;
+                    } else if (under != CraterRules.Cell.KEEP && !CraterRules.touchesKeep(cells, x, y - 1, z)) {
+                        carve(x, y - 1, z);
+                    }
+                }
+                return;
+            }
             if (y > top.getY() && state.is(BlockTags.LOGS)) {
                 fell(pos, state);
             } else {
@@ -572,6 +599,75 @@ public final class Craters {
                     put(at, Blocks.AIR.defaultBlockState());
                 }
             }
+            drop(pos);
+        }
+
+        /** A cache lying on the block that went at {@code pos} comes down into its place, and one on that after it. */
+        private void drop(BlockPos pos) {
+            BlockPos to = pos;
+            while (move(to.above(), to)) {
+                to = to.above();
+            }
+        }
+
+        /**
+         * Moves the cache at {@code from}, if there is one, into the air at {@code to} with all it holds: put into
+         * the new one before the old one, emptied, goes, so that nothing spills and nothing is lost on the way. False
+         * if there is no cache there, or {@code to} is not free.
+         */
+        private boolean move(BlockPos from, BlockPos to) {
+            if (!level.getBlockState(from).is(TremorBlocks.RUBBLE_CACHE.get())
+                    || !(level.getBlockEntity(from) instanceof RubbleCacheBlockEntity cache)
+                    || !level.getBlockState(to).isAir()) {
+                return false;
+            }
+            put(to, cache.getBlockState());
+            if (!(level.getBlockEntity(to) instanceof RubbleCacheBlockEntity moved)) {
+                return false;
+            }
+            moved.add(cache.stacks());
+            cache.clearContent();
+            put(from, Blocks.AIR.defaultBlockState());
+            lowered.remove(from);
+            lowered.add(to.immutable());
+            return true;
+        }
+
+        /**
+         * The dig is over: the caches that came down with it lie where it left them, each said in the log. One that
+         * came down onto another goes to the nearest free place of the bottom (the user: each lies on the new floor,
+         * none on top of another), if there is one.
+         */
+        private void settle() {
+            for (BlockPos pos : List.copyOf(lowered)) {
+                BlockPos free = level.getBlockState(pos.below()).is(TremorBlocks.RUBBLE_CACHE.get()) ? free(pos) : null;
+                if (free != null && move(pos, free)) {
+                    drop(pos);
+                }
+            }
+            for (BlockPos pos : lowered) {
+                if (level.getBlockEntity(pos) instanceof RubbleCacheBlockEntity cache) {
+                    Tremor.LOGGER.info("Crater #{}: a cache in its way came down with it and lies at {} ({} stacks)", id,
+                            pos.toShortString(), cache.stacks().size());
+                }
+            }
+        }
+
+        /** The nearest place of the bottom with nothing on its rubble, as seen from {@code from}; null if none. */
+        private BlockPos free(BlockPos from) {
+            BlockPos nearest = null;
+            long least = Long.MAX_VALUE;
+            for (Bottom bottom : bottoms) {
+                long dx = bottom.x() - from.getX();
+                long dz = bottom.z() - from.getZ();
+                BlockPos place = new BlockPos(bottom.x(), bottom.feet(), bottom.z());
+                if (dx * dx + dz * dz < least && level.getBlockState(place).isAir()
+                        && !level.getBlockState(place.below()).is(TremorBlocks.RUBBLE_CACHE.get())) {
+                    nearest = place;
+                    least = dx * dx + dz * dz;
+                }
+            }
+            return nearest;
         }
 
         @Override
@@ -667,7 +763,13 @@ public final class Craters {
         public void bottomed(CraterRules.Column column) {
             int layers = shape.rubbleAt(column.x - top.getX(), column.z - top.getZ());
             int placed = 0;
-            for (; placed < layers; placed++) {
+            // A cache that came down with the dig lies there in the rubble's place and counts as it (whoever is put on
+            // this bottom stands on the cache, not in it); no rubble goes over it.
+            while (level.getBlockState(new BlockPos(column.x, column.bottom + placed, column.z))
+                    .is(TremorBlocks.RUBBLE_CACHE.get())) {
+                placed++;
+            }
+            for (boolean bare = placed == 0; bare && placed < layers; placed++) {
                 BlockPos pos = new BlockPos(column.x, column.bottom + placed, column.z);
                 if (!level.getBlockState(pos).isAir()) {
                     break;
