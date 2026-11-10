@@ -1262,10 +1262,16 @@ public final class HollowManager {
             return event.slotArea(hollow.getMinBuildHeight(), hollow.getMaxBuildHeight());
         }
 
-        /** Whether the slot of the copy of {@code box} shifted by {@code dx, dz} lies inside the world border. */
+        /**
+         * Whether the slot of the copy of {@code box} shifted by {@code dx, dz} lies wholly inside the world border.
+         * Spelled out: {@code WorldBorder.isWithinBounds(AABB)} means wholly inside in 1.21.1, touching in 1.20.1.
+         */
         boolean fits(HollowBox box, int dx, int dz) {
-            return hollow.getWorldBorder().isWithinBounds(aabb(HollowEvent.slotArea(box.offset(dx, 0, dz),
-                    hollow.getMinBuildHeight(), hollow.getMaxBuildHeight())));
+            AABB slot = aabb(HollowEvent.slotArea(box.offset(dx, 0, dz), hollow.getMinBuildHeight(),
+                    hollow.getMaxBuildHeight()));
+            net.minecraft.world.level.border.WorldBorder border = hollow.getWorldBorder();
+            return slot.minX >= border.getMinX() && slot.maxX <= border.getMaxX()
+                    && slot.minZ >= border.getMinZ() && slot.maxZ <= border.getMaxZ();
         }
 
         /**
