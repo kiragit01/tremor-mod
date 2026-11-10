@@ -50,6 +50,11 @@ public final class Devour {
     /** The tag of a mob being pulled under, saved with it if its chunk unloads meanwhile. */
     /** On a mob being pulled under, or a display of a block on its way ({@link PerchBuild}): it does not come back. */
     static final String TAG = "tremor_devoured";
+    /**
+     * Persistent data of an item a player dropped by dying, saved with it: the game time of the death. The bump leaves
+     * the item for {@code contact.spareDeathDropsSeconds} from then on ({@link DeathDrops}; 0 by default: not at all).
+     */
+    static final String DEATH_DROP = Tremor.MODID + ":death_drop";
 
     /** The damage type of the ground's pull ({@code data/tremor/damage_type/swallowed.json}). */
     private static final net.minecraft.resources.ResourceKey<net.minecraft.world.damagesource.DamageType> SWALLOWED =
@@ -137,9 +142,53 @@ public final class Devour {
         return entry instanceof String s && ResourceLocation.tryParse(s.startsWith("#") ? s.substring(1) : s) != null;
     }
 
-    /** Whether the bump may take {@code item}: one lying about, not one the mod laid down to stay (never despawns). */
+    /**
+     * What a player drops by dying the bump can leave alone for a while, as the server's owner sets it
+     * ({@code contact.spareDeathDropsSeconds}; the user: 0 by default, each server decides): each item is stamped with
+     * the time of the death, and not taken while that is less than the setting ago ({@link #takeable}); after that it
+     * is an item like any other. With 0 a bump that strikes a player dead eats all they carried in that very tick, and
+     * the things of any death near are gone as soon as it comes by. Lowest priority: the drops are what will lie in
+     * the world, whatever the listeners before (the crater's, the hollow's, other mods') took of them or added. The
+     * stamp is the entity's, not the stack's: a stamped stack that merges into a bigger one of the same item lying
+     * there is no longer told from it (the game tells nobody of a merge). Registered by {@link Tremor}.
+     */
+    public static void onPlayerDrops(net.minecraftforge.event.entity.living.LivingDropsEvent event) {
+        if (event.getEntity() instanceof Player player) {
+            long died = player.level().getGameTime();
+            for (net.minecraft.world.entity.item.ItemEntity drop : event.getDrops()) {
+                drop.getPersistentData().putLong(DEATH_DROP, died);
+            }
+        }
+    }
+
+    /**
+     * ...and so with what the menus of a dead player throw out where they died, as the player respawns or leaves: the
+     * stack on the cursor and the crafting grid, which are no part of the death's drops. Their time runs from when
+     * they are thrown out. Registered by {@link Tremor}.
+     */
+    public static void onDeadToss(net.minecraftforge.event.entity.item.ItemTossEvent event) {
+        if (!event.getPlayer().isAlive()) {
+            event.getEntity().getPersistentData().putLong(DEATH_DROP, event.getPlayer().level().getGameTime());
+        }
+    }
+
+    /**
+     * Whether the bump may take {@code item}: one lying about, not one the mod laid down to stay (never despawns) nor,
+     * for a while, what a player dropped by dying ({@link #onPlayerDrops}, {@link #onDeadToss}).
+     */
     public static boolean takeable(net.minecraft.world.entity.item.ItemEntity item) {
-        return item.isAlive() && item.getAge() != UNLIMITED_AGE;
+        return item.isAlive() && item.getAge() != UNLIMITED_AGE && !ofFreshDeath(item);
+    }
+
+    /** Whether {@code item} was dropped by a player who died no longer ago than the bump leaves such things. */
+    private static boolean ofFreshDeath(net.minecraft.world.entity.item.ItemEntity item) {
+        long ticks = TremorConfig.COMMON.spareDeathDropsSeconds.get() * 20L;
+        if (ticks <= 0) {
+            return false; // the default: nothing is left
+        }
+        net.minecraft.nbt.CompoundTag data = item.getPersistentData();
+        return data.contains(DEATH_DROP)
+                && DeathDrops.spared(data.getLong(DEATH_DROP), item.level().getGameTime(), ticks);
     }
 
     /** The bump takes {@code item} at once: it is gone, in the dust of the ground. */

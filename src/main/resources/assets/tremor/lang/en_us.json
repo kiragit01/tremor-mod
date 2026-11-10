@@ -153,6 +153,7 @@
   "tremor.configuration.behavior.contact.spareMobs": "Mobs it never takes",
   "tremor.configuration.behavior.contact.spareTamed": "Never takes tamed animals",
   "tremor.configuration.behavior.contact.devourItems": "Devour items on the ground",
+  "tremor.configuration.behavior.contact.spareDeathDropsSeconds": "Leaves a dead player's items for (s)",
   "tremor.configuration.behavior.contact.stalactites": "Stalactites on pillars",
   "tremor.configuration.behavior.contact.buildUp": "Build pillars up",
   "tremor.configuration.behavior.despawn": "Leaving",

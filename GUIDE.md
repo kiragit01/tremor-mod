@@ -51,7 +51,7 @@ It crawls over any surface: floors, walls, cave ceilings. It can go through up t
 
 If it runs into you while hunting (or at its peak), it hits: about 2 hearts, and it knocks you back, which makes you make a sound. Animals and monsters it runs into get pulled under the ground and die. To keep it off some mobs, you can list them in the config in `contact.spareMobs`, for example `["minecraft:villager", "minecraft:wolf"]`, or whole groups by tag, for example `"#minecraft:raiders"`. And `contact.spareTamed` protects every tamed pet from any mod. Or turn it off altogether (`contact.devourMobs`).
 
-Items lying on the ground get pulled under too when it crawls over them (when it isn't calm). There's no getting them back. It only leaves alone things the mod itself gave back to a player, after the hollow for example: those never despawn either. This can be turned off in the config (`contact.devourItems`).
+Items lying on the ground get pulled under too when it crawls over them (when it isn't calm). There's no getting them back. It only leaves alone things the mod itself gave back to a player, after the hollow for example: those never despawn either. This can be turned off in the config (`contact.devourItems`). It doesn't spare what you drop when you die either; if you'd rather it gave you time to come back for your stuff, set `contact.spareDeathDropsSeconds`: for that many seconds after a death it leaves those items alone (0 by default).
 
 ## Ambush
 
