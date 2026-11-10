@@ -250,7 +250,7 @@ public final class StalactiteCrawlers {
      */
     public static void vibration(ServerLevel level, Vibration vibration) {
         List<Creature> creatures = CRAWLERS.get(level);
-        if (creatures == null || creatures.isEmpty() || "mob".equals(vibration.note())) {
+        if (creatures == null || creatures.isEmpty() || vibration.mob()) {
             return;
         }
         TremorConfig.Stalactites config = TremorConfig.COMMON.stalactites;

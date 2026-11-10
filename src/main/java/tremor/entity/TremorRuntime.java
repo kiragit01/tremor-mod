@@ -587,7 +587,7 @@ public final class TremorRuntime {
         entity.setLastHeard(new TremorEntity.Heard(vibration.source(), now, perceived, vibration.event()));
         data.setDirty();
         float before = entity.anger();
-        double angerShare = "mob".equals(vibration.note()) ? TremorConfig.COMMON.mobAngerFactor.getAsDouble() : 1;
+        double angerShare = vibration.mob() ? TremorConfig.COMMON.mobAngerFactor.getAsDouble() : 1;
         // A bang (a vibration with an anger bonus) is noticed even calm, however faint it came (the user: a huge bang
         // should draw it).
         double noticed = vibration.angerBonus() > 0
@@ -597,7 +597,7 @@ public final class TremorRuntime {
                         * (level.dimension() == net.minecraft.world.level.Level.NETHER
                         ? TremorConfig.COMMON.netherAngerFactor.getAsDouble() : 1)
                         * TremorConfig.COMMON.depth(level, listener.y(), TremorConfig.COMMON.depthAngerFactor)
-                        + vibration.angerBonus(), "mob".equals(vibration.note()));
+                        + vibration.angerBonus(), vibration.mob());
         return new Perception(listener, distance, perceived, true, entity.anger() - before, entity.anger(), stage,
                 entity.stage(), reaction);
     }
