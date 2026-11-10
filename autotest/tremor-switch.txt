@@ -1,6 +1,8 @@
 # The game rule doTremor (/tremor system on|off): the mod as a whole off. A tremor near the player and an Awakening
 # running for them; switched off, the tremor is gone and the Awakening called off (the player is let go), a command and
-# a natural spawn are refused, a shout is heard by nobody; switched on, it spawns again.
+# a natural spawn are refused, a shout is heard by nobody; switched on, it spawns again. And while it is off the
+# shards a dead player drops are items like any other (the review: the ground still took them, a second and a half
+# after the death): three seconds later they lie there, to be picked up (PickupDelay 0s, not 32767s).
 # Run: gradlew runClientAutotest -Ptremor_autotest_script=tremor-switch.txt
 waitchunks
 cmd gamemode spectator
@@ -29,6 +31,21 @@ cmd tremor spawn natural
 cmd tremor awaken
 cmd tremor voice 0
 cmd gamerule doTremor
+log --- off, a player dies with shards: they stay, to be picked up
+cmd gamerule doImmediateRespawn true
+cmd forceload add 850 290 870 310
+cmd kill @e[type=item]
+cmd give @s tremor:tremor_shard 3
+wait 5
+cmd kill @s
+wait 60
+cmd execute in minecraft:overworld positioned 860.5 201 300.5 if entity @e[type=item,nbt={Item:{id:"tremor:tremor_shard"}},distance=..8]
+cmd execute in minecraft:overworld positioned 860.5 201 300.5 as @e[type=item,nbt={Item:{id:"tremor:tremor_shard"}},distance=..8] run data get entity @s PickupDelay
+cmd kill @e[type=item]
+cmd kill @e[type=experience_orb]
+cmd tp @s 860.5 201.0 300.5 -90 20
+cmd forceload remove 850 290 870 310
+cmd gamerule doImmediateRespawn false
 wait 20
 log --- switched on
 cmd gamerule doTremor true

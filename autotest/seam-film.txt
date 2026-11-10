@@ -1,0 +1,615 @@
+# Film (NeoForge only: /tick): a big hill crawls from the floor up over a ledge four blocks high and on along its
+# top (the user: the corner between the top of a ledge and its face, filled by a stair of copies, came and went at
+# once, a harsh diagonal lattice, the worse the bigger the tremor). Twice: a hill three blocks high, then one six
+# high and twice as wide. Seen from close by, beside the ledge; the copies tinted by kind in the second half of each (a
+# stack's red, the seam's green). The pops are counted (POPS lines in the report).
+# Run: gradlew runClientAutotest -Ptremor_autotest_script=seam-film.txt
+waitchunks
+cmd gamerule commandModificationBlockLimit 2147483647
+cmd gamemode spectator
+cmd time set noon
+cmd tremor despawn all
+cmd tremor awaken stop
+cmd kill @e[type=!player]
+cmd tp @s 312.5 212.0 -905.5 90 15
+wait 40
+waitchunks
+cmd fill 240 194 -960 360 199 -840 minecraft:stone
+cmd fill 240 200 -960 360 200 -840 minecraft:grass_block
+cmd fill 240 201 -960 360 240 -840 minecraft:air
+cmd fill 280 201 -940 320 203 -906 minecraft:dirt
+cmd fill 280 204 -940 320 204 -906 minecraft:grass_block
+config ambush.enabled false
+hud off
+log --- a: amplitude 3
+cmd tremor spawn 300 200 -892
+cmd tremor ai off
+cmd tremor stage hunting
+cmd tremor hold
+cmd tremor set amplitude 3
+cmd tp @s 306.5 207.5 -900.5 135 29
+wait 60
+pops on
+cmd tick rate 5
+cmd tremor goto 300 205 -922
+wait 2
+screenshot a000
+wait 2
+screenshot a001
+wait 2
+screenshot a002
+wait 2
+screenshot a003
+wait 2
+screenshot a004
+wait 2
+screenshot a005
+wait 2
+screenshot a006
+wait 2
+screenshot a007
+wait 2
+screenshot a008
+wait 2
+screenshot a009
+wait 2
+screenshot a010
+wait 2
+screenshot a011
+wait 2
+screenshot a012
+wait 2
+screenshot a013
+wait 2
+screenshot a014
+wait 2
+screenshot a015
+wait 2
+screenshot a016
+wait 2
+screenshot a017
+wait 2
+screenshot a018
+wait 2
+screenshot a019
+wait 2
+screenshot a020
+wait 2
+screenshot a021
+wait 2
+screenshot a022
+wait 2
+screenshot a023
+wait 2
+screenshot a024
+wait 2
+screenshot a025
+wait 2
+screenshot a026
+wait 2
+screenshot a027
+wait 2
+screenshot a028
+wait 2
+screenshot a029
+wait 2
+screenshot a030
+wait 2
+screenshot a031
+wait 2
+screenshot a032
+wait 2
+screenshot a033
+wait 2
+screenshot a034
+wait 2
+screenshot a035
+wait 2
+screenshot a036
+wait 2
+screenshot a037
+wait 2
+screenshot a038
+wait 2
+screenshot a039
+wait 2
+screenshot a040
+wait 2
+screenshot a041
+wait 2
+screenshot a042
+wait 2
+screenshot a043
+wait 2
+screenshot a044
+wait 2
+screenshot a045
+wait 2
+screenshot a046
+wait 2
+screenshot a047
+wait 2
+screenshot a048
+wait 2
+screenshot a049
+wait 2
+screenshot a050
+wait 2
+screenshot a051
+wait 2
+screenshot a052
+wait 2
+screenshot a053
+wait 2
+screenshot a054
+wait 2
+screenshot a055
+wait 2
+screenshot a056
+wait 2
+screenshot a057
+wait 2
+screenshot a058
+wait 2
+screenshot a059
+pops off
+cmd tick rate 20
+cmd tremor despawn all
+wait 20
+log --- b: amplitude 3, tinted
+cmd tremor spawn 300 200 -892
+cmd tremor ai off
+cmd tremor stage hunting
+cmd tremor hold
+cmd tremor set amplitude 3
+cmd tp @s 306.5 207.5 -900.5 135 29
+tint on
+wait 60
+pops on
+cmd tick rate 5
+cmd tremor goto 300 205 -922
+wait 2
+screenshot b000
+wait 2
+screenshot b001
+wait 2
+screenshot b002
+wait 2
+screenshot b003
+wait 2
+screenshot b004
+wait 2
+screenshot b005
+wait 2
+screenshot b006
+wait 2
+screenshot b007
+wait 2
+screenshot b008
+wait 2
+screenshot b009
+wait 2
+screenshot b010
+wait 2
+screenshot b011
+wait 2
+screenshot b012
+wait 2
+screenshot b013
+wait 2
+screenshot b014
+wait 2
+screenshot b015
+wait 2
+screenshot b016
+wait 2
+screenshot b017
+wait 2
+screenshot b018
+wait 2
+screenshot b019
+wait 2
+screenshot b020
+wait 2
+screenshot b021
+wait 2
+screenshot b022
+wait 2
+screenshot b023
+wait 2
+screenshot b024
+wait 2
+screenshot b025
+wait 2
+screenshot b026
+wait 2
+screenshot b027
+wait 2
+screenshot b028
+wait 2
+screenshot b029
+wait 2
+screenshot b030
+wait 2
+screenshot b031
+wait 2
+screenshot b032
+wait 2
+screenshot b033
+wait 2
+screenshot b034
+wait 2
+screenshot b035
+wait 2
+screenshot b036
+wait 2
+screenshot b037
+wait 2
+screenshot b038
+wait 2
+screenshot b039
+wait 2
+screenshot b040
+wait 2
+screenshot b041
+wait 2
+screenshot b042
+wait 2
+screenshot b043
+wait 2
+screenshot b044
+wait 2
+screenshot b045
+wait 2
+screenshot b046
+wait 2
+screenshot b047
+wait 2
+screenshot b048
+wait 2
+screenshot b049
+wait 2
+screenshot b050
+wait 2
+screenshot b051
+wait 2
+screenshot b052
+wait 2
+screenshot b053
+wait 2
+screenshot b054
+wait 2
+screenshot b055
+wait 2
+screenshot b056
+wait 2
+screenshot b057
+wait 2
+screenshot b058
+wait 2
+screenshot b059
+pops off
+cmd tick rate 20
+tint off
+cmd tremor despawn all
+wait 20
+log --- c: amplitude 6, twice as wide
+cmd tremor spawn 300 200 -892
+cmd tremor ai off
+cmd tremor stage hunting
+cmd tremor hold
+cmd tremor set amplitude 6
+cmd tremor set sigmaFront 3.2
+cmd tremor set sigmaBack 5.2
+cmd tremor set sigmaSide 4.4
+cmd tp @s 306.5 207.5 -900.5 135 29
+wait 60
+pops on
+cmd tick rate 5
+cmd tremor goto 300 205 -922
+wait 2
+screenshot c000
+wait 2
+screenshot c001
+wait 2
+screenshot c002
+wait 2
+screenshot c003
+wait 2
+screenshot c004
+wait 2
+screenshot c005
+wait 2
+screenshot c006
+wait 2
+screenshot c007
+wait 2
+screenshot c008
+wait 2
+screenshot c009
+wait 2
+screenshot c010
+wait 2
+screenshot c011
+wait 2
+screenshot c012
+wait 2
+screenshot c013
+wait 2
+screenshot c014
+wait 2
+screenshot c015
+wait 2
+screenshot c016
+wait 2
+screenshot c017
+wait 2
+screenshot c018
+wait 2
+screenshot c019
+wait 2
+screenshot c020
+wait 2
+screenshot c021
+wait 2
+screenshot c022
+wait 2
+screenshot c023
+wait 2
+screenshot c024
+wait 2
+screenshot c025
+wait 2
+screenshot c026
+wait 2
+screenshot c027
+wait 2
+screenshot c028
+wait 2
+screenshot c029
+wait 2
+screenshot c030
+wait 2
+screenshot c031
+wait 2
+screenshot c032
+wait 2
+screenshot c033
+wait 2
+screenshot c034
+wait 2
+screenshot c035
+wait 2
+screenshot c036
+wait 2
+screenshot c037
+wait 2
+screenshot c038
+wait 2
+screenshot c039
+wait 2
+screenshot c040
+wait 2
+screenshot c041
+wait 2
+screenshot c042
+wait 2
+screenshot c043
+wait 2
+screenshot c044
+wait 2
+screenshot c045
+wait 2
+screenshot c046
+wait 2
+screenshot c047
+wait 2
+screenshot c048
+wait 2
+screenshot c049
+wait 2
+screenshot c050
+wait 2
+screenshot c051
+wait 2
+screenshot c052
+wait 2
+screenshot c053
+wait 2
+screenshot c054
+wait 2
+screenshot c055
+wait 2
+screenshot c056
+wait 2
+screenshot c057
+wait 2
+screenshot c058
+wait 2
+screenshot c059
+wait 2
+screenshot c060
+wait 2
+screenshot c061
+wait 2
+screenshot c062
+wait 2
+screenshot c063
+wait 2
+screenshot c064
+wait 2
+screenshot c065
+wait 2
+screenshot c066
+wait 2
+screenshot c067
+wait 2
+screenshot c068
+wait 2
+screenshot c069
+pops off
+cmd tick rate 20
+cmd tremor despawn all
+wait 20
+log --- d: amplitude 6, twice as wide, tinted
+cmd tremor spawn 300 200 -892
+cmd tremor ai off
+cmd tremor stage hunting
+cmd tremor hold
+cmd tremor set amplitude 6
+cmd tremor set sigmaFront 3.2
+cmd tremor set sigmaBack 5.2
+cmd tremor set sigmaSide 4.4
+cmd tp @s 306.5 207.5 -900.5 135 29
+tint on
+wait 60
+pops on
+cmd tick rate 5
+cmd tremor goto 300 205 -922
+wait 2
+screenshot d000
+wait 2
+screenshot d001
+wait 2
+screenshot d002
+wait 2
+screenshot d003
+wait 2
+screenshot d004
+wait 2
+screenshot d005
+wait 2
+screenshot d006
+wait 2
+screenshot d007
+wait 2
+screenshot d008
+wait 2
+screenshot d009
+wait 2
+screenshot d010
+wait 2
+screenshot d011
+wait 2
+screenshot d012
+wait 2
+screenshot d013
+wait 2
+screenshot d014
+wait 2
+screenshot d015
+wait 2
+screenshot d016
+wait 2
+screenshot d017
+wait 2
+screenshot d018
+wait 2
+screenshot d019
+wait 2
+screenshot d020
+wait 2
+screenshot d021
+wait 2
+screenshot d022
+wait 2
+screenshot d023
+wait 2
+screenshot d024
+wait 2
+screenshot d025
+wait 2
+screenshot d026
+wait 2
+screenshot d027
+wait 2
+screenshot d028
+wait 2
+screenshot d029
+wait 2
+screenshot d030
+wait 2
+screenshot d031
+wait 2
+screenshot d032
+wait 2
+screenshot d033
+wait 2
+screenshot d034
+wait 2
+screenshot d035
+wait 2
+screenshot d036
+wait 2
+screenshot d037
+wait 2
+screenshot d038
+wait 2
+screenshot d039
+wait 2
+screenshot d040
+wait 2
+screenshot d041
+wait 2
+screenshot d042
+wait 2
+screenshot d043
+wait 2
+screenshot d044
+wait 2
+screenshot d045
+wait 2
+screenshot d046
+wait 2
+screenshot d047
+wait 2
+screenshot d048
+wait 2
+screenshot d049
+wait 2
+screenshot d050
+wait 2
+screenshot d051
+wait 2
+screenshot d052
+wait 2
+screenshot d053
+wait 2
+screenshot d054
+wait 2
+screenshot d055
+wait 2
+screenshot d056
+wait 2
+screenshot d057
+wait 2
+screenshot d058
+wait 2
+screenshot d059
+wait 2
+screenshot d060
+wait 2
+screenshot d061
+wait 2
+screenshot d062
+wait 2
+screenshot d063
+wait 2
+screenshot d064
+wait 2
+screenshot d065
+wait 2
+screenshot d066
+wait 2
+screenshot d067
+wait 2
+screenshot d068
+wait 2
+screenshot d069
+pops off
+cmd tick rate 20
+tint off
+cmd tremor despawn all
+wait 20
+config ambush.enabled true
+quit

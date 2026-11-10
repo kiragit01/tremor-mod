@@ -235,4 +235,79 @@ class SurfaceNormalsTest {
         assertSame(Vec3.ZERO, SurfaceNormals.smoothNormal(view, 0, -1, 0));
         assertFalse(new NormalField(view).isSurface(0, -1, 0));
     }
+
+    /** Flat ground with a ledge: solid for {@code y <= 0}, and up to {@code height} for {@code x <= -1}; its side faces +x. */
+    private static ArrayVoxelGrid ledge(int height) {
+        ArrayVoxelGrid g = ArrayVoxelGrid.flatFloor(0);
+        g.fill(g.minX, 1, g.minZ, -1, height, g.maxZ, true);
+        return g;
+    }
+
+    @Test
+    void wideNormalOfFlatGroundIsUp() {
+        assertVec(Vec3.UNIT_Y,
+                SurfaceNormals.wideNormal(ArrayVoxelGrid.flatFloor(0), new Vec3(0.5, 1, 0.5), Vec3.UNIT_Y, 6));
+    }
+
+    /**
+     * A bump six blocks high crossing a ledge four high ({@link SurfaceNormals#wideNormal}): over the floor to its
+     * foot, up its side, where the normal of the voxel under it lies flat, and on along its top. The ground at its
+     * scale stays more up than not all the way, and turns by little from one place to the next.
+     */
+    @Test
+    void aLedgeLowerThanTheRadiusHardlyTurnsTheWideNormal() {
+        ArrayVoxelGrid g = ledge(4);
+        Vec3 before = null;
+        for (double s = 0; s <= 20; s += 0.25) {
+            Vec3 c = s < 8 ? new Vec3(8 - s, 1, 0.5) : s <= 12 ? new Vec3(0, 1 + (s - 8), 0.5) : new Vec3(12 - s, 5, 0.5);
+            Vec3 own = s > 8 && s < 12 ? Vec3.UNIT_X : Vec3.UNIT_Y;
+            Vec3 wide = SurfaceNormals.wideNormal(g, c, own, 6);
+            assertTrue(angleDeg(wide, Vec3.UNIT_Y) < 30, "at " + c + " it leans " + angleDeg(wide, Vec3.UNIT_Y));
+            assertEquals(0, wide.z(), 1e-9, "the ledge runs along z");
+            if (before != null) {
+                assertTrue(angleDeg(wide, before) < 6, "at " + c + " it turns by " + angleDeg(wide, before));
+            }
+            before = wide;
+        }
+    }
+
+    /** A wall higher than the radius turns it: all the way out of reach of the floor, part of the way at its foot. */
+    @Test
+    void aWallHigherThanTheRadiusTurnsTheWideNormal() {
+        ArrayVoxelGrid g = ArrayVoxelGrid.floorWallCorner(0, -1);
+        assertVec(Vec3.UNIT_X, SurfaceNormals.wideNormal(g, new Vec3(0, 8.5, 0.5), Vec3.UNIT_X, 6));
+        double foot = angleDeg(SurfaceNormals.wideNormal(g, new Vec3(0, 1.5, 0.5), Vec3.UNIT_X, 6), Vec3.UNIT_Y);
+        assertTrue(foot > 30 && foot < 70, "at its foot it leans " + foot);
+        double up = angleDeg(SurfaceNormals.wideNormal(g, new Vec3(0, 4.5, 0.5), Vec3.UNIT_X, 6), Vec3.UNIT_Y);
+        assertTrue(up > 75, "four blocks up it leans " + up);
+    }
+
+    /** Faces turned away from the given normal are not its ground: the roof of a cave, the far wall of a passage. */
+    @Test
+    void wideNormalLeavesOutTheFacesTurnedAway() {
+        ArrayVoxelGrid cave = ArrayVoxelGrid.cave(0, 4);
+        assertVec(Vec3.UNIT_Y, SurfaceNormals.wideNormal(cave, new Vec3(0.5, 1, 0.5), Vec3.UNIT_Y, 6));
+        assertVec(new Vec3(0, -1, 0), SurfaceNormals.wideNormal(cave, new Vec3(0.5, 4, 0.5), new Vec3(0, -1, 0), 6));
+        // a passage three blocks wide: its two walls cancel, its floor is left
+        ArrayVoxelGrid passage = ArrayVoxelGrid.room(-1, 1, -19, 1, 3, 19);
+        assertTrue(angleDeg(SurfaceNormals.wideNormal(passage, new Vec3(0.5, 1, 0.5), Vec3.UNIT_Y, 6), Vec3.UNIT_Y) < 1e-3);
+        // nothing solid around: the given normal itself
+        ArrayVoxelGrid air = new ArrayVoxelGrid(-8, -8, -8, 8, 8, 8, false);
+        assertSame(Vec3.UNIT_Z, SurfaceNormals.wideNormal(air, new Vec3(0.5, 0.5, 0.5), Vec3.UNIT_Z, 6));
+    }
+
+    /** A slope of one in one is its own way at any scale: stairs rising toward -x face up and +x alike. */
+    @Test
+    void wideNormalOfAStairSlopeIsTheSlope() {
+        ArrayVoxelGrid g = new ArrayVoxelGrid(-20, -16, -20, 20, 16, 20, ArrayVoxelGrid.Outside.EXTEND);
+        for (int x = -15; x <= 15; x++) {
+            g.fill(x, g.minY, g.minZ, x, -x, g.maxZ, true);
+        }
+        g.fill(g.minX, g.minY, g.minZ, -16, 15, g.maxZ, true);
+        Vec3 slope = new Vec3(1, 1, 0).normalize();
+        for (double x = 0; x < 1; x += 0.25) {
+            Vec3 wide = SurfaceNormals.wideNormal(g, new Vec3(x, 1, 0.5), slope, 6);
+            assertTrue(angleDeg(wide, slope) < 3, "at x = " + x + " it is off the slope by " + angleDeg(wide, slope));
+        }
+    }
 }

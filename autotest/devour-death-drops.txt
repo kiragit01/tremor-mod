@@ -1,0 +1,125 @@
+# What a player drops by dying the bump leaves alone for as long as contact.spareDeathDropsSeconds says (0 by default:
+# not at all, as it was; the review, Т1: a hunting bump struck a player dead and ate everything they carried in the
+# same tick, before the death screen). Here the setting is 60. In survival, keepInventory off.
+# 1: a player with 3 health, three stacks and one more on the cursor stands in the way of a hunting bump; it strikes
+#    them dead and stays under the place. The four stacks are there a second later (the one of the cursor is thrown
+#    out as the dead player respawns); put right onto the bump they still lie there ten seconds after the death, while
+#    a stray ingot thrown among them is gone (it still takes what lies about). Then the setting is cut to 5 seconds:
+#    the time is over for these, and it takes them.
+# 2: a player dies 25 blocks from the bump (/kill), which then crawls over the place: the two stacks stay, the stray
+#    ingot among them goes. Then the setting is put to 0, as it is by default: it takes them at once.
+# Every "execute ... if|unless" line must answer "Test passed" (the counts: 4, 4, 1, 2, 2). With the setting at 0 the
+# things are gone in the tick of the death (1), or as the bump comes by (2).
+# (The cursor is set by a command of 1.20.5 and later: the script of the Forge 1.20.1 branch has three stacks only.)
+# Immediate respawn; the place is kept loaded and the player comes back to look.
+# Run: gradlew runClientAutotest -Ptremor_autotest_script=devour-death-drops.txt
+waitchunks
+cmd gamerule commandModificationBlockLimit 2147483647
+cmd gamerule doImmediateRespawn true
+cmd gamerule keepInventory false
+cmd gamerule naturalRegeneration false
+config behavior.contact.spareDeathDropsSeconds 60
+cmd gamemode spectator
+cmd time set noon
+cmd tremor despawn all
+cmd tremor awaken stop
+cmd tp @s 306.5 206.0 -905.5 90 40
+wait 40
+waitchunks
+cmd fill 240 198 -960 299 199 -840 minecraft:stone
+cmd fill 300 198 -960 360 199 -840 minecraft:stone
+cmd fill 240 200 -960 360 200 -840 minecraft:grass_block
+cmd fill 240 201 -960 279 206 -840 minecraft:air
+cmd fill 280 201 -960 319 206 -840 minecraft:air
+cmd fill 320 201 -960 360 206 -840 minecraft:air
+cmd forceload add 288 -936 311 -849
+cmd kill @e[type=!player]
+
+log --- 1. struck dead by the hunting bump: the things stay, a stray ingot goes
+cmd tp @s 300.5 201.0 -905.5 0 30
+cmd gamemode survival
+cmd clear @s
+cmd effect clear @s
+cmd effect give @s minecraft:instant_health 1 4 true
+cmd give @s minecraft:diamond 5
+cmd give @s minecraft:iron_pickaxe
+cmd give @s minecraft:bread 3
+cmd item replace entity @s player.cursor with minecraft:emerald 2
+wait 10
+cmd damage @s 17
+cmd data get entity @s Health
+cmd tremor spawn 300 200 -897
+cmd tremor ai off
+cmd tremor stage hunting
+cmd tremor hold
+wait 40
+screenshot 10_before
+cmd tremor goto 300 200 -905
+waitfor 300 swallowed by the ground
+wait 5
+cmd gamemode spectator
+cmd tp @s 306.5 206.0 -905.5 90 40
+wait 15
+log --- a second after the death: the four stacks are there
+cmd execute positioned 300.5 201 -905.5 if entity @e[type=item,distance=..8]
+screenshot 11_just_died
+# All of them right onto the bump, and a stray ingot among them
+cmd execute positioned 300.5 201 -905.5 run tp @e[type=item,distance=..8] 300.5 201.3 -905.5
+cmd summon item 300.5 201.5 -905.5 {Item:{id:"minecraft:gold_ingot",count:1,Count:1b}}
+wait 180
+log --- ten seconds after the death: the four stacks lie on the bump, the ingot is gone
+cmd tremor info
+cmd execute positioned 300.5 201 -905.5 if entity @e[type=item,distance=..3]
+cmd execute positioned 300.5 201 -905.5 if entity @e[type=item,nbt={Item:{id:"minecraft:emerald"}},distance=..3]
+cmd execute positioned 300.5 201 -905.5 unless entity @e[type=item,nbt={Item:{id:"minecraft:gold_ingot"}},distance=..8]
+cmd execute as @e[type=item,x=288,y=195,z=-936,dx=23,dy=15,dz=87] run data get entity @s Item.id
+screenshot 12_ten_seconds_later
+log --- the setting cut to five seconds: the time is over for these, and it takes them
+config behavior.contact.spareDeathDropsSeconds 5
+wait 40
+cmd execute positioned 300.5 201 -905.5 unless entity @e[type=item,distance=..8]
+config behavior.contact.spareDeathDropsSeconds 60
+cmd tremor despawn all
+cmd kill @e[type=item]
+cmd kill @e[type=experience_orb]
+
+log --- 2. dead far from the bump, which then crawls over the place: the things stay, a stray ingot goes
+cmd tremor spawn 300 200 -855
+cmd tremor ai off
+cmd tremor stage hunting
+cmd tremor hold
+cmd tp @s 300.5 201.0 -880.5 0 30
+cmd gamemode survival
+cmd clear @s
+cmd give @s minecraft:cobblestone 10
+cmd give @s minecraft:iron_sword
+wait 40
+cmd kill @s
+wait 5
+cmd gamemode spectator
+cmd tp @s 306.5 206.0 -880.5 90 40
+wait 30
+cmd execute positioned 300.5 201 -880.5 if entity @e[type=item,distance=..8]
+cmd execute positioned 300.5 201 -880.5 run tp @e[type=item,distance=..8] 300.5 201.3 -880.5
+cmd summon item 300.5 201.5 -880.5 {Item:{id:"minecraft:gold_ingot",count:1,Count:1b}}
+wait 10
+cmd tremor goto 300 200 -880
+screenshot 20_coming
+wait 300
+log --- the bump lies under the place: the two stacks are there, the ingot is gone
+cmd tremor info
+cmd execute positioned 300.5 201 -880.5 if entity @e[type=item,distance=..3]
+cmd execute positioned 300.5 201 -880.5 unless entity @e[type=item,nbt={Item:{id:"minecraft:gold_ingot"}},distance=..8]
+cmd execute as @e[type=item,x=288,y=195,z=-936,dx=23,dy=15,dz=87] run data get entity @s Item.id
+screenshot 21_under_the_things
+log --- the setting at 0, as by default: nothing is left, it takes them at once
+config behavior.contact.spareDeathDropsSeconds 0
+wait 40
+cmd execute positioned 300.5 201 -880.5 unless entity @e[type=item,distance=..8]
+cmd tremor despawn all
+cmd kill @e[type=item]
+cmd kill @e[type=experience_orb]
+cmd forceload remove 288 -936 311 -849
+cmd gamerule naturalRegeneration true
+cmd gamerule doImmediateRespawn false
+quit

@@ -1,0 +1,333 @@
+# Film (NeoForge only: /tick): a tremor whose height is set to eight blocks, its width left as it is (the user:
+# some players turn the height up in the config, and it comes out both tall and blown up sideways, too big an
+# area). First it crawls along the foot of a wall four blocks high, then from the floor up over that ledge.
+# Run: gradlew runClientAutotest -Ptremor_autotest_script=tall-film.txt
+waitchunks
+cmd gamerule commandModificationBlockLimit 2147483647
+cmd gamemode spectator
+cmd time set noon
+cmd tremor despawn all
+cmd tremor awaken stop
+cmd kill @e[type=!player]
+cmd tp @s 312.5 212.0 -905.5 90 15
+wait 40
+waitchunks
+cmd fill 240 194 -960 360 199 -840 minecraft:stone
+cmd fill 240 200 -960 360 200 -840 minecraft:grass_block
+cmd fill 240 201 -960 360 240 -840 minecraft:air
+cmd fill 280 201 -940 320 203 -906 minecraft:dirt
+cmd fill 280 204 -940 320 204 -906 minecraft:grass_block
+config ambush.enabled false
+hud off
+log --- w: along the foot of a wall
+cmd tremor spawn 288 200 -905
+cmd tremor ai off
+cmd tremor stage hunting
+cmd tremor hold
+cmd tremor set amplitude 8
+cmd tp @s 300.5 208.0 -893.5 180 32
+wait 60
+pops on
+cmd tick rate 5
+cmd tremor goto 312 201 -905
+wait 2
+screenshot w000
+wait 2
+screenshot w001
+wait 2
+screenshot w002
+wait 2
+screenshot w003
+wait 2
+screenshot w004
+wait 2
+screenshot w005
+wait 2
+screenshot w006
+wait 2
+screenshot w007
+wait 2
+screenshot w008
+wait 2
+screenshot w009
+wait 2
+screenshot w010
+wait 2
+screenshot w011
+wait 2
+screenshot w012
+wait 2
+screenshot w013
+wait 2
+screenshot w014
+wait 2
+screenshot w015
+wait 2
+screenshot w016
+wait 2
+screenshot w017
+wait 2
+screenshot w018
+wait 2
+screenshot w019
+wait 2
+screenshot w020
+wait 2
+screenshot w021
+wait 2
+screenshot w022
+wait 2
+screenshot w023
+wait 2
+screenshot w024
+wait 2
+screenshot w025
+wait 2
+screenshot w026
+wait 2
+screenshot w027
+wait 2
+screenshot w028
+wait 2
+screenshot w029
+wait 2
+screenshot w030
+wait 2
+screenshot w031
+wait 2
+screenshot w032
+wait 2
+screenshot w033
+wait 2
+screenshot w034
+wait 2
+screenshot w035
+wait 2
+screenshot w036
+wait 2
+screenshot w037
+wait 2
+screenshot w038
+wait 2
+screenshot w039
+wait 2
+screenshot w040
+wait 2
+screenshot w041
+wait 2
+screenshot w042
+wait 2
+screenshot w043
+wait 2
+screenshot w044
+wait 2
+screenshot w045
+wait 2
+screenshot w046
+wait 2
+screenshot w047
+wait 2
+screenshot w048
+wait 2
+screenshot w049
+wait 2
+screenshot w050
+wait 2
+screenshot w051
+wait 2
+screenshot w052
+wait 2
+screenshot w053
+wait 2
+screenshot w054
+wait 2
+screenshot w055
+wait 2
+screenshot w056
+wait 2
+screenshot w057
+wait 2
+screenshot w058
+wait 2
+screenshot w059
+wait 2
+screenshot w060
+wait 2
+screenshot w061
+wait 2
+screenshot w062
+wait 2
+screenshot w063
+wait 2
+screenshot w064
+wait 2
+screenshot w065
+wait 2
+screenshot w066
+wait 2
+screenshot w067
+wait 2
+screenshot w068
+wait 2
+screenshot w069
+pops off
+cmd tick rate 20
+cmd tremor despawn all
+wait 20
+log --- l: from the floor up over the ledge
+cmd tremor spawn 300 200 -892
+cmd tremor ai off
+cmd tremor stage hunting
+cmd tremor hold
+cmd tremor set amplitude 8
+cmd tp @s 309.5 211.0 -897.5 135 30
+wait 60
+pops on
+cmd tick rate 5
+cmd tremor goto 300 205 -922
+wait 2
+screenshot l000
+wait 2
+screenshot l001
+wait 2
+screenshot l002
+wait 2
+screenshot l003
+wait 2
+screenshot l004
+wait 2
+screenshot l005
+wait 2
+screenshot l006
+wait 2
+screenshot l007
+wait 2
+screenshot l008
+wait 2
+screenshot l009
+wait 2
+screenshot l010
+wait 2
+screenshot l011
+wait 2
+screenshot l012
+wait 2
+screenshot l013
+wait 2
+screenshot l014
+wait 2
+screenshot l015
+wait 2
+screenshot l016
+wait 2
+screenshot l017
+wait 2
+screenshot l018
+wait 2
+screenshot l019
+wait 2
+screenshot l020
+wait 2
+screenshot l021
+wait 2
+screenshot l022
+wait 2
+screenshot l023
+wait 2
+screenshot l024
+wait 2
+screenshot l025
+wait 2
+screenshot l026
+wait 2
+screenshot l027
+wait 2
+screenshot l028
+wait 2
+screenshot l029
+wait 2
+screenshot l030
+wait 2
+screenshot l031
+wait 2
+screenshot l032
+wait 2
+screenshot l033
+wait 2
+screenshot l034
+wait 2
+screenshot l035
+wait 2
+screenshot l036
+wait 2
+screenshot l037
+wait 2
+screenshot l038
+wait 2
+screenshot l039
+wait 2
+screenshot l040
+wait 2
+screenshot l041
+wait 2
+screenshot l042
+wait 2
+screenshot l043
+wait 2
+screenshot l044
+wait 2
+screenshot l045
+wait 2
+screenshot l046
+wait 2
+screenshot l047
+wait 2
+screenshot l048
+wait 2
+screenshot l049
+wait 2
+screenshot l050
+wait 2
+screenshot l051
+wait 2
+screenshot l052
+wait 2
+screenshot l053
+wait 2
+screenshot l054
+wait 2
+screenshot l055
+wait 2
+screenshot l056
+wait 2
+screenshot l057
+wait 2
+screenshot l058
+wait 2
+screenshot l059
+wait 2
+screenshot l060
+wait 2
+screenshot l061
+wait 2
+screenshot l062
+wait 2
+screenshot l063
+wait 2
+screenshot l064
+wait 2
+screenshot l065
+wait 2
+screenshot l066
+wait 2
+screenshot l067
+wait 2
+screenshot l068
+wait 2
+screenshot l069
+pops off
+cmd tick rate 20
+cmd tremor despawn all
+wait 20
+config ambush.enabled true
+quit

@@ -509,12 +509,12 @@ class WayPlannerTest {
                     }
                 }
             }
-            // A big cave deep down, roomy enough not to be widened.
+            // A big cave deep down, roomy enough not to be widened, its roof under the height open ground is told at.
             VoxelGrid cave = gameRock();
             for (int z = -12; z <= 12; z++) {
                 for (int x = -12; x <= 12; x++) {
                     if (x * x + z * z <= 144) {
-                        open(cave, x, 0, z, x, 8 - (x * x + z * z) / 30, z);
+                        open(cave, x, 0, z, x, 7 - (x * x + z * z) / 30, z);
                     }
                 }
             }
@@ -672,6 +672,28 @@ class WayPlannerTest {
         assertEquals(-1, WayPlanner.distances(grid, 0, 0, 0, 50).distance(3, 1, 0));
     }
 
+    /**
+     * A player on the floor of the world (bedrock right under the feet, the bottom row of the grid): the region of the
+     * game goes down to the row over that floor there, and the way and the node fit in it as anywhere.
+     */
+    @Test
+    void onTheFloorOfTheWorldThereIsAWayAndANode() {
+        VoxelGrid.Region overFloor = (x, y, z) -> square(x + 0.5) + square(z + 0.5) <= 24 * 24 && y >= 0
+                && y <= 21;
+        for (long seed = 0; seed < 10; seed++) {
+            VoxelGrid grid = new VoxelGrid(-32, -1, -32, 32, 24, 32); // y -1: the floor of the world
+            open(grid, -32, 0, 0, 32, 1, 0);
+            Widening.cave(grid, overFloor, 0, 0, 0, 8, 6, seed).applyTo(grid);
+            WayPlanner.Plan plan = WayPlanner.plan(grid, overFloor, 0, 0, 0, DEFAULTS, seed);
+            String what = "seed " + seed;
+            check(grid, overFloor, plan, what);
+            assertTrue(plan.length() >= 40, what + ": length " + plan.length());
+            assertTrue(Math.hypot(CellKey.x(plan.node()), Math.hypot(CellKey.y(plan.node()), CellKey.z(plan.node())))
+                    >= 4, what + ": the node at " + CellKey.x(plan.node()) + " " + CellKey.y(plan.node()) + " "
+                    + CellKey.z(plan.node()));
+        }
+    }
+
     @Test
     void theNodeIsNeverOnTheBottomRowOfTheGrid() {
         // Ground falling away from the start down to the bottom of the grid and beyond: what is under the bottom row
@@ -707,12 +729,17 @@ class WayPlannerTest {
     void openGroundIsUnderTheSkyOrNearly() {
         VoxelGrid grid = field();
         assertTrue(WayPlanner.nearSurface(grid, 0, 0, 0));
+        // The vault of the hollow over the top: still the surface.
+        for (int y = 9; y <= grid.maxY(); y++) {
+            grid.set(0, y, 0, 0);
+        }
+        assertTrue(WayPlanner.nearSurface(grid, 0, 0, 0), "under the vault");
         // Under three blocks of leaves or a roof: still the surface.
         for (int y = 5; y < 8; y++) {
             grid.set(0, y, 0, 0);
         }
         assertTrue(WayPlanner.nearSurface(grid, 0, 0, 0));
-        grid.set(0, 9, 0, 0);
+        grid.set(0, 4, 0, 0);
         assertFalse(WayPlanner.nearSurface(grid, 0, 0, 0), "under four");
         // A cave: rock up to the top of the grid.
         assertFalse(WayPlanner.nearSurface(widenedTunnel(1), 0, 0, 0));

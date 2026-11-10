@@ -144,15 +144,21 @@ public final class CraterCaches {
 
     /**
      * Puts a cache on {@code bottom}: on top of its rubble ({@code buried} 0), else on its floor under {@code buried}
-     * blocks of rubble (more is added if the rubble is thinner). Null if the place is taken by something that is
-     * neither air nor rubble (something fell in meanwhile).
+     * blocks of rubble (more is added if the rubble is thinner); lower, if the bottom is no longer there. Null if the
+     * place is taken by something that is neither air nor rubble (something fell in meanwhile), or lies on another
+     * cache (one that came down with the dig, {@link Craters}).
      */
     private static RubbleCacheBlockEntity place(Craters.Crater crater, Craters.Bottom bottom, int buried) {
         ServerLevel level = crater.level;
         BlockPos at = new BlockPos(bottom.x(), buried == 0 ? bottom.floor() + Math.max(1, bottom.rubble())
                 : bottom.floor() + 1, bottom.z());
+        // Another crater may have dug the bottom away meanwhile: the cache lies on what is under it now, not in the air.
+        while (level.getBlockState(at.below()).isAir() && !level.isOutsideBuildHeight(at.below())) {
+            at = at.below();
+        }
         BlockState there = level.getBlockState(at);
-        if (!there.isAir() && !Craters.isRubble(there)) {
+        if (!there.isAir() && !Craters.isRubble(there)
+                || level.getBlockState(at.below()).is(TremorBlocks.RUBBLE_CACHE.get())) {
             return null;
         }
         level.setBlock(at, TremorBlocks.RUBBLE_CACHE.get().defaultBlockState(), Block.UPDATE_CLIENTS);

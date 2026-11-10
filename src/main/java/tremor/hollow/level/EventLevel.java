@@ -41,8 +41,8 @@ import java.util.concurrent.CompletableFuture;
  * {@code nodeMinDistance}..{@code nodeMaxDistance} steps away, the way to it (from a throat on open ground) kept open
  * for good, {@code minDeadEnds}..{@code maxDeadEnds} dead ends, walled corridors where they pass through caves; then
  * the blocks are written, a batch at a time. All of it stays inside the copy, {@value #MARGIN} blocks from its sides,
- * top and bottom and a quarter of its radius (4 blocks at least) from its round edge (a seal or a wall a block further
- * out at most); what is carved is sealed from the fluids, lava and fire around it. The time it took is logged.
+ * top and bottom (a block over the floor of the world, where the copy lies on it) and a quarter of its radius (4
+ * blocks at least) from its round edge (a seal or a wall a block further out at most); what is carved is sealed from the fluids, lava and fire around it. The time it took is logged.
  * <p>
  * <b>While the player is inside</b> ({@link #tick}, within {@code hollow.level.budgetMillis}):
  * <ul>
@@ -62,6 +62,8 @@ import java.util.concurrent.CompletableFuture;
  * fails ({@link #fail}) stands still too, and {@link HollowLevels} brings its player back.
  */
 final class EventLevel {
+    /** A plan whose node is nearer the player than this (blocks) is no level: the event is called off. */
+    private static final int NEAREST_NODE = 4;
     /** Stays this far inside the sides, top and bottom of the copy (blocks). */
     private static final int MARGIN = 3;
     /** The planning looks this far above the player's feet (blocks)... */
@@ -211,8 +213,10 @@ final class EventLevel {
         seed = LevelNoise.mix(event.player().getMostSignificantBits() ^ event.player().getLeastSignificantBits()
                 ^ event.createdGameTime());
         double inner = boxRadius - Math.max(4, boxRadius / 4);
+        // On the floor of the world there is nothing under the copy to dig out into: down to a row over that floor.
+        int bottom = box.minY() <= hollow.getMinBuildHeight() ? hollow.getMinBuildHeight() + 1 : box.minY() + MARGIN;
         region = (x, y, z) -> x >= box.minX() + MARGIN && x <= box.maxX() - MARGIN && z >= box.minZ() + MARGIN
-                && z <= box.maxZ() - MARGIN && y >= box.minY() + MARGIN && y <= box.maxY() - MARGIN
+                && z <= box.maxZ() - MARGIN && y >= bottom && y <= box.maxY() - MARGIN
                 && square(x + 0.5 - centreX) + square(z + 0.5 - centreZ) <= inner * inner;
     }
 
@@ -321,8 +325,20 @@ final class EventLevel {
         }
         plan = planner.plan();
         planner = null;
+        int nearest = Math.min(NEAREST_NODE, minLength); // a node asked for nearer in the config is no failure
+        if (BlockPos.of(plan.node()).distSqr(start) < nearest * nearest) {
+            // Hemmed in (the top of the world over the head; the floor of the world under the feet, should no way fit
+            // over it even so): no node, or one won in seconds.
+            throw new IllegalStateException("no room for a way to a node: it would be "
+                    + BlockPos.of(plan.node()).toShortString() + " from the player at " + start.toShortString());
+        }
         if (!nightmare) {
-            tunnel = EscapeTunnel.plan(grid, centreX, centreZ, start.getY(), boxRadius, seed, plan.fill());
+            tunnel = EscapeTunnel.plan(grid, plan, centreX, centreZ, start.getX(), start.getY(), start.getZ(),
+                    boxRadius, seed);
+            if (tunnel == null) {
+                throw new IllegalStateException("no escape tunnel a player walks from " + start.toShortString()
+                        + " to the edge");
+            }
         }
         grid = null;
         Set<Long> carve = new LinkedHashSet<>();
@@ -336,14 +352,12 @@ final class EventLevel {
         fill.removeAll(plan.carve());
         carve.addAll(plan.carve());
         fill.addAll(plan.fill());
-        // The escape tunnel goes through whatever is there; its floor never closes a cell another way leaves open.
+        // The escape tunnel goes through whatever is there; its floors and seals are never a cell of the ways
+        // (EscapeTunnel), and over the cave they close what the cave opened under it.
         fill.removeAll(tunnel.carve());
         carve.addAll(tunnel.carve());
-        for (long cell : tunnel.floor()) {
-            if (!carve.contains(cell)) {
-                fill.add(cell);
-            }
-        }
+        carve.removeAll(tunnel.floor());
+        fill.addAll(tunnel.floor());
         carving = carve.stream().mapToLong(Long::longValue).toArray();
         filling = fill.stream().mapToLong(Long::longValue).toArray();
         way = new LongOpenHashSet(plan.way());

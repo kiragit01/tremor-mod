@@ -198,7 +198,7 @@ public final class VibrationListener {
             contact = Contact.ofEntity(view, cause, false);
         }
         emit(level, runtimes, new Vibration(name, contact.point(), loudness, contact.footing(), 0,
-                join(join(note, drop), contact.note()), contact.rustling()), cause);
+                join(join(note, drop), contact.note()), contact.rustling(), "mob".equals(note)), cause);
     }
 
     /**
@@ -252,7 +252,7 @@ public final class VibrationListener {
         Contact contact = Contact.ofEntity(new LevelVoxelView(level), root, true);
         emit(level, runtimes, new Vibration("fall", contact.point(), loudness, contact.footing(), 0,
                 join(join(note, String.format(Locale.ROOT, "%.1f blocks", distance)), contact.note()),
-                contact.rustling()), entity);
+                contact.rustling(), "mob".equals(note)), entity);
     }
 
     /**
@@ -268,7 +268,7 @@ public final class VibrationListener {
         }
         Contact contact = Contact.ofEntity(new LevelVoxelView(level), item, true);
         emit(level, runtimes, new Vibration("item_land", contact.point(), loudness, contact.footing(), 0,
-                join(String.format(Locale.ROOT, "%.2f b/t", speed), contact.note()), contact.rustling()), item);
+                join(String.format(Locale.ROOT, "%.2f b/t", speed), contact.note()), contact.rustling(), false), item);
     }
 
     /**
@@ -283,7 +283,7 @@ public final class VibrationListener {
         }
         Contact contact = Contact.ofEntity(new LevelVoxelView(level), player, false);
         emit(level, runtimes, new Vibration("voice", contact.point(), loudness, contact.footing(), 0,
-                join(note, contact.note()), contact.rustling()), player);
+                join(note, contact.note()), contact.rustling(), false), player);
     }
 
     /**

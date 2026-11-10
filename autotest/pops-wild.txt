@@ -1,0 +1,224 @@
+# A tremor led about over the world as it was generated, first on the surface, then through caves: the player hops
+# to a random spot of ground some blocks off (spreadplayers), the tremor is sent there, again and again. No
+# picture is judged: the renderer counts every copy that came or went at a height and every jump of the ground
+# (pops, POPS lines in the report), where the eye would catch a harsh change on rough ground (the user). A shot at
+# every stop shows where it was.
+# Run: gradlew runClientAutotest -Ptremor_autotest_script=pops-wild.txt
+waitchunks
+cmd gamemode spectator
+cmd time set noon
+cmd weather clear
+cmd tremor despawn all
+cmd tremor awaken stop
+config ambush.enabled false
+config stalactites.enabled false
+config listeners.enabled false
+config spawn.enabled false
+hud off
+log --- surface
+cmd tp @s -700 140 -700
+wait 60
+waitchunks
+cmd execute at @s run spreadplayers ~ ~ 0 16 false @s
+wait 20
+waitchunks
+cmd tremor spawn ~ ~-1 ~
+cmd tremor ai off
+cmd tremor stage hunting
+cmd tremor hold
+wait 40
+pops on
+cmd execute at @s run spreadplayers ~ ~ 0 22 false @s
+wait 5
+cmd tremor goto ~ ~-1 ~
+cmd data get entity @s Pos
+wait 150
+screenshot surface00
+cmd execute at @s run spreadplayers ~ ~ 0 22 false @s
+wait 5
+cmd tremor goto ~ ~-1 ~
+cmd data get entity @s Pos
+wait 150
+screenshot surface01
+cmd execute at @s run spreadplayers ~ ~ 0 22 false @s
+wait 5
+cmd tremor goto ~ ~-1 ~
+cmd data get entity @s Pos
+wait 150
+screenshot surface02
+cmd execute at @s run spreadplayers ~ ~ 0 22 false @s
+wait 5
+cmd tremor goto ~ ~-1 ~
+cmd data get entity @s Pos
+wait 150
+screenshot surface03
+cmd execute at @s run spreadplayers ~ ~ 0 22 false @s
+wait 5
+cmd tremor goto ~ ~-1 ~
+cmd data get entity @s Pos
+wait 150
+screenshot surface04
+cmd execute at @s run spreadplayers ~ ~ 0 22 false @s
+wait 5
+cmd tremor goto ~ ~-1 ~
+cmd data get entity @s Pos
+wait 150
+screenshot surface05
+cmd execute at @s run spreadplayers ~ ~ 0 22 false @s
+wait 5
+cmd tremor goto ~ ~-1 ~
+cmd data get entity @s Pos
+wait 150
+screenshot surface06
+cmd execute at @s run spreadplayers ~ ~ 0 22 false @s
+wait 5
+cmd tremor goto ~ ~-1 ~
+cmd data get entity @s Pos
+wait 150
+screenshot surface07
+cmd execute at @s run spreadplayers ~ ~ 0 22 false @s
+wait 5
+cmd tremor goto ~ ~-1 ~
+cmd data get entity @s Pos
+wait 150
+screenshot surface08
+cmd execute at @s run spreadplayers ~ ~ 0 22 false @s
+wait 5
+cmd tremor goto ~ ~-1 ~
+cmd data get entity @s Pos
+wait 150
+screenshot surface09
+cmd execute at @s run spreadplayers ~ ~ 0 22 false @s
+wait 5
+cmd tremor goto ~ ~-1 ~
+cmd data get entity @s Pos
+wait 150
+screenshot surface10
+cmd execute at @s run spreadplayers ~ ~ 0 22 false @s
+wait 5
+cmd tremor goto ~ ~-1 ~
+cmd data get entity @s Pos
+wait 150
+screenshot surface11
+cmd execute at @s run spreadplayers ~ ~ 0 22 false @s
+wait 5
+cmd tremor goto ~ ~-1 ~
+cmd data get entity @s Pos
+wait 150
+screenshot surface12
+cmd execute at @s run spreadplayers ~ ~ 0 22 false @s
+wait 5
+cmd tremor goto ~ ~-1 ~
+cmd data get entity @s Pos
+wait 150
+screenshot surface13
+pops off
+cmd tremor info
+cmd tremor despawn all
+wait 20
+log --- caves
+cmd tp @s -700 140 -700
+wait 60
+waitchunks
+cmd execute at @s run spreadplayers ~ ~ 0 16 under 30 false @s
+wait 20
+waitchunks
+cmd tremor spawn ~ ~-1 ~
+cmd tremor ai off
+cmd tremor stage hunting
+cmd tremor hold
+wait 40
+pops on
+cmd execute at @s run spreadplayers ~ ~ 0 22 under 30 false @s
+wait 5
+cmd tremor goto ~ ~-1 ~
+cmd data get entity @s Pos
+wait 150
+screenshot caves00
+cmd execute at @s run spreadplayers ~ ~ 0 22 under 30 false @s
+wait 5
+cmd tremor goto ~ ~-1 ~
+cmd data get entity @s Pos
+wait 150
+screenshot caves01
+cmd execute at @s run spreadplayers ~ ~ 0 22 under 30 false @s
+wait 5
+cmd tremor goto ~ ~-1 ~
+cmd data get entity @s Pos
+wait 150
+screenshot caves02
+cmd execute at @s run spreadplayers ~ ~ 0 22 under 30 false @s
+wait 5
+cmd tremor goto ~ ~-1 ~
+cmd data get entity @s Pos
+wait 150
+screenshot caves03
+cmd execute at @s run spreadplayers ~ ~ 0 22 under 30 false @s
+wait 5
+cmd tremor goto ~ ~-1 ~
+cmd data get entity @s Pos
+wait 150
+screenshot caves04
+cmd execute at @s run spreadplayers ~ ~ 0 22 under 30 false @s
+wait 5
+cmd tremor goto ~ ~-1 ~
+cmd data get entity @s Pos
+wait 150
+screenshot caves05
+cmd execute at @s run spreadplayers ~ ~ 0 22 under 30 false @s
+wait 5
+cmd tremor goto ~ ~-1 ~
+cmd data get entity @s Pos
+wait 150
+screenshot caves06
+cmd execute at @s run spreadplayers ~ ~ 0 22 under 30 false @s
+wait 5
+cmd tremor goto ~ ~-1 ~
+cmd data get entity @s Pos
+wait 150
+screenshot caves07
+cmd execute at @s run spreadplayers ~ ~ 0 22 under 30 false @s
+wait 5
+cmd tremor goto ~ ~-1 ~
+cmd data get entity @s Pos
+wait 150
+screenshot caves08
+cmd execute at @s run spreadplayers ~ ~ 0 22 under 30 false @s
+wait 5
+cmd tremor goto ~ ~-1 ~
+cmd data get entity @s Pos
+wait 150
+screenshot caves09
+cmd execute at @s run spreadplayers ~ ~ 0 22 under 30 false @s
+wait 5
+cmd tremor goto ~ ~-1 ~
+cmd data get entity @s Pos
+wait 150
+screenshot caves10
+cmd execute at @s run spreadplayers ~ ~ 0 22 under 30 false @s
+wait 5
+cmd tremor goto ~ ~-1 ~
+cmd data get entity @s Pos
+wait 150
+screenshot caves11
+cmd execute at @s run spreadplayers ~ ~ 0 22 under 30 false @s
+wait 5
+cmd tremor goto ~ ~-1 ~
+cmd data get entity @s Pos
+wait 150
+screenshot caves12
+cmd execute at @s run spreadplayers ~ ~ 0 22 under 30 false @s
+wait 5
+cmd tremor goto ~ ~-1 ~
+cmd data get entity @s Pos
+wait 150
+screenshot caves13
+pops off
+cmd tremor info
+cmd tremor despawn all
+wait 20
+config ambush.enabled true
+config stalactites.enabled true
+config listeners.enabled true
+config spawn.enabled true
+quit

@@ -51,7 +51,7 @@ It crawls over any surface: floors, walls, cave ceilings. It can go through up t
 
 If it runs into you while hunting (or at its peak), it hits: about 2 hearts, and it knocks you back, which makes you make a sound. Animals and monsters it runs into get pulled under the ground and die. To keep it off some mobs, you can list them in the config in `contact.spareMobs`, for example `["minecraft:villager", "minecraft:wolf"]`, or whole groups by tag, for example `"#minecraft:raiders"`. And `contact.spareTamed` protects every tamed pet from any mod. Or turn it off altogether (`contact.devourMobs`).
 
-Items lying on the ground get pulled under too when it crawls over them (when it isn't calm). There's no getting them back. It only leaves alone things the mod itself gave back to a player, after the hollow for example: those never despawn either. This can be turned off in the config (`contact.devourItems`).
+Items lying on the ground get pulled under too when it crawls over them (when it isn't calm). There's no getting them back. It only leaves alone things the mod itself gave back to a player, after the hollow for example: those never despawn either. This can be turned off in the config (`contact.devourItems`). It doesn't spare what you drop when you die either; if you'd rather it gave you time to come back for your stuff, set `contact.spareDeathDropsSeconds`: for that many seconds after a death it leaves those items alone (0 by default).
 
 ## Ambush
 
@@ -107,7 +107,7 @@ You end up in a copy of the place you were taken from, in this creature's own di
 - There's a ceiling over you, so you can't escape over the top.
 - The coordinates in F3 won't help you there: random characters flicker in their place. The same during the Awakening, while you're being pulled in.
 
-There's one more way out: a narrow tunnel that starts a couple of blocks from where you arrived and leads to the edge. It isn't marked in any way. You only see the light at its end once you're already in it, and when the walls close in, it's just a dark hole in one of them.
+There's one more way out: a narrow tunnel that starts a few blocks from where you arrived (or right at your feet, if there's no way to walk to it) and leads to the edge. It isn't marked in any way. You only see the light at its end once you're already in it, and when the walls close in, it's just a dark hole in one of them.
 
 ## How it ends
 
@@ -115,7 +115,7 @@ There's one more way out: a narrow tunnel that starts a couple of blocks from wh
 - You got out through the tunnel at the edge — you're alive, you keep everything, and you come out a little away from where you were taken. But a crater forms in that place. The heart saves the place, the edge only saves you.
 - Time ran out or the soft ground pulled you in — defeat. In the real world, where you were swallowed, a crater forms: an uneven funnel with steep walls, about 12 blocks in radius and 20 deep in the middle, caving in from the top down. On the surface it also takes everything standing over it, hills and trees too. By default you die, and your things end up in rubble caches scattered over the bottom of the crater, some of them buried. Your experience lies there too.
 
-The crater takes everything: chests, furnaces, beds and everything else break and drop along with what they held. It only leaves unbreakable blocks and blocks tagged `#tremor:protected`, and it doesn't let water or lava in. Spawn protection can be turned on in the config (`awakening.spawnProtection`). A totem of undying still saves you; `keepInventory` and the curse of vanishing work as usual. If the config says a defeat doesn't kill (`awakening.lethal`), or a totem saved you, you come out on the bottom of the crater alive and with all your things, but badly weakened: 1 health, blindness, nausea, weakness and slowness for half a minute, plus hunger, so you can't sprint until you eat.
+The crater takes everything: chests, furnaces, beds and everything else break and drop along with what they held. Only the rubble caches of an earlier crater stay whole: they sink to the new bottom with everything in them. It only leaves unbreakable blocks and blocks tagged `#tremor:protected`, and it doesn't let water or lava in. Spawn protection can be turned on in the config (`awakening.spawnProtection`). A totem of undying still saves you; `keepInventory` and the curse of vanishing work as usual. If the config says a defeat doesn't kill (`awakening.lethal`), or a totem saved you, you come out on the bottom of the crater alive and with all your things, but badly weakened: 1 health, blindness, nausea, weakness and slowness for half a minute, plus hunger, so you can't sprint until you eat.
 
 ## Shards and what they make
 

@@ -1,5 +1,7 @@
 # Spared mobs (a player: villagers and pets eaten): with the cow in contact.spareMobs and contact.spareTamed on, the
-# bump passes over a cow and the player's tamed wolf and takes neither.
+# bump passes over a cow and the player's tamed wolf and takes neither. Nor a mob that is invulnerable (the review: a
+# server's NPC with Invulnerable:1b sank and died, the flag taken off it): the pig stays, its flag on; the sheep beside
+# it, like any other mob, is taken.
 # Run: gradlew runClientAutotest -Ptremor_autotest_script=devour-spare.txt
 waitchunks
 cmd gamemode spectator
@@ -18,6 +20,8 @@ cmd fill 320 201 -960 360 206 -840 minecraft:air
 cmd kill @e[type=!player]
 cmd summon cow 300.5 201 -902.5 {NoAI:1b,CustomName:'"Daisy"'}
 cmd summon wolf 300.5 201 -906.5 {NoAI:1b}
+cmd summon pig 300.5 201 -910.5 {NoAI:1b,Invulnerable:1b}
+cmd summon sheep 300.5 201 -914.5 {NoAI:1b}
 cmd execute as @s run data modify entity @e[type=wolf,limit=1,sort=nearest] Owner set from entity @s UUID
 wait 20
 cmd execute if entity @e[type=!player,type=!item,distance=..30]
@@ -34,9 +38,12 @@ screenshot 10_mobs
 wait 60
 screenshot 11_passing
 wait 240
-log --- the cow and the wolf are still there
+log --- the cow and the wolf are still there, and the invulnerable pig; the sheep is gone
 cmd execute if entity @e[type=cow,distance=..30]
 cmd execute if entity @e[type=wolf,distance=..30]
+cmd execute if entity @e[type=pig,distance=..30]
+cmd execute as @e[type=pig,distance=..30] run data get entity @s Invulnerable
+cmd execute unless entity @e[type=sheep,distance=..30]
 cmd execute if entity @e[type=item,distance=..30]
 cmd execute if entity @e[type=experience_orb,distance=..30]
 cmd tremor info

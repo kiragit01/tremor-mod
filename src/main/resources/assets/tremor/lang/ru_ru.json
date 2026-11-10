@@ -153,6 +153,7 @@
   "tremor.configuration.behavior.contact.spareMobs": "Мобы, которых она не трогает",
   "tremor.configuration.behavior.contact.spareTamed": "Не трогать приручённых",
   "tremor.configuration.behavior.contact.devourItems": "Поглощать предметы на земле",
+  "tremor.configuration.behavior.contact.spareDeathDropsSeconds": "Не трогает вещи погибшего игрока (с)",
   "tremor.configuration.behavior.contact.stalactites": "Сталактиты на столбы",
   "tremor.configuration.behavior.contact.buildUp": "Надстраивать столбы",
   "tremor.configuration.behavior.despawn": "Уход",

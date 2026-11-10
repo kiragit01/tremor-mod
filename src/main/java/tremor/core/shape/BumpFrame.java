@@ -18,6 +18,19 @@ public record BumpFrame(Vec3 center, Vec3 normal, Vec3 forward) {
     /** Relative size of the tangential part of {@code forward} below which it counts as parallel to the normal. */
     private static final double DEGENERATE_TANGENT = 1e-9;
 
+    /**
+     * {@code normal} if it is one, else the way {@code otherwise} (made a unit), else up: for a frame at a place that
+     * has no normal of its own. The middle of a floor one block thick has none, open over and under alike, and
+     * neither has an end of a leap the ground was taken from: the hill of a leap drawn along none threw, and took down
+     * the client of everyone near (the review of 1.4.0); it faces the other end of the leap instead.
+     */
+    public static Vec3 normalOr(Vec3 normal, Vec3 otherwise) {
+        if (normal.isFinite() && !normal.isNearZero()) {
+            return normal;
+        }
+        return otherwise.isFinite() && !otherwise.isNearZero() ? otherwise.normalize() : Vec3.UNIT_Y;
+    }
+
     /** @throws IllegalArgumentException if {@code normal} is (almost) zero */
     public BumpFrame {
         Objects.requireNonNull(center, "center");

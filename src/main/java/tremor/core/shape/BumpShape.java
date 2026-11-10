@@ -31,6 +31,26 @@ public final class BumpShape {
     public static final double BAND = PLANE + 2.2 * OFF_SIGMA;
     /** Points with {@code |h|} below this are not rendered (SPEC 6.1). */
     public static final double RENDER_THRESHOLD = 0.05;
+    /**
+     * Up to this height (blocks) a copy is drawn lower than its field says ({@link #shown}), so that it starts from
+     * its block.
+     */
+    public static final double EMERGE = 0.3;
+
+    /**
+     * The height a copy is drawn at where its field is {@code h}: nothing up to {@link #RENDER_THRESHOLD}, where it is
+     * first drawn, then catching up with {@code h} by {@value #EMERGE}, and {@code h} from there on. A copy showed at
+     * once {@value #RENDER_THRESHOLD} of a block over the block it is of, and went the same way: its coming and going
+     * could be seen (the user: it should start right from the block). Now it rises out of the block and sinks back
+     * into it.
+     */
+    public static double shown(double h) {
+        if (h >= EMERGE) {
+            return h;
+        }
+        return h <= RENDER_THRESHOLD ? 0 : EMERGE * (h - RENDER_THRESHOLD) / (EMERGE - RENDER_THRESHOLD);
+    }
+
     /** Spatial frequency of the jitter noise, per block. */
     public static final double JITTER_FREQUENCY = 0.55;
     /** Drift of the jitter noise along its y axis, per second. */

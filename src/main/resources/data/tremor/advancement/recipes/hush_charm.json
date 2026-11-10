@@ -1,0 +1,34 @@
+{
+  "parent": "minecraft:recipes/root",
+  "criteria": {
+    "has_tremor_shard": {
+      "trigger": "minecraft:inventory_changed",
+      "conditions": {
+        "items": [
+          {
+            "items": [
+              "tremor:tremor_shard"
+            ]
+          }
+        ]
+      }
+    },
+    "has_the_recipe": {
+      "trigger": "minecraft:recipe_unlocked",
+      "conditions": {
+        "recipe": "tremor:hush_charm"
+      }
+    }
+  },
+  "requirements": [
+    [
+      "has_the_recipe",
+      "has_tremor_shard"
+    ]
+  ],
+  "rewards": {
+    "recipes": [
+      "tremor:hush_charm"
+    ]
+  }
+}

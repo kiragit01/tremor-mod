@@ -130,6 +130,7 @@ public final class TremorConfig {
         public final ModConfigSpec.DoubleValue contactAnger;
         public final ModConfigSpec.BooleanValue devourMobs;
         public final ModConfigSpec.BooleanValue devourItems;
+        public final ModConfigSpec.IntValue spareDeathDropsSeconds;
         public final ModConfigSpec.ConfigValue<java.util.List<? extends String>> spareMobs;
         public final ModConfigSpec.BooleanValue spareTamed;
         public final ModConfigSpec.BooleanValue contactStalactites;
@@ -409,8 +410,13 @@ public final class TremorConfig {
                     .translation(KEY + "behavior.contact.devourMobs").define("devourMobs", true);
             devourItems = b.comment("Items lying on the ground that the bump touches while it is not DORMANT are",
                             "pulled under: gone for good. What the mod laid down for a player (it never despawns) is",
-                            "spared")
+                            "spared; what a player dropped by dying is too, for as long as spareDeathDropsSeconds says")
                     .translation(KEY + "behavior.contact.devourItems").define("devourItems", true);
+            spareDeathDropsSeconds = b.comment("What a player dropped by dying is not pulled under for this long after the",
+                            "death (seconds): time to come back for it; after that it is an item like any other.",
+                            "0: no such time, it is taken as any item on the ground")
+                    .translation(KEY + "behavior.contact.spareDeathDropsSeconds")
+                    .defineInRange("spareDeathDropsSeconds", 0, 0, 3600);
             spareMobs = b.comment("Mobs the bump never takes: entity ids (\"minecraft:villager\") or entity tags",
                             "(\"#minecraft:raiders\"), e.g. [\"minecraft:villager\", \"minecraft:wolf\"]")
                     .translation(KEY + "behavior.contact.spareMobs")

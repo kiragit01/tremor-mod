@@ -71,7 +71,6 @@ import net.neoforged.neoforge.event.tick.ServerTickEvent;
 import tremor.Tremor;
 
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -463,10 +462,10 @@ public final class HollowRules {
             HollowManager.DropSite site = HollowManager.dropSite(player);
             if (site != null) {
                 for (ItemEntity drop : event.getDrops()) {
-                    dropAt(site, drop.getItem().copy());
+                    dropAt(site, drop.getItem().copy(), true);
                 }
                 for (ItemStack loose : takeLoose(player)) {
-                    dropAt(site, loose);
+                    dropAt(site, loose, true);
                 }
                 event.setCanceled(true);
             }
@@ -500,7 +499,7 @@ public final class HollowRules {
             player.getInventory().add(stack);
             if (!stack.isEmpty()) {
                 if (site != null) {
-                    dropAt(site, stack);
+                    dropAt(site, stack, false);
                 } else {
                     player.drop(stack, false);
                 }
@@ -635,33 +634,49 @@ public final class HollowRules {
     }
 
     /**
-     * Takes out what is in the player's crafting grids and on the cursor: the open menu and the inventory's are closed
-     * the way a dead or disconnected player's are, and what they drop is caught instead of spawned (what a living,
-     * connected player's menus give back goes into the inventory as usual).
+     * Takes out what is on the player's cursor and in the crafting grid of the inventory, straight from the menus, and
+     * then closes them as the game does. What a closing menu of a dead or disconnected player throws out cannot be
+     * caught: the loader's toss hook swaps the capture of drops for its own and spawns the item at the player's feet at
+     * once, so the two stayed in the copy as plain items, to despawn there unless the copy was cleared within five
+     * minutes (a player who stays on the death screen).
      */
     public static List<ItemStack> takeLoose(ServerPlayer player) {
-        List<ItemEntity> caught = new ArrayList<>();
-        Collection<ItemEntity> outer = player.captureDrops(caught);
-        try {
-            if (player.hasContainerOpen()) {
-                player.doCloseContainer();
-            }
-            player.inventoryMenu.removed(player);
-        } finally {
-            player.captureDrops(outer);
+        List<ItemStack> stacks = new ArrayList<>();
+        stacks.add(player.containerMenu.getCarried());
+        player.containerMenu.setCarried(ItemStack.EMPTY);
+        net.minecraft.world.Container grid = player.inventoryMenu.getCraftSlots();
+        for (int slot = 0; slot < grid.getContainerSize(); slot++) {
+            stacks.add(grid.removeItemNoUpdate(slot));
         }
-        List<ItemStack> stacks = new ArrayList<>(caught.size());
-        for (ItemEntity entity : caught) {
-            stacks.add(entity.getItem());
+        stacks.removeIf(ItemStack::isEmpty);
+        if (player.hasContainerOpen()) {
+            player.doCloseContainer();
         }
+        player.inventoryMenu.removed(player);
         return stacks;
     }
 
-    private static void dropAt(HollowManager.DropSite site, ItemStack stack) {
+    /**
+     * Lays {@code stack} at the drop site, as an item that never despawns (the player may be dead and far away for
+     * long, or offline, and what despawns the bump may eat too), as the other things the mod gives back lie: a defeat
+     * with no place for a cache (the bottom of the world, the spawn protection, a crater given up) left all the player
+     * carried there for five minutes.
+     *
+     * @param dead the player died: a shard among the things is the ground's, as any shard a dead player drops
+     *             ({@link tremor.entity.Frenzy#takeAway}; gone in a moment, so it keeps its lifetime). Not so for one
+     *             who only logged out: what did not fit into the inventory is theirs when they are back, a shard too
+     */
+    private static void dropAt(HollowManager.DropSite site, ItemStack stack, boolean dead) {
         ItemEntity moved = new ItemEntity(site.level(), site.position().x, site.position().y, site.position().z, stack);
         moved.setDefaultPickUpDelay();
+        boolean grounds = dead && stack.is(tremor.item.TremorItems.SHARD.get());
+        if (!grounds) {
+            moved.setUnlimitedLifetime();
+        }
         site.level().addFreshEntity(moved);
-        tremor.entity.Frenzy.takeAway(site.level(), moved); // a shard: the ground takes it, the player is dead
+        if (grounds) {
+            tremor.entity.Frenzy.takeAway(site.level(), moved);
+        }
     }
 
     /**

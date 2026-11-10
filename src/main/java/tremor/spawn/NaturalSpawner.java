@@ -452,6 +452,20 @@ public final class NaturalSpawner {
         protection.add(pos.getX() + 0.5, pos.getZ() + 0.5);
     }
 
+    /**
+     * Whether a stalactite crawler may come naturally near {@code player}: on the tremor's own terms (the dimension
+     * list, not on peaceful unless allowed, not to a player in creative or spectator mode).
+     */
+    public static boolean crawlerMayCome(ServerLevel level, ServerPlayer player) {
+        return allowed(level) && !player.isSpectator() && !player.isCreative()
+                && (level.getDifficulty() != Difficulty.PEACEFUL || TremorConfig.COMMON.spawn.allowPeaceful.get());
+    }
+
+    /** Whether {@code pos} lies out of the zones kept free of natural spawns ({@link #protection}). */
+    public static boolean unprotected(ServerLevel level, BlockPos pos) {
+        return protection(level).test(new Vec3(pos.getX() + 0.5, pos.getY(), pos.getZ() + 0.5));
+    }
+
     /** Whether natural spawn is on in the level's dimension (the config list, parsed again when it changes). */
     private static boolean allowed(ServerLevel level) {
         List<? extends String> list = TremorConfig.COMMON.spawn.dimensions.get();
