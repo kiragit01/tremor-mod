@@ -41,8 +41,8 @@ import java.util.concurrent.CompletableFuture;
  * {@code nodeMinDistance}..{@code nodeMaxDistance} steps away, the way to it (from a throat on open ground) kept open
  * for good, {@code minDeadEnds}..{@code maxDeadEnds} dead ends, walled corridors where they pass through caves; then
  * the blocks are written, a batch at a time. All of it stays inside the copy, {@value #MARGIN} blocks from its sides,
- * top and bottom and a quarter of its radius (4 blocks at least) from its round edge (a seal or a wall a block further
- * out at most); what is carved is sealed from the fluids, lava and fire around it. The time it took is logged.
+ * top and bottom (a block over the floor of the world, where the copy lies on it) and a quarter of its radius (4
+ * blocks at least) from its round edge (a seal or a wall a block further out at most); what is carved is sealed from the fluids, lava and fire around it. The time it took is logged.
  * <p>
  * <b>While the player is inside</b> ({@link #tick}, within {@code hollow.level.budgetMillis}):
  * <ul>
@@ -213,8 +213,10 @@ final class EventLevel {
         seed = LevelNoise.mix(event.player().getMostSignificantBits() ^ event.player().getLeastSignificantBits()
                 ^ event.createdGameTime());
         double inner = boxRadius - Math.max(4, boxRadius / 4);
+        // On the floor of the world there is nothing under the copy to dig out into: down to a row over that floor.
+        int bottom = box.minY() <= hollow.getMinBuildHeight() ? hollow.getMinBuildHeight() + 1 : box.minY() + MARGIN;
         region = (x, y, z) -> x >= box.minX() + MARGIN && x <= box.maxX() - MARGIN && z >= box.minZ() + MARGIN
-                && z <= box.maxZ() - MARGIN && y >= box.minY() + MARGIN && y <= box.maxY() - MARGIN
+                && z <= box.maxZ() - MARGIN && y >= bottom && y <= box.maxY() - MARGIN
                 && square(x + 0.5 - centreX) + square(z + 0.5 - centreZ) <= inner * inner;
     }
 
@@ -325,7 +327,8 @@ final class EventLevel {
         planner = null;
         int nearest = Math.min(NEAREST_NODE, minLength); // a node asked for nearer in the config is no failure
         if (BlockPos.of(plan.node()).distSqr(start) < nearest * nearest) {
-            // Hemmed in (bedrock under the feet, the top of the world over the head): no node, or one won in seconds.
+            // Hemmed in (the top of the world over the head; the floor of the world under the feet, should no way fit
+            // over it even so): no node, or one won in seconds.
             throw new IllegalStateException("no room for a way to a node: it would be "
                     + BlockPos.of(plan.node()).toShortString() + " from the player at " + start.toShortString());
         }
