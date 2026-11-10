@@ -15,6 +15,7 @@ import net.minecraft.world.phys.Vec3;
 import net.minecraftforge.client.event.ComputeFovModifierEvent;
 import net.minecraftforge.client.event.MovementInputUpdateEvent;
 import net.minecraftforge.event.TickEvent;
+import net.minecraftforge.event.entity.living.LivingEvent;
 import tremor.Tremor;
 
 /**
@@ -43,10 +44,29 @@ public final class ClientRoot {
     static final UUID ROOT_MODIFIER = UUID.nameUUIDFromBytes((Tremor.MODID + ":awakening_root")
             .getBytes(StandardCharsets.UTF_8));
 
+    /** Id of the drag of the build-up ({@code tremor.awakening.Root}); keep the two the same. */
+    private static final UUID DRAG_MODIFIER = UUID.nameUUIDFromBytes((Tremor.MODID + ":awakening_drag")
+            .getBytes(StandardCharsets.UTF_8));
+
     /** Where the rooted local player stood before its tick while its ground had not arrived; null else. */
     private static Vec3 heldAt;
 
     private ClientRoot() {
+    }
+
+    /**
+     * Game bus: a jump of the local player in the grip of the build-up is weakened as much as its walk. 1.20.1 has no
+     * jump strength for the drag to cut, as 1.21.1 does; the event comes after vanilla set the jump's upward speed.
+     */
+    public static void onJump(LivingEvent.LivingJumpEvent event) {
+        if (event.getEntity() instanceof LocalPlayer player) {
+            AttributeInstance speed = player.getAttribute(Attributes.MOVEMENT_SPEED);
+            AttributeModifier drag = speed == null ? null : speed.getModifier(DRAG_MODIFIER);
+            if (drag != null) {
+                Vec3 motion = player.getDeltaMovement();
+                player.setDeltaMovement(motion.x, motion.y * Math.max(0, 1 + drag.getAmount()), motion.z);
+            }
+        }
     }
 
     /** Game bus: takes the root's part out of the field of view of a rooted player. */
