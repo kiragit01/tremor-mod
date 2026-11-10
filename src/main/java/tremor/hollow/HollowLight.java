@@ -52,7 +52,7 @@ public final class HollowLight {
                 && server.isAlive();
         BlockPos old = LIGHTS.get(server.getUUID());
         BlockPos head = lit ? BlockPos.containing(server.getEyePosition()) : null;
-        if (head != null && !server.level().getBlockState(head).isAir() && !head.equals(old)) {
+        if (head != null && !writable(server.level().getBlockState(head), head.equals(old))) {
             head = null; // in a block (sinking, a door): the light stays where it was, or goes
             lit = old != null;
         }
@@ -70,6 +70,16 @@ public final class HollowLight {
         if (old != null && !old.equals(head)) {
             clear(level, old);
         }
+    }
+
+    /**
+     * Whether the light may be written where {@code there} is: into air, or over the light itself ({@code own}: the
+     * cell is where this player's light was put). Never over anything else: a torch set on the wall of a tunnel one
+     * block wide stands in the cell of the player's head, where the light is, and two ticks later the light took its
+     * place again, the torch gone for nothing.
+     */
+    private static boolean writable(BlockState there, boolean own) {
+        return there.isAir() || own && there.is(Blocks.LIGHT);
     }
 
     /** Game bus: the light stays behind in the hollow no longer than the player. */
