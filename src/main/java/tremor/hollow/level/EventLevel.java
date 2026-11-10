@@ -62,6 +62,8 @@ import java.util.concurrent.CompletableFuture;
  * fails ({@link #fail}) stands still too, and {@link HollowLevels} brings its player back.
  */
 final class EventLevel {
+    /** A plan whose node is nearer the player than this (blocks) is no level: the event is called off. */
+    private static final int NEAREST_NODE = 4;
     /** Stays this far inside the sides, top and bottom of the copy (blocks). */
     private static final int MARGIN = 3;
     /** The planning looks this far above the player's feet (blocks)... */
@@ -321,6 +323,12 @@ final class EventLevel {
         }
         plan = planner.plan();
         planner = null;
+        int nearest = Math.min(NEAREST_NODE, minLength); // a node asked for nearer in the config is no failure
+        if (BlockPos.of(plan.node()).distSqr(start) < nearest * nearest) {
+            // Hemmed in (bedrock under the feet, the top of the world over the head): no node, or one won in seconds.
+            throw new IllegalStateException("no room for a way to a node: it would be "
+                    + BlockPos.of(plan.node()).toShortString() + " from the player at " + start.toShortString());
+        }
         if (!nightmare) {
             tunnel = EscapeTunnel.plan(grid, centreX, centreZ, start.getY(), boxRadius, seed, plan.fill());
         }
