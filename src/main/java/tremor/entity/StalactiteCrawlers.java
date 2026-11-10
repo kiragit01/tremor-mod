@@ -287,14 +287,16 @@ public final class StalactiteCrawlers {
         }
         RandomSource random = level.getRandom();
         for (ServerPlayer player : level.players()) {
-            if (player.isSpectator() || level.getBrightness(LightLayer.SKY, BlockPos.containing(player.getEyePosition())) > 0
+            if (!tremor.spawn.NaturalSpawner.crawlerMayCome(level, player)
+                    || level.getBrightness(LightLayer.SKY, BlockPos.containing(player.getEyePosition())) > 0
                     || near(level, player.getX(), player.getY(), player.getZ(), NEAR_RADIUS) >= config.maxNearPlayer.get()
                     || random.nextDouble() >= Difficulty.current().spawnChance(config.spawnChance.get())) {
                 continue;
             }
             for (int i = 0; i < SPAWN_ATTEMPTS; i++) {
                 BlockPos spot = spawnSpot(level, player, random);
-                if (spot != null && spawn(level, spot, "natural, near " + player.getGameProfile().getName()) != null) {
+                if (spot != null && tremor.spawn.NaturalSpawner.unprotected(level, spot)
+                        && spawn(level, spot, "natural, near " + player.getGameProfile().getName()) != null) {
                     break;
                 }
             }
