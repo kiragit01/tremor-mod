@@ -8,7 +8,6 @@ import java.util.List;
 
 import org.junit.jupiter.api.Test;
 
-import tremor.core.shape.BumpShape;
 
 /** The seam of a ledge's corner ({@link Column#seamLength}): nothing of it comes or goes in the open. */
 class ColumnSeamTest {
@@ -19,7 +18,7 @@ class ColumnSeamTest {
         for (int k = 1; k <= stack; k++) {
             double off = Column.seamOff(h, k);
             double length = Column.seamLength(reach, h, off);
-            for (int s = 0; length - s >= BumpShape.RENDER_THRESHOLD; s++) {
+            for (int s = 0; length - s > Column.SEAM_MIN; s++) {
                 copies.add(new double[]{off, length - s});
             }
         }
@@ -51,11 +50,11 @@ class ColumnSeamTest {
             for (double h = step; h < 6; h += step) {
                 List<double[]> now = copies(h, share * h), next = copies(h + step, share * (h + step));
                 for (double[] c : next) {
-                    assertTrue(c[1] <= BumpShape.RENDER_THRESHOLD + near || close(c, now, near),
+                    assertTrue(c[1] <= Column.SEAM_MIN + near || close(c, now, near),
                             "a copy appears in the open at height " + (h + step) + ": " + c[0] + " up, " + c[1] + " out");
                 }
                 for (double[] c : now) {
-                    assertTrue(c[1] <= BumpShape.RENDER_THRESHOLD + near || close(c, next, near),
+                    assertTrue(c[1] <= Column.SEAM_MIN + near || close(c, next, near),
                             "a copy vanishes in the open at height " + h + ": " + c[0] + " up, " + c[1] + " out");
                 }
             }

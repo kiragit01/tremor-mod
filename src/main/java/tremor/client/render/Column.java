@@ -174,6 +174,9 @@ final class Column {
      * the number of copies in its stack): with the copy of the stack under the top one, the one under that, and so on,
      * the last row at the block itself.
      */
+    /** A copy of a seam is drawn once it stands this far out of the one it slides out of (blocks): as good as flush. */
+    static final double SEAM_MIN = 0.004;
+
     static double seamOff(double h, int k) {
         return Math.max(0, h - k);
     }
