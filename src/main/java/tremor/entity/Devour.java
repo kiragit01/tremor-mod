@@ -33,7 +33,7 @@ import java.util.WeakHashMap;
  * and dies, swallowed by the ground (the damage of the ground's pull), without drops or experience: its death counts
  * (a player: MCA villagers just vanished and could not be brought back; a pet's owner is told). A mob that matters to
  * someone (named, tamed, a villager: {@link Belly#keeps}) does not die: it is kept alive in the {@link Belly} as it
- * was when taken, and only taken out of the world, with the sounds of a death so that nothing tells it apart. Bosses ({@code #c:bosses}), {@code #tremor:undevourable}, invulnerable mobs and mobs a
+ * was when taken, and only taken out of the world, with a sound of its own and a line in the chat in place of a death message. Bosses ({@code #c:bosses}), {@code #tremor:undevourable}, invulnerable mobs and mobs a
  * player rides are never taken. Kept per level in memory: a mob half under when the level is saved simply stays
  * where it was (it is not saved as taken). Server thread only; ticked by {@link #onLevelTick}, registered by
  * {@link Tremor}.
@@ -103,13 +103,16 @@ public final class Devour {
 
     /**
      * {@code mob}, under the ground and kept in the {@link Belly}, leaves the world alive: no death, so no drops, no
-     * experience, no death message; the clients still hear its hurt and its death as they did, the lead drops as it did
+     * experience, no death message or death sound; the clients still hear its hurt as they did, then
+     * {@link TremorSounds#BELLY_KEEP}, those it matters to are told ({@link #tellTaken}), the lead drops as it did
      * on a death, and a villager lets go of its bed and workplace as a dying one does.
      */
     private static void spare(ServerLevel level, Mob mob) {
         level.broadcastDamageEvent(mob, new net.minecraft.world.damagesource.DamageSource(level.registryAccess()
                 .registryOrThrow(Registries.DAMAGE_TYPE).getHolderOrThrow(SWALLOWED)));
-        level.broadcastEntityEvent(mob, net.minecraft.world.entity.EntityEvent.DEATH);
+        level.playSound(null, mob.getX(), mob.getY(), mob.getZ(), TremorSounds.BELLY_KEEP.get(), SoundSource.HOSTILE,
+                1.0F, 1.0F);
+        tellTaken(level, mob);
         if (mob.isLeashed()) {
             mob.dropLeash(true, true);
         }
@@ -120,6 +123,28 @@ public final class Devour {
             villager.releasePoi(net.minecraft.world.entity.ai.memory.MemoryModuleType.MEETING_POINT);
         }
         mob.discard();
+    }
+
+    /**
+     * In place of a death message: a pet's owner is told, if online, wherever they are (as the game tells of a pet's
+     * death); for any other kept mob every player within 32 blocks.
+     */
+    private static void tellTaken(ServerLevel level, Mob mob) {
+        net.minecraft.network.chat.Component line = net.minecraft.network.chat.Component.translatable(
+                "tremor.belly.taken", mob.getDisplayName());
+        if (mob instanceof net.minecraft.world.entity.OwnableEntity pet && pet.getOwnerUUID() != null) {
+            net.minecraft.server.level.ServerPlayer owner = level.getServer().getPlayerList()
+                    .getPlayer(pet.getOwnerUUID());
+            if (owner != null) {
+                owner.sendSystemMessage(line);
+            }
+            return;
+        }
+        for (net.minecraft.server.level.ServerPlayer player : level.players()) {
+            if (player.distanceToSqr(mob) <= 32 * 32) {
+                player.sendSystemMessage(line);
+            }
+        }
     }
 
     /** A mob swallowed by the ground ({@link #swallow}) drops nothing. Registered by {@link Tremor}. */

@@ -76,6 +76,14 @@
       "tremor:thump_3"
     ]
   },
+  "belly_keep": {
+    "subtitle": "subtitles.tremor.belly_keep",
+    "sounds": [
+      {"name": "tremor:pull_1", "pitch": 0.7},
+      {"name": "tremor:pull_2", "pitch": 0.7},
+      {"name": "tremor:pull_3", "pitch": 0.7}
+    ]
+  },
   "entity.tremor.ripple": {
     "subtitle": "subtitles.tremor.ripple",
     "sounds": [

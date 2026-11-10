@@ -307,6 +307,8 @@
   "subtitles.tremor.hum": "Гудит земля",
   "subtitles.tremor.pull": "Чавкает земля",
   "subtitles.tremor.thump": "Земля глухо ухает",
+  "subtitles.tremor.belly_keep": "Тварь глотает целиком",
+  "tremor.belly.taken": "Тварь утащила %s в лимб",
   "subtitles.tremor.ripple": "Земля прислушивается",
   "subtitles.tremor.rage": "Рычит порода",
   "subtitles.tremor.escape": "Проносится воздух",

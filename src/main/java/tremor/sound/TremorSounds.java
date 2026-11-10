@@ -61,6 +61,11 @@ public final class TremorSounds {
      * (SPEC 9 phase 2), unlike the {@link #PULSE} of the node itself.
      */
     public static final DeferredHolder<SoundEvent, SoundEvent> THUMP = register("entity.tremor.thump");
+    /**
+     * A mob kept in the belly goes under, in place of its death sound. Placeholder until the owner's own file: the
+     * pull sounds at a lower pitch ({@code sounds.json}).
+     */
+    public static final DeferredHolder<SoundEvent, SoundEvent> BELLY_KEEP = register("belly_keep");
 
     private TremorSounds() {
     }

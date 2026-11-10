@@ -1,6 +1,6 @@
 # The tremor keeps what matters of what it devours: a named pig is kept alive, an unnamed one digested, no loot left
 # where they went; a diamond the player threw is kept, an emerald that merely lay there (no thrower) is not. Both kept
-# ones come back with /tremor belly spit, the pig with its name.
+# ones come back with /tremor belly spit, the pig with its name. The named pig's going under is told in the chat.
 # Run: gradlew runClientAutotest -Ptremor_autotest_script=belly.txt
 waitchunks
 cmd gamemode spectator
@@ -53,7 +53,8 @@ wait 40
 log --- it passes over them
 cmd tremor goto 300 200 -918
 screenshot 10_before
-wait 60
+log --- the named pig goes under: a line in the chat in place of a death message
+waitfor 300 ^SYSTEM: The tremor dragged Babe into limbo
 screenshot 11_passing
 wait 240
 cmd tremor despawn all

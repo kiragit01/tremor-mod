@@ -307,6 +307,8 @@
   "subtitles.tremor.hum": "Ground hums",
   "subtitles.tremor.pull": "Ground squelches",
   "subtitles.tremor.thump": "Ground thumps",
+  "subtitles.tremor.belly_keep": "The tremor swallows something whole",
+  "tremor.belly.taken": "The tremor dragged %s into limbo",
   "subtitles.tremor.ripple": "Ground listens",
   "subtitles.tremor.rage": "Rock roars",
   "subtitles.tremor.escape": "Air rushes past",
