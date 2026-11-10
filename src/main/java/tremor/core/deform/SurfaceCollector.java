@@ -111,6 +111,68 @@ public final class SurfaceCollector {
     }
 
     /**
+     * Whether the surface voxel {@code (x, y, z)}, off the plane of a bump through {@code center} with
+     * {@code normal}, is still ground that plane runs through: raised ground, solid all the way back to the plane,
+     * or sunken ground, open all the way out to it. The top of a ledge the bump stands at the foot of is, and the
+     * floor at the foot of one it stands on; the floor of a cave under its roof is not, nor the crown of a tree over
+     * the ground. Looked at a block at a time along the normal: back from the voxel's centre for raised ground, out
+     * from the cell before its open side {@code (ax, ay, az)} for sunken ground (so that a wall, whose open side is
+     * not the normal's, is not hidden by the wall over it, whichever way the normal leans).
+     */
+    public static boolean seesPlane(VoxelView view, int x, int y, int z, int ax, int ay, int az, Vec3 center,
+                                    Vec3 normal) {
+        double px = x + 0.5, py = y + 0.5, pz = z + 0.5;
+        double along = (px - center.x()) * normal.x() + (py - center.y()) * normal.y()
+                + (pz - center.z()) * normal.z();
+        int steps = (int) Math.abs(along);
+        if (along > 0) {
+            for (int k = 1; k <= steps; k++) {
+                if (!view.isSolid((int) Math.floor(px - k * normal.x()), (int) Math.floor(py - k * normal.y()),
+                        (int) Math.floor(pz - k * normal.z()))) {
+                    return false;
+                }
+            }
+            return true;
+        }
+        for (int k = 0; k < steps; k++) {
+            if (view.isSolid((int) Math.floor(px + ax + k * normal.x()), (int) Math.floor(py + ay + k * normal.y()),
+                    (int) Math.floor(pz + az + k * normal.z()))) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    /**
+     * The step the wall voxel {@code (x, y, z)}, open toward {@code (ax, ay, az)}, is the side of, as a bump standing
+     * the way {@code (ux, uy, uz)} sees it: the voxel that wall ends in going that way (the step's top) and the one
+     * under the cell before the wall going the other way (its foot). Null if either is more than {@code reach}
+     * voxels off: then it is a wall, not a step.
+     *
+     * @return the centres of the top voxel and of the foot voxel: {@code {x, y, z, x, y, z}}
+     */
+    public static double[] step(VoxelView view, int x, int y, int z, int ax, int ay, int az, int ux, int uy, int uz,
+                                int reach) {
+        int t = 0;
+        while (t <= reach && view.isSolid(x + ux * (t + 1), y + uy * (t + 1), z + uz * (t + 1))) {
+            t++;
+        }
+        int fx = x + ax, fy = y + ay, fz = z + az;
+        if (t > reach || view.isSolid(fx, fy, fz)) {
+            return null;
+        }
+        int s = 1;
+        while (s <= reach + 1 && !view.isSolid(fx - ux * s, fy - uy * s, fz - uz * s)) {
+            s++;
+        }
+        if (s > reach + 1) {
+            return null;
+        }
+        return new double[]{x + ux * t + 0.5, y + uy * t + 0.5, z + uz * t + 0.5,
+                fx - ux * s + 0.5, fy - uy * s + 0.5, fz - uz * s + 0.5};
+    }
+
+    /**
      * All surface voxels whose centre {@code p} satisfies {@code |p - c| <= radius}, {@code |(p - c)·n| <= normalBand}
      * and {@code smoothNormal(p)·n >= minNormalDot} ({@code c}, {@code n} from the frame). The band and normal filters
      * keep e.g. a cave ceiling right above a floor bump from bulging too. A voxel whose smoothed normal cancels to zero

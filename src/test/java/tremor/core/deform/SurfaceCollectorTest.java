@@ -1,7 +1,9 @@
 package tremor.core.deform;
 
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -191,5 +193,57 @@ class SurfaceCollectorTest {
         assertEquals(1, points.size());
         assertTrue(containsVoxel(points, 0, 0, 0));
         assertVec(Vec3.UNIT_Y, points.get(0).normal());
+    }
+
+    /**
+     * The ground a bump's plane runs through ({@link SurfaceCollector#seesPlane}): the top of a ledge seen from its
+     * foot and the floor seen from its top, but not what lies over or under other ground.
+     */
+    @Test
+    void groundOffThePlaneIsOwnWhereThePlaneRunsThroughIt() {
+        // a floor (y <= 0) with a ledge four blocks high for x <= -1
+        ArrayVoxelGrid ledge = ArrayVoxelGrid.flatFloor(0);
+        ledge.fill(ledge.minX, 1, ledge.minZ, -1, 4, ledge.maxZ, true);
+        Vec3 foot = new Vec3(0.5, 1, 0.5), top = new Vec3(-0.5, 5, 0.5);
+        assertTrue(SurfaceCollector.seesPlane(ledge, -3, 4, 0, 0, 1, 0, foot, Vec3.UNIT_Y), "the ledge's top, from its foot");
+        assertTrue(SurfaceCollector.seesPlane(ledge, 3, 0, 0, 0, 1, 0, top, Vec3.UNIT_Y), "the floor, from its top");
+        assertTrue(SurfaceCollector.seesPlane(ledge, 3, 0, 0, 0, 1, 0, foot, Vec3.UNIT_Y), "the floor it stands on");
+        // leaning as the ground does at its scale, it is the same
+        Vec3 lean = new Vec3(0.34, 0.94, 0).normalize();
+        assertTrue(SurfaceCollector.seesPlane(ledge, -3, 4, 0, 0, 1, 0, foot, lean));
+        assertTrue(SurfaceCollector.seesPlane(ledge, 3, 0, 0, 0, 1, 0, top, lean));
+        // the side of the ledge under the plane of a bump on its top: seen through the air before it, however the
+        // bump leans, not through the wall over it
+        assertTrue(SurfaceCollector.seesPlane(ledge, -1, 1, 0, 1, 0, 0, top, Vec3.UNIT_Y));
+        assertTrue(SurfaceCollector.seesPlane(ledge, -1, 1, 0, 1, 0, 0, top, lean));
+
+        // a cave five blocks under the ground: its floor is not ground of a bump on the surface
+        ArrayVoxelGrid cave = ArrayVoxelGrid.flatFloor(0);
+        cave.fill(-6, -6, -6, 6, -3, 6, false);
+        assertFalse(SurfaceCollector.seesPlane(cave, 0, -7, 0, 0, 1, 0, new Vec3(0.5, 1, 0.5), Vec3.UNIT_Y));
+        // a slab floating four blocks over the ground (the crown of a tree) is not raised ground
+        ArrayVoxelGrid crown = ArrayVoxelGrid.flatFloor(0);
+        crown.fill(-2, 5, -2, 2, 5, 2, true);
+        assertFalse(SurfaceCollector.seesPlane(crown, 0, 5, 0, 0, 1, 0, new Vec3(0.5, 1, 0.5), Vec3.UNIT_Y));
+    }
+
+    /** The step a wall voxel is the side of ({@link SurfaceCollector#step}): its top and its foot, if both are near. */
+    @Test
+    void theSideOfALedgeIsTheSideOfAStep() {
+        ArrayVoxelGrid ledge = ArrayVoxelGrid.flatFloor(0);
+        ledge.fill(ledge.minX, 1, ledge.minZ, -1, 4, ledge.maxZ, true);
+        // the second row of its side, open toward +x, for a bump standing upright
+        assertArrayEquals(new double[]{-0.5, 4.5, 0.5, 0.5, 0.5, 0.5},
+                SurfaceCollector.step(ledge, -1, 2, 0, 1, 0, 0, 0, 1, 0, 8), 0);
+        assertArrayEquals(new double[]{-0.5, 4.5, 0.5, 0.5, 0.5, 0.5},
+                SurfaceCollector.step(ledge, -1, 4, 0, 1, 0, 0, 0, 1, 0, 8), 0, "its top row: the top is itself");
+        assertNull(SurfaceCollector.step(ledge, -1, 2, 0, 1, 0, 0, 0, 1, 0, 1), "its top is farther than that");
+        // a wall with no end is no step
+        ArrayVoxelGrid wall = ArrayVoxelGrid.floorWallCorner(0, -1);
+        assertNull(SurfaceCollector.step(wall, -1, 2, 0, 1, 0, 0, 0, 1, 0, 8));
+        // nor is the side of a pit with no floor near
+        ArrayVoxelGrid pit = ArrayVoxelGrid.flatFloor(0);
+        pit.fill(0, -14, 0, 0, 0, 0, false);
+        assertNull(SurfaceCollector.step(pit, -1, -2, 0, 1, 0, 0, 0, 1, 0, 8));
     }
 }
