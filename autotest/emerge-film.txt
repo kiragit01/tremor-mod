@@ -1,0 +1,235 @@
+# Film (NeoForge only: /tick): a tremor of the default size crawls past the camera four blocks off, the camera low
+# over the ground (the user: a copy could be seen coming, because it showed at once a little raised over its
+# block; it should start right from the block). Shot every tick at 5 ticks a second as the hill's front and its
+# back pass by.
+# Run: gradlew runClientAutotest -Ptremor_autotest_script=emerge-film.txt
+waitchunks
+cmd gamerule commandModificationBlockLimit 2147483647
+cmd gamemode spectator
+cmd time set noon
+cmd tremor despawn all
+cmd tremor awaken stop
+cmd kill @e[type=!player]
+cmd tp @s 301.5 212.0 -880.5 180 30
+wait 40
+waitchunks
+cmd fill 270 194 -900 330 199 -860 minecraft:stone
+cmd fill 270 200 -900 330 200 -860 minecraft:grass_block
+cmd fill 270 201 -900 330 230 -860 minecraft:air
+config ambush.enabled false
+hud off
+cmd tremor spawn 290 200 -880
+cmd tremor ai off
+cmd tremor stage hunting
+cmd tremor hold
+cmd tp @s 301.5 200.6 -876.5 180 8
+wait 60
+pops on
+cmd tick rate 5
+cmd tremor goto 314 201 -880
+wait 14
+wait 1
+screenshot e000
+wait 1
+screenshot e001
+wait 1
+screenshot e002
+wait 1
+screenshot e003
+wait 1
+screenshot e004
+wait 1
+screenshot e005
+wait 1
+screenshot e006
+wait 1
+screenshot e007
+wait 1
+screenshot e008
+wait 1
+screenshot e009
+wait 1
+screenshot e010
+wait 1
+screenshot e011
+wait 1
+screenshot e012
+wait 1
+screenshot e013
+wait 1
+screenshot e014
+wait 1
+screenshot e015
+wait 1
+screenshot e016
+wait 1
+screenshot e017
+wait 1
+screenshot e018
+wait 1
+screenshot e019
+wait 1
+screenshot e020
+wait 1
+screenshot e021
+wait 1
+screenshot e022
+wait 1
+screenshot e023
+wait 1
+screenshot e024
+wait 1
+screenshot e025
+wait 1
+screenshot e026
+wait 1
+screenshot e027
+wait 1
+screenshot e028
+wait 1
+screenshot e029
+wait 1
+screenshot e030
+wait 1
+screenshot e031
+wait 1
+screenshot e032
+wait 1
+screenshot e033
+wait 1
+screenshot e034
+wait 1
+screenshot e035
+wait 1
+screenshot e036
+wait 1
+screenshot e037
+wait 1
+screenshot e038
+wait 1
+screenshot e039
+wait 1
+screenshot e040
+wait 1
+screenshot e041
+wait 1
+screenshot e042
+wait 1
+screenshot e043
+wait 1
+screenshot e044
+wait 1
+screenshot e045
+wait 1
+screenshot e046
+wait 1
+screenshot e047
+wait 1
+screenshot e048
+wait 1
+screenshot e049
+wait 1
+screenshot e050
+wait 1
+screenshot e051
+wait 1
+screenshot e052
+wait 1
+screenshot e053
+wait 1
+screenshot e054
+wait 1
+screenshot e055
+wait 1
+screenshot e056
+wait 1
+screenshot e057
+wait 1
+screenshot e058
+wait 1
+screenshot e059
+wait 1
+screenshot e060
+wait 1
+screenshot e061
+wait 1
+screenshot e062
+wait 1
+screenshot e063
+wait 1
+screenshot e064
+wait 1
+screenshot e065
+wait 1
+screenshot e066
+wait 1
+screenshot e067
+wait 1
+screenshot e068
+wait 1
+screenshot e069
+wait 1
+screenshot e070
+wait 1
+screenshot e071
+wait 1
+screenshot e072
+wait 1
+screenshot e073
+wait 1
+screenshot e074
+wait 1
+screenshot e075
+wait 1
+screenshot e076
+wait 1
+screenshot e077
+wait 1
+screenshot e078
+wait 1
+screenshot e079
+wait 1
+screenshot e080
+wait 1
+screenshot e081
+wait 1
+screenshot e082
+wait 1
+screenshot e083
+wait 1
+screenshot e084
+wait 1
+screenshot e085
+wait 1
+screenshot e086
+wait 1
+screenshot e087
+wait 1
+screenshot e088
+wait 1
+screenshot e089
+wait 1
+screenshot e090
+wait 1
+screenshot e091
+wait 1
+screenshot e092
+wait 1
+screenshot e093
+wait 1
+screenshot e094
+wait 1
+screenshot e095
+wait 1
+screenshot e096
+wait 1
+screenshot e097
+wait 1
+screenshot e098
+wait 1
+screenshot e099
+pops off
+cmd tick rate 20
+cmd tremor despawn all
+config ambush.enabled true
+quit

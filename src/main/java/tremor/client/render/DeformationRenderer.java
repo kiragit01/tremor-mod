@@ -348,6 +348,13 @@ public final class DeformationRenderer {
          * ground).
          */
         final Map<Column, double[]> leaving = new java.util.IdentityHashMap<>();
+        /**
+         * How far the ground it stands on runs along its length, as of its last collection ({@link #room}), and the
+         * share of its height it is drawn at for want of room ({@link #cramped}), as of game time {@link #crampAt}.
+         */
+        double room = Double.POSITIVE_INFINITY;
+        double cramp = 1;
+        double crampAt = Double.NaN;
         /** Game time of the frame its columns' shares were last moved on; NaN at first. */
         double fadeAt = Double.NaN;
         /** How far they move this frame (a share of the way up or down). */
@@ -672,6 +679,8 @@ public final class DeformationRenderer {
                     continue;
                 }
             }
+            // From here on its height is the one it is drawn at: it starts from its block (BumpShape.shown).
+            col.h = BumpShape.shown(col.h);
             drawn.add(col);
             total += col.cost();
         }
@@ -1007,6 +1016,9 @@ public final class DeformationRenderer {
         if (ripple != null) {
             scanRing(level, bump, frame, ripple, state.rippleAgeSeconds(), now, tick);
         }
+        if (!pulse) {
+            params = cramped(bump, params, now);
+        }
         return new HeightField(params, frame, state.timeSeconds(), TremorConfig.CLIENT.drawJitter(), ripple,
                 state.rippleAgeSeconds(), ripple != null ? bump.ringFrame : frame);
     }
@@ -1097,7 +1109,7 @@ public final class DeformationRenderer {
         for (int i = 0, n = drawn.size(); i < n; i++) {
             Column col = drawn.get(i);
             col.h *= RenderBudget.fade(Math.sqrt(col.distanceSq), frameCut);
-            if (col.h >= BumpShape.RENDER_THRESHOLD) {
+            if (col.h > 0) {
                 drawn.set(kept++, col);
             }
         }
@@ -1274,6 +1286,57 @@ public final class DeformationRenderer {
         return tick >= next || next - tick > interval;
     }
 
+    /**
+     * A bump higher than the face it stands on is long is drawn no higher than that face is long (and never lower than
+     * a tremor of the default height, which is not touched): a big tremor crossing the face of a ledge four blocks
+     * high pushed its whole height out of those few blocks, a great tongue out of the wall (the user: under the
+     * ground it need not go round every corner, it may cut it as a dive does). It sinks while it is cramped and
+     * swells again on wide ground, over about {@value #CRAMP_TICKS} ticks, so nothing of it comes or goes at once
+     * as it did in the dives that cut corners.
+     */
+    private static BumpParams cramped(Bump bump, BumpParams params, double now) {
+        double height = params.amplitude();
+        double target = height > ROOM_FREE ? Math.min(1, Math.max(ROOM_FREE, bump.room) / height) : 1;
+        double dt = Double.isNaN(bump.crampAt) ? 0 : Math.max(0, Math.min(4 * CRAMP_TICKS, now - bump.crampAt));
+        bump.crampAt = now;
+        bump.cramp += (target - bump.cramp) * (1 - Math.exp(-dt / CRAMP_TICKS));
+        return bump.cramp < 0.999 ? params.withAmplitude(height * bump.cramp) : params;
+    }
+
+    /** A bump no higher than this (blocks: the default height) is never held for want of room. */
+    static final double ROOM_FREE = BumpParams.defaults().amplitude();
+    static final double CRAMP_TICKS = 8;
+    /** The room is looked for this many blocks each way along the bump at most, and this far to either side. */
+    static final int ROOM_REACH = 8;
+    static final double ROOM_ACROSS = 1.0;
+
+    /**
+     * How far the ground {@code bump} stands on runs along its length through its middle ({@link RenderReach#room}):
+     * of its collected columns within {@value #ROOM_ACROSS} block of that line, those that go its own way (their axis
+     * within {@link #SIDE_TO} of its normal), wherever along the normal they lie (a step down is still its ground).
+     */
+    private static double room(Bump bump, BumpFrame frame, double radius) {
+        int reach = Math.max(1, Math.min(ROOM_REACH, (int) Math.floor(radius) - 1));
+        boolean[] own = new boolean[2 * reach + 1];
+        Vec3 c = frame.center(), n = frame.normal(), f = frame.forward();
+        for (int i = 0, count = bump.active.size(); i < count; i++) {
+            Column col = bump.active.get(i);
+            if (col.fill || col.axis.getStepX() * n.x() + col.axis.getStepY() * n.y() + col.axis.getStepZ() * n.z()
+                    < SIDE_TO) {
+                continue;
+            }
+            double dx = col.cx - c.x(), dy = col.cy - c.y(), dz = col.cz - c.z();
+            double along = dx * f.x() + dy * f.y() + dz * f.z(), out = dx * n.x() + dy * n.y() + dz * n.z();
+            double sx = dx - along * f.x() - out * n.x(), sy = dy - along * f.y() - out * n.y();
+            double sz = dz - along * f.z() - out * n.z();
+            int bin = (int) Math.floor(along + 0.5) + reach;
+            if (sx * sx + sy * sy + sz * sz <= ROOM_ACROSS * ROOM_ACROSS && bin >= 0 && bin < own.length) {
+                own[bin] = true;
+            }
+        }
+        return RenderReach.room(own, reach);
+    }
+
     /** @param radius collection radius this frame needs, see {@link RenderReach#collectRadius} */
     private static boolean needsCollect(Bump bump, BumpFrame frame, double radius, long tick) {
         if (!bump.collected || bump.recollect || tick - bump.collectTick >= RECOLLECT_INTERVAL
@@ -1355,6 +1418,7 @@ public final class DeformationRenderer {
             col.lastUsed = tick;
             bump.active.add(col);
         }
+        bump.room = room(bump, frame, options.radius());
         Vec3 c = frame.center();
         bump.collectX = c.x();
         bump.collectY = c.y();
@@ -1792,7 +1856,7 @@ public final class DeformationRenderer {
         double out = behind.stamp == frameStamp ? behind.h
                 : col.inZone && behind.inZone && ground != null ? ground.at(behind.cx, behind.cy, behind.cz) : 0;
         col.crossReach = Math.min(col.h, out);
-        return col.crossReach >= BumpShape.RENDER_THRESHOLD ? b : null;
+        return col.crossReach > Column.SEAM_MIN ? b : null;
     }
 
     /**
@@ -1871,7 +1935,7 @@ public final class DeformationRenderer {
                     for (int k = 1; k <= stack; k++) {
                         double off = Column.seamOff(col.h, k);
                         double length = Column.seamLength(col.crossReach, col.h, off);
-                        for (int s = 0; length - s >= BumpShape.RENDER_THRESHOLD; s++) {
+                        for (int s = 0; length - s > Column.SEAM_MIN; s++) {
                             double side = length - s;
                             float x = bx + (float) (ax * off + cx * side), y = by + (float) (ay * off + cy * side);
                             float z = bz + (float) (az * off + cz * side);

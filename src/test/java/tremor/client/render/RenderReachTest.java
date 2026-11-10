@@ -257,4 +257,19 @@ class RenderReachTest {
         assertTrue(RenderReach.collectRadius(DEFAULTS, faint, 1.5, 2.5, 0.5)
                 <= RenderReach.collectRadius(DEFAULTS, null, 1.5, 2.5, 0.5) + 0.5);
     }
+
+    /** The room a bump has along its length ({@link RenderReach#room}): the run of its own ground through its middle. */
+    @Test
+    void roomIsTheRunOfOwnGroundThroughTheMiddle() {
+        boolean t = true, f = false;
+        // The face of a ledge three rows high, the floor and the top going another way beyond it.
+        assertEquals(3, RenderReach.room(new boolean[]{f, f, f, t, t, t, f, f, f}, 4), 1e-12);
+        assertEquals(3, RenderReach.room(new boolean[]{f, f, f, f, t, t, t, f, f}, 4), 1e-12, "at its lowest row");
+        assertEquals(1, RenderReach.room(new boolean[]{f, t, f, f, t, f, f, t, f}, 4), 1e-12, "a run apart is none of it");
+        assertEquals(2, RenderReach.room(new boolean[]{f, f, f, f, f, t, t, f, f}, 4), 1e-12, "on a joint: beside it");
+        assertEquals(0, RenderReach.room(new boolean[]{t, t, f, f, f, f, f, t, t}, 4), 1e-12, "none near the middle");
+        // Open ground: the run reaches the end of what was looked at, so it has no end.
+        assertEquals(Double.POSITIVE_INFINITY, RenderReach.room(new boolean[]{t, t, t, t, t, t, t, t, t}, 4), 0);
+        assertEquals(Double.POSITIVE_INFINITY, RenderReach.room(new boolean[]{f, f, t, t, t, t, t, t, t}, 4), 0);
+    }
 }
