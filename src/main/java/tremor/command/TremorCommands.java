@@ -78,6 +78,8 @@ import java.util.function.Supplier;
  *   <li>{@code hollow outcome <victory|edge|defeat>}: ends the level inside the hollow for the player, see
  *   {@link AwakeningCommands}.</li>
  *   <li>{@code crater [pos]}: digs a crater there without an event, see {@link AwakeningCommands}.</li>
+ *   <li>{@code belly <list|clear|spit <index>>}: what the tremor keeps of what it devours, see
+ *   {@link tremor.entity.Belly}.</li>
  * </ul>
  */
 public final class TremorCommands {
@@ -185,7 +187,8 @@ public final class TremorCommands {
                 // Merged into the hollow branch above: hollow outcome <victory|edge|defeat>.
                 .then(AwakeningCommands.hollowOutcome())
                 .then(AwakeningCommands.awaken())
-                .then(AwakeningCommands.crater()));
+                .then(AwakeningCommands.crater())
+                .then(tremor.entity.Belly.command()));
     }
 
     /** {@code /tremor stage <dormant|alert|hunting|awakening>} */

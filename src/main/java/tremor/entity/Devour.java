@@ -31,7 +31,9 @@ import java.util.WeakHashMap;
  * hunts other creatures too and swallows them whole, without a crater): a taken mob stops (no AI, no physics, no
  * damage), sinks into the ground over {@link #SINK_TICKS} with the dust of the ground it sinks through and a crack,
  * and dies, swallowed by the ground (the damage of the ground's pull), without drops or experience: its death counts
- * (a player: MCA villagers just vanished and could not be brought back; a pet's owner is told). Bosses ({@code #c:bosses}), {@code #tremor:undevourable}, invulnerable mobs and mobs a
+ * (a player: MCA villagers just vanished and could not be brought back; a pet's owner is told). A mob that matters to
+ * someone (named, tamed, a villager: {@link Belly#keeps}) does not die: it is kept alive in the {@link Belly} as it
+ * was when taken, and only taken out of the world, with the sounds of a death so that nothing tells it apart. Bosses ({@code #c:bosses}), {@code #tremor:undevourable}, invulnerable mobs and mobs a
  * player rides are never taken. Kept per level in memory: a mob half under when the level is saved simply stays
  * where it was (it is not saved as taken). Server thread only; ticked by {@link #onLevelTick}, registered by
  * {@link Tremor}.
@@ -55,6 +57,13 @@ public final class Devour {
      * the item for {@code contact.spareDeathDropsSeconds} from then on ({@link DeathDrops}; 0 by default: not at all).
      */
     static final String DEATH_DROP = Tremor.MODID + ":death_drop";
+    /**
+     * Persistent data of an item a player dropped, thrown or by dying: the player's id. The bump keeps such a stack in
+     * the {@link Belly} rather than destroying it.
+     */
+    static final String DROPPED_BY = Tremor.MODID + ":dropped_by";
+    /** On a mob being pulled under that is kept in the {@link Belly} (as it was when taken): it is not killed. */
+    private static final String KEPT_TAG = "tremor_kept";
 
     /** The damage type of the ground's pull ({@code data/tremor/damage_type/swallowed.json}). */
     private static final net.minecraft.resources.ResourceKey<net.minecraft.world.damagesource.DamageType> SWALLOWED =
@@ -73,6 +82,10 @@ public final class Devour {
      * modded mob immune to it) is removed.
      */
     private static void swallow(ServerLevel level, Mob mob) {
+        if (mob.getTags().contains(KEPT_TAG)) {
+            spare(level, mob);
+            return;
+        }
         mob.removeTag(TAG);
         mob.setInvulnerable(false);
         mob.skipDropExperience();
@@ -86,6 +99,27 @@ public final class Devour {
         if (mob.isAlive()) {
             mob.discard();
         }
+    }
+
+    /**
+     * {@code mob}, under the ground and kept in the {@link Belly}, leaves the world alive: no death, so no drops, no
+     * experience, no death message; the clients still hear its hurt and its death as they did, the lead drops as it did
+     * on a death, and a villager lets go of its bed and workplace as a dying one does.
+     */
+    private static void spare(ServerLevel level, Mob mob) {
+        level.broadcastDamageEvent(mob, new net.minecraft.world.damagesource.DamageSource(level.registryAccess()
+                .registryOrThrow(Registries.DAMAGE_TYPE).getHolderOrThrow(SWALLOWED)));
+        level.broadcastEntityEvent(mob, net.minecraft.world.entity.EntityEvent.DEATH);
+        if (mob.isLeashed()) {
+            mob.dropLeash(true, true);
+        }
+        if (mob instanceof net.minecraft.world.entity.npc.Villager villager) {
+            villager.releasePoi(net.minecraft.world.entity.ai.memory.MemoryModuleType.HOME);
+            villager.releasePoi(net.minecraft.world.entity.ai.memory.MemoryModuleType.JOB_SITE);
+            villager.releasePoi(net.minecraft.world.entity.ai.memory.MemoryModuleType.POTENTIAL_JOB_SITE);
+            villager.releasePoi(net.minecraft.world.entity.ai.memory.MemoryModuleType.MEETING_POINT);
+        }
+        mob.discard();
     }
 
     /** A mob swallowed by the ground ({@link #swallow}) drops nothing. Registered by {@link Tremor}. */
@@ -160,6 +194,7 @@ public final class Devour {
             long died = player.level().getGameTime();
             for (net.minecraft.world.entity.item.ItemEntity drop : event.getDrops()) {
                 drop.getPersistentData().putLong(DEATH_DROP, died);
+                drop.getPersistentData().putUUID(DROPPED_BY, player.getUUID());
             }
         }
     }
@@ -167,9 +202,11 @@ public final class Devour {
     /**
      * ...and so with what the menus of a dead player throw out where they died, as the player respawns or leaves: the
      * stack on the cursor and the crafting grid, which are no part of the death's drops. Their time runs from when
-     * they are thrown out. Registered by {@link Tremor}.
+     * they are thrown out. Whatever a player throws, dead or alive, is stamped with who threw it ({@link #DROPPED_BY}):
+     * every drop of a player but the death's goes through this event. Registered by {@link Tremor}.
      */
-    public static void onDeadToss(net.neoforged.neoforge.event.entity.item.ItemTossEvent event) {
+    public static void onToss(net.neoforged.neoforge.event.entity.item.ItemTossEvent event) {
+        event.getEntity().getPersistentData().putUUID(DROPPED_BY, event.getPlayer().getUUID());
         if (!event.getPlayer().isAlive()) {
             event.getEntity().getPersistentData().putLong(DEATH_DROP, event.getPlayer().level().getGameTime());
         }
@@ -177,7 +214,7 @@ public final class Devour {
 
     /**
      * Whether the bump may take {@code item}: one lying about, not one the mod laid down to stay (never despawns) nor,
-     * for a while, what a player dropped by dying ({@link #onPlayerDrops}, {@link #onDeadToss}).
+     * for a while, what a player dropped by dying ({@link #onPlayerDrops}, {@link #onToss}).
      */
     public static boolean takeable(net.minecraft.world.entity.item.ItemEntity item) {
         return item.isAlive() && item.getAge() != UNLIMITED_AGE && !ofFreshDeath(item);
@@ -194,7 +231,10 @@ public final class Devour {
                 && DeathDrops.spared(data.getLong(DEATH_DROP), item.level().getGameTime(), ticks);
     }
 
-    /** The bump takes {@code item} at once: it is gone, in the dust of the ground. */
+    /**
+     * The bump takes {@code item} at once: it is gone, in the dust of the ground; kept in the {@link Belly} if a player
+     * dropped it ({@link #DROPPED_BY}, or the death stamp of 1.4.1, which did not name the player), destroyed else.
+     */
     public static void take(ServerLevel level, net.minecraft.world.entity.item.ItemEntity item) {
         BlockState ground = level.getBlockState(item.blockPosition().below());
         if (!ground.isAir()) {
@@ -203,13 +243,21 @@ public final class Devour {
         }
         level.playSound(null, item.getX(), item.getY(), item.getZ(), TremorSounds.CRACK.get(), SoundSource.HOSTILE,
                 0.5F, 1.4F);
+        net.minecraft.nbt.CompoundTag data = item.getPersistentData();
+        if (data.hasUUID(DROPPED_BY) || data.contains(DEATH_DROP)) {
+            Belly.keep(level, item, data.hasUUID(DROPPED_BY) ? data.getUUID(DROPPED_BY) : null);
+        }
         item.discard();
     }
 
-    /** The bump takes {@code mob}: it stops where it is and starts to sink. */
+    /** The bump takes {@code mob}: it stops where it is and starts to sink (kept first, as it is, if it matters). */
     public static void take(ServerLevel level, Mob mob) {
         mob.ejectPassengers();
         mob.stopRiding();
+        if (Belly.keeps(mob)) {
+            Belly.keep(level, mob);
+            mob.addTag(KEPT_TAG);
+        }
         mob.setNoAi(true);
         mob.setInvulnerable(true);
         mob.setDeltaMovement(Vec3.ZERO);

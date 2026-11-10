@@ -1,0 +1,79 @@
+# The tremor keeps what matters of what it devours: a named pig is kept alive, an unnamed one digested, no loot left
+# where they went; a diamond the player threw is kept, an emerald that merely lay there (no thrower) is not. Both kept
+# ones come back with /tremor belly spit, the pig with its name.
+# Run: gradlew runClientAutotest -Ptremor_autotest_script=belly.txt
+waitchunks
+cmd gamemode spectator
+cmd time set noon
+cmd tremor despawn all
+cmd tremor awaken stop
+cmd tremor belly clear
+cmd tp @s 306.5 206.0 -905.5 90 40
+wait 40
+waitchunks
+cmd fill 240 198 -960 299 199 -840 minecraft:stone
+cmd fill 300 198 -960 360 199 -840 minecraft:stone
+cmd fill 240 200 -960 360 200 -840 minecraft:grass_block
+cmd fill 240 201 -960 279 206 -840 minecraft:air
+cmd fill 280 201 -960 319 206 -840 minecraft:air
+cmd fill 320 201 -960 360 206 -840 minecraft:air
+cmd kill @e[type=!player]
+log --- the player throws a diamond
+cmd gamemode creative
+cmd tp @s 312.5 201 -905.5 90 0
+cmd clear @s
+cmd item replace entity @s hotbar.0 with minecraft:diamond 2
+cmd item replace entity @s hotbar.1 with minecraft:diamond 2
+cmd item replace entity @s hotbar.2 with minecraft:diamond 2
+cmd item replace entity @s hotbar.3 with minecraft:diamond 2
+cmd item replace entity @s hotbar.4 with minecraft:diamond 2
+cmd item replace entity @s hotbar.5 with minecraft:diamond 2
+cmd item replace entity @s hotbar.6 with minecraft:diamond 2
+cmd item replace entity @s hotbar.7 with minecraft:diamond 2
+cmd item replace entity @s hotbar.8 with minecraft:diamond 2
+wait 10
+hold drop 1
+wait 40
+cmd clear @s
+cmd execute as @e[type=item,nbt={Item:{id:"minecraft:diamond"}}] run tp @s 300.5 201 -904.5
+cmd gamemode spectator
+cmd tp @s 306.5 206.0 -905.5 90 40
+log --- a named pig, an unnamed pig and an emerald nobody threw
+cmd summon pig 300.5 201 -902.5 {NoAI:1b,CustomName:'"Babe"'}
+cmd summon pig 300.5 201 -906.5 {NoAI:1b}
+cmd summon item 300.5 201 -908.5 {Item:{id:"minecraft:emerald",count:1}}
+wait 20
+cmd execute if entity @e[type=pig,distance=..30]
+cmd execute if entity @e[type=item,distance=..30]
+cmd tremor spawn 300 201 -892
+cmd tremor ai off
+cmd tremor stage hunting
+cmd tremor hold
+wait 40
+log --- it passes over them
+cmd tremor goto 300 200 -918
+screenshot 10_before
+wait 60
+screenshot 11_passing
+wait 240
+cmd tremor despawn all
+log --- both pigs and both items are gone, no loot, no experience
+cmd execute if entity @e[type=pig,distance=..30]
+cmd execute if entity @e[type=item,distance=..30]
+cmd execute if entity @e[type=experience_orb,distance=..30]
+log --- the belly holds the named pig and the diamond only
+cmd tremor belly list
+log --- spit 0: the named pig comes back with its name
+cmd execute positioned 303.5 201 -905.5 run tremor belly spit 0
+wait 5
+cmd execute if entity @e[type=pig,name=Babe,distance=..30]
+cmd execute as @e[type=pig,distance=..30] run data get entity @s CustomName
+cmd tremor belly list
+log --- spit 0 again: the diamond comes back
+cmd execute positioned 303.5 201 -903.5 run tremor belly spit 0
+wait 5
+cmd execute if entity @e[type=item,nbt={Item:{id:"minecraft:diamond"}},distance=..30]
+cmd tremor belly list
+screenshot 20_back
+cmd kill @e[type=!player]
+quit

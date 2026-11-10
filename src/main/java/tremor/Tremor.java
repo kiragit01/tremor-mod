@@ -80,7 +80,7 @@ public final class Tremor {
         game.addListener(tremor.entity.Devour::onDrops);
         // Lowest priority: marks what a dead player's drops are once every other listener has had them.
         game.addListener(EventPriority.LOWEST, LivingDropsEvent.class, tremor.entity.Devour::onPlayerDrops);
-        game.addListener(tremor.entity.Devour::onDeadToss);
+        game.addListener(tremor.entity.Devour::onToss);
         game.addListener(tremor.entity.Devour::onEntityJoin);
         game.addListener(tremor.entity.Devour::onServerStopped);
         game.addListener(tremor.entity.Frenzy::onItemToss);
