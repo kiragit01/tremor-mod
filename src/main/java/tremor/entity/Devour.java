@@ -31,7 +31,7 @@ import java.util.WeakHashMap;
  * hunts other creatures too and swallows them whole, without a crater): a taken mob stops (no AI, no physics, no
  * damage), sinks into the ground over {@link #SINK_TICKS} with the dust of the ground it sinks through and a crack,
  * and dies, swallowed by the ground (the damage of the ground's pull), without drops or experience: its death counts
- * (a player: MCA villagers just vanished and could not be brought back; a pet's owner is told). Bosses ({@code #c:bosses}), {@code #tremor:undevourable} and mobs a
+ * (a player: MCA villagers just vanished and could not be brought back; a pet's owner is told). Bosses ({@code #c:bosses}), {@code #tremor:undevourable}, invulnerable mobs and mobs a
  * player rides are never taken. Kept per level in memory: a mob half under when the level is saved simply stays
  * where it was (it is not saved as taken). Server thread only; ticked by {@link #onLevelTick}, registered by
  * {@link Tremor}.
@@ -95,10 +95,13 @@ public final class Devour {
         }
     }
 
-    /** Whether the bump may take {@code mob}: alive, not taken yet, no boss, not undevourable, ridden by no player. */
+    /**
+     * Whether the bump may take {@code mob}: alive, not taken yet, no boss, not undevourable, ridden by no player, and
+     * not invulnerable (a server's NPC with {@code Invulnerable:1b} sank and died: {@link #swallow} takes the flag off).
+     */
     public static boolean takeable(ServerLevel level, Mob mob) {
-        if (!mob.isAlive() || mob.getType().is(Tags.EntityTypes.BOSSES) || mob.getType().is(UNDEVOURABLE)
-                || spared(mob)) {
+        if (!mob.isAlive() || mob.isInvulnerable() || mob.getType().is(Tags.EntityTypes.BOSSES)
+                || mob.getType().is(UNDEVOURABLE) || spared(mob)) {
             return false;
         }
         for (Entity passenger : mob.getIndirectPassengers()) {
