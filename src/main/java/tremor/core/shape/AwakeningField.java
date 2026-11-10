@@ -175,23 +175,35 @@ public final class AwakeningField implements GroundField {
         }
         double dx = x - focus.x(), dz = z - focus.z(), dh2 = dx * dx + dz * dz;
         double under = focus.y() - (y + 0.5);
-        double dy = under > 0 ? -0.5 : y - focus.y();
+        double dy = levelled(under, y);
         double d2 = dh2 + dy * dy;
         return d2 < hillCutSq ? AwakeningShape.hill(hill, params.hillSigma(), d2) + lift(under, dh2, share()) : 0;
+    }
+
+    /**
+     * How far up or down from the feet a voxel counts for the hill: one over them as far as it is; one up to
+     * {@link #LIFT} blocks under them as if level with them ({@link #lift}); one deeper by what it lies deeper than
+     * that. Depth used not to count at all under the feet: on the edge of a cliff twenty blocks high the whole face
+     * under the player was pushed out some six blocks, a buttress as tall as the cliff, and the ground at its foot
+     * rose five (the review).
+     */
+    private double levelled(double under, double y) {
+        return under > LIFT ? -(0.5 + under - LIFT) : under > 0 ? -0.5 : y - focus.y();
     }
 
     /**
      * The hill stands level from the feet of the swallowed player: a voxel whose top is {@code under} blocks under
      * them (the low side of a step they stand on the edge of, the floor under shallow water; the user saw the low side
      * stay open) is measured as if level with them, and rises by that much more, up to {@link #LIFT}, fading out
-     * sideways as the hill does ({@code dh2}: the squared distance across), with its {@code share} of the full hill.
+     * sideways as the hill does ({@code dh2}: the squared distance across) and with the depth beyond {@link #LIFT},
+     * with its {@code share} of the full hill.
      */
     private double lift(double under, double dh2, double share) {
         if (under <= 0) {
             return 0;
         }
-        double sigma = params.hillSigma();
-        return Math.min(under, LIFT) * share * Math.exp(-dh2 / (sigma * sigma));
+        double sigma = params.hillSigma(), deeper = Math.max(0, under - LIFT);
+        return Math.min(under, LIFT) * share * Math.exp(-(dh2 + deeper * deeper) / (sigma * sigma));
     }
 
     /** How far the hill has risen, 0..1 of its full height. */
@@ -258,7 +270,7 @@ public final class AwakeningField implements GroundField {
     public double swellAhead(double x, double y, double z) {
         double dx = x - focus.x(), dz = z - focus.z(), dh2 = dx * dx + dz * dz;
         double under = focus.y() - (y + 0.5);
-        double dy = under > 0 ? -0.5 : y - focus.y();
+        double dy = levelled(under, y);
         return peakBreath(x, y, z) + AwakeningShape.hill(params.hillHeight(), params.hillSigma(), dh2 + dy * dy)
                 + lift(under, dh2, 1);
     }

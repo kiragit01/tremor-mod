@@ -23,6 +23,7 @@ import tremor.core.path.Path;
 import tremor.core.path.PathSearch;
 import tremor.core.surface.Surface;
 import tremor.core.path.PathSpline;
+import tremor.core.shape.BumpFrame;
 import tremor.core.shape.BumpParams;
 import tremor.core.voxel.VoxelCache;
 import tremor.hearing.Perception;
@@ -1503,7 +1504,8 @@ public final class TremorRuntime {
             return null;
         }
         Vec3 from = spline.position(dive[0]), to = spline.position(dive[1]);
-        return new TremorStatePayload.Leap(from, normalAt(from), to, normalAt(to));
+        return new TremorStatePayload.Leap(from, BumpFrame.normalOr(normalAt(from), to.sub(from)), to,
+                BumpFrame.normalOr(normalAt(to), from.sub(to)));
     }
 
     private void sendShape(TremorEntity entity) {
