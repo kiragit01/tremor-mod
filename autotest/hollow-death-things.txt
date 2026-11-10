@@ -1,0 +1,58 @@
+# The things of a player who dies in the hollow with no crater to keep them (the review, А1): they lie where the
+# player was swallowed as items that never despawn; a shard is the ground's.
+# A player with three diamonds and two shards goes into the hollow (/tremor hollow enter at 860.5 201 300.5: no
+# Awakening, no crater) and dies there.
+# Every "execute ... if|unless" line must answer "Test passed", and the Age is -32768s.
+# (The NeoForge 1.21.1 branch also has a stack on the cursor and one in the crafting grid, which go with the rest
+# since the review's А4: 1.20.1 has no command that puts them there.)
+# Run: gradlew runClientAutotest -Ptremor_autotest_script=hollow-death-things.txt
+waitchunks
+cmd gamerule commandModificationBlockLimit 2147483647
+cmd gamerule doImmediateRespawn true
+cmd gamerule keepInventory false
+cmd gamemode spectator
+cmd time set noon
+cmd tremor despawn all
+cmd tremor awaken stop
+cmd tremor restore
+cmd kill @e[type=!player]
+cmd tp @s 860.5 202.0 300.5
+wait 40
+waitchunks
+cmd fill 840 194 280 880 199 320 minecraft:dirt
+cmd fill 840 200 280 880 200 320 minecraft:grass_block
+cmd fill 840 201 280 880 230 320 minecraft:air
+cmd forceload add 850 290 870 310
+cmd kill @e[type=!player]
+cmd tp @s 860.5 201.0 300.5 0 30
+cmd gamemode survival
+cmd clear @s
+cmd effect clear @s
+cmd effect give @s minecraft:instant_health 1 4 true
+cmd give @s minecraft:diamond 3
+cmd give @s tremor:tremor_shard 2
+wait 10
+cmd tremor hollow enter
+wait 160
+waitchunks
+cmd data get entity @s Dimension
+wait 5
+cmd kill @s
+wait 5
+cmd gamemode spectator
+cmd execute in minecraft:overworld run tp @s 862.5 203.0 300.5 90 40
+wait 10
+log --- right after the death: the diamonds lie at the swallow point, an item that never despawns
+cmd execute positioned 860.5 201 300.5 if entity @e[type=item,nbt={Item:{id:"minecraft:diamond"}},distance=..8]
+cmd execute positioned 860.5 201 300.5 as @e[type=item,nbt={Item:{id:"minecraft:diamond"}},distance=..8] run data get entity @s Age
+screenshot 10_the_things
+wait 100
+log --- five seconds later: the ground has taken the shards
+cmd execute positioned 860.5 201 300.5 unless entity @e[type=item,nbt={Item:{id:"tremor:tremor_shard"}},distance=..8]
+cmd execute positioned 860.5 201 300.5 if entity @e[type=item,distance=..8]
+cmd tremor hollow status
+cmd kill @e[type=item]
+cmd kill @e[type=experience_orb]
+cmd forceload remove 850 290 870 310
+cmd gamerule doImmediateRespawn false
+quit
