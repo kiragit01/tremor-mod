@@ -124,6 +124,75 @@ public final class SurfaceNormals {
         return smooth;
     }
 
+    /** The share of the given normal in {@link #wideNormal}: what it comes to where the faces around cancel. */
+    static final double WIDE_OWN = 0.02;
+    /** A face turned this far away from the given normal (minus the cosine) no longer counts in {@link #wideNormal}. */
+    static final double WIDE_AWAY = 0.5;
+    /** Faces count less over this many blocks before the radius of {@link #wideNormal}, down to nothing at it. */
+    static final double WIDE_TAPER = 2;
+
+    /**
+     * The way the ground faces around {@code center} seen at the scale of {@code radius} blocks: the open faces of
+     * the solid voxels within that radius, summed by the way they face, the sum along each axis squared (its sign
+     * kept) so that the way most of them face outweighs the rest. A face counts less near the radius and not at all
+     * at it, so nothing comes or goes at once as the centre moves. Faces turned away from {@code normal} are left
+     * out, softly: the far side of a wall and the roof of a cave are not the ground the caller is on. A small share
+     * of {@code normal} itself is added, so it is that where the faces cancel (a shaft) or there are none.
+     * <p>
+     * A ledge lower than the radius hardly turns it, the faces of the floor and of the top outweighing those of its
+     * side; a wall higher than the radius turns it all the way, within a few blocks of its foot; a slope of one in
+     * one is its own way, a gentler one comes out a little flatter than it is. A big bump is drawn along it: along
+     * the normal of the voxel under its centre it turned onto the side of every ledge lower than itself and off it
+     * again within a few ticks, sinking and shooting up each time (the user: under the ground it need not go round
+     * every corner).
+     */
+    public static Vec3 wideNormal(VoxelView view, Vec3 center, Vec3 normal, double radius) {
+        double reach2 = (radius + 1) * (radius + 1);
+        int x0 = (int) Math.floor(center.x() - radius - 0.5), x1 = (int) Math.floor(center.x() + radius + 0.5);
+        int y0 = (int) Math.floor(center.y() - radius - 0.5), y1 = (int) Math.floor(center.y() + radius + 0.5);
+        int z0 = (int) Math.floor(center.z() - radius - 0.5), z1 = (int) Math.floor(center.z() + radius + 0.5);
+        double sx = 0, sy = 0, sz = 0, total = 0;
+        for (int y = y0; y <= y1; y++) {
+            double cy = y + 0.5 - center.y();
+            for (int z = z0; z <= z1; z++) {
+                double cz = z + 0.5 - center.z();
+                for (int x = x0; x <= x1; x++) {
+                    double cx = x + 0.5 - center.x();
+                    if (cx * cx + cy * cy + cz * cz > reach2 || !view.isSolid(x, y, z)) {
+                        continue; // none of its faces is within the radius; or it has none
+                    }
+                    for (int i = 0; i < 6; i++) {
+                        int ax = FACE_X[i], ay = FACE_Y[i], az = FACE_Z[i];
+                        double facing = ax * normal.x() + ay * normal.y() + az * normal.z();
+                        if (facing <= -WIDE_AWAY || view.isSolid(x + ax, y + ay, z + az)) {
+                            continue;
+                        }
+                        double fx = cx + 0.5 * ax, fy = cy + 0.5 * ay, fz = cz + 0.5 * az;
+                        double w = Math.min(1, (radius - Math.sqrt(fx * fx + fy * fy + fz * fz)) / WIDE_TAPER);
+                        if (w <= 0) {
+                            continue;
+                        }
+                        if (facing < 0) {
+                            double t = 1 + facing / WIDE_AWAY;
+                            w *= t * t * (3 - 2 * t);
+                        }
+                        sx += w * ax;
+                        sy += w * ay;
+                        sz += w * az;
+                        total += w;
+                    }
+                }
+            }
+        }
+        sx += WIDE_OWN * total * normal.x();
+        sy += WIDE_OWN * total * normal.y();
+        sz += WIDE_OWN * total * normal.z();
+        Vec3 wide = normalizeOrZero(sx * Math.abs(sx), sy * Math.abs(sy), sz * Math.abs(sz));
+        return wide.isNearZero() ? normal : wide;
+    }
+
+    private static final int[] FACE_X = {1, -1, 0, 0, 0, 0}, FACE_Y = {0, 0, 1, -1, 0, 0}, FACE_Z = {0, 0, 0, 0, 1, -1};
+
     private static Vec3 normalizeOrZero(double sx, double sy, double sz) {
         double len = Math.sqrt(sx * sx + sy * sy + sz * sz);
         return len < CANCEL_EPSILON ? Vec3.ZERO : new Vec3(sx / len, sy / len, sz / len);
