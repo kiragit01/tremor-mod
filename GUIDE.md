@@ -107,7 +107,7 @@ You end up in a copy of the place you were taken from, in this creature's own di
 - There's a ceiling over you, so you can't escape over the top.
 - The coordinates in F3 won't help you there: random characters flicker in their place. The same during the Awakening, while you're being pulled in.
 
-There's one more way out: a narrow tunnel that starts a couple of blocks from where you arrived and leads to the edge. It isn't marked in any way. You only see the light at its end once you're already in it, and when the walls close in, it's just a dark hole in one of them.
+There's one more way out: a narrow tunnel that starts a few blocks from where you arrived (or right at your feet, if there's no way to walk to it) and leads to the edge. It isn't marked in any way. You only see the light at its end once you're already in it, and when the walls close in, it's just a dark hole in one of them.
 
 ## How it ends
 
