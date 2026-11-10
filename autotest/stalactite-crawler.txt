@@ -84,7 +84,8 @@ cmd tremor crawler spawn 819 201 290
 wait 30
 cmd summon minecraft:arrow 819.5 203 290.5 {Tags:["tremor_resonance"],Motion:[0.0,1.5,0.0]}
 wait 30
-# the natural spawn
+# the natural spawn (not on peaceful, which this world is: a crawler keeps to the spawn rules of the tremor)
+cmd difficulty easy
 cmd gamemode survival
 cmd tp @s 820.5 201.0 295.5 0 -40
 config stalactites.spawnChance 1.0
@@ -93,5 +94,6 @@ wait 220
 screenshot 15_natural
 cmd gamemode spectator
 cmd tremor crawler clear
+cmd difficulty peaceful
 tint off
 quit
