@@ -82,7 +82,7 @@ public final class ShardMounds {
         if (MOUNDS.isEmpty()) {
             return List.of();
         }
-        double now = (tick + partialTick) / 20.0;
+        double now = ((double) tick + partialTick) / 20.0; // in doubles: see ClientTremor
         List<ClientTremor.RenderState> states = new ArrayList<>(MOUNDS.size());
         for (Map.Entry<Integer, Mound> entry : MOUNDS.entrySet()) {
             Mound mound = entry.getValue();

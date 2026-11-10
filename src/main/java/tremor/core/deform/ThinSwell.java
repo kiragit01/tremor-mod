@@ -111,8 +111,9 @@ public final class ThinSwell {
 
     /**
      * Sorts the points a bump collected ({@link SurfaceCollector#collect}): thin ones are left out, but for a top the
-     * bump rises along (its axis that of the bump's normal, open beyond); and if the entity is on thin ground, the
-     * cells its structure swells into within {@code radius} of the bump's centre are added.
+     * bump rises along (its axis that of the bump's normal, open beyond) and for those open on the bump's side, which
+     * rise that way; and if the entity is on narrow ground, the cells its structure swells into within {@code radius}
+     * of the bump's centre are added.
      */
     public static Result apply(VoxelView view, BumpFrame frame, BumpParams params, double radius,
                                List<SurfacePoint> points) {
@@ -122,10 +123,17 @@ public final class ThinSwell {
             return new Result(bridgeTops(view, frame.center(), radius, dir), List.of());
         }
         int[] axis = axisStep(frame.normal());
+        Vec3 along = new Vec3(axis[0], axis[1], axis[2]);
         List<SurfacePoint> kept = new ArrayList<>(points.size());
         for (SurfacePoint p : points) {
             if (!thin(view, p.x(), p.y(), p.z(), axisStep(p.normal())) || isTop(view, p, axis)) {
                 kept.add(p);
+            } else if (view.isOpen(p.x() + axis[0], p.y() + axis[1], p.z() + axis[2])) {
+                // Thin, its own normal another way, but open on the bump's side (a lip one block thick over a drop
+                // faces the drop): it rises with the ground beside it instead of standing still in the hill, a
+                // notch (the user: no phantom blocks where the floor is one block thick). The ground of an
+                // Awakening does the same (ZoneScan).
+                kept.add(new SurfacePoint(p.x(), p.y(), p.z(), along));
             }
         }
         Set<Long> structure = structure(view, frame.center(), frame.normal(), radius);
@@ -153,11 +161,19 @@ public final class ThinSwell {
      * hill jerked).
      */
     static boolean thin(VoxelView view, int x, int y, int z, int[] depth) {
+        return narrow(view, x, y, z, depth) || view.isSolid(x, y, z) && slab(view, x, y, z)
+                && slab(view, x + 1, y, z) | slab(view, x - 1, y, z) | slab(view, x, y, z + 1) | slab(view, x, y, z - 1);
+    }
+
+    /**
+     * Whether the voxel is solid ground less than {@value #THIN_WIDTH} blocks wide across x or across z (not counting
+     * the run along a horizontal {@code depth}, see {@link #thin}): a pillar, a ridge, a wall, not a wide floor that
+     * is merely one block thick.
+     */
+    static boolean narrow(VoxelView view, int x, int y, int z, int[] depth) {
         boolean byX = depth == null || depth[0] == 0, byZ = depth == null || depth[2] == 0;
         return view.isSolid(x, y, z) && (byX && run(view, x, y, z, 1, 0) < THIN_WIDTH
-                || byZ && run(view, x, y, z, 0, 1) < THIN_WIDTH
-                || slab(view, x, y, z) && slab(view, x + 1, y, z) | slab(view, x - 1, y, z)
-                | slab(view, x, y, z + 1) | slab(view, x, y, z - 1));
+                || byZ && run(view, x, y, z, 0, 1) < THIN_WIDTH);
     }
 
     /**
@@ -329,7 +345,10 @@ public final class ThinSwell {
     /**
      * The thin structure the ground at {@code point} (on the ground, {@code normal} out of it) belongs to: its voxels
      * joined face to face to the ground voxel there within {@code radius} of the point; none if that ground is not
-     * thin.
+     * narrow ({@link #narrow}). A wide floor one block thick in a place (a hollow right under a few of its blocks) is
+     * no structure to swell: it rises as the ground around it does. It was one while the entity's middle was over
+     * such a place, and only then: its blocks stopped rising and the swelling meant to stand in for them was held
+     * back by the ground under the hollow, so the hill had holes there that came and went as it crawled (the user).
      */
     public static Set<Long> structure(VoxelView view, Vec3 point, Vec3 normal, double radius) {
         int[] anchor = anchor(view, point, normal);
@@ -339,7 +358,7 @@ public final class ThinSwell {
         // The anchor's own way, not the bump's: the bump turning at a corner must not make a wall thin and unthin.
         Vec3 own = tremor.core.surface.SurfaceNormals.smoothNormal(view, anchor[0], anchor[1], anchor[2]);
         int[] depth = own.isNearZero() ? null : axisStep(own);
-        if (!thin(view, anchor[0], anchor[1], anchor[2], depth)) {
+        if (!narrow(view, anchor[0], anchor[1], anchor[2], depth)) {
             return Set.of();
         }
         Vec3 c = point;

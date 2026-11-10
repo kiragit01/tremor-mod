@@ -65,7 +65,7 @@ public final class MarksCounter {
             pending = false;
             return;
         }
-        double time = mc.level.getGameTime() + partialTick;
+        double time = (double) mc.level.getGameTime() + partialTick; // in doubles: see ClientTremor
         if (pending) {
             start = time;
             pending = false;

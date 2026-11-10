@@ -134,7 +134,10 @@ public final class ClientTremor {
         }
         adopt(level);
         boolean running = !Minecraft.getInstance().isPaused();
-        return states(level.getGameTime() + partialTick, SharedConstants.TICKS_PER_SECOND, running);
+        // The sum in doubles: a long and a float add as floats, which hold whole ticks only from 8.4 million on (a
+        // world five days old) and every fourth from 33.5 million (twenty days): the drawn time went in steps, the
+        // playback chased it and the creature's speed swung, rings were scanned anew every few frames (the review).
+        return states((double) level.getGameTime() + partialTick, SharedConstants.TICKS_PER_SECOND, running);
     }
 
     /**
@@ -257,13 +260,14 @@ public final class ClientTremor {
         double ownHeight = before ? rest * left : across ? 0 : rest * arrived;
         parts.add(drawnOut(own, own.frame(), ownHeight, instance, stretch, (before ? a : b).sub(c).add(b.sub(a)
                 .scale(before ? 1 : -1)), before).withBridge(bridge));
+        // A normal told as none (BumpFrame.normalOr) is the way to the other end: an older server tells it.
         if (!before) {
-            parts.add(drawnOut(own, new BumpFrame(a, leap.fromNormal(), b.sub(a)), rest * left,
-                    -(instance * 2 + 1), stretch, b.sub(a), true));
+            parts.add(drawnOut(own, new BumpFrame(a, BumpFrame.normalOr(leap.fromNormal(), b.sub(a)),
+                    b.sub(a)), rest * left, -(instance * 2 + 1), stretch, b.sub(a), true));
         }
         if (before || across) {
-            parts.add(drawnOut(own, new BumpFrame(b, leap.toNormal(), a.sub(b)), rest * arrived,
-                    -(instance * 2 + 2), stretch, a.sub(b), true));
+            parts.add(drawnOut(own, new BumpFrame(b, BumpFrame.normalOr(leap.toNormal(), a.sub(b)),
+                    a.sub(b)), rest * arrived, -(instance * 2 + 2), stretch, a.sub(b), true));
         }
         return parts;
     }

@@ -104,6 +104,49 @@ class ThinSwellTest {
         assertTrue(result.fills().stream().anyMatch(f -> f.lookY() == f.sourceY()), "the top of the ball is the top's");
     }
 
+    /**
+     * The user: on a thick floor that is one block thick in places (a hollow right under some of its blocks) the hill
+     * had holes over those blocks, now and then, as the tremor crawled over them. While its middle was over one, the
+     * two were taken for a thin structure to swell: they stopped rising, and the swelling that should stand in for
+     * them was held back by the floor of the hollow, which could rise through the cells.
+     */
+    @Test
+    void aHollowUnderAWideFloorLeavesNoHoleInTheHill() {
+        ArrayVoxelGrid g = ArrayVoxelGrid.flatFloor(0);
+        g.fill(0, -1, 0, 1, -1, 0, false); // a pocket one block high right under two blocks of the floor
+        assertTrue(ThinSwell.thin(g, 0, 0, 0) && ThinSwell.thin(g, 1, 0, 0), "one block thick there");
+        for (double x : new double[]{-2.5, 0.5, 1.5, 3.5}) { // the entity before, over each of the two, and past them
+            BumpFrame frame = BumpFrame.of(new Vec3(x, 1.0, 0.5), Vec3.UNIT_Y, Vec3.UNIT_X);
+            ThinSwell.Result result = ThinSwell.apply(g, frame, PARAMS, PARAMS.influenceRadius(), collect(g, frame));
+            assertTrue(result.fills().isEmpty(), "no swelling with the entity at x " + x);
+            for (int vx = 0; vx <= 1; vx++) {
+                int at = vx;
+                assertTrue(result.points().stream().anyMatch(p -> p.x() == at && p.y() == 0 && p.z() == 0
+                        && p.normal().y() > 0.9), "the block at x " + at + " rises with the entity at x " + x);
+            }
+        }
+    }
+
+    /**
+     * A floor ending in a lip one block thick over a drop: the lip faces the drop, not up, and stood still while the
+     * floor behind it rose, a notch in the hill at its very edge.
+     */
+    @Test
+    void aLipOverADropRisesWithTheFloorBehindIt() {
+        ArrayVoxelGrid g = ArrayVoxelGrid.flatFloor(0);
+        g.fill(4, -16, -20, 20, 16, 20, false); // the drop beyond x = 3
+        g.fill(2, -16, -20, 3, -1, 20, false);  // the floor's last two blocks hang over it, one block thick
+        BumpFrame frame = BumpFrame.of(new Vec3(0.5, 1.0, 0.5), Vec3.UNIT_Y, Vec3.UNIT_X);
+        ThinSwell.Result result = ThinSwell.apply(g, frame, PARAMS, PARAMS.influenceRadius(), collect(g, frame));
+        for (int x = 2; x <= 3; x++) {
+            int at = x;
+            assertTrue(result.points().stream().anyMatch(p -> p.x() == at && p.y() == 0 && p.z() == 0
+                    && p.normal().equals(Vec3.UNIT_Y)), "the lip at x " + at + " rises straight up");
+        }
+        assertTrue(result.points().stream().noneMatch(p -> p.x() >= 2 && !p.normal().equals(Vec3.UNIT_Y)),
+                "and goes no other way");
+    }
+
     @Test
     void nearAThinStructureTheGroundRisesButNotItsSides() {
         // A pillar 2x2, 4 high, on a floor, the entity on the floor beside it.
