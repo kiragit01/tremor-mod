@@ -71,7 +71,6 @@ import net.neoforged.neoforge.event.tick.ServerTickEvent;
 import tremor.Tremor;
 
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -635,25 +634,25 @@ public final class HollowRules {
     }
 
     /**
-     * Takes out what is in the player's crafting grids and on the cursor: the open menu and the inventory's are closed
-     * the way a dead or disconnected player's are, and what they drop is caught instead of spawned (what a living,
-     * connected player's menus give back goes into the inventory as usual).
+     * Takes out what is on the player's cursor and in the crafting grid of the inventory, straight from the menus, and
+     * then closes them as the game does. What a closing menu of a dead or disconnected player throws out cannot be
+     * caught: the loader's toss hook swaps the capture of drops for its own and spawns the item at the player's feet at
+     * once, so the two stayed in the copy as plain items, to despawn there unless the copy was cleared within five
+     * minutes (a player who stays on the death screen).
      */
     public static List<ItemStack> takeLoose(ServerPlayer player) {
-        List<ItemEntity> caught = new ArrayList<>();
-        Collection<ItemEntity> outer = player.captureDrops(caught);
-        try {
-            if (player.hasContainerOpen()) {
-                player.doCloseContainer();
-            }
-            player.inventoryMenu.removed(player);
-        } finally {
-            player.captureDrops(outer);
+        List<ItemStack> stacks = new ArrayList<>();
+        stacks.add(player.containerMenu.getCarried());
+        player.containerMenu.setCarried(ItemStack.EMPTY);
+        net.minecraft.world.Container grid = player.inventoryMenu.getCraftSlots();
+        for (int slot = 0; slot < grid.getContainerSize(); slot++) {
+            stacks.add(grid.removeItemNoUpdate(slot));
         }
-        List<ItemStack> stacks = new ArrayList<>(caught.size());
-        for (ItemEntity entity : caught) {
-            stacks.add(entity.getItem());
+        stacks.removeIf(ItemStack::isEmpty);
+        if (player.hasContainerOpen()) {
+            player.doCloseContainer();
         }
+        player.inventoryMenu.removed(player);
         return stacks;
     }
 
