@@ -180,14 +180,15 @@ final class Column {
 
     /**
      * How long the row of a seam at {@code off} along the axis is (blocks; {@link #crossReach} of a column {@code h}
-     * high): the reach at the column's foot, nothing at its top, a quarter of a round in between, as the shoulder of a
-     * hill is (it was a stair cut at 45 degrees, its steps whole blocks that came and went at once). Its copies stand
-     * at {@code length}, {@code length - 1}, ... out: as the row grows each slides out from under the one before it,
-     * and the innermost from inside the stack.
+     * high): the reach at the column's foot, nothing at its top, and straight between the two, the corner cut across
+     * as a lump under the ground would leave it (a quarter of a round was tried first and blew a big tremor's corner
+     * up: the user). It was a stair of whole blocks that came and went at once; now its copies stand at
+     * {@code length}, {@code length - 1}, ... out: as the row grows each slides out from under the one before it, and
+     * the innermost from inside the stack.
      */
     static double seamLength(double reach, double h, double off) {
         double t = h > 0 ? Math.min(1, off / h) : 1;
-        return reach * Math.sqrt(1 - t * t);
+        return reach * (1 - t);
     }
 
     /** Copies drawn: the stack filling the gap down to the original (one for a fill cell), plus the decoration. */

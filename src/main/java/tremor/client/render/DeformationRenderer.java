@@ -1875,8 +1875,8 @@ public final class DeformationRenderer {
                 frameCopies += stack;
                 if (col.cross != null && !frameWarp) {
                     // The seam: from each copy of the stack, and from the block itself at its foot, a row of copies
-                    // the other way, as long as the round of the corner is there (Column.seamLength). Every copy of a
-                    // row slides out from under the one before it as the row grows, so none comes or goes in the open.
+                    // the other way, as long as the cut corner is there (Column.seamLength). Every copy of a row
+                    // slides out from under the one before it as the row grows, so none comes or goes in the open.
                     int cx = col.cross.getStepX(), cy = col.cross.getStepY(), cz = col.cross.getStepZ();
                     VertexList.kind = VertexList.SEAM;
                     for (int k = 1; k <= stack; k++) {
