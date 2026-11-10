@@ -192,6 +192,8 @@ final class TremorMind {
     private double comeAnger;
     private long comeUntil;
     private int leavingTicks;
+    /** No ground within its reach ({@link #strand}): a naturally spawned entity leaves after its move. */
+    private boolean stranded;
     /** {@link #alone}: what it found, and when it looked. */
     private boolean alone;
     private long aloneCheckedAt = Long.MIN_VALUE / 2;
@@ -577,11 +579,20 @@ final class TremorMind {
             DespawnClock clock = entity.despawnClock();
             clock.tick(TremorRuntime.TICK_SECONDS, playerWithin(config.despawnPlayerDistance.get()),
                     heard || meter.stage() != Stage.DORMANT);
-            if (clock.shouldLeave(config.despawnFarSeconds.get(), config.despawnQuietSeconds.get())) {
+            if (stranded || clock.shouldLeave(config.despawnFarSeconds.get(), config.despawnQuietSeconds.get())) {
                 leave(clock);
             }
         }
         return false;
+    }
+
+    /**
+     * The runtime found no ground within reach of the entity ({@link TremorRuntime#startNode}: the ground around it
+     * was blown or dug away), so it can go nowhere: a naturally spawned one leaves as by its despawn clock, not
+     * holding back other entities for as long as a player stays near. One of a command waits for the ground.
+     */
+    void strand() {
+        stranded = true;
     }
 
     /**
@@ -974,7 +985,10 @@ final class TremorMind {
 
     /** Starts leaving (SPEC 11): the target is dropped, the brain stops and the bump sinks; the ground sighs. */
     private void leave(DespawnClock clock) {
-        Tremor.LOGGER.info(String.format(Locale.ROOT, "Tremor #%d in %s leaves: no player near for %.0f s, nothing "
+        Tremor.LOGGER.info(stranded
+                ? String.format(Locale.ROOT, "Tremor #%d in %s leaves: no ground within %d blocks of it",
+                        entity.instance(), level.dimension().location(), TremorRuntime.STRANDED_RADIUS)
+                : String.format(Locale.ROOT, "Tremor #%d in %s leaves: no player near for %.0f s, nothing "
                         + "happening for %.0f s", entity.instance(), level.dimension().location(), clock.farSeconds(),
                 clock.quietSeconds()));
         entity.setLeaving(true);
