@@ -59,7 +59,10 @@ public final class AwakeningGround {
     private static List<ClientAwakening.StepRipple> lastRipples = List.of();
     /** Game time the settling started at; NaN while the Awakening is known. */
     private static double releaseStart = Double.NaN;
-    /** The field of the last frame whose hill swallows a player (or settles after taking one); null if none. */
+    /**
+     * The field of the last frame whose hill swallows a player (or settles after taking one), or lets a victor out;
+     * null if none.
+     */
     private static AwakeningField swallowing;
 
     private AwakeningGround() {
@@ -81,7 +84,10 @@ public final class AwakeningGround {
             last = null;
             lastRipples = List.of();
             releaseStart = Double.NaN;
-            return emerging(emerging, gameTime);
+            // The victor's screen comes back inside this hill: it is drawn whole as the one that took them was (the
+            // review: its copies left their covered faces out again, the hollow blocks seen on the way in).
+            swallowing = emerging(emerging, gameTime);
+            return swallowing;
         }
         TremorAwakeningPayload state = ClientAwakening.state();
         if (state != null && state.phase() == Phase.HOLLOW && last != null && last.id() == state.id()) {

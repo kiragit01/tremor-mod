@@ -776,6 +776,11 @@ final class AutoTestRunner {
             }
             case CMD -> player.connection.sendCommand(step.text());
             case TINT -> tremor.client.render.DeformationRenderer.tintCopies(step.number() == 1);
+            case POPS -> {
+                String totals = tremor.client.render.DeformationRenderer.watchPops(
+                        step.number() == 1 ? report::line : null);
+                report.line(step.number() == 1 ? "pops: watching" : "pops: " + totals);
+            }
             case HUD -> {
                 mc.options.hideGui = step.number() == 0;
                 mc.options.renderDebug = step.number() == 2;
@@ -797,6 +802,10 @@ final class AutoTestRunner {
                 // Whether the player could walk is judged when the hold ends, from what it did on every tick.
                 report.line("hold " + step.text() + ": pressed for " + step.number() + " ticks at " + position(player));
                 return false;
+            }
+            case PRESS -> {
+                pressKeys(step.keys());
+                report.line("press " + step.text() + ": down until released, at " + position(player));
             }
             case RELEASE -> {
                 releaseMovementKeys();
@@ -1208,6 +1217,7 @@ final class AutoTestRunner {
             return;
         }
         endHold("run finished");
+        tremor.client.render.DeformationRenderer.watchPops(null);
         configOverrides.restore(report);
         writeSummary(status, from, true);
         mc.tell(this::shutdown);

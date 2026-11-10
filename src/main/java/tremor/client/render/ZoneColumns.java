@@ -1,5 +1,6 @@
 package tremor.client.render;
 
+import it.unimi.dsi.fastutil.longs.LongOpenHashSet;
 import net.minecraft.client.renderer.culling.Frustum;
 import net.minecraft.world.phys.AABB;
 import tremor.core.deform.SurfacePoint;
@@ -122,6 +123,14 @@ final class ZoneColumns {
     /** Chunks of the box the client had at the last look (or when the last scan started); null if none yet. */
     private ChunkCoverage coverage;
     private long coverageTick;
+    /**
+     * Columns a scan of the zone found that the one before had not (the block under one just broken): the share of
+     * their height each is drawn at, rising from nothing over {@link DeformationRenderer#COLUMN_FADE_TICKS} ticks, as
+     * the columns new to a bump do. Nothing of the ground comes at once.
+     */
+    private final Map<Column, double[]> rising = new HashMap<>();
+    /** The game time of the last {@link #evaluate}, for the rise; NaN before the first. */
+    private double fadeAt = Double.NaN;
 
     /**
      * @param chunks whether the client has a chunk of the level loaded now (the level the voxel cache's source is bound
@@ -190,9 +199,16 @@ final class ZoneColumns {
     /**
      * Adds this frame's heights of {@code ground} to the columns of the cells in view, nearest cells first: a column
      * {@code frame} already holds for this {@code stamp} (the bump's) gets the height added, others are set and
-     * appended.
+     * appended. {@code now} is the game time of the frame.
      */
-    void evaluate(GroundField ground, Frustum frustum, int stamp, List<Column> frame) {
+    void evaluate(GroundField ground, Frustum frustum, int stamp, List<Column> frame, double now) {
+        // By the game time passed, never backwards (the server sets the client's clock back) nor more than all of it.
+        double step = Double.isNaN(fadeAt) ? 0 : Math.max(0, Math.min(DeformationRenderer.COLUMN_FADE_TICKS,
+                now - fadeAt)) / DeformationRenderer.COLUMN_FADE_TICKS;
+        fadeAt = now;
+        if (!rising.isEmpty()) {
+            rising.values().removeIf(share -> (share[0] += step) >= 1);
+        }
         double margin = ground.maxHeight() + 1; // the copies move up to maxHeight; a plant rides one block out
         for (int c = 0, nc = cells.size(); c < nc; c++) {
             Cell cell = cells.get(c);
@@ -203,6 +219,10 @@ final class ZoneColumns {
             for (int i = 0, n = columns.size(); i < n; i++) {
                 Column col = columns.get(i);
                 double h = ground.at(col.cx, col.cy, col.cz);
+                if (!rising.isEmpty()) {
+                    double[] share = rising.get(col);
+                    h *= share == null ? 1 : share[0];
+                }
                 if (col.stamp == stamp) {
                     col.h += h;
                 } else {
@@ -316,6 +336,7 @@ final class ZoneColumns {
         zoneCenter = null;
         rescanRequested = false;
         coverage = null;
+        rising.clear();
     }
 
     /** Takes the cylinder of {@code ground} as the one the next scan covers. */
@@ -363,10 +384,19 @@ final class ZoneColumns {
                 return;
             }
         }
+        LongOpenHashSet before = new LongOpenHashSet();
+        for (Cell cell : cells) {
+            for (Column col : cell.columns) {
+                before.add(VoxelPos.pack(col.x, col.y, col.z));
+            }
+        }
         cells.clear();
         Map<Long, Cell> byKey = new HashMap<>();
         for (SurfacePoint p : scan.points()) {
             Column col = factory.column(p, tick);
+            if (!before.isEmpty() && !before.contains(VoxelPos.pack(p.x(), p.y(), p.z()))) {
+                rising.put(col, new double[]{0}); // found by a scan again: comes up, as a column new to a bump
+            }
             long key = VoxelPos.pack(p.x() >> CELL_SHIFT, p.y() >> CELL_SHIFT, p.z() >> CELL_SHIFT);
             byKey.computeIfAbsent(key, k -> new Cell()).add(col);
         }

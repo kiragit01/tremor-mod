@@ -455,6 +455,7 @@ public final class HollowManager {
     public static void onServerStopped(ServerStoppedEvent event) {
         state = null;
         moving = null;
+        DEATH_KEEPERS.clear();
     }
 
     // ---- internals ----
@@ -478,10 +479,23 @@ public final class HollowManager {
     private static void move(Entity entity, Runnable teleport) {
         Entity outer = moving;
         moving = entity;
+        net.minecraft.world.level.Level from = entity.level();
         try {
             teleport.run();
         } finally {
             moving = outer;
+        }
+        if (entity instanceof ServerPlayer player && player.level() != from) {
+            // In 1.20.1 a teleport to another level, unlike a change of dimension, does not send these again: the
+            // client would show no experience and no effects (and stop night vision, jump boost) until they change.
+            player.connection.send(new net.minecraft.network.protocol.game.ClientboundPlayerAbilitiesPacket(
+                    player.getAbilities()));
+            for (net.minecraft.world.effect.MobEffectInstance effect : player.getActiveEffects()) {
+                player.connection.send(new net.minecraft.network.protocol.game.ClientboundUpdateMobEffectPacket(
+                        player.getId(), effect));
+            }
+            player.connection.send(new net.minecraft.network.protocol.game.ClientboundSetExperiencePacket(
+                    player.experienceProgress, player.totalExperience, player.experienceLevel));
         }
     }
 
@@ -668,6 +682,7 @@ public final class HollowManager {
                         // Give up on the slot rather than fail every tick; the next event in it empties it first.
                         releaseTicket(event);
                         data.remove(event);
+                        DEATH_KEEPERS.remove(event);
                     } else {
                         abort(event, HollowEvent.End.ERROR, now);
                     }
@@ -892,6 +907,7 @@ public final class HollowManager {
             collect(event, slot);
             releaseTicket(event);
             data.remove(event);
+            DEATH_KEEPERS.remove(event); // a keeper holds its level: let a closed world go
         }
 
         /**
@@ -1268,10 +1284,16 @@ public final class HollowManager {
             return event.slotArea(hollow.getMinBuildHeight(), hollow.getMaxBuildHeight());
         }
 
-        /** Whether the slot of the copy of {@code box} shifted by {@code dx, dz} lies inside the world border. */
+        /**
+         * Whether the slot of the copy of {@code box} shifted by {@code dx, dz} lies wholly inside the world border.
+         * Spelled out: {@code WorldBorder.isWithinBounds(AABB)} means wholly inside in 1.21.1, touching in 1.20.1.
+         */
         boolean fits(HollowBox box, int dx, int dz) {
-            return hollow.getWorldBorder().isWithinBounds(aabb(HollowEvent.slotArea(box.offset(dx, 0, dz),
-                    hollow.getMinBuildHeight(), hollow.getMaxBuildHeight())));
+            AABB slot = aabb(HollowEvent.slotArea(box.offset(dx, 0, dz), hollow.getMinBuildHeight(),
+                    hollow.getMaxBuildHeight()));
+            net.minecraft.world.level.border.WorldBorder border = hollow.getWorldBorder();
+            return slot.minX >= border.getMinX() && slot.maxX <= border.getMaxX()
+                    && slot.minZ >= border.getMinZ() && slot.maxZ <= border.getMaxZ();
         }
 
         /**

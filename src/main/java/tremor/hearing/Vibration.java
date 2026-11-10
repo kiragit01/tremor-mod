@@ -18,12 +18,14 @@ import tremor.world.LevelVoxelView;
  * @param note       why loudness or footing differ from the plain values ({@code sneaking}, {@code airborne}...), or null
  * @param rustling   the source rustles in the leaves it stands on (SPEC 7.2 "Шелест"): those leaves do not damp it on
  *                   its way ({@link #foliage})
+ * @param mob        a mob made it: listeners and crawlers let it be, the entity takes a share of its anger; a flag of
+ *                   its own, since the note of a mob's landing or wading says more than "mob"
  */
 public record Vibration(String event, Vec3 source, double loudness, double footing, float angerBonus, String note,
-                        boolean rustling) {
-    /** A vibration of a source that does not rustle. */
+                        boolean rustling, boolean mob) {
+    /** A vibration of a source that does not rustle and is not a mob. */
     public Vibration(String event, Vec3 source, double loudness, double footing, float angerBonus, String note) {
-        this(event, source, loudness, footing, angerBonus, note, false);
+        this(event, source, loudness, footing, angerBonus, note, false, false);
     }
 
     /**

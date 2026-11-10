@@ -29,12 +29,13 @@ class AwakeningFieldTest {
     /** The hill as it stands level from the feet at the focus ({@code AwakeningField#lift}). */
     private static double hillAt(double hill, double x, double y, double z) {
         double dx = x - FOCUS.x(), dz = z - FOCUS.z(), dh2 = dx * dx + dz * dz, under = FOCUS.y() - (y + 0.5);
-        double dy = under > 0 ? -0.5 : y - FOCUS.y(), sigma = P.hillSigma();
+        double deeper = Math.max(0, under - AwakeningField.LIFT);
+        double dy = under > AwakeningField.LIFT ? -(0.5 + deeper) : under > 0 ? -0.5 : y - FOCUS.y(), sigma = P.hillSigma();
         if (dh2 + dy * dy >= sigma * sigma * Math.log(1000)) {
             return 0;
         }
         double lift = under <= 0 ? 0 : Math.min(under, AwakeningField.LIFT) * Math.min(1, hill / P.hillHeight())
-                * Math.exp(-dh2 / (sigma * sigma));
+                * Math.exp(-(dh2 + deeper * deeper) / (sigma * sigma));
         return AwakeningShape.hill(hill, sigma, dh2 + dy * dy) + lift;
     }
 
@@ -127,9 +128,15 @@ class AwakeningFieldTest {
         double level = f.at(FOCUS.x() + 1, FOCUS.y() - 0.5, FOCUS.z());
         double sigma = P.hillSigma();
         assertEquals(level + Math.exp(-1 / (sigma * sigma)), low, 1e-9); // a block more, fading as the hill does
-        // The floor three blocks under a player held up in water rises by three more; deeper only by three.
+        // The floor three blocks under a player held up in water rises by three more. Deeper it rises less and less
+        // (the review: the whole face of a cliff under the player went out six blocks, as tall as the cliff, and the
+        // ground twenty blocks down at its foot rose five): four under still most of it, twenty under nothing.
         assertEquals(under + 3, f.at(FOCUS.x(), FOCUS.y() - 3.5, FOCUS.z()), 1e-9);
-        assertEquals(under + 3, f.at(FOCUS.x(), FOCUS.y() - 6.5, FOCUS.z()), 1e-9);
+        double four = f.at(FOCUS.x(), FOCUS.y() - 4.5, FOCUS.z()), seven = f.at(FOCUS.x(), FOCUS.y() - 7.5, FOCUS.z());
+        assertTrue(four > 0.7 * (under + 3) && four < under + 3, "a block deeper than the lift: " + four);
+        assertTrue(seven < 0.3 * (under + 3) && seven < four, "four deeper: " + seven);
+        assertEquals(0, f.at(FOCUS.x(), FOCUS.y() - 20.5, FOCUS.z()), 1e-9);
+        assertEquals(0, f.at(FOCUS.x() + 1, FOCUS.y() - 20.5, FOCUS.z()), 1e-9);
         // Half risen, half the lift; far across, none.
         AwakeningField half = field(0, hill / 2, List.of());
         assertEquals(half.at(FOCUS.x(), FOCUS.y() - 0.5, FOCUS.z()) + 1.5,

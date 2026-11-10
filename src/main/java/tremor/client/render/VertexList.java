@@ -41,19 +41,42 @@ final class VertexList implements VertexConsumer {
         return data[i * STRIDE + 2];
     }
 
-    /** Emits every vertex translated by {@code (dx, dy, dz)}. */
-    /** Tests only (the autotest's {@code tint}): the copies are drawn tinted red, told from the real blocks on shots. */
+    /**
+     * Tests only (the autotest's {@code tint}): the copies are drawn tinted, told from the real blocks on shots, and
+     * from each other by {@link #kind}: a stack's copies red, a seam's green, a swelling's cells yellow, and faces
+     * turned inside out ({@link #emitInside}) blue.
+     */
     static boolean tinted;
+    static final int STACK = 0, SEAM = 1, FILL = 2, INSIDE = 3;
+    /** What is being emitted, for the tint; the renderer sets it back to {@link #STACK}. */
+    static int kind = STACK;
 
-    /** The colour {@code argb}, tinted red if {@link #tinted}. */
+    /** The colour {@code argb}, tinted by {@link #kind} if {@link #tinted}. */
     private static int tint(int argb) {
-        if (!tinted) {
-            return argb;
-        }
-        int g = (argb >> 8 & 0xFF) * 2 / 5, b = (argb & 0xFF) * 2 / 5;
-        return argb & 0xFFFF0000 | g << 8 | b;
+        return tinted ? tint(argb, kind) : argb;
     }
 
+    private static int tint(int argb, int kind) {
+        int r = argb >> 16 & 0xFF, g = argb >> 8 & 0xFF, b = argb & 0xFF;
+        switch (kind) {
+            case SEAM -> {
+                r = r * 2 / 5;
+                b = b * 2 / 5;
+            }
+            case FILL -> b = b * 2 / 5;
+            case INSIDE -> {
+                r = r * 2 / 5;
+                g = g * 2 / 5;
+            }
+            default -> {
+                g = g * 2 / 5;
+                b = b * 2 / 5;
+            }
+        }
+        return argb & 0xFF000000 | r << 16 | g << 8 | b;
+    }
+
+    /** Emits every vertex translated by {@code (dx, dy, dz)}. */
     void emit(VertexConsumer out, float dx, float dy, float dz) {
         emit(out, dx, dy, dz, 0);
     }
@@ -147,7 +170,8 @@ final class VertexList implements VertexConsumer {
                 float x = d[o] + (0.5f - d[o]) * pull;
                 float y = d[o + 1] + (0.5f - d[o + 1]) * pull;
                 float z = d[o + 2] + (0.5f - d[o + 2]) * pull;
-                put(out, x + dx, y + dy, z + dz, scale(Float.floatToRawIntBits(d[o + 8]), factor), d[o + 3],
+                int colour = scale(Float.floatToRawIntBits(d[o + 8]), factor);
+                put(out, x + dx, y + dy, z + dz, tinted ? tint(colour, INSIDE) : colour, d[o + 3],
                         d[o + 4], Float.floatToRawIntBits(d[o + 9]), -d[o + 5], -d[o + 6], -d[o + 7]);
             }
         }

@@ -49,6 +49,41 @@ class WayPlannerSafetyTest {
         assertTrue(inRange >= plans * 95 / 100, "in range only " + inRange + " times of " + plans);
     }
 
+    /**
+     * The escape tunnel laid over the network: a player walks from the start to its far end, nothing it digs is left
+     * beside lava or a fluid, it fills no cell of the network, and it is seldom missing (a level not made).
+     */
+    @Test
+    void theEscapeTunnelIsWalkedToItsEndAndSealed() {
+        int plans = 0;
+        int missing = 0;
+        for (String scenario : new String[] {"field", "tunnel", "hills", "ravine", "lava", "start cave", "sky"}) {
+            for (long seed = 0; seed < SEEDS; seed++) {
+                VoxelGrid grid = copy(scenario, seed);
+                WayPlanner.Plan plan = WayPlanner.plan(grid, GAME, 0, 0, 0, DEFAULTS, seed * 7 + 3);
+                EscapeTunnel tunnel = EscapeTunnel.plan(grid, plan, 0.5, 0.5, 0, 0, 0, 31, seed);
+                plans++;
+                if (tunnel == null) {
+                    missing++;
+                    continue;
+                }
+                String what = scenario + ", seed " + seed;
+                VoxelGrid after = grid.copy();
+                plan.applyTo(after);
+                assertTrue(tunnel.walked(after, 0, 0, 0), what + ": the tunnel is not walked to its end");
+                for (long cell : tunnel.floor()) {
+                    assertTrue(!plan.network().contains(cell), what + ": the tunnel fills the network at "
+                            + text(cell));
+                }
+                tunnel.carve().forEach(after::carve);
+                tunnel.floor().forEach(after::fill);
+                assertTrue(after.leaksAround(tunnel.carve(), Set.of()).isEmpty(), what + ": lava or a fluid beside "
+                        + "the tunnel");
+            }
+        }
+        assertTrue(missing <= plans / 50, "no tunnel " + missing + " times of " + plans);
+    }
+
     /** What holds for every plan (see the class comment); {@code before} is the copy as it was. */
     private static void check(VoxelGrid before, WayPlanner.Plan plan, String what) {
         VoxelGrid after = before.copy();

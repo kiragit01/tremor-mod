@@ -121,6 +121,9 @@ public final class TerrainCopier {
             if (!box.contains(x, y, z)) {
                 return shell(source, state, real.set(x - dx, y, z - dz), y < box.minY());
             }
+            if (state.is(Blocks.BEDROCK) && y > hollow.getMinBuildHeight()) {
+                state = DEEPSLATE; // diggable in the copy, by the player and by the level; the floor of the world stays
+            }
             return vault != null && vault.solid(x, y, z) ? vaultRock(state, x, y, z) : copyable(state);
         }, (chunk, pos, state) -> placeProp(hollow, chunk, pos, state, source, pos.offset(-dx, 0, -dz)), stats);
     }

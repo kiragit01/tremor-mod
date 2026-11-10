@@ -27,7 +27,10 @@ import java.util.stream.Collectors;
  * waitchunks [timeoutTicks]    wait until chunks stopped arriving and visible sections are meshed (default 600)
  * cmd &lt;command&gt;               run a command as the player (a leading slash is optional)
  * hud &lt;on|off|debug&gt;          show / hide the GUI (F1); debug: shown with the debug screen (F3)
- * tint &lt;on|off&gt;               draw the copies of the deformation tinted red, told from the real blocks on shots
+ * tint &lt;on|off&gt;               draw the copies of the deformation tinted, told from the real blocks on shots (a
+ *                              stack's red, a seam's green, a swelling's yellow, faces turned inside out blue)
+ * pops &lt;on|off&gt;               report every frame in which a copy of a bump came or went at a height, or the ground
+ *                              jumped (POPS lines); off writes the totals: nothing may pop, it rises and sinks
  * view &lt;first|back|front&gt;     camera: first person, third person from behind or from the front (F5)
  * look &lt;yaw&gt; &lt;pitch&gt;          set the camera rotation, pitch in [-90, 90]
  * hold &lt;keys&gt; &lt;ticks&gt;          hold movement keys for that many client ticks (at least 1), then release them; keys
@@ -35,6 +38,8 @@ import java.util.stream.Collectors;
  *                              forward+sprint (vanilla rules: sprint only works together with forward and not while
  *                              sneaking); attack keeps mining the block under the crosshair like a held left button
  * lookat &lt;x&gt; &lt;y&gt; &lt;z&gt;           turn the camera toward a point (from the player's eyes)
+ * press &lt;keys&gt;                 press movement keys (as for hold) and go on at once: they stay down while the steps
+ *                              after it run (shots of a player who keeps sneaking), until release or the next hold ends
  * release                      release all movement keys now and stop sprinting
  * graphics &lt;fast|fancy|fabulous&gt;  switch the graphics mode (rebuilds the level renderer, follow with waitchunks)
  * fps &lt;limit&gt;                  frame rate limit: a multiple of 10 in 10..260, 260 = unlimited (vanilla's option only
@@ -74,7 +79,7 @@ record Script(Path path, List<Step> steps) {
     static final int FPS_UNLIMITED = 260;
 
     enum Kind {
-        WAIT, WAITCHUNKS, CMD, HUD, TINT, VIEW, LOOK, LOOKAT, HOLD, RELEASE, GRAPHICS, FPS, BENCH, SCREENSHOT, LOG, CONFIG, WAITFOR, QUIT,
+        WAIT, WAITCHUNKS, CMD, HUD, TINT, POPS, VIEW, LOOK, LOOKAT, HOLD, PRESS, RELEASE, GRAPHICS, FPS, BENCH, SCREENSHOT, LOG, CONFIG, WAITFOR, QUIT,
         INVALID
     }
 
@@ -241,6 +246,14 @@ record Script(Path path, List<Step> steps) {
                     }
                     yield Step.of(line, source, Kind.TINT, value, value.equals("on") ? 1 : 0);
                 }
+                case "pops" -> {
+                    expectArgs(args, 1, 1, "pops <on|off>");
+                    String value = args[0].toLowerCase(Locale.ROOT);
+                    if (!value.equals("on") && !value.equals("off")) {
+                        throw new IllegalArgumentException("usage: pops <on|off>");
+                    }
+                    yield Step.of(line, source, Kind.POPS, value, value.equals("on") ? 1 : 0);
+                }
                 case "hud" -> {
                     expectArgs(args, 1, 1, "hud <on|off|debug>");
                     String value = args[0].toLowerCase(Locale.ROOT);
@@ -280,6 +293,11 @@ record Script(Path path, List<Step> steps) {
                     expectArgs(args, 2, 2, "hold <keys> <ticks>");
                     Set<HoldKey> keys = HoldKey.parseAll(args[0]);
                     yield new Step(line, source, Kind.HOLD, HoldKey.join(keys), parseInt(args[1], 1), 0, 0, keys, "");
+                }
+                case "press" -> {
+                    expectArgs(args, 1, 1, "press <keys>");
+                    Set<HoldKey> keys = HoldKey.parseAll(args[0]);
+                    yield new Step(line, source, Kind.PRESS, HoldKey.join(keys), 0, 0, 0, keys, "");
                 }
                 case "release" -> {
                     expectArgs(args, 0, 0, "release");

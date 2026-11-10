@@ -55,6 +55,7 @@ public final class TremorClient {
         game.addListener(tremor.client.awakening.ClientRoot::onMovementInput);
         game.addListener(tremor.client.awakening.ClientRoot::onPlayerTickPre);
         game.addListener(tremor.client.awakening.ClientRoot::onPlayerTickPost);
+        game.addListener(tremor.client.awakening.ClientRoot::onJump);
         // The node's pulse and the pull of the ground first: the sounds of the hollow follow them in the same tick.
         game.addListener(tremor.client.hollow.HollowPulse::onClientTick);
         game.addListener(tremor.client.hollow.HollowSink::onClientTick);

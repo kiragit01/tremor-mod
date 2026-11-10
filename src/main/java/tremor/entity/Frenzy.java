@@ -129,11 +129,12 @@ public final class Frenzy {
 
     /**
      * The shards a dead player drops are taken by the ground as a thrown one is, with no frenzy: the player is dead
-     * already (the user). Low priority: after the crater and the hollow have taken the drops they keep.
+     * already (the user). Low priority: after the crater and the hollow have taken the drops they keep. Not while the
+     * mod is switched off: then a shard is an item like any other, dropped by dying as well as thrown.
      */
     public static void onPlayerDrops(net.minecraftforge.event.entity.living.LivingDropsEvent event) {
         if (!(event.getEntity() instanceof ServerPlayer player) || !(player.level() instanceof ServerLevel level)
-                || HollowDimension.is(level)) {
+                || HollowDimension.is(level) || tremor.TremorSwitch.off(level)) {
             return;
         }
         for (ItemEntity drop : event.getDrops()) {

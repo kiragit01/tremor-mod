@@ -20,6 +20,7 @@ import tremor.core.path.Path;
 import tremor.core.path.PathSearch;
 import tremor.core.surface.Surface;
 import tremor.core.path.PathSpline;
+import tremor.core.shape.BumpFrame;
 import tremor.core.shape.BumpParams;
 import tremor.core.voxel.VoxelCache;
 import tremor.hearing.Perception;
@@ -575,7 +576,7 @@ public final class TremorRuntime {
         entity.setLastHeard(new TremorEntity.Heard(vibration.source(), now, perceived, vibration.event()));
         data.setDirty();
         float before = entity.anger();
-        double angerShare = "mob".equals(vibration.note()) ? TremorConfig.COMMON.mobAngerFactor.get() : 1;
+        double angerShare = vibration.mob() ? TremorConfig.COMMON.mobAngerFactor.get() : 1;
         // A bang (a vibration with an anger bonus) is noticed even calm, however faint it came (the user: a huge bang
         // should draw it).
         double noticed = vibration.angerBonus() > 0
@@ -585,7 +586,7 @@ public final class TremorRuntime {
                         * (level.dimension() == net.minecraft.world.level.Level.NETHER
                         ? TremorConfig.COMMON.netherAngerFactor.get() : 1)
                         * TremorConfig.COMMON.depth(level, listener.y(), TremorConfig.COMMON.depthAngerFactor)
-                        + vibration.angerBonus(), "mob".equals(vibration.note()));
+                        + vibration.angerBonus(), vibration.mob());
         return new Perception(listener, distance, perceived, true, entity.anger() - before, entity.anger(), stage,
                 entity.stage(), reaction);
     }
@@ -641,6 +642,9 @@ public final class TremorRuntime {
             return; // already on its way there
         }
         long start = startNode(entity.crawler());
+        if (start == SurfaceGraph.NO_NODE) {
+            mind(entity).strand();
+        }
         if (start == SurfaceGraph.NO_NODE || start == goal || sound && pursuit.knownUnreachable(start, goal, now)) {
             forget(entity);
             return;
@@ -890,6 +894,7 @@ public final class TremorRuntime {
         searchChangesOverflow = false;
         if (start == SurfaceGraph.NO_NODE) {
             search = null;
+            mind(entity).strand();
             giveUp(entity, "it is not on the surface");
             return;
         }
@@ -938,7 +943,11 @@ public final class TremorRuntime {
             giveUp(entity, "the route passes within reach of a player");
             return;
         }
-        crawler.follow(path);
+        if (stranded(crawler, path.node(0))) {
+            crawler.follow(PathSpline.of(crawler.position(), Vec3.ZERO, path, true)); // a dive lead-in to the ground
+        } else {
+            crawler.follow(path);
+        }
         pathActive = true;
         pathPartial = status == PathSearch.Status.PARTIAL;
         if (requester != null) {
@@ -1076,7 +1085,9 @@ public final class TremorRuntime {
      * The node a new route of the entity starts from. In a dive: its far end, while the dive is still an edge (the
      * crawler finishes a dive before it turns onto a new route). Otherwise the node nearest to the crawler within
      * {@value #NODE_RADIUS} blocks, or, if it is deeper in rock than that (loaded, unpaused or given up in the middle
-     * of a dive, or its dive was cut), within half the longest dive. {@link SurfaceGraph#NO_NODE} if there is none.
+     * of a dive, or its dive was cut), within half the longest dive. Failing that (the ground around it was blown or
+     * dug away), within {@value #STRANDED_RADIUS}: the route then begins with a dive there ({@link #stepSearch}).
+     * {@link SurfaceGraph#NO_NODE} if there is none.
      */
     long startNode(Crawler crawler) {
         long exit = diveExit(crawler);
@@ -1084,8 +1095,29 @@ public final class TremorRuntime {
             return exit;
         }
         long node = graph.nearestNode(crawler.position(), NODE_RADIUS);
-        return node != SurfaceGraph.NO_NODE ? node
-                : graph.nearestNode(crawler.position(), (graph.maxDiveDepth() + 1) / 2 + 1);
+        if (node == SurfaceGraph.NO_NODE) {
+            node = graph.nearestNode(crawler.position(), nearReach());
+        }
+        return node != SurfaceGraph.NO_NODE ? node : graph.nearestNode(crawler.position(), STRANDED_RADIUS);
+    }
+
+    /** How far (Chebyshev) {@link #startNode} looks before it takes the entity for stranded: half the longest dive. */
+    private int nearReach() {
+        return (graph.maxDiveDepth() + 1) / 2 + 1;
+    }
+
+    /** {@link #startNode}: how far it looks for ground at last; with none there a natural entity leaves. */
+    static final int STRANDED_RADIUS = 12;
+
+    /**
+     * Whether a route from {@code first} must reach it unseen: the crawler is not in a dive and is farther from it than
+     * {@link #nearReach} (it was stranded), so it sinks where it is and comes up there instead of floating over.
+     */
+    private boolean stranded(Crawler crawler, long first) {
+        long at = VoxelPos.containing(crawler.position());
+        int far = Math.max(Math.abs(VoxelPos.x(first) - VoxelPos.x(at)), Math.max(
+                Math.abs(VoxelPos.y(first) - VoxelPos.y(at)), Math.abs(VoxelPos.z(first) - VoxelPos.z(at))));
+        return !crawler.diving() && far > nearReach();
     }
 
     /** The far end of the dive the crawler is in, if that dive is still an edge of the graph; else NO_NODE. */
@@ -1396,7 +1428,8 @@ public final class TremorRuntime {
             return null;
         }
         Vec3 from = spline.position(dive[0]), to = spline.position(dive[1]);
-        return new TremorStatePayload.Leap(from, normalAt(from), to, normalAt(to));
+        return new TremorStatePayload.Leap(from, BumpFrame.normalOr(normalAt(from), to.sub(from)), to,
+                BumpFrame.normalOr(normalAt(to), from.sub(to)));
     }
 
     private void sendShape(TremorEntity entity) {

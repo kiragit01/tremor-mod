@@ -1,4 +1,5 @@
 # The light around a player in the hollow (hollow.playerLight): it follows the head, and goes with the player.
+# Run: gradlew runClientAutotest -Ptremor_autotest_script=light-check.txt
 waitchunks
 cmd gamemode spectator
 cmd time set noon
@@ -31,7 +32,23 @@ cmd execute at @s if block ~ ~1 ~ minecraft:light
 hold left 30
 wait 4
 cmd execute at @s if block ~ ~1 ~ minecraft:light
+# A torch set on a wall where the player's head is stays (the review: two ticks later the light took its place, the
+# torch gone for nothing): a block beside the head, the torch put on it; a second later it stands in the head's cell
+# ("Test passed"; the player goes on sinking, so no later look at that cell), and when the player is out of the hollow
+# it is given back with the rest: "Found 4" torches, the three in the hand and the one that was set.
+cmd execute align xyz run tp @s ~0.5 ~ ~0.5 -90 5
+cmd setblock ~1 ~1 ~ minecraft:stone
+cmd item replace entity @s weapon.mainhand with minecraft:torch 4
+wait 10
+cmd execute if block ~ ~1 ~ minecraft:light
+hold use 2
+wait 20
+screenshot 13_torch_at_the_head
+cmd execute if block ~ ~1 ~ minecraft:wall_torch
 cmd tremor hollow outcome victory
-wait 120
+wait 160
+cmd tp @e[type=item,distance=..8] @s
+wait 20
+cmd clear @s minecraft:torch 0
 cmd data get entity @s Dimension
 quit

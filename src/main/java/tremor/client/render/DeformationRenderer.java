@@ -42,6 +42,7 @@ import tremor.core.shape.BumpShape;
 import tremor.core.shape.GroundField;
 import tremor.core.shape.Ripple;
 import tremor.core.shape.RippleParams;
+import tremor.core.surface.SurfaceNormals;
 import tremor.core.voxel.VoxelCache;
 import tremor.world.LevelVoxelView;
 import tremor.world.SurfaceLight;
@@ -356,6 +357,58 @@ public final class DeformationRenderer {
         /** The normal it is drawn along, as of game time {@link #normalAt} ({@link #drawn}); null at first. */
         Vec3 normal;
         double normalAt = Double.NaN;
+        /** The way a big bump is drawn heading, kept while its own all but vanishes in its plane; null at first. */
+        Vec3 heading;
+        /**
+         * How far off its plane ground is still its own this frame (blocks): {@link BumpShape#PLANE} for a bump of
+         * the default height, its full height for a big one ({@link #bump}).
+         */
+        double free = BumpShape.PLANE;
+        /**
+         * Those of its columns that go its way and stand on ground its plane runs through
+         * ({@link SurfaceCollector#seesPlane}), as of its last collection: they rise as on the plane as far off it as
+         * {@link #free}. And those it dropped, while they go down ({@link #leaving}).
+         */
+        final Set<Column> level = java.util.Collections.newSetFromMap(new java.util.IdentityHashMap<>());
+        final Set<Column> leavingLevel = java.util.Collections.newSetFromMap(new java.util.IdentityHashMap<>());
+        /**
+         * Those of its columns that are the side of a step of its own ground, with the top and the foot of that step
+         * ({@link SurfaceCollector#step}), as of its last collection: they ride up with it and do not come out
+         * ({@link #carried}).
+         */
+        final Map<Column, double[]> risers = new java.util.IdentityHashMap<>();
+        /**
+         * The way the ground faces at the scale of a big bump ({@link #wide}), as found for its centre {@link #wideAt},
+         * its own normal {@link #wideOwn} and the radius {@link #wideRadius} at tick {@link #wideTick}; null at first.
+         */
+        Vec3 wide, wideAt, wideOwn;
+        double wideRadius;
+        long wideTick;
+        /**
+         * Columns new to its collection and not judged yet ({@link #coming}): one that is already at a height when
+         * it is first drawn comes up from nothing.
+         */
+        final Set<Column> fresh = java.util.Collections.newSetFromMap(new java.util.IdentityHashMap<>());
+        /** Columns coming up to their height: the share of it each is at; whatever is not here stands whole. */
+        final Map<Column, double[]> rising = new java.util.IdentityHashMap<>();
+        /**
+         * Columns its collection dropped while they stood raised, going down, with the share each is still at: the
+         * ground round it became a bridge, which raises its tops alone, or it turned from on a floor one block thick
+         * to under it and every column goes the other way. They went all at once (the user: harsh changes on rough
+         * ground).
+         */
+        final Map<Column, double[]> leaving = new java.util.IdentityHashMap<>();
+        /**
+         * How far the ground it stands on runs along its length, as of its last collection ({@link #room}), and the
+         * share of its height it is drawn at for want of room ({@link #cramped}), as of game time {@link #crampAt}.
+         */
+        double room = Double.POSITIVE_INFINITY;
+        double cramp = 1;
+        double crampAt = Double.NaN;
+        /** Game time of the frame its columns' shares were last moved on; NaN at first. */
+        double fadeAt = Double.NaN;
+        /** How far they move this frame (a share of the way up or down). */
+        double fadeStep;
         /** Voxels of {@link #active}, to keep the ring's columns apart from them. */
         it.unimi.dsi.fastutil.longs.LongOpenHashSet activeKeys = new it.unimi.dsi.fastutil.longs.LongOpenHashSet();
         /**
@@ -405,6 +458,93 @@ public final class DeformationRenderer {
     /** Tests only: the copies drawn tinted red, told from the real blocks on shots ({@code tint} of an autotest). */
     public static void tintCopies(boolean on) {
         VertexList.tinted = on;
+    }
+
+    /** A column of a bump this high or more (blocks) that comes or goes between two frames popped. */
+    private static final double POP_HEIGHT = 0.3;
+    /** A column whose height changes by this much (blocks) between two frames, and this fast (blocks a tick), jumped. */
+    private static final double JUMP_HEIGHT = 0.3, JUMP_RATE = 0.6;
+    /** Columns named per frame and kind at most. */
+    private static final int POPS_LISTED = 6;
+    /** Told of the pops of every frame ({@link #watchPops}); null: nobody watches (any normal game). */
+    private static java.util.function.Consumer<String> popWatch;
+    /** The columns drawn in the frame before, and its game time. */
+    private static final List<Column> shown = new ArrayList<>();
+    private static double shownAt = Double.NaN;
+    private static int popIns, popOuts, popJumps, popFrames;
+
+    /**
+     * Tests only (the autotest's {@code pops}): from now on {@code watch} is told, frame by frame, of the columns of a
+     * bump that came or went at a height ({@value #POP_HEIGHT} blocks or more: nothing may, a copy rises out of its
+     * block and sinks back into it) and of the columns of any ground whose height jumped; null ends it. Returns the
+     * totals since the call before.
+     */
+    public static String watchPops(java.util.function.Consumer<String> watch) {
+        String totals = popIns + " came at a height, " + popOuts + " went at a height, " + popJumps
+                + " jumped, over " + popFrames + " frames";
+        popWatch = watch;
+        shown.clear();
+        shownAt = Double.NaN;
+        popIns = popOuts = popJumps = popFrames = 0;
+        return totals;
+    }
+
+    /** Compares this frame's drawn columns with those of the frame before for {@link #watchPops}. */
+    private static void lookForPops(double now) {
+        double dt = now - shownAt;
+        if (dt > 0 && dt < 3) {
+            popFrames++;
+            StringBuilder in = new StringBuilder(), out = new StringBuilder(), jumped = new StringBuilder();
+            int ins = 0, outs = 0, jumps = 0;
+            for (int i = 0, n = drawn.size(); i < n; i++) {
+                Column col = drawn.get(i);
+                if (col.shownStamp != frameStamp - 1) {
+                    if (col.h >= POP_HEIGHT && col.inBump && ins++ < POPS_LISTED) {
+                        describe(in, col, col.h);
+                    }
+                } else if (Math.abs(col.h - col.shownH) >= JUMP_HEIGHT && Math.abs(col.h - col.shownH) / dt >= JUMP_RATE
+                        && jumps++ < POPS_LISTED) {
+                    describe(jumped, col, col.h);
+                    jumped.append(String.format(java.util.Locale.ROOT, " from %.2f", col.shownH));
+                }
+            }
+            for (int i = 0, n = shown.size(); i < n; i++) {
+                Column col = shown.get(i);
+                if (col.drawnStamp != frameStamp && col.shownH >= POP_HEIGHT && col.shownBump && outs++ < POPS_LISTED) {
+                    describe(out, col, col.shownH);
+                }
+            }
+            popIns += ins;
+            popOuts += outs;
+            popJumps += jumps;
+            if (ins + outs + jumps > 0) {
+                StringBuilder about = new StringBuilder();
+                for (int b = 0; b < Math.min(2, frameBumps.size()); b++) {
+                    Bump bump = frameBumps.get(b);
+                    Vec3 c = bump.field.frame().center(), n = bump.field.frame().normal();
+                    about.append(String.format(java.util.Locale.ROOT,
+                            " | bump at %.1f %.1f %.1f normal %.2f %.2f %.2f height %.2f, %d columns%s", c.x(), c.y(),
+                            c.z(), n.x(), n.y(), n.z(), bump.field.params().amplitude(), bump.active.size(),
+                            bump.collectTick == (long) Math.floor(now) ? ", collected this tick" : ""));
+                }
+                popWatch.accept(String.format(java.util.Locale.ROOT, "POPS at %.2f: %d came%s; %d went%s; %d jumped%s%s",
+                        now, ins, in, outs, out, jumps, jumped, about));
+            }
+        }
+        shown.clear();
+        shown.addAll(drawn);
+        for (int i = 0, n = drawn.size(); i < n; i++) {
+            Column col = drawn.get(i);
+            col.shownStamp = frameStamp;
+            col.shownH = col.h;
+            col.shownBump = col.inBump;
+        }
+        shownAt = now;
+    }
+
+    private static void describe(StringBuilder to, Column col, double h) {
+        to.append(String.format(java.util.Locale.ROOT, " [%d %d %d %s %.2f%s]", col.x, col.y, col.z,
+                col.axis.getName(), h, col.fill ? " fill" : ""));
     }
 
     /** Forgets all baked geometry, e.g. after a resource reload moved the textures around the atlas. */
@@ -519,9 +659,14 @@ public final class DeformationRenderer {
 
         frameStamp++;
         frameColumns.clear();
-        double now = tick + partialTick;
+        double now = (double) tick + partialTick; // in doubles: a long and a float add as floats (ClientTremor)
         for (int b = 0; b < frameBumps.size(); b++) {
             Bump bump = frameBumps.get(b);
+            // By the game time passed since its last frame, never backwards (the server's time packet sets the
+            // client's clock back whenever it ran ahead) and no more than the whole way at once.
+            bump.fadeStep = Double.isNaN(bump.fadeAt) ? 0
+                    : Math.max(0, Math.min(COLUMN_FADE_TICKS, now - bump.fadeAt)) / COLUMN_FADE_TICKS;
+            bump.fadeAt = now;
             for (int i = 0, n = bump.active.size(); i < n; i++) {
                 evaluate(bump, b, bump.active.get(i), now, false);
             }
@@ -531,10 +676,25 @@ public final class DeformationRenderer {
                     evaluate(bump, b, col, now, true);
                 }
             }
+            for (Iterator<Map.Entry<Column, double[]>> it = bump.leaving.entrySet().iterator(); it.hasNext(); ) {
+                Map.Entry<Column, double[]> entry = it.next();
+                Column col = entry.getKey();
+                double[] share = entry.getValue();
+                share[0] -= bump.fadeStep;
+                if (share[0] <= 0) {
+                    it.remove();
+                    bump.leavingLevel.remove(col);
+                    continue;
+                }
+                col.lastUsed = tick;
+                // As high as it would stand were it still taken (held sideways, turned from the bump), times its share.
+                raise(col, b, sideways(bump, col, shape(bump, col, bump.leavingLevel))
+                        * facing(col.normal, bump.field.frame().normal()) * share[0]);
+            }
         }
         if (ground != null) {
-            zone.evaluate(ground, event.getFrustum(), frameStamp, frameColumns);
-            swellZone(level, ground, tick, (tick + partialTick) / 20.0);
+            zone.evaluate(ground, event.getFrustum(), frameStamp, frameColumns, now);
+            swellZone(level, ground, tick, ((double) tick + partialTick) / 20.0);
         }
         pourBridges();
         for (int i = 0, n = frameColumns.size(); i < n; i++) {
@@ -591,6 +751,25 @@ public final class DeformationRenderer {
                     || col.state != null && col.state.is(tremor.block.TremorBlocks.HEART_NODE.get()))) {
                 continue; // the real block shows, with the cracks of its mining (see minedBlock)
             }
+            if (col.awaited) {
+                // Baked in this very frame, its height worked out before that: judged now (coming). Turned up at a
+                // height, it starts from nothing: nothing of it is drawn yet, and the seam of the column over it
+                // finds it down (the review: it stood a frame at its full reach).
+                col.awaited = false;
+                boolean high = col.h >= POP_HEIGHT && col.inBump && !col.inZone;
+                for (int b = 0; b < frameBumps.size(); b++) {
+                    Bump bump = frameBumps.get(b);
+                    if (bump.fresh.remove(col) && high) {
+                        bump.rising.put(col, new double[]{0});
+                    }
+                }
+                if (high) {
+                    col.h = 0;
+                    continue;
+                }
+            }
+            // From here on its height is the one it is drawn at: it starts from its block (BumpShape.shown).
+            col.h = BumpShape.shown(col.h);
             drawn.add(col);
             total += col.cost();
         }
@@ -603,7 +782,7 @@ public final class DeformationRenderer {
         LevelVoxelView seams = source.begin(level);
         for (int i = 0, n = drawn.size(); i < n; i++) {
             Column col = drawn.get(i);
-            col.cross = frameWarp || col.fill || col.h < 1 ? null : seam(seams, col);
+            col.cross = frameWarp || col.fill ? null : seam(seams, col, ground);
             col.drawnStamp = frameStamp;
         }
         if (frameWarp) {
@@ -617,6 +796,9 @@ public final class DeformationRenderer {
             validate(level, tick);
         }
         validateTarget(level);
+        if (popWatch != null) {
+            lookForPops(now);
+        }
         frameCopies = 0;
         frameVertices = 0;
         return !drawn.isEmpty();
@@ -629,7 +811,100 @@ public final class DeformationRenderer {
      */
     private static void evaluate(Bump bump, int b, Column col, double now, boolean ringOnly) {
         double h = ringOnly ? bump.field.ripple(col.cx, col.cy, col.cz)
-                : col.fill ? fillCoverage(bump.field, col, rise(col, now)) : bump.field.at(col.cx, col.cy, col.cz);
+                : col.fill ? fillCoverage(bump.field, col, rise(col, now)) : shape(bump, col, bump.level);
+        if (!ringOnly && !col.fill) {
+            h = sideways(bump, col, h) * facing(col.normal, bump.field.frame().normal());
+            h *= coming(bump, col, h);
+        }
+        raise(col, b, h);
+    }
+
+    /**
+     * A face turned from its bump by {@link #FACE_NONE} (the cosine of the angle between its normal and the bump's)
+     * or more is not raised by it, one turned by {@link #FACE_WHOLE} or less wholly, and between the two in part: a
+     * wall no longer comes and goes whole as a tremor leans a little (the review: in a tunnel two blocks wide the top
+     * row of the far wall left the hill 0.9 of a block high when it drifted a quarter of a block off the middle,
+     * and came back as it drifted the other way). The collection takes faces turned {@link #FACE_MARGIN} farther, so
+     * that one turning back toward the bump is there already when it starts to rise.
+     */
+    static double facing(Vec3 normal, Vec3 bumpNormal) {
+        double d = normal.dot(bumpNormal);
+        if (d >= FACE_WHOLE) {
+            return 1;
+        }
+        if (d <= FACE_NONE) {
+            return 0;
+        }
+        double t = (d - FACE_NONE) / (FACE_WHOLE - FACE_NONE);
+        return t * t * (3 - 2 * t);
+    }
+
+    static final double FACE_NONE = -0.2, FACE_WHOLE = -0.05, FACE_MARGIN = 0.2;
+
+    /**
+     * A column whose blocks go another way than its bump stands (the wall beside a tremor on a floor, the face of a
+     * ledge under one) goes out no farther than {@value #SIDE_REACH} of the bump's width to the side
+     * ({@link BumpParams#sigmaSide}), however high the bump: a tremor is a lump under the ground, and one set tall in
+     * the config came out blown up sideways as well, the wall by it out as far as it stood high (the user). A bump
+     * no higher than that limit is not touched, the default one among them; of a higher one such a column takes the
+     * share of its height that the limit is of the bump's, so it is the same lump made smaller (cut off at the
+     * limit it came out flat, a wall moved out: the user). The corner of a ledge fills only as far as its face goes
+     * ({@link #seam}), so it keeps to it too.
+     */
+    private static double sideways(Bump bump, Column col, double h) {
+        HeightField field = bump.field;
+        double limit = SIDE_REACH * field.params().sigmaSide(), height = field.params().amplitude();
+        double[] step = bump.risers.get(col);
+        if (height <= limit && step == null) {
+            return h;
+        }
+        double side = Math.min(1, limit / height) * (1 - (step == null ? 0 : carried(bump, field.frame(), step)));
+        return h * (side + (1 - side) * own(col, field.frame().normal()));
+    }
+
+    /**
+     * How far the side of a step ({@link Bump#risers}) rides up with the bump instead of coming out: wholly while the
+     * top and the foot of the step are both the bump's own ground ({@link Bump#free}), less over the block beyond
+     * that. A big bump is whole over a step lower than itself, the floor at its foot and its top risen alike, and
+     * the side between them is inside it; pushed out as well it came out under the risen top as a shelf, and the
+     * corner over that filled into an even slope, the look of a wall (the user).
+     */
+    private static double carried(Bump bump, BumpFrame frame, double[] step) {
+        Vec3 c = frame.center(), n = frame.normal();
+        double top = (step[0] - c.x()) * n.x() + (step[1] - c.y()) * n.y() + (step[2] - c.z()) * n.z();
+        double foot = (step[3] - c.x()) * n.x() + (step[4] - c.y()) * n.y() + (step[5] - c.z()) * n.z();
+        return Math.max(0, Math.min(1, bump.free + 1 - Math.max(Math.abs(top), Math.abs(foot))));
+    }
+
+    /**
+     * How far {@code col} goes the way a bump with the normal {@code n} stands: 1 from {@link #SIDE_TO} (the cosine
+     * between its axis and the normal) on, 0 up to {@link #SIDE_FROM}, eased between.
+     */
+    static double own(Column col, Vec3 n) {
+        double along = col.axis.getStepX() * n.x() + col.axis.getStepY() * n.y() + col.axis.getStepZ() * n.z();
+        double own = Math.max(0, Math.min(1, (along - SIDE_FROM) / (SIDE_TO - SIDE_FROM)));
+        return own * own * (3 - 2 * own);
+    }
+
+    /**
+     * The height the field of {@code bump} gives {@code col}: for one on its own ground ({@code level}) as on its
+     * plane as far off it as that ground is its own ({@link Bump#free}), the more so the more it goes the bump's way.
+     */
+    private static double shape(Bump bump, Column col, Set<Column> level) {
+        HeightField field = bump.field;
+        if (!(bump.free > BumpShape.PLANE) || !level.contains(col)) {
+            return field.at(col.cx, col.cy, col.cz);
+        }
+        return field.at(col.cx, col.cy, col.cz,
+                BumpShape.PLANE + (bump.free - BumpShape.PLANE) * own(col, field.frame().normal()));
+    }
+
+    static final double SIDE_REACH = 1.1;
+    /** A column whose way lies this near the bump's normal (the cosine) or nearer is its own, not held; below, eased. */
+    static final double SIDE_FROM = 0.35, SIDE_TO = 0.8;
+
+    /** Adds the height {@code h} the {@code b}-th bump of this frame gives {@code col} to what others give it. */
+    private static void raise(Column col, int b, double h) {
         if (col.stamp != frameStamp) {
             col.stamp = frameStamp;
             col.inBump = true;
@@ -641,6 +916,50 @@ public final class DeformationRenderer {
             col.bumps |= 1L << b; // under two bumps at once: the heights add
             col.h += h;
         }
+    }
+
+    /**
+     * A column of a bump that turns up at a height, or is dropped at one, comes up to it, or goes down from it, over
+     * this many ticks ({@link #coming}, {@link Bump#leaving}): whatever brought it in or took it out, nothing of a
+     * hill comes or goes at once (the user). One that rises out of the ground with the hill, as nearly all do, is not
+     * touched. Whether a column is new to a bump is told by its collections, not by the clock: the client's game time
+     * is set back by the server's whenever it ran ahead, and stands for many ticks in a stalled frame (the review).
+     */
+    static final double COLUMN_FADE_TICKS = 6;
+    /** Tells the columns of two collections apart ({@link Column#mark}, {@link #collect}). */
+    private static int marks;
+
+    /**
+     * The share of its height {@code h} a column of {@code bump}'s collection is drawn at this frame: all of it,
+     * unless it was new to the collection and {@value #POP_HEIGHT} blocks high or more when it could first be drawn
+     * (taken anew another way, baked late, the bump just come into view): then it rises from nothing over
+     * {@value #COLUMN_FADE_TICKS} ticks. One not baked yet is not drawn: it keeps its whole height, which brings its
+     * bake on, and is judged in the frame it is baked ({@link #prepare}).
+     */
+    private static double coming(Bump bump, Column col, double h) {
+        if (!bump.fresh.isEmpty() && bump.fresh.contains(col)) {
+            if (!col.baked) {
+                col.awaited = true;
+                return 1;
+            }
+            bump.fresh.remove(col);
+            if (h >= POP_HEIGHT) {
+                bump.rising.put(col, new double[]{0});
+            }
+        }
+        if (bump.rising.isEmpty()) {
+            return 1;
+        }
+        double[] share = bump.rising.get(col);
+        if (share == null) {
+            return 1;
+        }
+        share[0] += bump.fadeStep;
+        if (share[0] >= 1) {
+            bump.rising.remove(col);
+            return 1;
+        }
+        return share[0];
     }
 
     /**
@@ -664,7 +983,7 @@ public final class DeformationRenderer {
             }
             if (frameBumps.size() < MAX_BUMPS) {
                 Bump bump = bumps.computeIfAbsent(state.instance(), instance -> new Bump());
-                bump.field = bump(level, state, bump, frameBumps.isEmpty(), tick, tick + partialTick);
+                bump.field = bump(level, state, bump, frameBumps.isEmpty(), tick, (double) tick + partialTick);
                 if (bump.field != null) {
                     frameBumps.add(bump);
                 } else {
@@ -794,7 +1113,12 @@ public final class DeformationRenderer {
                                     long tick, double now) {
         boolean pulse = tremor.network.TremorStatePayload.pulse(state.instance());
         // A pulse runs over the face it struck as it is, a wall one block thick too (no bump to turn upright on it).
-        BumpFrame frame = pulse ? state.frame() : drawn(level, bump, state.frame(), tick, now);
+        BumpFrame frame = pulse ? state.frame()
+                : drawn(level, bump, state.frame(), state.fullAmplitude(), tick, now);
+        // To a big bump a step lower than itself is its own ground: it is whole over it, not cut within a few
+        // blocks of its plane as a bump of the default height is.
+        bump.free = pulse ? BumpShape.PLANE : BumpShape.PLANE
+                + Math.max(0, state.fullAmplitude() - BumpShape.PLANE) * big(state.fullAmplitude());
         BumpParams params = state.params();
         RippleParams ripple = runningRipple(state.rippleAgeSeconds(),
                 Ripple.visibility(params.amplitude(), state.fullAmplitude()), pulse);
@@ -817,19 +1141,23 @@ public final class DeformationRenderer {
             return null;
         }
         SurfaceCollector.Options options = SurfaceCollector.Options.forParams(params);
-        double radius = RenderReach.collectRadius(params, ripple, REACH_SLACK, options.normalBand(), RADIUS_STEP);
+        double band = Math.max(options.normalBand(), bump.free + BAND_BEYOND);
+        double radius = RenderReach.collectRadius(params, ripple, REACH_SLACK, band, RADIUS_STEP);
         if (bump.collecting == null && needsCollect(bump, frame, radius, tick)) {
             // Spread by the bump's own reach, not a ripple's: an ordinary bump's echo stays as it was.
-            boolean spread = bump.collected && RenderReach.collectRadius(params, null, REACH_SLACK,
-                    options.normalBand(), RADIUS_STEP) >= SPREAD_RADIUS;
-            collect(level, bump, frame, params, new SurfaceCollector.Options(radius, options.normalBand(),
-                    options.minNormalDot()), spread, tick);
+            boolean spread = bump.collected
+                    && RenderReach.collectRadius(params, null, REACH_SLACK, band, RADIUS_STEP) >= SPREAD_RADIUS;
+            collect(level, bump, frame, params, new SurfaceCollector.Options(radius, band,
+                    options.minNormalDot() - FACE_MARGIN), spread, tick);
         }
         if (bump.collecting != null) {
             advanceCollect(level, bump, tick);
         }
         if (ripple != null) {
             scanRing(level, bump, frame, ripple, state.rippleAgeSeconds(), now, tick);
+        }
+        if (!pulse) {
+            params = cramped(bump, params, now);
         }
         return new HeightField(params, frame, state.timeSeconds(), TremorConfig.CLIENT.drawJitter(), ripple,
                 state.rippleAgeSeconds(), ripple != null ? bump.ringFrame : frame);
@@ -921,7 +1249,7 @@ public final class DeformationRenderer {
         for (int i = 0, n = drawn.size(); i < n; i++) {
             Column col = drawn.get(i);
             col.h *= RenderBudget.fade(Math.sqrt(col.distanceSq), frameCut);
-            if (col.h >= BumpShape.RENDER_THRESHOLD) {
+            if (col.h > 0) {
                 drawn.set(kept++, col);
             }
         }
@@ -1098,6 +1426,61 @@ public final class DeformationRenderer {
         return tick >= next || next - tick > interval;
     }
 
+    /**
+     * A bump higher than the face it stands on is long is drawn no higher than that face is long (and never lower than
+     * a tremor of the default height, which is not touched): a big tremor crossing the face of a ledge four blocks
+     * high pushed its whole height out of those few blocks, a great tongue out of the wall (the user: under the
+     * ground it need not go round every corner, it may cut it as a dive does). It sinks while it is cramped and
+     * swells again on wide ground, over about {@value #CRAMP_TICKS} ticks, so nothing of it comes or goes at once
+     * as it did in the dives that cut corners.
+     */
+    private static BumpParams cramped(Bump bump, BumpParams params, double now) {
+        double height = params.amplitude();
+        double target = height > ROOM_FREE ? Math.min(1, Math.max(ROOM_FREE, bump.room) / height) : 1;
+        double dt = Double.isNaN(bump.crampAt) ? 0 : Math.max(0, Math.min(4 * CRAMP_TICKS, now - bump.crampAt));
+        bump.crampAt = now;
+        bump.cramp += (target - bump.cramp) * (1 - Math.exp(-dt / CRAMP_TICKS));
+        return bump.cramp < 0.999 ? params.withAmplitude(height * bump.cramp) : params;
+    }
+
+    /** A bump no higher than this (blocks: the default height) is never held for want of room. */
+    static final double ROOM_FREE = BumpParams.defaults().amplitude();
+    static final double CRAMP_TICKS = 8;
+    /** The room is looked for this many blocks each way along the bump at most, and this far to either side. */
+    static final int ROOM_REACH = 8;
+    static final double ROOM_ACROSS = 1.0;
+
+    /**
+     * How far the ground {@code bump} stands on runs along its length through its middle ({@link RenderReach#room}):
+     * of its collected columns within {@value #ROOM_ACROSS} block of that line, those that go its own way (their axis
+     * within {@link #SIDE_TO} of its normal), wherever along the normal they lie (a step down is still its ground).
+     */
+    private static double room(Bump bump, BumpFrame frame, double radius) {
+        int reach = Math.max(1, Math.min(ROOM_REACH, (int) Math.floor(radius) - 1));
+        boolean[] own = new boolean[2 * reach + 1];
+        boolean any = false;
+        Vec3 c = frame.center(), n = frame.normal(), f = frame.forward();
+        for (int i = 0, count = bump.active.size(); i < count; i++) {
+            Column col = bump.active.get(i);
+            if (col.fill || col.axis.getStepX() * n.x() + col.axis.getStepY() * n.y() + col.axis.getStepZ() * n.z()
+                    < SIDE_TO) {
+                continue;
+            }
+            any = true;
+            double dx = col.cx - c.x(), dy = col.cy - c.y(), dz = col.cz - c.z();
+            double along = dx * f.x() + dy * f.y() + dz * f.z(), out = dx * n.x() + dy * n.y() + dz * n.z();
+            double sx = dx - along * f.x() - out * n.x(), sy = dy - along * f.y() - out * n.y();
+            double sz = dz - along * f.z() - out * n.z();
+            int bin = (int) Math.floor(along + 0.5) + reach;
+            if (sx * sx + sy * sy + sz * sz <= ROOM_ACROSS * ROOM_ACROSS && bin >= 0 && bin < own.length) {
+                own[bin] = true;
+            }
+        }
+        // In the middle of a turn no column goes its way, and that says nothing of the room it has: it took that
+        // for none at all and sank at every corner, to shoot up after it.
+        return any ? RenderReach.room(own, reach) : bump.room;
+    }
+
     /** @param radius collection radius this frame needs, see {@link RenderReach#collectRadius} */
     private static boolean needsCollect(Bump bump, BumpFrame frame, double radius, long tick) {
         if (!bump.collected || bump.recollect || tick - bump.collectTick >= RECOLLECT_INTERVAL
@@ -1130,13 +1513,13 @@ public final class DeformationRenderer {
         List<SurfacePoint> points = SurfaceCollector.collect(voxels, frame, options);
         ThinSwell.Result thin = ThinSwell.apply(voxels, frame, params, options.radius(), points);
 
-        bump.active.clear();
-        bump.activeKeys.clear();
+        List<Column> taken = new ArrayList<>(thin.points().size());
+        it.unimi.dsi.fastutil.longs.LongOpenHashSet keys = new it.unimi.dsi.fastutil.longs.LongOpenHashSet();
         for (SurfacePoint p : thin.points()) {
-            bump.active.add(column(p, tick));
-            bump.activeKeys.add(VoxelPos.pack(p.x(), p.y(), p.z()));
+            taken.add(column(p, tick));
+            keys.add(VoxelPos.pack(p.x(), p.y(), p.z()));
         }
-        collected(bump, thin.fills(), frame, options.radius(), tick);
+        collected(bump, taken, keys, thin.fills(), frame, options.radius(), tick);
     }
 
     /**
@@ -1177,21 +1560,88 @@ public final class DeformationRenderer {
                 next.activeKeys.add(VoxelPos.pack(p.x(), p.y(), p.z()));
             }
             if (next.built == points.size()) {
-                bump.active = next.active;
-                bump.activeKeys = next.activeKeys;
                 bump.collecting = null;
-                collected(bump, next.thin.fills(), next.frame, next.radius, tick);
+                collected(bump, next.active, next.activeKeys, next.thin.fills(), next.frame, next.radius, tick);
                 return;
             }
         } while (System.nanoTime() - began < COLLECT_NANOS);
     }
 
     /**
-     * The bump's new collection is in ({@link Bump#active} holds the columns of its points): the cells a thin
-     * structure swells into join them, those of the collection before still going down too, and where it was taken
-     * is kept for {@link #needsCollect}.
+     * The bump's new collection is in, made at {@code frame}: {@code taken} (the columns of its points, their voxels
+     * {@code keys}) replace its columns at once, all of them at the same time, whether the collection was made in one
+     * go or over frames ({@link #advanceCollect}). Those new to it are told from those it keeps and those it drops
+     * ({@link Bump#fresh}, {@link Bump#rising}, {@link Bump#leaving}), its own ground off the plane and the sides of
+     * its steps are found ({@link Bump#level}, {@link Bump#risers}), the cells a thin structure swells into join
+     * them, those of the collection before still going down too, its room is measured, and where it was taken is
+     * kept for {@link #needsCollect}.
      */
-    private static void collected(Bump bump, List<ThinSwell.Fill> fills, BumpFrame frame, double radius, long tick) {
+    private static void collected(Bump bump, List<Column> taken, it.unimi.dsi.fastutil.longs.LongOpenHashSet keys,
+                                  List<ThinSwell.Fill> fills, BumpFrame frame, double radius, long tick) {
+        List<Column> before = bump.active;
+        int was = ++marks, is = ++marks;
+        for (int i = 0, n = before.size(); i < n; i++) {
+            before.get(i).mark = was;
+        }
+        for (int i = 0, n = taken.size(); i < n; i++) {
+            Column col = taken.get(i);
+            if (col.mark != was && col.mark != is) {
+                // New to this bump. One it had dropped, still going down, comes back up from where it is; any other
+                // is judged when it is first drawn (coming).
+                double[] share = bump.leaving.remove(col);
+                bump.leavingLevel.remove(col);
+                if (share != null) {
+                    bump.rising.put(col, share);
+                } else {
+                    bump.fresh.add(col);
+                }
+            }
+            col.mark = is;
+        }
+        bump.active = taken;
+        bump.activeKeys = keys;
+        for (int i = 0, n = before.size(); i < n; i++) {
+            Column col = before.get(i);
+            if (col.mark == is || col.fill) {
+                continue; // still taken; or a cell of a swelling, which goes down by itself (Column.swell)
+            }
+            // Dropped. If it stood raised in the last frame drawn it goes down, not out (Bump.leaving).
+            bump.fresh.remove(col);
+            double[] share = bump.rising.remove(col);
+            if (col.baked && col.stamp == frameStamp && col.inBump && col.h >= POP_HEIGHT) {
+                bump.leaving.put(col, share != null ? share : new double[]{1});
+                if (bump.level.contains(col)) {
+                    bump.leavingLevel.add(col); // it goes down from the height it stood at, not from a lower one
+                }
+            }
+        }
+        bump.level.clear();
+        bump.risers.clear();
+        if (bump.free > BumpShape.PLANE) {
+            Vec3 n = frame.normal();
+            // The axis the bump stands along, more or less: the steps of its ground are told along it.
+            double mx = Math.abs(n.x()), my = Math.abs(n.y()), mz = Math.abs(n.z());
+            int ux = mx > my && mx >= mz ? (int) Math.signum(n.x()) : 0;
+            int uy = ux == 0 && my >= mz ? (int) Math.signum(n.y()) : 0;
+            int uz = ux == 0 && uy == 0 ? (int) Math.signum(n.z()) : 0;
+            int reach = (int) Math.ceil(bump.free) + 2;
+            for (int i = 0, count = bump.active.size(); i < count; i++) {
+                Column col = bump.active.get(i);
+                if (col.fill) {
+                    continue;
+                }
+                int ax = col.axis.getStepX(), ay = col.axis.getStepY(), az = col.axis.getStepZ();
+                if (SurfaceCollector.seesPlane(voxels, col.x, col.y, col.z, ax, ay, az, frame.center(), n)) {
+                    bump.level.add(col);
+                }
+                if (ax * ux + ay * uy + az * uz == 0) {
+                    double[] step = SurfaceCollector.step(voxels, col.x, col.y, col.z, ax, ay, az, ux, uy, uz, reach);
+                    if (step != null) {
+                        bump.risers.put(col, step);
+                    }
+                }
+            }
+        }
         for (Column col : bump.fills.values()) {
             col.swelling = false;
         }
@@ -1213,6 +1663,7 @@ public final class DeformationRenderer {
             col.lastUsed = tick;
             bump.active.add(col);
         }
+        bump.room = room(bump, frame, radius);
         Vec3 c = frame.center();
         bump.collectX = c.x();
         bump.collectY = c.y();
@@ -1390,15 +1841,49 @@ public final class DeformationRenderer {
     /** ...unless it was not drawn for this long: then it is the target at once. */
     static final double DRAWN_NORMAL_GAP = 10;
 
+    /** Ground is taken this far beyond where it is a bump's own ({@link Bump#free}): where it has faded out. */
+    static final double BAND_BEYOND = 2.0;
+
+    /**
+     * How big a bump of the full {@code height} is, from 0 at the default height, which is drawn as it always was, to
+     * 1 from twice that on: how far it is drawn along the ground's way at its own scale ({@link #drawn}) and takes a
+     * step lower than itself for its own ground ({@link Bump#free}).
+     */
+    static double big(double height) {
+        return Math.max(0, Math.min(1, (height - ROOM_FREE) / ROOM_FREE));
+    }
+
+    /** The ground's way at the scale of a big bump is found anew once it has moved this far (blocks). */
+    static final double WIDE_STEP = 0.25;
+    /** A big bump keeps the heading it had while its own is shorter than this in the plane it is drawn in. */
+    static final double HEADING_MIN = 0.35;
+    /** A drawn normal this near the entity's own (cosine) was not turned upright by thin ground ({@link #drawn}). */
+    static final double UPRIGHT_NOT = 1 - 1e-9;
+
     /**
      * The frame a bump is drawn in: the entity's, its normal turned upright on ground one block thick
      * ({@link ThinSwell#drawnNormal}), and following that over about {@value #DRAWN_NORMAL_TICKS} ticks (the user: on a
      * lumpy bridge it jerked from a pillar to sticking out sideways and back).
+     * <p>
+     * A bump higher than the default is drawn along the way the ground faces at its own scale
+     * ({@link SurfaceNormals#wideNormal} within {@code height} blocks), all of it from twice the default height on.
+     * The entity's own normal is that of the voxel under it: crossing a ledge four blocks high it lies on its side
+     * for some eight ticks, and a hill six blocks high turned onto that side and off it again, pressed flat in each
+     * turn and shooting up after it (the user: it grows at once on the ledge, is cut by half, then is big again).
+     *
+     * @param height the full height of the bump, whatever it is drawn at now (it sinks in a dive)
      */
-    private static BumpFrame drawn(ClientLevel level, Bump bump, BumpFrame frame, long tick, double now) {
+    private static BumpFrame drawn(ClientLevel level, Bump bump, BumpFrame frame, double height, long tick,
+                                   double now) {
         source.begin(level);
         voxels.setTime(tick);
-        Vec3 target = ThinSwell.drawnNormal(voxels, frame.center(), frame.normal());
+        Vec3 own = frame.normal();
+        Vec3 target = ThinSwell.drawnNormal(voxels, frame.center(), own);
+        double wide = big(height);
+        if (wide > 0 && target.dot(own) > UPRIGHT_NOT) {
+            Vec3 n = own.lerp(wide(bump, frame, height, tick), wide);
+            target = n.isNearZero() ? target : n.normalize();
+        }
         double dt = Double.isNaN(bump.normalAt) ? Double.POSITIVE_INFINITY : Math.max(0, now - bump.normalAt);
         if (bump.normal == null || dt > DRAWN_NORMAL_GAP) {
             bump.normal = target;
@@ -1407,7 +1892,32 @@ public final class DeformationRenderer {
             bump.normal = n.isNearZero() ? target : n.normalize();
         }
         bump.normalAt = now;
-        return new BumpFrame(frame.center(), bump.normal, frame.forward());
+        if (!(wide > 0)) {
+            return new BumpFrame(frame.center(), bump.normal, frame.forward());
+        }
+        // Drawn along another way than the entity lies, its heading may all but vanish in the plane it is drawn in
+        // (straight up the side of a ledge it is drawn upright on): it keeps the one it had.
+        Vec3 flat = frame.forward().projectOnPlane(bump.normal);
+        if (bump.heading == null || flat.length() >= HEADING_MIN) {
+            bump.heading = flat;
+        }
+        return new BumpFrame(frame.center(), bump.normal, bump.heading);
+    }
+
+    /** The way the ground faces at the scale of a big bump, {@code radius} blocks, found anew as it moves. */
+    private static Vec3 wide(Bump bump, BumpFrame frame, double radius, long tick) {
+        Vec3 c = frame.center();
+        if (bump.wide == null || radius != bump.wideRadius || tick < bump.wideTick
+                || tick - bump.wideTick >= RECOLLECT_INTERVAL
+                || c.distanceSquared(bump.wideAt) > WIDE_STEP * WIDE_STEP
+                || frame.normal().dot(bump.wideOwn) < RECOLLECT_NORMAL_COS) {
+            bump.wide = SurfaceNormals.wideNormal(voxels, c, frame.normal(), radius);
+            bump.wideAt = c;
+            bump.wideOwn = frame.normal();
+            bump.wideRadius = radius;
+            bump.wideTick = tick;
+        }
+        return bump.wide;
     }
 
     /** The swelling of thin ground around the entity grows, or goes down, over this many ticks ({@link Column#swell}). */
@@ -1631,17 +2141,41 @@ public final class DeformationRenderer {
      * The way {@code col} also fills this frame ({@link Column#cross}), or null: when the column behind it (the voxel
      * at its back, against its axis) goes a way sideways to its axis, and the cell next to it that way is open. The
      * user's screenshot: a big hill over a ledge, the top going up and the face of the ledge sideways, left the corner
-     * between them hollow.
+     * between them hollow. Sets how far out the corner fills ({@link Column#crossReach}): as far as the column is
+     * high, and no farther than the face behind it goes out, so the corner grows out of the two as they rise and
+     * draws back into them as they settle, with nothing of it while either stands still (it used to come and go
+     * whole: at a height of one block, and with the face behind it, even when that only left the view).
      */
-    private static Direction seam(LevelVoxelView view, Column col) {
+    private static Direction seam(LevelVoxelView view, Column col, GroundField ground) {
         Direction a = col.axis;
         Column behind = columns.get(VoxelPos.pack(col.x - a.getStepX(), col.y - a.getStepY(), col.z - a.getStepZ()));
-        if (behind == null || behind.fill || behind.stamp != frameStamp || behind.h < BumpShape.RENDER_THRESHOLD
-                || behind.axis.getAxis() == a.getAxis()) {
+        if (behind == null || behind.fill || behind.axis.getAxis() == a.getAxis()) {
             return null;
         }
         Direction b = behind.axis;
-        return view.isOpen(col.x + b.getStepX(), col.y + b.getStepY(), col.z + b.getStepZ()) ? b : null;
+        if (!view.isOpen(col.x + b.getStepX(), col.y + b.getStepY(), col.z + b.getStepZ())) {
+            return null;
+        }
+        // A face of the zone out of view this frame (its cell culled) is as far out as the ground says all the same;
+        // one that nothing raises any more is down, and the corner with it (the review: a column a bump no longer
+        // took, still in the map, gave the corner its full reach, and its eviction took it away at once).
+        double out = behind.stamp == frameStamp ? behind.h
+                : col.inZone && behind.inZone && ground != null ? ground.at(behind.cx, behind.cy, behind.cz) : 0;
+        col.crossReach = Math.min(col.h, out);
+        return col.crossReach > Column.SEAM_MIN ? b : null;
+    }
+
+    /**
+     * A copy the camera is in, or so near that the view starts inside it (the near plane), is replayed inside out
+     * as well ({@link VertexList#emitInside}): a stack's, a seam's and a swelling's alike (the user: sucked in on the
+     * very edge of a cliff, where the camera is in a copy of the seam, the block that should have closed the view in
+     * was see-through).
+     */
+    private static void emitInsideIfIn(VertexConsumer consumer, VertexList mesh, float x, float y, float z) {
+        if (within(x, y, z, INSIDE_MARGIN)) {
+            mesh.emitInside(consumer, x, y, z, insideShade);
+            frameVertices += mesh.size();
+        }
     }
 
     private static void draw(RenderType layer) {
@@ -1689,29 +2223,35 @@ public final class DeformationRenderer {
                         boolean near = within(x, y, z, NEAR_CAMERA);
                         frameVertices += mesh.emitCulled(consumer, x, y, z, near || whole ? 0 : hidden(col, k, off),
                                 Column.stackGrow(grow, k));
-                        if (near && within(x, y, z, INSIDE_MARGIN)) {
+                        if (near) {
                             // The camera is inside this copy, or so near it that the view starts inside it (a hill
                             // risen around the player): seen from inside, its faces would be culled and show what
                             // lies beyond them, the sky over the hill.
-                            mesh.emitInside(consumer, x, y, z, insideShade);
-                            frameVertices += mesh.size();
+                            emitInsideIfIn(consumer, mesh, x, y, z);
                         }
                     }
                 }
                 frameCopies += stack;
                 if (col.cross != null && !frameWarp) {
-                    // The seam: a staircase toward the other way, from the top of the stack down to its foot, as far
-                    // out as the copy is high, so the corner fills like the slope of a hill.
+                    // The seam: from each copy of the stack, and from the block itself at its foot, a row of copies
+                    // the other way, as long as the cut corner is there (Column.seamLength). Every copy of a row
+                    // slides out from under the one before it as the row grows, so none comes or goes in the open.
                     int cx = col.cross.getStepX(), cy = col.cross.getStepY(), cz = col.cross.getStepZ();
+                    VertexList.kind = VertexList.SEAM;
                     for (int k = 1; k <= stack; k++) {
-                        double off = Math.max(0, col.h - k);
-                        for (int s = 1; s <= (int) Math.floor(col.h - off + 1e-9); s++) {
-                            mesh.emit(consumer, bx + (float) (ax * off) + cx * s, by + (float) (ay * off) + cy * s,
-                                    bz + (float) (az * off) + cz * s, Column.stackGrow(grow, k + s));
+                        double off = Column.seamOff(col.h, k);
+                        double length = Column.seamLength(col.crossReach, col.h, off);
+                        for (int s = 0; length - s > Column.SEAM_MIN; s++) {
+                            double side = length - s;
+                            float x = bx + (float) (ax * off + cx * side), y = by + (float) (ay * off + cy * side);
+                            float z = bz + (float) (az * off + cz * side);
+                            mesh.emit(consumer, x, y, z, Column.stackGrow(grow, k + s));
                             frameVertices += mesh.size();
                             frameCopies++;
+                            emitInsideIfIn(consumer, mesh, x, y, z);
                         }
                     }
+                    VertexList.kind = VertexList.STACK;
                 }
             }
             if (deco != null) {
@@ -1810,11 +2350,10 @@ public final class DeformationRenderer {
         float x = bx + (float) (col.nudgeX * nudge - ray.x() * back);
         float y = by + (float) (col.nudgeY * nudge - ray.y() * back);
         float z = bz + (float) (col.nudgeZ * nudge - ray.z() * back);
+        VertexList.kind = VertexList.FILL;
         mesh.emit(consumer, x, y, z, col.grow * Math.max(1f, (float) Math.sqrt(x * x + y * y + z * z) / GROW_DISTANCE));
-        if (x <= 0 && x + 1 >= 0 && y <= 0 && y + 1 >= 0 && z <= 0 && z + 1 >= 0) {
-            mesh.emitInside(consumer, x, y, z, insideShade);
-            frameVertices += mesh.size();
-        }
+        VertexList.kind = VertexList.STACK;
+        emitInsideIfIn(consumer, mesh, x, y, z);
     }
 
     private static double clamp01(double v) {

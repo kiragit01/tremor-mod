@@ -43,6 +43,8 @@ final class Column {
      * along its own axis (a ledge under a hill: the top up, the face sideways); null if none.
      */
     Direction cross;
+    /** While {@link #cross}: how far out that way the seam goes at the column's foot this frame (blocks). */
+    double crossReach;
     BlockState state;
     BlockState decoState;
     BlockPos lightPos;
@@ -57,6 +59,14 @@ final class Column {
     boolean cube;
     /** The frame it was last drawn in (a frame's {@code stamp}). */
     int drawnStamp;
+    /** Tells the columns of two collections of a bump apart, within {@code DeformationRenderer.collect} only. */
+    int mark;
+    /** A bump raised it before it was baked: how it comes up is settled in the frame it is first drawn. */
+    boolean awaited;
+    /** Tests only ({@code DeformationRenderer.watchPops}): the frame it was last seen drawn in, and as what. */
+    int shownStamp;
+    double shownH;
+    boolean shownBump;
     /**
      * For a fill cell of a bump: how far its swelling is up (0 to 1) as of game time {@code swellAt}, and whether it
      * grows (in the structure the entity is on) or goes down (no longer): it neither pops in nor out (the user).
@@ -158,6 +168,31 @@ final class Column {
     }
 
     static final float GROW_MIN = 0.002f;
+
+    /**
+     * Where along the axis row {@code k} of the seam of a column {@code h} high lies (blocks; {@code k} from 1 up to
+     * the number of copies in its stack): with the copy of the stack under the top one, the one under that, and so on,
+     * the last row at the block itself.
+     */
+    /** A copy of a seam is drawn once it stands this far out of the one it slides out of (blocks): as good as flush. */
+    static final double SEAM_MIN = 0.004;
+
+    static double seamOff(double h, int k) {
+        return Math.max(0, h - k);
+    }
+
+    /**
+     * How long the row of a seam at {@code off} along the axis is (blocks; {@link #crossReach} of a column {@code h}
+     * high): the reach at the column's foot, nothing at its top, and straight between the two, the corner cut across
+     * as a lump under the ground would leave it (a quarter of a round was tried first and blew a big tremor's corner
+     * up: the user). It was a stair of whole blocks that came and went at once; now its copies stand at
+     * {@code length}, {@code length - 1}, ... out: as the row grows each slides out from under the one before it, and
+     * the innermost from inside the stack.
+     */
+    static double seamLength(double reach, double h, double off) {
+        double t = h > 0 ? Math.min(1, off / h) : 1;
+        return reach * (1 - t);
+    }
 
     /** Copies drawn: the stack filling the gap down to the original (one for a fill cell), plus the decoration. */
     int cost() {

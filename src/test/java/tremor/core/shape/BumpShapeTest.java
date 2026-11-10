@@ -234,4 +234,20 @@ class BumpShapeTest {
                 1e-12);
         assertTrue(BumpShape.height(DEFAULTS, wall, -3, 13, 9) > BumpShape.RENDER_THRESHOLD);
     }
+
+    /** A copy starts from its block ({@link BumpShape#shown}): no height at the threshold, the field's from EMERGE. */
+    @Test
+    void aCopyStartsFromItsBlock() {
+        assertEquals(0, BumpShape.shown(0), 0);
+        assertEquals(0, BumpShape.shown(BumpShape.RENDER_THRESHOLD), 0);
+        assertEquals(BumpShape.EMERGE, BumpShape.shown(BumpShape.EMERGE), 1e-12);
+        assertEquals(1.7, BumpShape.shown(1.7), 0);
+        double before = 0;
+        for (double h = BumpShape.RENDER_THRESHOLD; h <= 0.5; h += 0.001) {
+            double shown = BumpShape.shown(h);
+            assertTrue(shown >= before && shown <= h + 1e-12, "it only rises, and never over its field: " + h);
+            assertTrue(shown - before <= 0.002, "without a step at " + h);
+            before = shown;
+        }
+    }
 }

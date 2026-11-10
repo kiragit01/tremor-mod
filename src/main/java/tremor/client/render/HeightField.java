@@ -38,6 +38,27 @@ record HeightField(BumpParams params, BumpFrame frame, double time, boolean jitt
         return ripple == null ? h : h + Ripple.height(ripple, ringDistance(ringFrame, x, y, z), rippleAge);
     }
 
+    /**
+     * As {@link #at(double, double, double)} for ground that is the bump's own as far as {@code free} blocks off its
+     * plane instead of {@link BumpShape#PLANE}: within that it is as on the plane, beyond it fades as ever. A bump
+     * fades within a few blocks of its plane so that it leaves alone what lies over and under its ground; a big one
+     * crossing a ledge lower than itself left its own ground alone that way, the floor as it came up the ledge's
+     * side and the top until it was up, and sank to a part of its height in between. The ripple keeps its own
+     * measure, in space.
+     */
+    double at(double x, double y, double z, double free) {
+        if (!(free > BumpShape.PLANE)) {
+            return at(x, y, z);
+        }
+        Vec3 c = frame.center(), n = frame.normal();
+        double along = (x - c.x()) * n.x() + (y - c.y()) * n.y() + (z - c.z()) * n.z();
+        double back = Math.signum(along) * Math.min(Math.abs(along), free - BumpShape.PLANE);
+        double px = x - back * n.x(), py = y - back * n.y(), pz = z - back * n.z();
+        double h = jitter ? BumpShape.height(params, frame, px, py, pz, time)
+                : BumpShape.height(params, frame, px, py, pz);
+        return ripple == null ? h : h + Ripple.height(ripple, ringDistance(ringFrame, x, y, z), rippleAge);
+    }
+
     /** A bump facing up (or down) at least this much has its rings run level ({@link Ripple#RING_LEVEL}). */
     static final double RING_LEVEL = Ripple.RING_LEVEL;
 

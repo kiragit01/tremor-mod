@@ -136,4 +136,26 @@ final class RenderReach {
             return h;
         }
     }
+
+    /**
+     * How far the ground a bump stands on runs along its length through its middle, in blocks, from which of the
+     * blocks along that line go the bump's own way ({@code own}, one per block, {@code mid} the one at its centre):
+     * the unbroken run through the middle (or beside it, if the middle one is missing: the bump may sit on a
+     * joint). A run that reaches either end of what was looked at has no end to speak of: infinite. None at all: 0.
+     */
+    static double room(boolean[] own, int mid) {
+        int start = own[mid] ? mid : mid + 1 < own.length && own[mid + 1] ? mid + 1
+                : mid > 0 && own[mid - 1] ? mid - 1 : -1;
+        if (start < 0) {
+            return 0;
+        }
+        int low = start, high = start;
+        while (low > 0 && own[low - 1]) {
+            low--;
+        }
+        while (high < own.length - 1 && own[high + 1]) {
+            high++;
+        }
+        return low == 0 || high == own.length - 1 ? Double.POSITIVE_INFINITY : high - low + 1;
+    }
 }

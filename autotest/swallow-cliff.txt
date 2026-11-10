@@ -1,0 +1,180 @@
+# The hill that swallows a player on the very edge of a cliff, seen in first person (the user: sneaking right up to the
+# edge of a drop, shift held, as the hill sucks them in, the block that should close the view in is see-through; on
+# gravel). A gravel cliff six blocks high, too high for the ground below to rise to the feet; the player on its edge
+# over the drop, sneaking all the while, looking out over it (plain, then the copies tinted by kind: a stack's red,
+# a seam's green, a swelling's yellow, faces turned inside out blue), then along the edge. Shots through the
+# swallowing: the build-up takes 80 ticks, the hill rises for 50.
+# Run: gradlew runClientAutotest -Ptremor_autotest_script=swallow-cliff.txt
+waitchunks
+cmd gamerule commandModificationBlockLimit 2147483647
+cmd gamemode spectator
+cmd time set noon
+cmd tremor despawn all
+cmd tremor awaken stop
+cmd kill @e[type=!player]
+cmd tp @s 860.5 215.0 300.5
+wait 40
+waitchunks
+cmd fill 830 194 280 890 200 360 minecraft:stone
+cmd fill 830 201 280 890 230 360 minecraft:air
+cmd fill 860 201 280 890 206 320 minecraft:gravel
+cmd effect give @s minecraft:night_vision infinite 0 true
+config awakening.buildupSeconds 4
+hud off
+log --- A. on the edge of the cliff, sneaking, looking out over the drop
+cmd tp @s 859.72 207.0 300.5 90 20
+cmd gamemode survival
+cmd effect give @s minecraft:instant_health 1 4 true
+cmd effect give @s minecraft:resistance 600 4 true
+cmd tremor spawn 862 206 312
+wait 20
+cmd tremor awaken
+press sneak
+wait 82
+cmd data get entity @s Pos
+screenshot A1
+wait 5
+screenshot A2
+wait 5
+screenshot A3
+wait 5
+screenshot A4
+wait 5
+cmd data get entity @s Pos
+screenshot A5
+wait 5
+screenshot A6
+wait 5
+screenshot A7
+wait 5
+screenshot A8
+wait 5
+cmd data get entity @s Pos
+screenshot A9
+wait 5
+release
+cmd gamemode spectator
+wait 30
+cmd tremor hollow leave
+cmd tremor awaken stop
+cmd tremor despawn all
+wait 40
+log --- B. the same, the copies tinted
+tint on
+cmd tp @s 859.72 207.0 300.5 90 20
+cmd gamemode survival
+cmd effect give @s minecraft:instant_health 1 4 true
+cmd effect give @s minecraft:resistance 600 4 true
+cmd tremor spawn 862 206 312
+wait 20
+cmd tremor awaken
+press sneak
+wait 82
+cmd data get entity @s Pos
+screenshot B1
+wait 5
+screenshot B2
+wait 5
+screenshot B3
+wait 5
+screenshot B4
+wait 5
+cmd data get entity @s Pos
+screenshot B5
+wait 5
+screenshot B6
+wait 5
+screenshot B7
+wait 5
+screenshot B8
+wait 5
+cmd data get entity @s Pos
+screenshot B9
+wait 5
+release
+tint off
+cmd gamemode spectator
+wait 30
+cmd tremor hollow leave
+cmd tremor awaken stop
+cmd tremor despawn all
+wait 40
+log --- C. the same edge, looking along it, the copies tinted
+tint on
+cmd tp @s 859.72 207.0 300.5 0 15
+cmd gamemode survival
+cmd effect give @s minecraft:instant_health 1 4 true
+cmd effect give @s minecraft:resistance 600 4 true
+cmd tremor spawn 862 206 312
+wait 20
+cmd tremor awaken
+press sneak
+wait 82
+cmd data get entity @s Pos
+screenshot C1
+wait 5
+screenshot C2
+wait 5
+screenshot C3
+wait 5
+screenshot C4
+wait 5
+cmd data get entity @s Pos
+screenshot C5
+wait 5
+screenshot C6
+wait 5
+screenshot C7
+wait 5
+screenshot C8
+wait 5
+cmd data get entity @s Pos
+screenshot C9
+wait 5
+release
+tint off
+cmd gamemode spectator
+wait 30
+cmd tremor hollow leave
+cmd tremor awaken stop
+cmd tremor despawn all
+wait 40
+log --- D. looking along it, plain
+cmd tp @s 859.72 207.0 300.5 0 15
+cmd gamemode survival
+cmd effect give @s minecraft:instant_health 1 4 true
+cmd effect give @s minecraft:resistance 600 4 true
+cmd tremor spawn 862 206 312
+wait 20
+cmd tremor awaken
+press sneak
+wait 82
+cmd data get entity @s Pos
+screenshot D1
+wait 5
+screenshot D2
+wait 5
+screenshot D3
+wait 5
+screenshot D4
+wait 5
+cmd data get entity @s Pos
+screenshot D5
+wait 5
+screenshot D6
+wait 5
+screenshot D7
+wait 5
+screenshot D8
+wait 5
+cmd data get entity @s Pos
+screenshot D9
+wait 5
+release
+cmd gamemode spectator
+wait 30
+cmd tremor hollow leave
+cmd tremor awaken stop
+cmd tremor despawn all
+wait 40
+quit

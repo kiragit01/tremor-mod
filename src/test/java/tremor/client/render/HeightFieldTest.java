@@ -67,4 +67,22 @@ class HeightFieldTest {
         Vec3 p = slope.side().scale(3).add(slope.forward().scale(-4));
         assertEquals(5, HeightField.ringDistance(slope, p.x(), p.y(), p.z()), 1e-12);
     }
+
+    /**
+     * Ground that is the bump's own farther off its plane than a bump usually reaches: as high as on the plane
+     * within that, and fading beyond it just as it fades beyond the usual reach.
+     */
+    @Test
+    void ownGroundOffThePlaneIsAsOnIt() {
+        BumpParams params = BumpParams.defaults().withAmplitude(6);
+        BumpFrame frame = BumpFrame.of(new Vec3(0, 64, 0), Vec3.UNIT_Y, Vec3.UNIT_X);
+        HeightField field = new HeightField(params, frame, 0, false, null, 0);
+        double on = field.at(1, 64, 2);
+        assertTrue(field.at(1, 68, 2) < 0.1 * on, "four blocks off its plane a bump is all but gone");
+        assertEquals(on, field.at(1, 68, 2, 6), 1e-12, "but not on ground that is its own six blocks off");
+        assertEquals(on, field.at(1, 60, 2, 6), 1e-12, "under the plane as over it");
+        assertEquals(field.at(1, 64 + BumpShape.PLANE + 1.5, 2), field.at(1, 64 + 6 + 1.5, 2, 6), 1e-12,
+                "beyond it, it fades as ever");
+        assertEquals(field.at(1, 68, 2), field.at(1, 68, 2, BumpShape.PLANE), 0, "the usual reach changes nothing");
+    }
 }
