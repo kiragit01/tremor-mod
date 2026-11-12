@@ -774,6 +774,7 @@ final class AutoTestRunner {
             }
             case CMD -> player.connection.sendCommand(step.text());
             case TINT -> tremor.client.render.DeformationRenderer.tintCopies(step.number() == 1);
+            case PROBE -> report.line(tremor.client.ProbeTool.dev(step.text()));
             case POPS -> {
                 String totals = tremor.client.render.DeformationRenderer.watchPops(
                         step.number() == 1 ? report::line : null);
