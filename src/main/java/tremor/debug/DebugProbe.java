@@ -56,6 +56,8 @@ public final class DebugProbe {
     private static final java.util.Set<UUID> LOUD = new java.util.HashSet<>();
     /** The latest sound of each holder the entity evaluated. */
     private static final Map<UUID, Sound> SOUNDS = new HashMap<>();
+    /** The tremor each operator chose to command ({@code /tremor select}); the others command the nearest. */
+    private static final Map<UUID, Integer> SELECTED = new HashMap<>();
 
     private record Sound(long time, Vibration vibration, Perception perception) {
     }
@@ -77,6 +79,36 @@ public final class DebugProbe {
     public static boolean holding(Player player) {
         return player.getMainHandItem().is(TremorItems.DEBUG_PROBE.get())
                 || player.getOffhandItem().is(TremorItems.DEBUG_PROBE.get());
+    }
+
+    /** {@code player} commands tremor {@code instance} from now on; -1: the nearest, as at first. */
+    public static void select(ServerPlayer player, int instance) {
+        if (instance < 0) {
+            SELECTED.remove(player.getUUID());
+        } else {
+            SELECTED.put(player.getUUID(), instance);
+        }
+    }
+
+    /** The instance {@code player} chose to command, or -1 if they command the nearest. */
+    public static int selected(Player player) {
+        return SELECTED.getOrDefault(player.getUUID(), -1);
+    }
+
+    /**
+     * The tremor commands of {@code player} go to (the one they chose if it is still in {@code level}, else the
+     * nearest to {@code (x, y, z)}); also with no player (a command block, the console): the nearest. Several tremors
+     * at once are to come (the user: say which one you command).
+     */
+    public static TremorRuntime tremor(ServerLevel level, Player player, double x, double y, double z) {
+        Integer chosen = player == null ? null : SELECTED.get(player.getUUID());
+        if (chosen != null) {
+            TremorRuntime runtime = TremorManager.byInstance(level, chosen);
+            if (runtime != null && runtime.entity() != null) {
+                return runtime;
+            }
+        }
+        return TremorManager.nearest(level, x, y, z);
     }
 
     /** Whether {@code player} may use it: an operator (level 2), as for the commands. */
@@ -143,12 +175,14 @@ public final class DebugProbe {
         // The client forgets them too on leaving (tremor.client.ProbeTool#forget).
         PANELS.remove(event.getEntity().getUUID());
         LOUD.remove(event.getEntity().getUUID());
+        SELECTED.remove(event.getEntity().getUUID());
     }
 
     public static void onServerStopped(ServerStoppedEvent event) {
         SOUNDS.clear();
         PANELS.clear();
         LOUD.clear();
+        SELECTED.clear();
     }
 
     /** What the probe shows {@code player}. */
@@ -156,8 +190,13 @@ public final class DebugProbe {
         ServerLevel level = player.serverLevel();
         long now = level.getGameTime();
         List<String> lines = new ArrayList<>();
-        TremorRuntime runtime = TremorManager.nearest(level, player.getX(), player.getY(), player.getZ());
+        TremorRuntime runtime = tremor(level, player, player.getX(), player.getY(), player.getZ());
         TremorEntity entity = runtime == null ? null : runtime.entity();
+        int chosen = selected(player);
+        if (chosen >= 0 && (entity == null || entity.instance() != chosen)) {
+            lines.add("Chosen tremor #" + chosen + " is not in " + level.dimension().location()
+                    + ": the commands go to the nearest");
+        }
         if (entity == null) {
             lines.add("No tremor in " + level.dimension().location());
         } else {
@@ -165,7 +204,9 @@ public final class DebugProbe {
         }
         int count = TremorManager.runtimes(level).size();
         if (count > 1) {
-            lines.add(String.format(Locale.ROOT, "%d tremors in the dimension (this is the nearest)", count));
+            lines.add(String.format(Locale.ROOT, "%d tremors in the dimension (this is %s)", count,
+                    selected(player) >= 0 && runtime != null && runtime.entity() != null
+                            && runtime.entity().instance() == selected(player) ? "the one chosen" : "the nearest"));
         }
         lines.add(NaturalSpawner.describe(player));
         Sound sound = SOUNDS.get(player.getUUID());

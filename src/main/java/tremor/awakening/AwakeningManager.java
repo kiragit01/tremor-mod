@@ -156,6 +156,15 @@ public final class AwakeningManager {
      *
      * @param executor the player running the command, or null
      */
+    /** The build-up of the Awakening here (or of {@code executor}) ends at once; null if none is building up. */
+    static Awakening hurry(ServerLevel level, ServerPlayer executor) {
+        Awakening awakening = running(level);
+        if (awakening == null && executor != null) {
+            awakening = targetOf(executor.getUUID());
+        }
+        return awakening != null && awakening.hurry(level.getGameTime()) ? awakening : null;
+    }
+
     static Awakening stop(ServerLevel level, ServerPlayer executor) {
         Awakening awakening = running(level);
         if (awakening == null && executor != null) {

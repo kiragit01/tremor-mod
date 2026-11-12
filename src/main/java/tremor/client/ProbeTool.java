@@ -1,5 +1,6 @@
 package tremor.client;
 
+import java.util.List;
 import java.util.Locale;
 
 import com.mojang.blaze3d.platform.InputConstants;
@@ -20,8 +21,9 @@ import tremor.item.DebugProbeItem;
  * The debug probe as an operator's multitool on the client ({@link DebugProbeItem}): a right click acts where the
  * player looks (up to {@value #RANGE} blocks), by the mode chosen in its menu ({@link ProbeScreen}), and with no tremor
  * near calls one up there; a right click while sneaking opens the menu; Alt + a left click calls up one more of the
- * kind chosen (a tremor, a stalactite crawler, a listener), Shift + the wheel chooses it (the user: no typing); a key
- * (unbound at first) hides the panel of the probe or shows it again. Every action is one of the {@code /tremor}
+ * kind chosen (a tremor, a stalactite crawler, a listener), Shift + the wheel chooses it (the user: no typing); Alt + a
+ * right click copies a report of what is going on there for a bug report ({@link ProbeReport}); a key (unbound at
+ * first) hides the panel of the probe or shows it again. Every action is one of the {@code /tremor}
  * commands, run as the player, so the server checks the permission and answers as for a typed command. Main thread
  * only.
  */
@@ -99,6 +101,10 @@ public final class ProbeTool {
 
     static Mode mode = Mode.LURE;
     static Kind kind = Kind.TREMOR;
+    /** The tremor the commands go to ({@code /tremor probe select}), as last asked; -1: the nearest. */
+    static int selected = -1;
+    /** The debug views shown ({@code /tremor debug <view> on|off}), as last asked. */
+    static final java.util.Set<String> views = new java.util.HashSet<>();
     static Panel panel = Panel.HIDDEN;
     /** Whether the short answers of the server go above the hotbar rather than into the chat (at first they do). */
     static boolean quiet = true;
@@ -136,6 +142,10 @@ public final class ProbeTool {
             return;
         }
         lastUse = now;
+        if (ADD.isDown()) {
+            report(); // Alt + a right click: the report of this moment, not a second later through the menu
+            return;
+        }
         // The sneak key itself: the player counts as sneaking only from its next tick on.
         if (sneaking || mc.options.keyShift.isDown()) {
             mc.setScreen(new ProbeScreen());
@@ -220,6 +230,110 @@ public final class ProbeTool {
         panel = Panel.HIDDEN;
         shownBefore = Panel.HELD;
         quiet = true;
+        selected = -1;
+        views.clear();
+    }
+
+    /** The commands go to tremor {@code instance} from now on; -1: to the nearest. */
+    static void select(int instance) {
+        selected = instance;
+        command("tremor probe select " + (instance < 0 ? "nearest" : Integer.toString(instance)));
+    }
+
+    /**
+     * The tremor the commands go to turns {@code by} through those the client sees, in the order of their numbers
+     * (from the nearest if none was chosen).
+     */
+    static void turnSelection(int by) {
+        List<Integer> seen = new java.util.ArrayList<>();
+        for (ClientTremor.RenderState state : ClientTremor.lastStates()) {
+            seen.add(state.instance());
+        }
+        if (seen.isEmpty()) {
+            message(Component.translatable("tremor.probe.none_seen"));
+            return;
+        }
+        int current = selected >= 0 && seen.contains(selected) ? selected : seen.get(0);
+        java.util.Collections.sort(seen);
+        int at = seen.indexOf(current);
+        select(seen.get(((at + by) % seen.size() + seen.size()) % seen.size()));
+    }
+
+    /** The commands go to the tremor nearest to where the player looks, among those the client sees. */
+    static void selectLookedAt() {
+        Minecraft mc = Minecraft.getInstance();
+        net.minecraft.client.Camera camera = mc.gameRenderer.getMainCamera();
+        net.minecraft.world.phys.Vec3 eye = camera.getPosition();
+        org.joml.Vector3f look = camera.getLookVector();
+        int best = -1;
+        double bestCos = Math.cos(Math.toRadians(25));
+        for (ClientTremor.RenderState state : ClientTremor.lastStates()) {
+            tremor.core.math.Vec3 c = state.frame().center();
+            double dx = c.x() - eye.x, dy = c.y() - eye.y, dz = c.z() - eye.z;
+            double length = Math.sqrt(dx * dx + dy * dy + dz * dz);
+            double cos = length < 1e-6 ? 1 : (dx * look.x() + dy * look.y() + dz * look.z()) / length;
+            if (cos > bestCos) {
+                bestCos = cos;
+                best = state.instance();
+            }
+        }
+        if (best < 0) {
+            message(Component.translatable("tremor.probe.none_looked_at"));
+            return;
+        }
+        select(best);
+    }
+
+    /** Shows debug view {@code view} or hides it ({@code /tremor debug <view> on|off}). */
+    static void toggleView(String view) {
+        boolean on = views.add(view);
+        if (!on) {
+            views.remove(view);
+        }
+        command("tremor debug " + view + (on ? " on" : " off"));
+    }
+
+    /**
+     * Autotests only ({@code probe <tab|close|report>}): opens the probe's menu on a tab, closes it, or asks for a
+     * report; returns what the report of the run says.
+     */
+    public static String dev(String what) {
+        Minecraft mc = Minecraft.getInstance();
+        switch (what) {
+            case "close" -> {
+                mc.setScreen(null);
+                return "probe: menu closed";
+            }
+            case "report" -> {
+                report();
+                return "probe: report asked for";
+            }
+            case "next" -> {
+                turnSelection(1);
+                return "probe: commands go to #" + selected;
+            }
+            default -> {
+                ProbeScreen.Tab tab = ProbeScreen.Tab.valueOf(what.toUpperCase(Locale.ROOT));
+                ProbeScreen.open(tab);
+                return "probe: menu on " + tab.name().toLowerCase(Locale.ROOT);
+            }
+        }
+    }
+
+    private static void message(Component text) {
+        if (Minecraft.getInstance().player != null) {
+            Minecraft.getInstance().player.displayClientMessage(text, true);
+        }
+    }
+
+    /**
+     * Asks the server for its part of a report ({@code /tremor probe report}); its answer comes back as a
+     * {@link tremor.network.TremorReportPayload}, to which {@link ProbeReport} adds what the client knows and copies
+     * the whole.
+     */
+    static void report() {
+        ProbeReport.asked();
+        command("tremor probe report");
     }
 
     /** Runs {@code /command} as the player. */
