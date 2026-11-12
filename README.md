@@ -68,7 +68,7 @@ Difficulty is one switch: Calm, Normal, Hard, Nightmare. It's `difficulty` at th
 
 ## For admins and testing
 
-The `/tremor` commands are for operators only: `spawn`, `spawn near <player>` (the creature appears near that player, already wary, and crawls towards them), `despawn`, `info`, `stage`, `awaken`, `restore`, `difficulty` and more, Tab will suggest the rest. There's also a multitool (`/give @s tremor:debug_probe`): in your hand it shows what the nearest creature is doing, right click lures it to where you're looking, sneak + right click opens its menu.
+The `/tremor` commands are for operators only: `spawn`, `spawn near <player>` (the creature appears near that player, already wary, and crawls towards them), `despawn`, `info`, `stage`, `awaken`, `restore`, `difficulty` and more, Tab will suggest the rest. There's also a multitool (`/give @s tremor:debug_probe`): in your hand it shows what the nearest creature is doing, right click lures it to where you're looking, sneak + right click opens its menu. Alt + right click (or Copy report in the menu) copies a full text report of that moment to the clipboard: paste it whole into a bug report instead of screenshots.
 
 ## Building from source
 

@@ -80,6 +80,7 @@ record Script(Path path, List<Step> steps) {
 
     enum Kind {
         WAIT, WAITCHUNKS, CMD, HUD, TINT, POPS, VIEW, LOOK, LOOKAT, HOLD, PRESS, RELEASE, GRAPHICS, FPS, BENCH, SCREENSHOT, LOG, CONFIG, WAITFOR, QUIT,
+        PROBE,
         INVALID
     }
 
@@ -237,6 +238,10 @@ record Script(Path path, List<Step> steps) {
                         throw new IllegalArgumentException("usage: cmd <command>");
                     }
                     yield Step.of(line, source, Kind.CMD, command, 0);
+                }
+                case "probe" -> {
+                    expectArgs(args, 1, 1, "probe <tab|close|report|next>");
+                    yield Step.of(line, source, Kind.PROBE, args[0].toLowerCase(Locale.ROOT), 0);
                 }
                 case "tint" -> {
                     expectArgs(args, 1, 1, "tint <on|off>");

@@ -192,7 +192,15 @@ public final class ClientTremor {
         }
         presence = best == null ? null : new Presence(best.frame().center(), running ? best.velocity() : Vec3.ZERO,
                 best.amplitude(), best.stage(), bestInstance);
+        lastStates = List.copyOf(states);
         return states;
+    }
+
+    private static List<RenderState> lastStates = List.of();
+
+    /** The render states of the latest frame, nearest to the camera first (the debug probe picks and reports them). */
+    public static List<RenderState> lastStates() {
+        return lastStates;
     }
 
     /**
@@ -334,6 +342,7 @@ public final class ClientTremor {
         leaps.clear();
         owner = null;
         presence = null;
+        lastStates = List.of();
     }
 
     /**

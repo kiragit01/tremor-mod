@@ -248,7 +248,35 @@ public final class TremorCommands {
                 .then(Commands.literal("hide").executes(ctx -> probePanel(ctx, DebugProbe.Panel.HIDDEN)))
                 .then(Commands.literal("quiet").executes(ctx -> probeQuiet(ctx, null))
                         .then(Commands.literal("on").executes(ctx -> probeQuiet(ctx, true)))
-                        .then(Commands.literal("off").executes(ctx -> probeQuiet(ctx, false))));
+                        .then(Commands.literal("off").executes(ctx -> probeQuiet(ctx, false))))
+                .then(Commands.literal("report").executes(TremorCommands::probeReport))
+                .then(Commands.literal("select").then(Commands.literal("nearest").executes(ctx -> select(ctx, -1)))
+                        .then(Commands.argument("instance", com.mojang.brigadier.arguments.IntegerArgumentType
+                                .integer(0)).executes(ctx -> select(ctx, com.mojang.brigadier.arguments
+                                .IntegerArgumentType.getInteger(ctx, "instance")))));
+    }
+
+    /** {@code /tremor probe select <instance>|nearest}: which tremor the player's commands go to. */
+    private static int select(CommandContext<CommandSourceStack> ctx, int instance) throws CommandSyntaxException {
+        net.minecraft.server.level.ServerPlayer player = ctx.getSource().getPlayerOrException();
+        if (instance >= 0 && (TremorManager.byInstance(ctx.getSource().getLevel(), instance) == null
+                || TremorManager.byInstance(ctx.getSource().getLevel(), instance).entity() == null)) {
+            ctx.getSource().sendFailure(Component.literal("No tremor #" + instance + " in "
+                    + ctx.getSource().getLevel().dimension().location()));
+            return 0;
+        }
+        DebugProbe.select(player, instance);
+        answer(ctx.getSource(), () -> Component.literal(instance < 0 ? "Commands go to the nearest tremor"
+                : "Commands go to tremor #" + instance));
+        return 1;
+    }
+
+    /** The server's part of a report for a bug report, sent to the client, which adds its own and copies it. */
+    private static int probeReport(CommandContext<CommandSourceStack> ctx) throws CommandSyntaxException {
+        net.minecraft.server.level.ServerPlayer player = ctx.getSource().getPlayerOrException();
+        tremor.network.TremorNetwork.sendToPlayer(player,
+                new tremor.network.TremorReportPayload(tremor.debug.DebugReport.text(player)));
+        return 1;
     }
 
     private static int probePanel(CommandContext<CommandSourceStack> ctx, DebugProbe.Panel panel)
@@ -680,7 +708,7 @@ public final class TremorCommands {
                 source.getPosition().z);
         String craters = Craters.describe(source.getLevel());
         String awakening = described == null ? craters : craters == null ? described : described + "\n" + craters;
-        TremorRuntime runtime = TremorManager.nearest(source.getLevel(), source.getPosition().x,
+        TremorRuntime runtime = DebugProbe.tremor(source.getLevel(), source.getPlayer(), source.getPosition().x,
                 source.getPosition().y, source.getPosition().z);
         if (runtime == null || runtime.entity() == null) {
             if (awakening == null) {
@@ -835,7 +863,6 @@ public final class TremorCommands {
         }
     }
 
-    /** The entity nearest to where the command runs (a dimension may have several). */
     /**
      * {@code /tremor cache}: the terrain the entities of this dimension hold (benchmarks): caches, 16³ sections and
      * about how much memory, sections read from the world so far and the time that took.
@@ -862,8 +889,12 @@ public final class TremorCommands {
     /** About the memory of a cached section: two bitsets of 4096 bits, its object and its table slot. */
     private static final int SECTION_BYTES = 2 * 512 + 64;
 
+    /**
+     * The entity the command goes to: the one the player chose ({@code /tremor select}), else the nearest to where it
+     * runs (a dimension may have several).
+     */
     private static TremorRuntime requireRuntime(CommandSourceStack source) throws CommandSyntaxException {
-        TremorRuntime runtime = TremorManager.nearest(source.getLevel(), source.getPosition().x,
+        TremorRuntime runtime = DebugProbe.tremor(source.getLevel(), source.getPlayer(), source.getPosition().x,
                 source.getPosition().y, source.getPosition().z);
         if (runtime == null || runtime.entity() == null) {
             throw NO_ENTITY.create();
