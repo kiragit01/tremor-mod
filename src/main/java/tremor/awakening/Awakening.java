@@ -734,6 +734,15 @@ final class Awakening {
         }
     }
 
+    /** Ends the build-up at once: the next tick swallows the target (the debug probe). False if it is past it. */
+    boolean hurry(long now) {
+        if (phase != Phase.BUILDUP) {
+            return false;
+        }
+        clock = new PhaseClock(now - clock.ticks(), clock.ticks());
+        return true;
+    }
+
     /** Goes into {@code phase}, starting at game time {@code start} (now, or a little ahead for SETTLING). */
     private void setPhase(Phase phase, long start, int ticks) {
         this.phase = phase;

@@ -47,6 +47,7 @@ import tremor.world.LevelVoxelView;
 import tremor.world.SurfaceLight;
 
 import java.util.ArrayList;
+import java.util.Locale;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.Iterator;
@@ -405,6 +406,109 @@ public final class DeformationRenderer {
     }
 
     private DeformationRenderer() {
+    }
+
+    /**
+     * The hill of tremor {@code instance} as the client draws it, for a report ({@code tremor.client.ProbeReport}):
+     * its frame and shape this frame, its collection, and every column of it within {@code radius} of its centre with
+     * the height drawn, the height it is heading to and why (the user: instead of screenshots, numbers to send).
+     */
+    public static void report(StringBuilder out, int instance, double radius, long tick) {
+        Bump bump = bumps.get(instance);
+        if (bump == null || bump.field == null) {
+            out.append("no hill drawn for #").append(instance).append(" this frame\n");
+            return;
+        }
+        HeightField field = bump.field;
+        BumpFrame frame = field.frame();
+        BumpParams p = field.params();
+        Vec3 c = frame.center(), n = frame.normal();
+        out.append(String.format(Locale.ROOT, "frame centre %s, normal %s, forward %s%n", vec(c), vec(n),
+                vec(frame.forward())));
+        out.append(String.format(Locale.ROOT, "shape drawn: amplitude %.3f, sigma front %.3f back %.3f side %.3f, "
+                        + "trail lag %.3f sigma %.3f depth %.3f, jitter %.3f, ripple %s%n", p.amplitude(),
+                p.sigmaFront(), p.sigmaBack(), p.sigmaSide(), p.trailLag(), p.trailSigma(), p.trailDepth(), p.jitter(),
+                field.ripple() == null ? "none" : String.format(Locale.ROOT, "%.3f high, %.2f s old",
+                        field.ripple().amplitude(), field.rippleAge())));
+        out.append(String.format(Locale.ROOT, "own ground off its plane %.2f, room %.2f, cramped to %.3f, drawn normal "
+                        + "%s, wide %s, heading %s%n", bump.free, bump.room, bump.cramp,
+                bump.normal == null ? "-" : vec(bump.normal), bump.wide == null ? "-" : vec(bump.wide),
+                bump.heading == null ? "-" : vec(bump.heading)));
+        out.append(String.format(Locale.ROOT, "collected %d ticks ago at %.2f %.2f %.2f, radius %.1f, normal %s: "
+                        + "%d columns (own ground %d, step sides %d, coming up %d, going down %d, new %d, swelling "
+                        + "cells %d, ring %d)%n", tick - bump.collectTick, bump.collectX, bump.collectY, bump.collectZ,
+                bump.collectRadius, vec(bump.collectNormal), bump.active.size(), bump.level.size(),
+                bump.risers.size(), bump.rising.size(), bump.leaving.size(), bump.fresh.size(), bump.fills.size(),
+                bump.ringColumns.size()));
+        out.append("columns within ").append(radius).append(" of the centre: x y z way | drawn target share | "
+                + "facing sideways | flags block\n");
+        out.append("  drawn: the height drawn last frame (every bump and the zone together); target: this bump's for "
+                + "it now; share: how far it has come up, or is left going down; facing: kept of a face turned from "
+                + "the bump; sideways: kept of a column going another way than the bump; flags: L its own ground "
+                + "(as on the plane), R side of a step, S seam over it (way, reach), F swelling cell, N new, U going "
+                + "down, Z also the zone, G not baked\n");
+        List<Column> near = new ArrayList<>();
+        int still = 0;
+        for (Column col : bump.active) {
+            double dx = col.cx - c.x(), dy = col.cy - c.y(), dz = col.cz - c.z();
+            if (dx * dx + dy * dy + dz * dz > radius * radius) {
+                continue;
+            }
+            // Ground that neither rises nor is marked anyhow says nothing: counted, not listed.
+            boolean marked = bump.level.contains(col) || bump.risers.containsKey(col) || col.cross != null
+                    || col.fill || bump.leaving.containsKey(col) || bump.rising.containsKey(col);
+            double shaped = col.fill ? 0 : shape(bump, col, bump.level);
+            if (!marked && col.h < BumpShape.RENDER_THRESHOLD && shaped < BumpShape.RENDER_THRESHOLD) {
+                still++;
+                continue;
+            }
+            near.add(col);
+        }
+        near.sort(java.util.Comparator.comparingInt((Column col) -> col.y).thenComparingInt(col -> col.z)
+                .thenComparingInt(col -> col.x));
+        out.append(String.format(Locale.ROOT, "  (%d more within reach do not rise and are not listed)%n", still));
+        for (Column col : near) {
+            double shaped = col.fill ? 0 : shape(bump, col, bump.level);
+            double target = col.fill ? 0 : sideways(bump, col, shaped) * facing(col.normal, n);
+            double[] up = bump.rising.get(col), down = bump.leaving.get(col);
+            double share = up != null ? up[0] : down != null ? down[0] : 1;
+            double side = shaped > 1e-9 ? sideways(bump, col, shaped) / shaped : 1;
+            StringBuilder flags = new StringBuilder();
+            if (bump.level.contains(col)) {
+                flags.append('L');
+            }
+            if (bump.risers.containsKey(col)) {
+                flags.append('R');
+            }
+            if (col.cross != null) {
+                flags.append('S').append(col.cross.getName().charAt(0)).append(String.format(Locale.ROOT, "%.1f",
+                        col.crossReach));
+            }
+            if (col.fill) {
+                flags.append('F');
+            }
+            if (bump.fresh.contains(col)) {
+                flags.append('N');
+            }
+            if (down != null) {
+                flags.append('U');
+            }
+            if (col.inZone) {
+                flags.append('Z');
+            }
+            if (!col.baked || !col.hasGeometry()) {
+                flags.append('G');
+            }
+            out.append(String.format(Locale.ROOT, "%d %d %d %s | %.2f %.2f %.2f | %.2f %.2f | %s %s%n", col.x, col.y,
+                    col.z, col.axis.getName(), col.h, target, share, facing(col.normal, n), side,
+                    flags.length() == 0 ? "-" : flags, col.state == null ? "?"
+                            : net.minecraft.core.registries.BuiltInRegistries.BLOCK.getKey(col.state.getBlock())
+                            .getPath()));
+        }
+    }
+
+    private static String vec(Vec3 v) {
+        return String.format(Locale.ROOT, "%.3f %.3f %.3f", v.x(), v.y(), v.z());
     }
 
     /** Tests only: the copies drawn tinted red, told from the real blocks on shots ({@code tint} of an autotest). */

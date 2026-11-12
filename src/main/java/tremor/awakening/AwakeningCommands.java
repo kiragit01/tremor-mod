@@ -48,6 +48,7 @@ public final class AwakeningCommands {
         return Commands.literal("awaken")
                 .executes(ctx -> start(ctx, ctx.getSource().getPlayerOrException()))
                 .then(Commands.literal("stop").executes(AwakeningCommands::stop))
+                .then(Commands.literal("swallow").executes(AwakeningCommands::swallow))
                 .then(Commands.argument("player", EntityArgument.player())
                         .executes(ctx -> start(ctx, EntityArgument.getPlayer(ctx, "player"))));
     }
@@ -138,6 +139,18 @@ public final class AwakeningCommands {
                 awakening.center.z(), awakening.phaseSeconds(), adventure ? ". Note: " + awakening.targetName
                         + " is in adventure mode, so in the hollow the node cannot be broken nor the ground dug: only "
                         + "the edge is a way out (a natural Awakening never takes such a player)" : "")), false);
+        return awakening.id;
+    }
+
+    /** {@code /tremor awaken swallow}: the build-up ends now and the ground swallows the target. */
+    private static int swallow(CommandContext<CommandSourceStack> ctx) {
+        Awakening awakening = AwakeningManager.hurry(ctx.getSource().getLevel(), ctx.getSource().getPlayer());
+        if (awakening == null) {
+            ctx.getSource().sendFailure(Component.literal("No Awakening building up here"));
+            return 0;
+        }
+        ctx.getSource().sendSuccess(() -> Component.literal("Awakening #" + awakening.id + ": the ground swallows "
+                + awakening.targetName + " now"), false);
         return awakening.id;
     }
 
