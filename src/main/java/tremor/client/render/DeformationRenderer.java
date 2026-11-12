@@ -977,7 +977,7 @@ public final class DeformationRenderer {
         Vec3 c = frame.center(), n = frame.normal();
         double top = (step[0] - c.x()) * n.x() + (step[1] - c.y()) * n.y() + (step[2] - c.z()) * n.z();
         double foot = (step[3] - c.x()) * n.x() + (step[4] - c.y()) * n.y() + (step[5] - c.z()) * n.z();
-        return Math.max(0, Math.min(1, bump.free + 1 - Math.max(Math.abs(top), Math.abs(foot)))) * upright(n);
+        return Math.max(0, Math.min(1, bump.free + 1 - Math.max(Math.abs(top), Math.abs(foot)))) * upright(n) * RISER_HOLD;
     }
 
     /**
@@ -992,6 +992,12 @@ public final class DeformationRenderer {
     }
 
     static final double UPRIGHT_NONE = 0.72, UPRIGHT_FULL = 0.86;
+    /**
+     * How much of its coming out the side of a step under a big hill gives up ({@link #carried}): half. Wholly held it
+     * stayed a flat wall under the risen top, the hill sawn off along the ledge, the corner over it never filled; let
+     * out wholly it came out as a shelf, a mountain of steps (the user chose the half from films of the three).
+     */
+    static final double RISER_HOLD = 0.5;
 
     /**
      * How far {@code col} goes the way a bump with the normal {@code n} stands: 1 from {@link #SIDE_TO} (the cosine
