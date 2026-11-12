@@ -38,6 +38,9 @@ public final class ProbeReport {
 
     /** The client's part, taken when the report was asked for; null while none is awaited. */
     private static String clientPart;
+    /** When it was asked for ({@link System#nanoTime}): an answer that comes later than this waits is dropped. */
+    private static long askedAt;
+    private static final long WAIT_NANOS = 10_000_000_000L;
 
     private ProbeReport() {
     }
@@ -45,14 +48,21 @@ public final class ProbeReport {
     /** The report was just asked for: what the client sees is taken now, the server's part comes after. */
     static void asked() {
         clientPart = client();
+        askedAt = System.nanoTime();
     }
 
     /** The server's part came: the whole goes to the clipboard. */
     public static void accept(TremorReportPayload payload) {
+        // Only the answer to a report this player has just asked for: a server may not put text into the clipboard
+        // unasked (the security review).
+        String own = clientPart;
+        clientPart = null;
+        if (own == null || System.nanoTime() - askedAt > WAIT_NANOS) {
+            return;
+        }
         Minecraft mc = Minecraft.getInstance();
         String text = "# Tremor report, " + LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"))
-                + "\n" + payload.text() + (clientPart != null ? clientPart : client());
-        clientPart = null;
+                + "\n" + payload.text() + own;
         mc.keyboardHandler.setClipboard(text);
         Tremor.LOGGER.info("Tremor report copied to the clipboard:\n{}", text);
         if (mc.player != null) {
