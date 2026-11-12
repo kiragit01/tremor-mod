@@ -917,8 +917,21 @@ public final class DeformationRenderer {
         Vec3 c = frame.center(), n = frame.normal();
         double top = (step[0] - c.x()) * n.x() + (step[1] - c.y()) * n.y() + (step[2] - c.z()) * n.z();
         double foot = (step[3] - c.x()) * n.x() + (step[4] - c.y()) * n.y() + (step[5] - c.z()) * n.z();
-        return Math.max(0, Math.min(1, bump.free + 1 - Math.max(Math.abs(top), Math.abs(foot))));
+        return Math.max(0, Math.min(1, bump.free + 1 - Math.max(Math.abs(top), Math.abs(foot)))) * upright(n);
     }
+
+    /**
+     * How much a bump with the normal {@code n} stands on a floor or under a ceiling, for the sides of the steps of its
+     * ground ({@link #carried}): wholly from {@value #UPRIGHT_FULL} (the cosine with the vertical) on, not at all up to
+     * {@value #UPRIGHT_NONE}, eased between, so that it fades out before the axis it stands along turns sideways
+     * (at the cosine 0.707) and the steps' sides are told along another axis.
+     */
+    static double upright(Vec3 n) {
+        double t = Math.max(0, Math.min(1, (Math.abs(n.y()) - UPRIGHT_NONE) / (UPRIGHT_FULL - UPRIGHT_NONE)));
+        return t * t * (3 - 2 * t);
+    }
+
+    static final double UPRIGHT_NONE = 0.72, UPRIGHT_FULL = 0.86;
 
     /**
      * How far {@code col} goes the way a bump with the normal {@code n} stands: 1 from {@link #SIDE_TO} (the cosine
@@ -1600,7 +1613,10 @@ public final class DeformationRenderer {
                 if (SurfaceCollector.seesPlane(voxels, col.x, col.y, col.z, ax, ay, az, frame.center(), n)) {
                     bump.level.add(col);
                 }
-                if (ax * ux + ay * uy + az * uz == 0) {
+                // Steps only of a floor or a ceiling: on a steep slope the axis it stands along is a side, and the
+                // tops of the slope's steps were taken for their sides and held still (the user's report: on a
+                // mountainside the faces came out and every top stayed, a tremor made big in the config).
+                if (uy != 0 && ax * ux + ay * uy + az * uz == 0) {
                     double[] step = SurfaceCollector.step(voxels, col.x, col.y, col.z, ax, ay, az, ux, uy, uz, reach);
                     if (step != null) {
                         bump.risers.put(col, step);
