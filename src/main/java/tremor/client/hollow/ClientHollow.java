@@ -29,6 +29,13 @@ public final class ClientHollow {
     private static double widest = Double.NaN;
     /** Whether the server was told that this level of the hollow is drawn ({@link #onClientTick}). */
     private static boolean toldDrawn;
+    /** Client ticks the hollow has looked drawn in a row; the server is told after {@value #DRAWN_TICKS}. */
+    private static int drawnTicks;
+    /**
+     * The look must hold this long: a section meshed before its chunk came is meshed empty, and the chunk's own mesh
+     * is queued a frame after it comes.
+     */
+    private static final int DRAWN_TICKS = 10;
 
     private ClientHollow() {
     }
@@ -52,8 +59,10 @@ public final class ClientHollow {
     }
 
     /**
-     * Tells the server, once per arrival in the hollow, that the hollow is drawn around the player: the loading screen
-     * of the dimension change is gone and the sections round the player are meshed. The level's clock starts then.
+     * Tells the server, once per arrival in the hollow, that the hollow is drawn around the player: for
+     * {@value #DRAWN_TICKS} ticks in a row the loading screen of the dimension change is gone, the chunks round the
+     * player are in, the player's own section is meshed and the mesher has nothing more queued (only the sections in
+     * view get meshed, so the ones behind the player are not waited for). The level's clock starts then.
      */
     public static void onClientTick(TickEvent.ClientTickEvent event) {
         Minecraft mc = Minecraft.getInstance();
@@ -66,15 +75,16 @@ public final class ClientHollow {
             return;
         }
         BlockPos feet = mc.player.blockPosition();
-        for (int dy = -16; dy <= 16; dy += 16) {
-            for (int dz = -16; dz <= 16; dz += 16) {
-                for (int dx = -16; dx <= 16; dx += 16) {
-                    BlockPos at = feet.offset(dx, dy, dz);
-                    if (!mc.level.isOutsideBuildHeight(at) && !mc.levelRenderer.isChunkCompiled(at)) {
-                        return;
-                    }
-                }
+        boolean drawn = (mc.level.isOutsideBuildHeight(feet) || mc.levelRenderer.isChunkCompiled(feet))
+                && mc.levelRenderer.hasRenderedAllChunks();
+        for (int dz = -1; dz <= 1 && drawn; dz++) {
+            for (int dx = -1; dx <= 1 && drawn; dx++) {
+                drawn = mc.level.getChunkSource().hasChunk((feet.getX() >> 4) + dx, (feet.getZ() >> 4) + dz);
             }
+        }
+        drawnTicks = drawn ? drawnTicks + 1 : 0;
+        if (drawnTicks < DRAWN_TICKS) {
+            return;
         }
         toldDrawn = true;
         TremorNetwork.sendToServer(TremorHollowDrawnPayload.INSTANCE);
@@ -128,6 +138,7 @@ public final class ClientHollow {
         state = null;
         heardOf = false;
         toldDrawn = false;
+        drawnTicks = 0;
         widest = Double.NaN;
     }
 }

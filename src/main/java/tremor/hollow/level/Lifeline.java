@@ -12,7 +12,8 @@ import java.util.function.LongPredicate;
  * to an exit; being buried is the end of the time only): the shortest walk, through the copy as it is now, from the
  * player's feet to the way to the node or the escape tunnel. The closing and the moving walls leave its cells open
  * while it is the player's ({@link EventLevel#keepsOpen}), so a dead end the front passes keeps its way back. The walk
- * goes a block aside on the level, a block up with room to jump, down a drop of any height, and up through water.
+ * goes a block aside on the level, a block up with room to jump, down a drop of any height, and up through water; of
+ * the walks as short, it takes one that winds at random (the closing's work is ragged, never a straight cut).
  * Plain Java: the copy is asked through {@link Cells}, cells are {@link CellKey}s.
  */
 final class Lifeline {
@@ -64,7 +65,12 @@ final class Lifeline {
             if (cells.water(cell) && cells.passable(CellKey.above(cell, 2))) {
                 found = visit(parent, queue, exit, CellKey.above(cell, 1), cell);
             }
-            for (int dir = 0; dir < 4 && found == NONE; dir++) {
+            // The sides in an order of the cell's own, so the way kept winds at random rather than in straight runs.
+            long hash = cell * 0x9E3779B97F4A7C15L;
+            int turn = (int) (hash >>> 62);
+            int step = (hash >>> 61 & 1) == 0 ? 1 : 3;
+            for (int i = 0; i < 4 && found == NONE; i++) {
+                int dir = (turn + i * step) & 3;
                 long side = CellKey.of(x + DX[dir], y, z + DZ[dir]);
                 long sideUp = CellKey.above(side, 1);
                 if (cells.passable(side) && cells.passable(sideUp)) {
