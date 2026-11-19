@@ -109,6 +109,24 @@ final class Materials {
     }
 
     /**
+     * A block of the scree out of a pit ({@link Scree}), picked at random by the cell: the ground's own block
+     * ({@link #floor}), cobblestone, gravel or andesite (cobbled deepslate and tuff below y 0). The heap is laid from
+     * the bottom up on firm ground, so its gravel only falls once a player digs under it.
+     */
+    static BlockState scree(ServerLevel level, BlockPos pos, long seed) {
+        int pick = (int) Math.floorMod(LevelNoise.mix(seed ^ pos.asLong()), 10L);
+        boolean deep = pos.getY() < 0;
+        if (pick < 4) {
+            return floor(level, pos);
+        }
+        if (pick < 7) {
+            return (deep ? Blocks.COBBLED_DEEPSLATE : Blocks.COBBLESTONE).defaultBlockState();
+        }
+        return pick < 9 ? Blocks.GRAVEL.defaultBlockState()
+                : (deep ? Blocks.TUFF : Blocks.ANDESITE).defaultBlockState();
+    }
+
+    /**
      * Whether the ground at {@code pos} can soften into {@code tremor:mire}: any block with a collision (a full block, a
      * slab, a path, soul sand, a fence; unbreakable ones too, they are copies) but one with a block entity (a prop of
      * the copy, which would lose it), the node and the mire itself.

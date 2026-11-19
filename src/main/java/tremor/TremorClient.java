@@ -53,6 +53,7 @@ public final class TremorClient {
         game.addListener(ClientBlackout::onLoggingOut);
         game.addListener(tremor.client.awakening.ClientAwakening::onLoggingOut);
         game.addListener(tremor.client.hollow.ClientHollow::onLoggingOut);
+        game.addListener(tremor.client.hollow.ClientHollow::onClientTick);
         // Lowest priority: the root's part is taken out of the view after other mods changed it.
         game.addListener(EventPriority.LOWEST, tremor.client.awakening.ClientRoot::onComputeFovModifier);
         // A rooted player's client holds it too: no movement keys, no sprint, no sideways momentum.

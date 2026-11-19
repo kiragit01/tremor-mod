@@ -16,7 +16,9 @@ import java.util.ArrayDeque;
  * вспучиваются, проходы сужаются... Рядом с игроком клетки не засыпаются"): every column of the copy whose turn has
  * come ({@link ClosingOrder}) is filled from the bottom up, each open cell with a copy of a solid neighbour, the one
  * towards the edge first ({@link Materials#material}), so the walls seem to grow inwards. Never filled: the way to the
- * node and the node ({@link EventLevel#keepsOpen}), the player's own blocks, and the cells near the player
+ * node and the node ({@link EventLevel#keepsOpen}), the player's way out to it while it is the player's
+ * ({@link Lifeline}: the closing never seals the player in while time is left), the player's own blocks, and the cells
+ * near the player
  * ({@value #NEAR} blocks aside, from {@value #NEAR} below the feet to {@value #NEAR} above the head: a small bubble,
  * so standing in the closing band keeps no corridor open); a column with such a cell, or with a cell that had nothing
  * to grow from yet, is gone over again {@value #RETRY_TICKS} ticks later. Every {@value #RESCAN_TICKS} ticks the
@@ -136,6 +138,7 @@ final class Closer {
                 BlockState state = level.getBlockState(pos);
                 if (!Materials.open(state) || owner.keepsOpen(pos.asLong())
                         || HollowManager.isPlayerPlaced(level, pos)) {
+                    column.again |= owner.onLifeline(pos.asLong()); // the way out moves on with the player
                     continue;
                 }
                 if (key(column.x, column.y, column.z) < radius) {
