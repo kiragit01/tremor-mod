@@ -50,6 +50,26 @@ class WayPlannerSafetyTest {
     }
 
     /**
+     * A player swallowed in a pit a block wide he dug under himself, 1 to 3 deep, open to the sky (the owner,
+     * 2026-11-19): there is always an escape tunnel he walks to its end (none would call the level off).
+     */
+    @Test
+    void fromAPitDugUnderHimselfTheEscapeTunnelIsWalked() {
+        for (int depth = 1; depth <= 3; depth++) {
+            int deep = depth;
+            for (long seed = 0; seed < SEEDS; seed++) {
+                VoxelGrid grid = ground((x, z) -> x == 0 && z == 0 ? 0 : deep);
+                WayPlanner.Plan plan = WayPlanner.plan(grid, GAME, 0, 0, 0, DEFAULTS, seed * 7 + 3);
+                EscapeTunnel tunnel = EscapeTunnel.plan(grid, plan, 0.5, 0.5, 0, 0, 0, 31, seed);
+                assertTrue(tunnel != null, "no tunnel from a pit " + depth + " deep, seed " + seed);
+                VoxelGrid after = grid.copy();
+                plan.applyTo(after);
+                assertTrue(tunnel.walked(after, 0, 0, 0), "not walked from a pit " + depth + " deep, seed " + seed);
+            }
+        }
+    }
+
+    /**
      * The escape tunnel laid over the network: a player walks from the start to its far end, nothing it digs is left
      * beside lava or a fluid, it fills no cell of the network, and it is seldom missing (a level not made).
      */

@@ -64,7 +64,7 @@ public record EscapeTunnel(Set<Long> carve, Set<Long> floor) {
             }
         }
         for (int i = 0; i < TRIES; i++) {
-            for (double from : new double[] {ENTRANCE, 1}) {
+            for (double from : new double[] {ENTRANCE, 0}) {
                 EscapeTunnel tunnel = plan(dug, centreX, centreZ, startY, from, edge, seed + i, keep);
                 Set<Long> fill = new LinkedHashSet<>(tunnel.floor());
                 fill.addAll(dug.leaksAround(tunnel.carve(), keep));
@@ -98,7 +98,8 @@ public record EscapeTunnel(Set<Long> carve, Set<Long> floor) {
     /** {@link #plan(VoxelGrid, double, double, int, double, long, Set)} from {@code from} blocks off the centre. */
     private static EscapeTunnel plan(VoxelGrid grid, double centreX, double centreZ, int startY, double from,
                                      double edge, long seed, Set<Long> keep) {
-        Random random = new Random(seed ^ 0x5EC2E7L);
+        // Mixed: the first numbers of a Random seeded with seed, seed + 1... are all but the same, and so were the tries.
+        Random random = new Random(LevelNoise.mix(seed ^ 0x5EC2E7L));
         double angle = random.nextDouble() * 2 * Math.PI;
         double dx = Math.cos(angle);
         double dz = Math.sin(angle);
@@ -108,7 +109,9 @@ public record EscapeTunnel(Set<Long> carve, Set<Long> floor) {
         int lastX = Integer.MIN_VALUE;
         int lastZ = Integer.MIN_VALUE;
         for (double t = from; t <= edge + 1; t += 0.5) {
-            double side = WIND * Math.sin(t / WIND_LENGTH + phase);
+            // Winding in over its first blocks, a tunnel from the feet starts in the player's own cell (a pit a block
+            // wide has no other way into it); from the entrance on it winds in full.
+            double side = WIND * Math.sin(t / WIND_LENGTH + phase) * Math.min(1, t / WIND_LENGTH);
             int x = (int) Math.floor(centreX + dx * t - dz * side);
             int z = (int) Math.floor(centreZ + dz * t + dx * side);
             if (lastX != Integer.MIN_VALUE && x != lastX && z != lastZ) {
