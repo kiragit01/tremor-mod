@@ -1,0 +1,202 @@
+# The owner's two questions on the hollow's scree and ways (2026-11-19), on a flat field in the sky:
+# A1. swallowed at the bottom of a pit 6 deep, right against its wall (where the scree goes when he is not there);
+# A2. swallowed on a shelf a block wide at the foot of a pit's wall, under an overhang, with a part 3 deeper right
+#     beside him;
+# A3. swallowed on the field right against a cliff, a crack 4 deep a block beside him (a heap is poured there, at his
+#     side): is he walled in?
+# B1..B3. swallowed in a pit 1, 2, 3 deep he dug under himself, open to the sky: does he stay in it, or do the ways
+#     start where he stands?
+# Each: the status (the scree, the throat, where the escape tunnel starts), "walk" from where he arrived (the node on
+# foot, or not) and stills; for the pits, a still from the tunnel's entrance along it ("totunnel"). The sinking is put
+# off (stillSeconds 60), or "walk" would start inside the softened block under a player standing still.
+# Run: gradlew runClientAutotest -Ptremor_autotest_script=hollow-wall-pits.txt
+cmd gamerule sendCommandFeedback true
+waitchunks
+cmd gamerule commandModificationBlockLimit 2147483647
+cmd gamemode spectator
+cmd time set noon
+cmd tremor despawn all
+cmd tremor awaken stop
+cmd tp @s 300.5 201.0 -899.5 0 10
+wait 40
+waitchunks
+cmd effect clear @s
+cmd effect give @s minecraft:night_vision infinite 0 true
+cmd effect give @s minecraft:instant_health 1 4 true
+config marks.enabled false
+config client:effects.hollowFogDistance 32
+config hollow.level.stillSeconds 60
+config hollow.level.graceSeconds 60
+config hollow.level.fillsPerTick 600
+hud off
+
+log --- A1: at the bottom of a pit 6 deep, against its west wall
+cmd fill 266 186 -934 334 199 -866 minecraft:stone
+cmd fill 266 200 -934 334 200 -866 minecraft:grass_block
+cmd fill 266 201 -934 334 215 -866 minecraft:air
+cmd fill 300 195 -902 304 200 -898 minecraft:air
+cmd kill @e[type=!player]
+cmd gamemode survival
+cmd tp @s 300.5 195.0 -899.5 270 10
+wait 20
+cmd tremor hollow enter
+wait 120
+waitchunks
+wait 80
+cmd tremor hollow status
+cmd tremor hollow walk
+screenshot A1_1_as_arrived
+cmd gamemode spectator
+cmd tp @s ~7 ~9 ~5 facing ~2 ~ ~
+wait 10
+screenshot A1_2_from_above
+cmd tp @s ~-7 ~-9 ~-5
+cmd gamemode survival
+cmd tremor hollow walk 12
+wait 10
+screenshot A1_3_twelve_steps_on
+cmd tremor hollow leave
+wait 120
+
+log --- A2: on a shelf a block wide against the west wall, under an overhang, a part 3 deeper right beside
+cmd gamemode spectator
+cmd fill 266 186 -934 334 199 -866 minecraft:stone
+cmd fill 266 200 -934 334 200 -866 minecraft:grass_block
+cmd fill 266 201 -934 334 215 -866 minecraft:air
+cmd fill 300 196 -902 301 198 -897 minecraft:air
+cmd fill 302 196 -902 306 200 -897 minecraft:air
+cmd fill 301 193 -902 306 195 -897 minecraft:air
+cmd kill @e[type=!player]
+cmd gamemode survival
+cmd tp @s 300.5 196.0 -899.5 270 25
+wait 20
+cmd tremor hollow enter
+wait 120
+waitchunks
+wait 80
+cmd tremor hollow status
+cmd tremor hollow walk
+screenshot A2_1_as_arrived
+cmd gamemode spectator
+cmd tp @s ~9 ~8 ~6 facing ~3 ~-2 ~
+wait 10
+screenshot A2_2_from_above
+cmd tp @s ~-9 ~-8 ~-6
+cmd gamemode survival
+cmd tremor hollow walk 12
+wait 10
+screenshot A2_3_twelve_steps_on
+cmd tremor hollow leave
+wait 120
+
+log --- A3: on the field right against a cliff 5 high, a crack 4 deep and a block wide right beside him
+cmd gamemode spectator
+cmd fill 266 186 -934 334 199 -866 minecraft:stone
+cmd fill 266 200 -934 334 200 -866 minecraft:grass_block
+cmd fill 266 201 -934 334 215 -866 minecraft:air
+cmd fill 266 201 -934 299 205 -866 minecraft:stone
+cmd fill 301 197 -902 301 200 -898 minecraft:air
+cmd kill @e[type=!player]
+cmd gamemode survival
+cmd tp @s 300.5 201.0 -899.5 270 30
+wait 20
+cmd tremor hollow enter
+wait 120
+waitchunks
+wait 80
+cmd tremor hollow status
+cmd tremor hollow walk
+screenshot A3_1_as_arrived
+cmd gamemode spectator
+cmd tp @s ~3 ~4 ~4 facing ~1 ~-2 ~
+wait 10
+screenshot A3_2_from_above
+cmd tp @s ~-3 ~-4 ~-4
+cmd gamemode survival
+cmd tremor hollow leave
+wait 120
+
+log --- B1: in a pit 1 deep dug under himself
+cmd gamemode spectator
+cmd fill 266 186 -934 334 199 -866 minecraft:stone
+cmd fill 266 200 -934 334 200 -866 minecraft:grass_block
+cmd fill 266 201 -934 334 215 -866 minecraft:air
+cmd fill 300 200 -900 300 200 -900 minecraft:air
+cmd kill @e[type=!player]
+cmd gamemode survival
+cmd tp @s 300.5 200.0 -899.5 270 10
+wait 20
+cmd tremor hollow enter
+wait 120
+waitchunks
+wait 80
+cmd tremor hollow status
+cmd tremor hollow walk
+cmd gamemode spectator
+cmd tp @s ~5 ~7 ~5 facing ~ ~ ~
+wait 10
+screenshot B1_2_from_above
+cmd tp @s ~-5 ~-7 ~-5
+cmd gamemode survival
+cmd tremor hollow totunnel
+wait 10
+screenshot B1_3_tunnel_entrance
+cmd tremor hollow leave
+wait 120
+
+log --- B2: in a pit 2 deep dug under himself
+cmd gamemode spectator
+cmd fill 266 186 -934 334 199 -866 minecraft:stone
+cmd fill 266 200 -934 334 200 -866 minecraft:grass_block
+cmd fill 266 201 -934 334 215 -866 minecraft:air
+cmd fill 300 199 -900 300 200 -900 minecraft:air
+cmd kill @e[type=!player]
+cmd gamemode survival
+cmd tp @s 300.5 199.0 -899.5 270 10
+wait 20
+cmd tremor hollow enter
+wait 120
+waitchunks
+wait 80
+cmd tremor hollow status
+cmd tremor hollow walk
+cmd gamemode spectator
+cmd tp @s ~5 ~7 ~5 facing ~ ~ ~
+wait 10
+screenshot B2_2_from_above
+cmd tp @s ~-5 ~-7 ~-5
+cmd gamemode survival
+cmd tremor hollow totunnel
+wait 10
+screenshot B2_3_tunnel_entrance
+cmd tremor hollow leave
+wait 120
+
+log --- B3: in a pit 3 deep dug under himself
+cmd gamemode spectator
+cmd fill 266 186 -934 334 199 -866 minecraft:stone
+cmd fill 266 200 -934 334 200 -866 minecraft:grass_block
+cmd fill 266 201 -934 334 215 -866 minecraft:air
+cmd fill 300 198 -900 300 200 -900 minecraft:air
+cmd kill @e[type=!player]
+cmd gamemode survival
+cmd tp @s 300.5 198.0 -899.5 270 10
+wait 20
+cmd tremor hollow enter
+wait 120
+waitchunks
+wait 80
+cmd tremor hollow status
+cmd tremor hollow walk
+cmd gamemode spectator
+cmd tp @s ~5 ~7 ~5 facing ~ ~ ~
+wait 10
+screenshot B3_2_from_above
+cmd tp @s ~-5 ~-7 ~-5
+cmd gamemode survival
+cmd tremor hollow totunnel
+wait 10
+screenshot B3_3_tunnel_entrance
+cmd tremor hollow leave
+wait 100
+quit
