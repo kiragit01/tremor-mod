@@ -120,6 +120,8 @@ public final class HollowEvent {
     final List<CompletableFuture<?>> light = new ArrayList<>();
     long workDoneTick = -1;
     int readyTicks;
+    /** ENTERING: the server tick the client said it has the hollow drawn around the player; -1 before. */
+    long drawnTick = -1;
     boolean died;
     WorkStats copyStats;
     WorkStats clearStats;
@@ -282,6 +284,7 @@ public final class HollowEvent {
         this.phase = phase;
         phaseStartTick = tick;
         readyTicks = 0;
+        drawnTick = -1;
     }
 
     /** The blocks the player placed in the slot, by position in the hollow ({@link BlockPos#asLong}). */

@@ -673,7 +673,7 @@ public final class WayPlanner {
      * before) and {@code order}: the steps from each cell that walks there ({@link #landing}, as {@link #walk} goes).
      * Returns the number of cells found (the first ones of {@code order}).
      */
-    private static int walkBack(VoxelGrid grid, int[] targets, int maxLength, int[] distance, int[] order) {
+    static int walkBack(VoxelGrid grid, int[] targets, int maxLength, int[] distance, int[] order) {
         int head = 0;
         int tail = 0;
         for (int target : targets) {

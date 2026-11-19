@@ -72,8 +72,9 @@ import java.util.function.IntUnaryOperator;
  *   ({@link TerrainCopier}); once the light engine is through, the level inside is prepared (the cave, the node and
  *   the way to it, {@link HollowLevels#prepare}) and the fade is over, the player is moved to the same place and
  *   rotation in the copy;</li>
- *   <li>ENTERING: the screen stays black until the client has the terrain around the player for
- *   {@code hollow.settleTicks} ticks, then fades in;</li>
+ *   <li>ENTERING: the screen stays black until the client says it has the hollow drawn around the player
+ *   ({@link #clientDrawn}) and the server has sent the terrain around for {@code hollow.settleTicks} ticks, then fades
+ *   in and the level's clock starts ({@value #DRAWN_WAIT_TICKS} ticks at the latest);</li>
  *   <li>INSIDE: until {@link #leave}; the level is played every tick the player is alive in it
  *   ({@link HollowLevels#tick}); what of the player's flies or falls out of the copy (items, arrows, experience) is
  *   given back at the drop site at once, in any phase;</li>
@@ -102,6 +103,12 @@ public final class HollowManager {
     private static final int LOAD_TIMEOUT_TICKS = 200;
     /** After a move the screen fades back in after this many ticks at the latest, even if the client seems slow. */
     private static final int MAX_DARK_TICKS = 200;
+    /**
+     * Into the hollow, the screen comes back and the level's clock starts once the client says it has the hollow drawn
+     * ({@link #clientDrawn}); without that word, after this many ticks: the vanilla loading screen's own limit, as a
+     * client may stand frozen that long (shaders compiled for the new dimension) and must not lose its time to it.
+     */
+    private static final int DRAWN_WAIT_TICKS = 600;
     /** The client has the terrain once every chunk this close to the player (Chebyshev, chunks) was sent to it. */
     private static final int READY_RADIUS = 2;
     /** A player who could not be moved out of the hollow (another mod stopped it) is tried again this much later. */
@@ -326,6 +333,21 @@ public final class HollowManager {
             }
         }
         return ended;
+    }
+
+    /**
+     * The client of {@code player} has the hollow drawn around the player ({@code TremorHollowDrawnPayload}): while the
+     * player is being moved in, the screen comes back and the level's clock starts (see {@link #DRAWN_WAIT_TICKS}).
+     */
+    public static void clientDrawn(Player player) {
+        State s = player instanceof ServerPlayer server ? state(server.server) : null;
+        HollowEvent event = s == null ? null : s.data.active(player.getUUID());
+        if (event != null && event.phase() == HollowEvent.Phase.ENTERING && event.drawnTick < 0
+                && HollowDimension.is(player.level())) {
+            event.drawnTick = s.server.getTickCount();
+            Tremor.LOGGER.info("Hollow: {} has the hollow drawn on the client {} ticks after the move", event,
+                    event.drawnTick - event.phaseStartTick);
+        }
     }
 
     /** The player's event that is not yet clearing its slot, or null. */
@@ -838,12 +860,19 @@ public final class HollowManager {
             if (!player.isAlive()) {
                 return;
             }
-            event.readyTicks = clientReady(player) ? event.readyTicks + 1 : 0;
+            // Into the hollow it is the client's word that counts: the clock starts with the fade (a player once
+            // came in to a third of the time left, the client still loading what the server had long sent).
+            boolean drawn = !entering || event.drawnTick >= 0;
+            event.readyTicks = drawn && clientReady(player) ? event.readyTicks + 1 : 0;
+            int wait = entering ? DRAWN_WAIT_TICKS : MAX_DARK_TICKS;
             if (event.readyTicks > TremorConfig.COMMON.hollow.settleTicks.get()
-                    || now - event.phaseStartTick >= MAX_DARK_TICKS) {
+                    || now - event.phaseStartTick >= wait) {
                 // Out of the light of the way out, slowly, as from a bright day.
                 blackout(player, false, !entering && escaped(event) ? fadeTicks() * ESCAPE_FADE_BACK : fadeTicks());
                 if (entering) {
+                    Tremor.LOGGER.info("Hollow: {} is in, the clock starts {} ticks after the move ({})", event,
+                            now - event.phaseStartTick, drawn ? "drawn on the client " + (now - event.drawnTick)
+                                    + " ticks ago" : "NO word from the client in " + wait + " ticks");
                     event.setPhase(HollowEvent.Phase.INSIDE, now);
                     data.setDirty();
                 } else {

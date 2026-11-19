@@ -1,11 +1,17 @@
 package tremor.client.hollow;
 
 import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.screens.ReceivingLevelScreen;
 import net.minecraft.client.multiplayer.ClientLevel;
+import net.minecraft.core.BlockPos;
 import net.minecraftforge.client.event.ClientPlayerNetworkEvent;
+import net.minecraftforge.event.TickEvent;
 import tremor.config.TremorConfig;
 import tremor.core.shape.HollowShape;
+import tremor.hollow.HollowDimension;
+import tremor.network.TremorHollowDrawnPayload;
 import tremor.network.TremorHollowStatePayload;
+import tremor.network.TremorNetwork;
 
 /**
  * Client view of the hollow the local player is in (SPEC 9, phase 2): the last {@link TremorHollowStatePayload}.
@@ -21,6 +27,8 @@ public final class ClientHollow {
     private static int widestEvent;
     /** Widest closing radius sent for {@link #widestEvent}: where its closing started; NaN if none. */
     private static double widest = Double.NaN;
+    /** Whether the server was told that this level of the hollow is drawn ({@link #onClientTick}). */
+    private static boolean toldDrawn;
 
     private ClientHollow() {
     }
@@ -41,6 +49,35 @@ public final class ClientHollow {
         }
         heardOf = true;
         state = payload;
+    }
+
+    /**
+     * Tells the server, once per arrival in the hollow, that the hollow is drawn around the player: the loading screen
+     * of the dimension change is gone and the sections round the player are meshed. The level's clock starts then.
+     */
+    public static void onClientTick(TickEvent.ClientTickEvent event) {
+        Minecraft mc = Minecraft.getInstance();
+        if (event.phase != TickEvent.Phase.END) {
+            return;
+        }
+        adopt(mc.level);
+        if (toldDrawn || mc.level == null || mc.player == null || !HollowDimension.is(mc.level)
+                || mc.screen instanceof ReceivingLevelScreen) {
+            return;
+        }
+        BlockPos feet = mc.player.blockPosition();
+        for (int dy = -16; dy <= 16; dy += 16) {
+            for (int dz = -16; dz <= 16; dz += 16) {
+                for (int dx = -16; dx <= 16; dx += 16) {
+                    BlockPos at = feet.offset(dx, dy, dz);
+                    if (!mc.level.isOutsideBuildHeight(at) && !mc.levelRenderer.isChunkCompiled(at)) {
+                        return;
+                    }
+                }
+            }
+        }
+        toldDrawn = true;
+        TremorNetwork.sendToServer(TremorHollowDrawnPayload.INSTANCE);
     }
 
     public static void onLoggingOut(ClientPlayerNetworkEvent.LoggingOut event) {
@@ -90,6 +127,7 @@ public final class ClientHollow {
     private static void forget() {
         state = null;
         heardOf = false;
+        toldDrawn = false;
         widest = Double.NaN;
     }
 }

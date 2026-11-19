@@ -42,7 +42,8 @@ import java.util.concurrent.CompletableFuture;
  * for good, {@code minDeadEnds}..{@code maxDeadEnds} dead ends, walled corridors where they pass through caves; then
  * the blocks are written, a batch at a time. All of it stays inside the copy, {@value #MARGIN} blocks from its sides,
  * top and bottom (a block over the floor of the world, where the copy lies on it) and a quarter of its radius (4
- * blocks at least) from its round edge (a seal or a wall a block further out at most); what is carved is sealed from the fluids, lava and fire around it. The time it took is logged.
+ * blocks at least) from its round edge (a seal or a wall a block further out at most); what is carved is sealed from the fluids, lava and fire around it. No pit is left to be stuck in: a place a player falls into and cannot walk out of
+ * gets a ragged heap of rubble to climb out by ({@link Scree}). The time it took is logged.
  * <p>
  * <b>While the player is inside</b> ({@link #tick}, within {@code hollow.level.budgetMillis}):
  * <ul>
@@ -142,10 +143,41 @@ final class EventLevel {
     private int filled;
     /** Blocks left hanging over dug cells that were taken away ({@link #uncover}). */
     private int uncovered;
+    /** The scree out of the copy's pits ({@link Scree}), its cells (laid as rubble) and the time it took; null before. */
+    private Scree.Result scree;
+    private LongSet screeCells = new LongOpenHashSet();
+    private double screeMillis;
     private BlockPos node;
     private boolean nodeBroken;
     /** The open cells of the way to the node: never filled, never moved into. */
     private LongSet way = new LongOpenHashSet();
+    /** The player's way out to the way through the closing ({@link Lifeline}): kept open while it is the player's. */
+    private LongSet lifeline = new LongOpenHashSet();
+    /** The feet the lifeline was found from ({@link BlockPos#asLong}). */
+    private long lifelineFrom = Long.MIN_VALUE;
+    /** The lifeline is looked for again this often (ticks) while the player stands, as the copy changes around. */
+    private static final int LIFELINE_TICKS = 20;
+    /** The copy now, as the lifeline's walk sees it. */
+    private final Lifeline.Cells cells = new Lifeline.Cells() {
+        private final BlockPos.MutableBlockPos at = new BlockPos.MutableBlockPos();
+
+        @Override
+        public boolean passable(long cell) {
+            net.minecraft.world.level.block.state.BlockState state = hollow.getBlockState(at.set(cell));
+            return state.getCollisionShape(hollow, at).isEmpty() && !Materials.hazard(state);
+        }
+
+        @Override
+        public boolean firm(long cell) {
+            net.minecraft.world.level.block.state.BlockState state = hollow.getBlockState(at.set(cell));
+            return !state.getCollisionShape(hollow, at).isEmpty() && !Materials.hazard(state);
+        }
+
+        @Override
+        public boolean water(long cell) {
+            return hollow.getFluidState(at.set(cell)).is(net.minecraft.tags.FluidTags.WATER);
+        }
+    };
     /** The one way out besides the node ({@link EscapeTunnel}); none in a nightmare. */
     private EscapeTunnel tunnel = EscapeTunnel.NONE;
     /** The light at the end of the escape tunnel ({@link CellKey}, the cell at feet height), once written; or none. */
@@ -340,7 +372,6 @@ final class EventLevel {
                         + " to the edge");
             }
         }
-        grid = null;
         Set<Long> carve = new LinkedHashSet<>();
         Set<Long> fill = new LinkedHashSet<>();
         if (cave != null) {
@@ -358,6 +389,22 @@ final class EventLevel {
         carve.addAll(tunnel.carve());
         carve.removeAll(tunnel.floor());
         fill.addAll(tunnel.floor());
+        // No pit to be stuck in: the grid as it will be, and a scree out of every place a player falls into.
+        long screeFrom = System.nanoTime();
+        carve.forEach(grid::carve);
+        fill.forEach(grid::fill);
+        grid.carve(plan.node());
+        List<Long> exits = new ArrayList<>(tunnel.carve());
+        exits.add(plan.node());
+        Set<Long> keep = new java.util.HashSet<>(plan.network());
+        keep.addAll(tunnel.carve());
+        keep.add(start.asLong());
+        keep.add(start.above().asLong());
+        scree = Scree.lay(grid, region, start.asLong(), exits, keep, seed + 2);
+        screeMillis = (System.nanoTime() - screeFrom) / 1e6;
+        fill.addAll(scree.fill());
+        screeCells = new LongOpenHashSet(scree.fill());
+        grid = null;
         carving = carve.stream().mapToLong(Long::longValue).toArray();
         filling = fill.stream().mapToLong(Long::longValue).toArray();
         way = new LongOpenHashSet(plan.way());
@@ -384,7 +431,8 @@ final class EventLevel {
                 }
             } else {
                 pos.set(filling[written - carving.length]);
-                hollow.setBlock(pos, Materials.floor(hollow, pos), Materials.FLAGS);
+                hollow.setBlock(pos, screeCells.contains(pos.asLong()) ? Materials.scree(hollow, pos, seed)
+                        : Materials.floor(hollow, pos), Materials.FLAGS);
                 changedChunks.add(ChunkPos.asLong(pos));
                 filled++;
             }
@@ -516,8 +564,10 @@ final class EventLevel {
     /** What the preparation changed, for the log and the status. */
     private String changes() {
         return String.format(Locale.ROOT, "%s (%d open blocks around the player)%s; %d blocks dug, %d filled, %d left "
-                        + "hanging over the dug ones taken away", widened ? "widened" : "not widened", openAround,
-                caveSize, dug, filled, uncovered);
+                        + "hanging over the dug ones taken away; %s", widened ? "widened" : "not widened", openAround,
+                caveSize, dug, filled, uncovered, scree == null ? "no scree yet" : String.format(Locale.ROOT,
+                        "scree of %d blocks in %d heaps, %d drops floored over, %d places left to be stuck in (%.1f ms)",
+                        scree.fill().size(), scree.heaps(), scree.caps(), scree.left(), screeMillis));
     }
 
     /** The size of the widened cave ({@code cells}: what it digs), for {@link #changes}. */
@@ -596,6 +646,16 @@ final class EventLevel {
             Outcomes.defeat(player);
             return;
         }
+        // The closing never cuts the player's last way out to the way: looked for as the player moves (and now and
+        // then as the copy changes), before anything closes this tick; one not found keeps the last one.
+        long feet = player.blockPosition().asLong();
+        if (feet != lifelineFrom || ticks % LIFELINE_TICKS == 0) {
+            lifelineFrom = feet;
+            Set<Long> found = Lifeline.find(cells, way::contains, feet, box.minY());
+            if (found != null) {
+                lifeline = new LongOpenHashSet(found);
+            }
+        }
         int shiftTicks = Math.max(1, ticks(config.wallShiftSeconds.get()));
         if (config.wallShifts.get() > 0 && ticks % shiftTicks == 0) {
             walls.shift(hollow, this, at.add(0, player.getBbHeight() / 2, 0), schedule.radius(),
@@ -665,9 +725,14 @@ final class EventLevel {
         return nodeBroken ? null : node;
     }
 
-    /** Whether the cell is on the way to the node: never filled, never moved into. */
+    /** Whether the cell is on the way to the node or the player's way out to it: not filled, not moved into. */
     boolean keepsOpen(long cell) {
-        return way.contains(cell);
+        return way.contains(cell) || lifeline.contains(cell);
+    }
+
+    /** Whether the cell is on the player's way out ({@link Lifeline}), which moves on with the player. */
+    boolean onLifeline(long cell) {
+        return lifeline.contains(cell);
     }
 
     boolean isNode(BlockPos pos) {
@@ -676,14 +741,15 @@ final class EventLevel {
 
     /**
      * Whether a moving wall may take or leave {@code pos}: inside the copy, inside the part still open (the closing
-     * {@code radius}), off the way and the node, {@code near}..{@code far} blocks from {@code player}.
+     * {@code radius}), off the way, the player's way out and the node, {@code near}..{@code far} blocks from
+     * {@code player}.
      */
     boolean mayShift(BlockPos pos, Vec3 player, double radius, double near, double far) {
         double distance = Math.sqrt(player.distanceToSqr(pos.getX() + 0.5, pos.getY() + 0.5, pos.getZ() + 0.5));
         return pos.getX() > box.minX() && pos.getX() < box.maxX() && pos.getZ() > box.minZ()
                 && pos.getZ() < box.maxZ() && pos.getY() > box.minY() && pos.getY() < box.maxY()
                 && Math.hypot(pos.getX() + 0.5 - centreX, pos.getZ() + 0.5 - centreZ) < radius - 1
-                && !way.contains(pos.asLong()) && !isNode(pos) && distance >= near && distance <= far;
+                && !keepsOpen(pos.asLong()) && !isNode(pos) && distance >= near && distance <= far;
     }
 
     /** For {@code /tremor hollow status}. */
@@ -701,10 +767,11 @@ final class EventLevel {
                 : schedule.pauseLeft() > 0 ? String.format(Locale.ROOT, "lured, %.1f s", schedule.pauseLeft() / 20.0)
                 : schedule.closed() >= 1 ? "closed" : "closing";
         text.append(String.format(Locale.ROOT, "\n  closing radius %.1f of %.1f (min %.1f, %.0f%%): %s, %.2f "
-                        + "blocks/s, noise %.1f, %d lures; %d blocks filled, %d columns pending; %d wall blocks moved",
+                        + "blocks/s, noise %.1f, %d lures; %d blocks filled, %d columns pending; %d wall blocks "
+                        + "moved; the way out kept open: %d cells",
                 schedule.radius(), boxRadius - 1, Math.min(TremorConfig.COMMON.hollow.level.minRadius.get(),
                         boxRadius - 1), 100 * schedule.closed(), closing, schedule.speed(), schedule.noiseLevel(),
-                schedule.lures(), closer.filled(), closer.pending(), walls.shifted()));
+                schedule.lures(), closer.filled(), closer.pending(), walls.shifted(), lifeline.size()));
         text.append(String.format(Locale.ROOT, "\n  sink %.2f (still for %.1f s, softened %.2f blocks), %d soft "
                         + "blocks; a beat every %d ticks; %s; work %.3f ms per tick on average, worst %.2f ms; "
                         + "prepared in %.1f ms over %d ticks (planning %s ms)", mire.sink(),

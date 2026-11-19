@@ -14,7 +14,7 @@ import net.minecraftforge.network.simple.SimpleChannel;
 import tremor.Tremor;
 
 public final class TremorNetwork {
-    private static final String PROTOCOL = "12";
+    private static final String PROTOCOL = "13";
 
     private static final SimpleChannel CHANNEL = NetworkRegistry.newSimpleChannel(
             new ResourceLocation(Tremor.MODID, "main"), () -> PROTOCOL, PROTOCOL::equals, PROTOCOL::equals);
@@ -41,8 +41,19 @@ public final class TremorNetwork {
                 payload -> tremor.client.MarksCounter.accept(payload));
         clientbound(id++, TremorDebugPayload.class, TremorDebugPayload::read,
                 payload -> tremor.client.DebugProbeHud.accept(payload));
-        clientbound(id, TremorReportPayload.class, TremorReportPayload::read,
+        clientbound(id++, TremorReportPayload.class, TremorReportPayload::read,
                 payload -> tremor.client.ProbeReport.accept(payload));
+        CHANNEL.messageBuilder(TremorHollowDrawnPayload.class, id, NetworkDirection.PLAY_TO_SERVER)
+                .encoder(TremorPayload::write)
+                .decoder(TremorHollowDrawnPayload::read)
+                .consumerMainThread((payload, context) -> tremor.hollow.HollowManager.clientDrawn(
+                        context.get().getSender()))
+                .add();
+    }
+
+    /** Sends a message of the client's to the server. */
+    public static void sendToServer(TremorPayload payload) {
+        CHANNEL.sendToServer(payload);
     }
 
     public static void sendToPlayer(ServerPlayer player, TremorPayload payload) {
